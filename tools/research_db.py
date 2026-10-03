@@ -59,6 +59,9 @@ ID_PREFIX = {
 }
 TABLE_OF_PREFIX = {prefix: table for table, prefix in ID_PREFIX.items()}
 ENTITY_ID_RE = re.compile(r"^(P|H|E|BR|D|DEC|T)-[A-Za-z0-9_.-]+$")
+# A project may also be named like its directory / uv project (`my-study`), as long as it does not look like
+# another record's id.
+PROJECT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 RUN_ID_RE = re.compile(r"^(E-[A-Za-z0-9_.-]+)/s(-?[0-9]+)$")
 DOC_PATH_RE = re.compile(r"^(?!/)(?!.*\.\.)[A-Za-z0-9_./-]+\.v([0-9]+)\.(md|json)$")
 
@@ -272,9 +275,11 @@ def now_utc() -> str:
 def table_of(entity_id: str) -> str:
     if RUN_ID_RE.match(entity_id):
         return "run"
-    if not ENTITY_ID_RE.match(entity_id):
-        raise ResearchDBError(f"{entity_id!r} is not a valid entity id")
-    return TABLE_OF_PREFIX[entity_id.split("-", 1)[0]]
+    if ENTITY_ID_RE.match(entity_id):
+        return TABLE_OF_PREFIX[entity_id.split("-", 1)[0]]
+    if PROJECT_ID_RE.match(entity_id):
+        return "project"
+    raise ResearchDBError(f"{entity_id!r} is not a valid entity id")
 
 
 def sha256_file(path: Path) -> str:
@@ -535,7 +540,8 @@ class ResearchDB:
         self._only_fields(optional, ("goal_doc_id", "go_margin", "gate_seeds", "screen_budget_node_h",
                                      "min_related_work", "max_nodes", "max_walltime_s", "repo_path"))
         if table_of(id) != "project":
-            raise ResearchDBError(f"project id must start with P-, got {id}")
+            raise ResearchDBError(f"project id {id!r} must be letters, digits, _ . - and must not look like another "
+                                  "record's id (H-, E-, BR-, D-, DEC-, T-)")
         record = {
             "id": id, "title": title, "min_setup_doc_id": min_setup_doc_id, "primary_metric": primary_metric,
             "metric_direction": metric_direction, "metric_is_percent": metric_is_percent,

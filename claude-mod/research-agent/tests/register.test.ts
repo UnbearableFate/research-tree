@@ -41,12 +41,56 @@ test('a shell command writing the database file is refused', async ($, on) => {
   expect(allowed.isError).toBeUndefined()
 })
 
-test('without a configured project the command says what to set', { options: { projectDb: '' } }, async $ => {
-  const ran = await $.command.run({
-    command: 'research', args: '', origin: { kind: 'composer' },
-    presentation: { isFullscreen: true, columns: 160 },
+const RUN = { origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 160 } }
+
+test('without a project here the command points to init', async $ => {
+  const ran = await $.command.run({ command: 'research-tree', args: '', ...RUN })
+  expect(ran.text).toContain('/research-tree init')
+})
+
+test('init reads the plan, the Python version and the project id', () => {
+  expect(internals.parseInit(['plans/goal.md'])).toEqual({ plan: 'plans/goal.md', python: '3.13' })
+  expect(internals.parseInit(['plans/goal.md', '--python', '3.12', '--id', 'my-study']))
+    .toEqual({ plan: 'plans/goal.md', python: '3.12', id: 'my-study' })
+  expect(internals.parseInit(['--python=3.11', 'goal.md'])).toEqual({ plan: 'goal.md', python: '3.11' })
+  for (const bad of [[], ['--python'], ['a.md', 'b.md'], ['a.md', '--python', '--id'], ['a.md', '--venv']]) {
+    expect('usage' in internals.parseInit(bad)).toBe(true)
+  }
+})
+
+test('init needs uv before it touches the directory', async $ => {
+  const usage = await $.command.run({ command: 'research-tree', args: 'init', ...RUN })
+  expect(usage.text).toContain('用法')
+  const ran = await $.command.run({ command: 'research-tree', args: 'init plans/goal.md --python 3.12', ...RUN })
+  expect(ran.text).toContain('需要 uv')
+})
+
+test('no worker starts before the user confirmed the plan', async ($, on) => {
+  let reached = 0
+  on('agent.spawn', () => {
+    reached += 1
+    return { model: 'test-model' }
   })
-  expect(ran.text).toContain('projectDb 未配置')
+  const denied = await $.agent.spawn({ subagentType: 'research-agent:worker', prompt: '你是 worker/w1。实现 T-0001。' } as never)
+  expect((denied as { deny?: string }).deny).toContain('/research-tree init')
+  expect(reached).toBe(0)
+  // Other agent types are not held back.
+  await $.agent.spawn({ subagentType: 'general-purpose', prompt: 'look around' } as never)
+  expect(reached).toBe(1)
+})
+
+test('the start-up rule follows the confirmation phase', () => {
+  const project = { phase: 'planning' } as Parameters<typeof internals.workerBlock>[0]
+  expect(internals.workerBlock(null)).toContain('init')
+  expect(internals.workerBlock(project)).toContain('尚未经用户确认')
+  expect(internals.workerBlock({ ...project!, phase: 'awaiting_confirmation' })).toContain('等待用户确认')
+  expect(internals.workerBlock({ ...project!, phase: 'confirmed' })).toBeUndefined()
+})
+
+test('only the UI agent records a confirmation', async $ => {
+  const ran = await $.tool.call({ tool: 'mcp__research-agent__confirm_plan', words: '同意' } as never)
+  expect(ran.isError).toBe(true)
+  expect(String(ran.result)).toContain('只能由研究对话窗口的 UI agent')
 })
 
 test('the UI window hands the message to a UI agent run with the conversation', async ($, on) => {
@@ -70,6 +114,7 @@ test('the UI window hands the message to a UI agent run with the conversation', 
   expect(spawns.map(s => s.type)).toEqual(['research-agent:ui', 'research-agent:ui'])
   expect(spawns[0]?.prompt).toContain('## 用户的新消息\n现在进度如何？')
   expect(spawns[0]?.prompt).toContain('User Interface（UI）agent')
+  expect(spawns[0]?.prompt).toContain('当前目录没有研究项目')
   // The second run sees the first message in the recent conversation.
   expect(spawns[1]?.prompt).toContain('[user] 现在进度如何？')
   expect(await ui.find({ type: 'Text', text: /只看GO候选/ })).toBeDefined()

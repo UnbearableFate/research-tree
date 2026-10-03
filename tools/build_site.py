@@ -278,6 +278,22 @@ def summary(data: dict, db_path: Path) -> dict:
     }
 
 
+def summary_or_empty(db_path: Path) -> dict:
+    """summary(), or for a database whose project record the RLD has not created yet (just after
+    /research-tree init) the same shape with project null and only the documents to guard."""
+    snap = ResearchDB(db_path, "web_builder/site").export_snapshot()
+    if snap["tables"]["project"]:
+        return summary(collect(db_path), db_path)
+    root = db_path.resolve().parent
+    return {
+        "meta": {**snap["meta"], "generated_at": now_utc()}, "db_path": str(db_path.resolve()), "project": None,
+        "counts": {"status": {}, "exp_status": {}, "go": 0, "node_hours": 0, "screen_seeds": None},
+        "nodes": [], "attention": [],
+        "guards": {"frozen_docs": sorted(str(root / "docs" / d["path"]) for d in snap["tables"]["document"]
+                                         if d["status"] != "draft"), "harness": []},
+    }
+
+
 def _screen_seeds(experiments: dict, project: dict) -> int | None:
     sota = experiments.get(project.get("sota_experiment_id") or "")
     if not sota or not sota["runs"] or sota["runs"][0]["node_h"] is None:
@@ -335,7 +351,7 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps({"page_version": built, "db_version": current, "stale": built != current}))
             return 0 if built == current else 1
         if args.summary:
-            print(json.dumps(summary(collect(args.db), args.db), ensure_ascii=False))
+            print(json.dumps(summary_or_empty(args.db), ensure_ascii=False))
             return 0
         data = build(args.db, out)
     except ResearchDBError as exc:

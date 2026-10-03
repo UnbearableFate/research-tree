@@ -158,7 +158,8 @@ class SendMessageTest(unittest.TestCase):
             "unknown entity": (("--about", "H-0404"), "not a hypothesis"),
             "re not logged": (("--re", "w1-0007"), "not in the message logs"),
             "task without docs": (("--docs",), "'docs' is a required property"),
-            "bad entity prefix": (("--about", "X-1"), "does not match"),
+            "unknown project-shaped id": (("--about", "X-1"), "is not a project"),
+            "malformed id": (("--about", "bad id"), "does not match"),
         }
         for name, (extra, reason) in cases.items():
             with self.subTest(name):

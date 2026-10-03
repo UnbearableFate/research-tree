@@ -14,7 +14,7 @@
       "description": "<sender-id>-<sequence>, unique within the sender's log, e.g. w3-0042."
     },
     "ts": { "type": "string", "format": "date-time", "description": "UTC send time." },
-    "project": { "type": "string", "pattern": "^P-[A-Za-z0-9_.-]+$" },
+    "project": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$" },
     "from": { "$ref": "#/$defs/agent" },
     "to": { "$ref": "#/$defs/agent" },
     "type": {
@@ -30,7 +30,7 @@
       "type": "array",
       "maxItems": 5,
       "uniqueItems": true,
-      "items": { "type": "string", "pattern": "^(P|H|E|BR|DEC|T)-[A-Za-z0-9_.-]+$" },
+      "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$" },
       "description": "Database entity ids the message concerns (project, hypothesis, experiment, branch, decision, task). Documents such as instructions and literature notes go in docs."
     },
     "text": {

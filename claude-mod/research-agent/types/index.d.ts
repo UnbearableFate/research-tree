@@ -22,7 +22,8 @@ export type ResearchAttention = { kind: string; id: string | null; text: string 
 export type ResearchSummary = {
   meta: { data_version: number; generated_at: string }
   db_path: string
-  project: {
+  /** null until the RLD creates the project record (just after /research-tree init). */
+  project: null | {
     id: string
     title: string
     status: string
@@ -44,6 +45,18 @@ export type ResearchSummary = {
   guards: { frozen_docs: string[]; harness: string[] }
 }
 
+/** The research project of the session's directory, as .research-tree.json records it. */
+export type ResearchProject = {
+  project_id: string
+  root: string
+  db: string
+  plan: string
+  plan_instruction: { doc_id: string; path: string }
+  phase: 'planning' | 'awaiting_confirmation' | 'confirmed'
+  created_at: string
+  confirmed_at: string | null
+}
+
 /** One line of the UI window: the person, the UI agent, or the RLD (this main session). */
 export type ResearchChatEntry = { role: 'user' | 'ui' | 'rld' | 'note'; text: string; at: string }
 
@@ -56,6 +69,10 @@ declare module 'claude-code' {
       chat: ResearchChatEntry[]
       /** The UI subagent run answering the person's last message, while it runs. */
       uiAgentId: string | null
+      /** The project of the session's directory; null when there is none. */
+      project: ResearchProject | null
+      /** Subagent runs the mod started as workers: agentId -> worker/<id>. */
+      agents: Record<string, string>
     }
   }
 }

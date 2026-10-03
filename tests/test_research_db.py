@@ -195,6 +195,11 @@ class ProjectTest(Fixture):
             rld.create_project("P-x", "x", setup, "acc", "higher", True, SECONDARY, [1, 1, 2])
         with self.assertRaisesRegex(ResearchDBError, "must not repeat the primary"):
             rld.create_project("P-x", "x", setup, "acc", "higher", True, ["acc"], SEEDS)
+        with self.assertRaisesRegex(ResearchDBError, "must not look like another record"):
+            rld.create_project("T-x", "x", setup, "acc", "higher", True, SECONDARY, SEEDS)
+        # A project named like its directory / uv project.
+        self.assertEqual(rld.create_project("my-study", "x", setup, "acc", "higher", True, SECONDARY, SEEDS), "my-study")
+        self.assertEqual(rld.get("my-study")["title"], "x")
 
 
 class ScreenBudgetTest(unittest.TestCase):
