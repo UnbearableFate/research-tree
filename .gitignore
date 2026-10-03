@@ -1,0 +1,12 @@
+# Generated databases (LatticeDB file + write-ahead log); the JSON snapshots are the tracked record.
+*.db
+*.db-wal
+__pycache__/
+.venv/
+# Scratch output used to fetch results from interactive compute sessions.
+.pane-out/
+# Generated demo: nested git repo, worktrees, run outputs and literature cache.
+demo/code/
+demo/worktrees/
+demo/research/*/outputs/
+demo/research/*/cache/

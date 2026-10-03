@@ -1,0 +1,22 @@
+{
+ "ui/ui": {
+  "channel": "native",
+  "thread": "demo-ui-thread"
+ },
+ "rld/main": {
+  "channel": "native",
+  "thread": "demo-rld-thread"
+ },
+ "worker/w1": {
+  "channel": "native",
+  "thread": "demo-w1-thread"
+ },
+ "worker/w2": {
+  "channel": "native",
+  "thread": "demo-w2-thread"
+ },
+ "worker/w3": {
+  "channel": "native",
+  "thread": "demo-w3-thread"
+ }
+}
