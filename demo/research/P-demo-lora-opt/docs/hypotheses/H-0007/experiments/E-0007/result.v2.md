@@ -1,5 +1,5 @@
 ---
-id: "D-0047"
+id: "D-0048"
 doc_type: "experiment_result"
 version: 2
 title: "E-0007 统计结果"
@@ -7,7 +7,7 @@ summary: "E-0007 判定 needs_rld"
 about: []
 author_role: "worker"
 author_id: "w3"
-created_at: "2026-10-03T13:19:31Z"
+created_at: "2026-10-03T16:11:24Z"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
 

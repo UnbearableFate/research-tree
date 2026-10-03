@@ -1,8 +1,8 @@
 {
  "meta": {
   "schema_version": 4,
-  "data_version": 201,
-  "updated_at": "2026-10-03T13:19:32Z"
+  "data_version": 204,
+  "updated_at": "2026-10-03T16:11:24Z"
  },
  "tables": {
   "project": [
@@ -35,9 +35,9 @@
     "min_related_work": 3,
     "max_nodes": 8,
     "max_walltime_s": 3600,
-    "created_at": "2026-10-03T13:19:26Z",
-    "updated_at": "2026-10-03T13:19:26Z",
-    "harness_ref": "bf13826ae0e7e851c1ed0a9ab2bf853c588d15e8",
+    "created_at": "2026-10-03T16:11:19Z",
+    "updated_at": "2026-10-03T16:11:19Z",
+    "harness_ref": "c896908f935c29977f65e48bbee902c315cf11d7",
     "harness_paths": [
      "harness"
     ],
@@ -57,13 +57,13 @@
     "theory_recheck": "pending",
     "priority": 0,
     "owner": "main",
-    "created_at": "2026-10-03T13:19:27Z",
-    "updated_at": "2026-10-03T13:19:27Z",
-    "concluded_at": "2026-10-03T13:19:27Z",
-    "started_at": "2026-10-03T13:19:27Z",
+    "created_at": "2026-10-03T16:11:19Z",
+    "updated_at": "2026-10-03T16:11:20Z",
+    "concluded_at": "2026-10-03T16:11:20Z",
+    "started_at": "2026-10-03T16:11:20Z",
     "status_reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
-    "first_experiment_at": "2026-10-03T13:19:27Z",
-    "first_result_at": "2026-10-03T13:19:27Z",
+    "first_experiment_at": "2026-10-03T16:11:20Z",
+    "first_result_at": "2026-10-03T16:11:20Z",
     "parent_id": "P-demo-lora-opt"
    },
    {
@@ -78,13 +78,13 @@
     "theory_recheck": "pending",
     "priority": 0,
     "owner": "main",
-    "created_at": "2026-10-03T13:19:27Z",
-    "updated_at": "2026-10-03T13:19:28Z",
-    "concluded_at": "2026-10-03T13:19:28Z",
-    "started_at": "2026-10-03T13:19:28Z",
+    "created_at": "2026-10-03T16:11:20Z",
+    "updated_at": "2026-10-03T16:11:21Z",
+    "concluded_at": "2026-10-03T16:11:21Z",
+    "started_at": "2026-10-03T16:11:20Z",
     "status_reason": "所有指标都不优于SOTA，按规则消灭。",
-    "first_experiment_at": "2026-10-03T13:19:28Z",
-    "first_result_at": "2026-10-03T13:19:28Z",
+    "first_experiment_at": "2026-10-03T16:11:20Z",
+    "first_result_at": "2026-10-03T16:11:21Z",
     "parent_id": "P-demo-lora-opt"
    },
    {
@@ -93,19 +93,20 @@
     "title": "子批次二阶矩 + 因子尺度平衡",
     "statement": "在子批次二阶矩基础上平衡A、B因子尺度，可进一步提升精度。",
     "doc_id": "D-0024",
-    "status": "verifying",
+    "status": "expandable",
     "experiment_status": "beats_sota",
     "novelty_recheck": "pass",
     "theory_recheck": "pass",
     "priority": 0,
     "owner": "main",
-    "created_at": "2026-10-03T13:19:28Z",
-    "updated_at": "2026-10-03T13:19:29Z",
-    "started_at": "2026-10-03T13:19:28Z",
-    "status_reason": "开始代码改进与实验",
-    "first_experiment_at": "2026-10-03T13:19:28Z",
-    "first_result_at": "2026-10-03T13:19:29Z",
-    "beats_sota_at": "2026-10-03T13:19:29Z",
+    "created_at": "2026-10-03T16:11:21Z",
+    "updated_at": "2026-10-03T16:11:22Z",
+    "concluded_at": "2026-10-03T16:11:22Z",
+    "started_at": "2026-10-03T16:11:21Z",
+    "status_reason": "优于SOTA且复核通过，可拓展",
+    "first_experiment_at": "2026-10-03T16:11:21Z",
+    "first_result_at": "2026-10-03T16:11:21Z",
+    "beats_sota_at": "2026-10-03T16:11:22Z",
     "parent_id": "H-0001"
    },
    {
@@ -113,20 +114,20 @@
     "project_id": "P-demo-lora-opt",
     "title": "子批次二阶矩 + 动量重标度",
     "statement": "按子批次方差重标度动量可减少噪声。",
-    "doc_id": "D-0031",
+    "doc_id": "D-0032",
     "status": "prunable",
     "experiment_status": "no_gain",
     "novelty_recheck": "pending",
     "theory_recheck": "pending",
     "priority": 0,
     "owner": "main",
-    "created_at": "2026-10-03T13:19:29Z",
-    "updated_at": "2026-10-03T13:19:30Z",
-    "concluded_at": "2026-10-03T13:19:30Z",
-    "started_at": "2026-10-03T13:19:29Z",
+    "created_at": "2026-10-03T16:11:22Z",
+    "updated_at": "2026-10-03T16:11:22Z",
+    "concluded_at": "2026-10-03T16:11:22Z",
+    "started_at": "2026-10-03T16:11:22Z",
     "status_reason": "相对父节点各项指标都不更好，按规则消灭。",
-    "first_experiment_at": "2026-10-03T13:19:29Z",
-    "first_result_at": "2026-10-03T13:19:30Z",
+    "first_experiment_at": "2026-10-03T16:11:22Z",
+    "first_result_at": "2026-10-03T16:11:22Z",
     "parent_id": "H-0001"
    },
    {
@@ -134,19 +135,19 @@
     "project_id": "P-demo-lora-opt",
     "title": "Kronecker因子对角近似",
     "statement": "对Kronecker预条件取对角近似，在低秩上以低成本获得二阶信息。",
-    "doc_id": "D-0037",
+    "doc_id": "D-0038",
     "status": "verifying",
     "experiment_status": "running",
     "novelty_recheck": "pending",
     "theory_recheck": "pending",
     "priority": 0,
     "owner": "main",
-    "created_at": "2026-10-03T13:19:30Z",
-    "updated_at": "2026-10-03T13:19:30Z",
-    "started_at": "2026-10-03T13:19:30Z",
+    "created_at": "2026-10-03T16:11:23Z",
+    "updated_at": "2026-10-03T16:11:23Z",
+    "started_at": "2026-10-03T16:11:23Z",
     "status_reason": "开始代码改进与实验",
-    "first_experiment_at": "2026-10-03T13:19:30Z",
-    "first_result_at": "2026-10-03T13:19:31Z",
+    "first_experiment_at": "2026-10-03T16:11:23Z",
+    "first_result_at": "2026-10-03T16:11:23Z",
     "parent_id": "P-demo-lora-opt"
    },
    {
@@ -154,16 +155,16 @@
     "project_id": "P-demo-lora-opt",
     "title": "完整Kronecker二阶预条件",
     "statement": "对每层使用完整Kronecker因子预条件。",
-    "doc_id": "D-0041",
+    "doc_id": "D-0042",
     "status": "prunable",
     "experiment_status": "todo",
     "novelty_recheck": "pending",
     "theory_recheck": "pending",
     "priority": 0,
     "owner": "main",
-    "created_at": "2026-10-03T13:19:31Z",
-    "updated_at": "2026-10-03T13:19:31Z",
-    "concluded_at": "2026-10-03T13:19:31Z",
+    "created_at": "2026-10-03T16:11:23Z",
+    "updated_at": "2026-10-03T16:11:23Z",
+    "concluded_at": "2026-10-03T16:11:23Z",
     "status_reason": "用户决定放弃（超出单次运行上限）",
     "parent_id": "P-demo-lora-opt"
    },
@@ -172,19 +173,19 @@
     "project_id": "P-demo-lora-opt",
     "title": "8-bit优化器状态",
     "statement": "以8-bit存储优化器状态，在精度不变时显著降低显存。",
-    "doc_id": "D-0044",
+    "doc_id": "D-0045",
     "status": "verifying",
     "experiment_status": "running",
     "novelty_recheck": "pending",
     "theory_recheck": "pending",
     "priority": 0,
     "owner": "main",
-    "created_at": "2026-10-03T13:19:31Z",
-    "updated_at": "2026-10-03T13:19:31Z",
-    "started_at": "2026-10-03T13:19:31Z",
+    "created_at": "2026-10-03T16:11:23Z",
+    "updated_at": "2026-10-03T16:11:24Z",
+    "started_at": "2026-10-03T16:11:24Z",
     "status_reason": "开始代码改进与实验",
-    "first_experiment_at": "2026-10-03T13:19:31Z",
-    "first_result_at": "2026-10-03T13:19:31Z",
+    "first_experiment_at": "2026-10-03T16:11:24Z",
+    "first_result_at": "2026-10-03T16:11:24Z",
     "parent_id": "P-demo-lora-opt"
    },
    {
@@ -192,15 +193,15 @@
     "project_id": "P-demo-lora-opt",
     "title": "自适应秩分配",
     "statement": "按层的子批次方差分配LoRA秩，可在同等参数量下提升精度。",
-    "doc_id": "D-0048",
+    "doc_id": "D-0049",
     "status": "pending",
     "experiment_status": "todo",
     "novelty_recheck": "pending",
     "theory_recheck": "pending",
     "priority": 0,
     "owner": "main",
-    "created_at": "2026-10-03T13:19:31Z",
-    "updated_at": "2026-10-03T13:19:31Z",
+    "created_at": "2026-10-03T16:11:24Z",
+    "updated_at": "2026-10-03T16:11:24Z",
     "parent_id": "H-0003"
    }
   ],
@@ -211,7 +212,7 @@
     "kind": "baseline",
     "method_name": "BaseOpt-A（虚构SOTA）",
     "design_doc_id": "D-0005",
-    "code_ref": "bf13826ae0e7e851c1ed0a9ab2bf853c588d15e8",
+    "code_ref": "c896908f935c29977f65e48bbee902c315cf11d7",
     "seeds": [
      42,
      43,
@@ -220,12 +221,12 @@
     "nodes": 4,
     "walltime_s": 3600,
     "owner": "w1",
-    "created_at": "2026-10-03T13:19:26Z",
+    "created_at": "2026-10-03T16:11:19Z",
     "metric_mean": 71.4002,
     "metric_sd": 0.04,
     "result_doc_id": "D-0006",
-    "harness_ref": "bf13826ae0e7e851c1ed0a9ab2bf853c588d15e8",
-    "evaluated_at": "2026-10-03T13:19:26Z"
+    "harness_ref": "c896908f935c29977f65e48bbee902c315cf11d7",
+    "evaluated_at": "2026-10-03T16:11:19Z"
    },
    {
     "id": "E-0002",
@@ -233,7 +234,7 @@
     "kind": "method",
     "method_name": "subbatch-moment",
     "design_doc_id": "D-0015",
-    "code_ref": "9a236beb5332620c25d2fa895d1cb4fc04a8ce4d",
+    "code_ref": "d0b1f000bcbf43f73ffc5f2fc344c70383f6399c",
     "seeds": [
      42,
      43
@@ -241,12 +242,12 @@
     "nodes": 4,
     "walltime_s": 3600,
     "owner": "w2",
-    "created_at": "2026-10-03T13:19:27Z",
+    "created_at": "2026-10-03T16:11:20Z",
     "verdict": "beats_parent",
     "metric_mean": 71.5819,
     "result_doc_id": "D-0016",
-    "harness_ref": "bf13826ae0e7e851c1ed0a9ab2bf853c588d15e8",
-    "evaluated_at": "2026-10-03T13:19:27Z",
+    "harness_ref": "c896908f935c29977f65e48bbee902c315cf11d7",
+    "evaluated_at": "2026-10-03T16:11:20Z",
     "hypothesis_id": "H-0001"
    },
    {
@@ -255,7 +256,7 @@
     "kind": "method",
     "method_name": "orthogonal-update",
     "design_doc_id": "D-0020",
-    "code_ref": "5e040463fac1021edad4206f5ff850e4177a16e6",
+    "code_ref": "c0cfabbce1070553f9d5b12b0c0de80da44c72aa",
     "seeds": [
      42,
      43
@@ -263,12 +264,12 @@
     "nodes": 4,
     "walltime_s": 3600,
     "owner": "w3",
-    "created_at": "2026-10-03T13:19:28Z",
+    "created_at": "2026-10-03T16:11:20Z",
     "verdict": "no_gain",
     "metric_mean": 71.1753,
     "result_doc_id": "D-0021",
-    "harness_ref": "bf13826ae0e7e851c1ed0a9ab2bf853c588d15e8",
-    "evaluated_at": "2026-10-03T13:19:28Z",
+    "harness_ref": "c896908f935c29977f65e48bbee902c315cf11d7",
+    "evaluated_at": "2026-10-03T16:11:21Z",
     "hypothesis_id": "H-0002"
    },
    {
@@ -277,7 +278,7 @@
     "kind": "method",
     "method_name": "moment-balance",
     "design_doc_id": "D-0026",
-    "code_ref": "403305351638325a7269f061e384967ff2c98123",
+    "code_ref": "7eff18666947cd5f4fa337656a941df968b77d44",
     "seeds": [
      42,
      43,
@@ -286,12 +287,12 @@
     "nodes": 4,
     "walltime_s": 3600,
     "owner": "w2",
-    "created_at": "2026-10-03T13:19:28Z",
+    "created_at": "2026-10-03T16:11:21Z",
     "verdict": "beats_sota",
     "metric_mean": 71.6414,
     "result_doc_id": "D-0028",
-    "harness_ref": "bf13826ae0e7e851c1ed0a9ab2bf853c588d15e8",
-    "evaluated_at": "2026-10-03T13:19:29Z",
+    "harness_ref": "c896908f935c29977f65e48bbee902c315cf11d7",
+    "evaluated_at": "2026-10-03T16:11:22Z",
     "hypothesis_id": "H-0003"
    },
    {
@@ -299,8 +300,8 @@
     "project_id": "P-demo-lora-opt",
     "kind": "method",
     "method_name": "momentum-rescale",
-    "design_doc_id": "D-0033",
-    "code_ref": "349d56ebeb915566385778ec4b5e17489d2f139d",
+    "design_doc_id": "D-0034",
+    "code_ref": "f4531b57225c3e796f7e52127519747dd18cd0cc",
     "seeds": [
      42,
      43
@@ -308,12 +309,12 @@
     "nodes": 4,
     "walltime_s": 3600,
     "owner": "w3",
-    "created_at": "2026-10-03T13:19:29Z",
+    "created_at": "2026-10-03T16:11:22Z",
     "verdict": "no_gain",
     "metric_mean": 71.437,
-    "result_doc_id": "D-0034",
-    "harness_ref": "bf13826ae0e7e851c1ed0a9ab2bf853c588d15e8",
-    "evaluated_at": "2026-10-03T13:19:30Z",
+    "result_doc_id": "D-0035",
+    "harness_ref": "c896908f935c29977f65e48bbee902c315cf11d7",
+    "evaluated_at": "2026-10-03T16:11:22Z",
     "hypothesis_id": "H-0004"
    },
    {
@@ -321,8 +322,8 @@
     "project_id": "P-demo-lora-opt",
     "kind": "method",
     "method_name": "kron-diag",
-    "design_doc_id": "D-0039",
-    "code_ref": "c00c60a79384ff2276944d3d607442202ed4db3a",
+    "design_doc_id": "D-0040",
+    "code_ref": "e20516075438572fd20689f07cb87e36e148a87c",
     "seeds": [
      42,
      43
@@ -330,12 +331,12 @@
     "nodes": 4,
     "walltime_s": 3600,
     "owner": "w2",
-    "created_at": "2026-10-03T13:19:30Z",
+    "created_at": "2026-10-03T16:11:23Z",
     "verdict": "close",
     "metric_mean": 71.4858,
-    "result_doc_id": "D-0040",
-    "harness_ref": "bf13826ae0e7e851c1ed0a9ab2bf853c588d15e8",
-    "evaluated_at": "2026-10-03T13:19:31Z",
+    "result_doc_id": "D-0041",
+    "harness_ref": "c896908f935c29977f65e48bbee902c315cf11d7",
+    "evaluated_at": "2026-10-03T16:11:23Z",
     "hypothesis_id": "H-0005"
    },
    {
@@ -343,8 +344,8 @@
     "project_id": "P-demo-lora-opt",
     "kind": "method",
     "method_name": "state-8bit",
-    "design_doc_id": "D-0046",
-    "code_ref": "97a8117a8a9a528a17ff6ed1399354d467d46542",
+    "design_doc_id": "D-0047",
+    "code_ref": "272233cefd4504fb1fa94b2ee1d2860c60761b5b",
     "seeds": [
      42,
      43
@@ -352,12 +353,12 @@
     "nodes": 4,
     "walltime_s": 3600,
     "owner": "w3",
-    "created_at": "2026-10-03T13:19:31Z",
+    "created_at": "2026-10-03T16:11:24Z",
     "verdict": "needs_rld",
     "metric_mean": 71.4312,
-    "result_doc_id": "D-0047",
-    "harness_ref": "bf13826ae0e7e851c1ed0a9ab2bf853c588d15e8",
-    "evaluated_at": "2026-10-03T13:19:31Z",
+    "result_doc_id": "D-0048",
+    "harness_ref": "c896908f935c29977f65e48bbee902c315cf11d7",
+    "evaluated_at": "2026-10-03T16:11:24Z",
     "hypothesis_id": "H-0007"
    }
   ],
@@ -367,11 +368,11 @@
     "repo_path": "/work/xg24i002/x10041/research-agent/demo/code",
     "name": "node/H-0001",
     "base_ref": "main",
-    "base_commit": "bf13826ae0e7e851c1ed0a9ab2bf853c588d15e8",
+    "base_commit": "c896908f935c29977f65e48bbee902c315cf11d7",
     "worktree_path": "/work/xg24i002/x10041/research-agent/demo/worktrees/H-0001",
     "owner": "w2",
     "status": "active",
-    "created_at": "2026-10-03T13:19:27Z",
+    "created_at": "2026-10-03T16:11:19Z",
     "hypothesis_id": "H-0001"
    },
    {
@@ -379,13 +380,13 @@
     "repo_path": "/work/xg24i002/x10041/research-agent/demo/code",
     "name": "node/H-0002",
     "base_ref": "main",
-    "base_commit": "bf13826ae0e7e851c1ed0a9ab2bf853c588d15e8",
+    "base_commit": "c896908f935c29977f65e48bbee902c315cf11d7",
     "owner": "main",
     "status": "deleted",
-    "created_at": "2026-10-03T13:19:27Z",
-    "head_commit": "5e040463fac1021edad4206f5ff850e4177a16e6",
-    "returned_at": "2026-10-03T13:19:28Z",
-    "closed_at": "2026-10-03T13:19:28Z",
+    "created_at": "2026-10-03T16:11:20Z",
+    "head_commit": "c0cfabbce1070553f9d5b12b0c0de80da44c72aa",
+    "returned_at": "2026-10-03T16:11:21Z",
+    "closed_at": "2026-10-03T16:11:21Z",
     "hypothesis_id": "H-0002"
    },
    {
@@ -393,11 +394,11 @@
     "repo_path": "/work/xg24i002/x10041/research-agent/demo/code",
     "name": "node/H-0003",
     "base_ref": "node/H-0001",
-    "base_commit": "9a236beb5332620c25d2fa895d1cb4fc04a8ce4d",
+    "base_commit": "d0b1f000bcbf43f73ffc5f2fc344c70383f6399c",
     "worktree_path": "/work/xg24i002/x10041/research-agent/demo/worktrees/H-0003",
     "owner": "w2",
     "status": "active",
-    "created_at": "2026-10-03T13:19:28Z",
+    "created_at": "2026-10-03T16:11:21Z",
     "hypothesis_id": "H-0003"
    },
    {
@@ -405,13 +406,13 @@
     "repo_path": "/work/xg24i002/x10041/research-agent/demo/code",
     "name": "node/H-0004",
     "base_ref": "node/H-0001",
-    "base_commit": "9a236beb5332620c25d2fa895d1cb4fc04a8ce4d",
+    "base_commit": "d0b1f000bcbf43f73ffc5f2fc344c70383f6399c",
     "owner": "main",
     "status": "deleted",
-    "created_at": "2026-10-03T13:19:29Z",
-    "head_commit": "349d56ebeb915566385778ec4b5e17489d2f139d",
-    "returned_at": "2026-10-03T13:19:30Z",
-    "closed_at": "2026-10-03T13:19:30Z",
+    "created_at": "2026-10-03T16:11:22Z",
+    "head_commit": "f4531b57225c3e796f7e52127519747dd18cd0cc",
+    "returned_at": "2026-10-03T16:11:22Z",
+    "closed_at": "2026-10-03T16:11:23Z",
     "hypothesis_id": "H-0004"
    },
    {
@@ -419,11 +420,11 @@
     "repo_path": "/work/xg24i002/x10041/research-agent/demo/code",
     "name": "node/H-0005",
     "base_ref": "main",
-    "base_commit": "bf13826ae0e7e851c1ed0a9ab2bf853c588d15e8",
+    "base_commit": "c896908f935c29977f65e48bbee902c315cf11d7",
     "worktree_path": "/work/xg24i002/x10041/research-agent/demo/worktrees/H-0005",
     "owner": "w2",
     "status": "active",
-    "created_at": "2026-10-03T13:19:30Z",
+    "created_at": "2026-10-03T16:11:23Z",
     "hypothesis_id": "H-0005"
    },
    {
@@ -431,11 +432,11 @@
     "repo_path": "/work/xg24i002/x10041/research-agent/demo/code",
     "name": "node/H-0007",
     "base_ref": "main",
-    "base_commit": "bf13826ae0e7e851c1ed0a9ab2bf853c588d15e8",
+    "base_commit": "c896908f935c29977f65e48bbee902c315cf11d7",
     "worktree_path": "/work/xg24i002/x10041/research-agent/demo/worktrees/H-0007",
     "owner": "w3",
     "status": "active",
-    "created_at": "2026-10-03T13:19:31Z",
+    "created_at": "2026-10-03T16:11:24Z",
     "hypothesis_id": "H-0007"
    }
   ],
@@ -450,8 +451,8 @@
     "status": "current",
     "author_role": "ui",
     "author_id": "ui",
-    "created_at": "2026-10-03T13:19:26Z",
-    "sha256": "88e412742d1dfb96537d18e077139c98a10fc871e53c0172d8506702e52e1028"
+    "created_at": "2026-10-03T16:11:18Z",
+    "sha256": "ac55584b156057aa3893b96d2a544f83be0ec1c645c81e88cf5193579b163341"
    },
    {
     "id": "D-0002",
@@ -463,8 +464,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:26Z",
-    "sha256": "5ffb0aa2b1e846b3d1d90c32b56a2e703e06528f2c9376bc4a1f3fe1de88b2f1"
+    "created_at": "2026-10-03T16:11:19Z",
+    "sha256": "4a272ec46a6c8e3fa439bb955011e2fcac5309ae71f10124785eedb8d61658e6"
    },
    {
     "id": "D-0003",
@@ -476,8 +477,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:26Z",
-    "sha256": "cc71ef72514bc4cdd8924038281f7b7d1ee8624f4834410e834a10e1403caf96"
+    "created_at": "2026-10-03T16:11:19Z",
+    "sha256": "ee4b8adcd39b0eba68c4b3fbc951e26832728c54af6ed9ccde703ed0fb6ea2b1"
    },
    {
     "id": "D-0004",
@@ -489,8 +490,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:26Z",
-    "sha256": "1d106f8c17c93f80423c7158d8532748bf69c3b70d591d40caf87303be8cc202"
+    "created_at": "2026-10-03T16:11:19Z",
+    "sha256": "8afad5545983acafd485aa3b28ea58c2a36751e7056ec2c3c5bffe8b63ca68f6"
    },
    {
     "id": "D-0005",
@@ -502,8 +503,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "w1",
-    "created_at": "2026-10-03T13:19:26Z",
-    "sha256": "dfb672e421d4fb77463e9e968845abdc8d5e88f77678111b3e47f74e6ea23997"
+    "created_at": "2026-10-03T16:11:19Z",
+    "sha256": "a31770af05a6d08195866aeac01f2c5b0f04d348e07c134c57b375f46bbe1747"
    },
    {
     "id": "D-0006",
@@ -515,8 +516,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "w1",
-    "created_at": "2026-10-03T13:19:26Z",
-    "sha256": "6e37902591e9e7f9256c081145ad5269d83a86762b148595ede12b4571067927"
+    "created_at": "2026-10-03T16:11:19Z",
+    "sha256": "1803c8177cfa00d39e988dbacbb99f4fb78416bbf7bb36e28c89a1ab1b0e15e2"
    },
    {
     "id": "D-0007",
@@ -528,8 +529,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "w1",
-    "created_at": "2026-10-03T13:19:26Z",
-    "sha256": "0b977fc070fbdfe46a55753150e6cba4720b31d07027e16de53038969f17daa9"
+    "created_at": "2026-10-03T16:11:19Z",
+    "sha256": "b8b4b2c60bb5163a938d869f86f77adfbc35248b87f7912a009b3b1b2002cde9"
    },
    {
     "id": "D-0008",
@@ -541,8 +542,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "w2",
-    "created_at": "2026-10-03T13:19:27Z",
-    "sha256": "2c4a2634491fc966fac83062631924e8111e05911a47cfe2c2b558365df50f21"
+    "created_at": "2026-10-03T16:11:19Z",
+    "sha256": "23b7b8180b6219cc60b4d00f830b540122a38b11fd732c5d8b6962bea7ca0865"
    },
    {
     "id": "D-0009",
@@ -554,8 +555,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "w2",
-    "created_at": "2026-10-03T13:19:27Z",
-    "sha256": "b3215cd15ee0463ca401828ec66b85ef818ca8cec3da13e91e80f3daebbd67de"
+    "created_at": "2026-10-03T16:11:19Z",
+    "sha256": "349d1b0e7a36df060ff2d2edae50225f306e0d34e9fcca421099080a480af12e"
    },
    {
     "id": "D-0010",
@@ -567,8 +568,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "w2",
-    "created_at": "2026-10-03T13:19:27Z",
-    "sha256": "ba8dca23d5800d8e513fbb1d01bbd7118ba284d8e5b2a88dc3fec4dfcbe56950"
+    "created_at": "2026-10-03T16:11:19Z",
+    "sha256": "e1abe9604ae32d6e5f37df1f39524fa8fbb8b171a185544f571ea58f56d8a36a"
    },
    {
     "id": "D-0011",
@@ -580,8 +581,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "w2",
-    "created_at": "2026-10-03T13:19:27Z",
-    "sha256": "1eaa7dbf231e3417ebdcdb6c5014f432403cd4503d5a994a67f79f8f7cfac997"
+    "created_at": "2026-10-03T16:11:19Z",
+    "sha256": "e748b4e0f42d573adc8ef3c98a2ffac2716fa5fb1ac16f0b6b6579752575d60f"
    },
    {
     "id": "D-0012",
@@ -593,8 +594,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "w2",
-    "created_at": "2026-10-03T13:19:27Z",
-    "sha256": "5a5fc43a46f9c27b1c81fc87a709f696fbc6108e233f08e7c96d9e6c6298e5a9"
+    "created_at": "2026-10-03T16:11:19Z",
+    "sha256": "ac66edc763cf7c02194f6bf00bef71a7bc86430fe9cbcb2a1d4604932b357930"
    },
    {
     "id": "D-0013",
@@ -606,8 +607,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:27Z",
-    "sha256": "5a01020e31d733df18bd61c23f220c2d633e1381464ad3c6d27eb0a8364fce53"
+    "created_at": "2026-10-03T16:11:19Z",
+    "sha256": "3f18689f2bbab8066b244c48ea7f739994eff3f75c19df52a90fab32e005758a"
    },
    {
     "id": "D-0014",
@@ -619,8 +620,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:27Z",
-    "sha256": "aa37c3a931bc1d89fcb6d00968ff2f3b1d3441ec2eaa6c38fd937e08bcd747c4"
+    "created_at": "2026-10-03T16:11:20Z",
+    "sha256": "b6effc1b839a8b9701260cb26d5d12c9b0f6ea117590c0098def48eb7d9ef6b8"
    },
    {
     "id": "D-0015",
@@ -632,8 +633,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "w2",
-    "created_at": "2026-10-03T13:19:27Z",
-    "sha256": "cbaa65a98ef70fcc92fd2d27f6c39badb98327b5d704981b21698e4d2f2e27f2"
+    "created_at": "2026-10-03T16:11:20Z",
+    "sha256": "2ad7063f7070cadd3f0f3db9fdd86fddcfef1bfea98b01518ea001f9b068f270"
    },
    {
     "id": "D-0016",
@@ -645,8 +646,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "w2",
-    "created_at": "2026-10-03T13:19:27Z",
-    "sha256": "c0595429e87986ca0beaef72254cf49feb8ffd4922556a74d63d681341322cdb"
+    "created_at": "2026-10-03T16:11:20Z",
+    "sha256": "733227d8f37202c7d87a7d53ff6f286a58202e418dddd3c29ee919e45a5d23d0"
    },
    {
     "id": "D-0017",
@@ -658,8 +659,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:27Z",
-    "sha256": "9096135489dde190d538f0581a770356363a35629b9b3b27409ca8d707ed797c"
+    "created_at": "2026-10-03T16:11:20Z",
+    "sha256": "6f194f6d86c32c8e29c1258130f71cde778a58691fd97fd0b47c3bff4463dfe8"
    },
    {
     "id": "D-0018",
@@ -671,8 +672,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:27Z",
-    "sha256": "b6f23a1a796a23779f93c94a5d63b9cc55334a76c5dd1942b48fedec5e34e7ca"
+    "created_at": "2026-10-03T16:11:20Z",
+    "sha256": "187729fd7ce6f8d953901470679d11d180fb7afa7c6178430973c0c4d79c2b09"
    },
    {
     "id": "D-0019",
@@ -684,8 +685,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:27Z",
-    "sha256": "8cccb3ad6f006c773868208b3f4d144da4c75e811058d34dc84d4c979b73a9ed"
+    "created_at": "2026-10-03T16:11:20Z",
+    "sha256": "2483a14fae6ccf8420b5cf9eea4225c4e932a3bc5cdc6aa0c56601cda862e206"
    },
    {
     "id": "D-0020",
@@ -697,8 +698,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "w3",
-    "created_at": "2026-10-03T13:19:28Z",
-    "sha256": "5d88388beaac9e718386a1003e50405550006d2e88e944473a4c98e16d82b30a"
+    "created_at": "2026-10-03T16:11:20Z",
+    "sha256": "f8467c65eefd5f52bb2ac51434fdbd6e56dd7e2c39cfead41e303af03bcbd926"
    },
    {
     "id": "D-0021",
@@ -710,8 +711,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "w3",
-    "created_at": "2026-10-03T13:19:28Z",
-    "sha256": "cee55ad699f16864f2a7a428f3b960692eb81130f5c1f2a9e75804ddd95f9f1c"
+    "created_at": "2026-10-03T16:11:20Z",
+    "sha256": "5d86adc13030ca326cde87485ceb8878fc03070ffa021163098ee6b125822833"
    },
    {
     "id": "D-0022",
@@ -723,8 +724,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:28Z",
-    "sha256": "f2b97093d6073f2d8f7f2b729479fbcb27e14e1756aaedd2a6cb1ce70834fc35"
+    "created_at": "2026-10-03T16:11:21Z",
+    "sha256": "a4cc6e216093db1d23e419100ebafa79c114a03d3bf0906da7ef221b549d8fa0"
    },
    {
     "id": "D-0023",
@@ -736,8 +737,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:28Z",
-    "sha256": "fc268abb175c1b756c00b5d305fc040c8c301d4bc12d7b626d5fc1520068ec3a"
+    "created_at": "2026-10-03T16:11:21Z",
+    "sha256": "25e0cf5074fcb3ab547db5918c684267dacd4145c4d35e82c958fb8f790615d7"
    },
    {
     "id": "D-0024",
@@ -749,8 +750,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:28Z",
-    "sha256": "18eed706974c928c4896ca9cbe86e3e40a780841f62d38981e39a1ab3701b231"
+    "created_at": "2026-10-03T16:11:21Z",
+    "sha256": "3cf83ce2ba78815a610183885391f8f9e524a0dcba70cd22242d18574b4afe43"
    },
    {
     "id": "D-0025",
@@ -762,8 +763,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:28Z",
-    "sha256": "76b00ae47e0c40c2aff905368ca6d5bbac150a52485e7822a0e277d35b4f1c13"
+    "created_at": "2026-10-03T16:11:21Z",
+    "sha256": "6be4ca9b006935db39e0777455d7c8b3945c20392ef9b0b02ae99c3142e769b2"
    },
    {
     "id": "D-0026",
@@ -775,8 +776,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "w2",
-    "created_at": "2026-10-03T13:19:28Z",
-    "sha256": "5282957b5ad702ee170be04fbaf508da714acd81fc0872db6a5bf1d0d26ac505"
+    "created_at": "2026-10-03T16:11:21Z",
+    "sha256": "9e38d6f508684270218db50f3db16adf18bc5e78c6f68ac89269ce4aea2e1b56"
    },
    {
     "id": "D-0027",
@@ -788,8 +789,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "w2",
-    "created_at": "2026-10-03T13:19:29Z",
-    "sha256": "8af8c7d831fdfcc8570da5d6f00f9ad99976e64301cf689a49d37017f906e6f0"
+    "created_at": "2026-10-03T16:11:21Z",
+    "sha256": "03995373ee0cb4e8bec06908fe1c4f42012566762473ebc6340f5de564b5504f"
    },
    {
     "id": "D-0028",
@@ -801,8 +802,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "w2",
-    "created_at": "2026-10-03T13:19:29Z",
-    "sha256": "4e23d4906a4f4d1509cb416d3b4738173c9d062fa5ca03972d201b4a4d2296b2"
+    "created_at": "2026-10-03T16:11:22Z",
+    "sha256": "a26b146e3ccb5291ea985576ae0e7680c1afa2e9824abcc1d4acc5e6ee713874"
    },
    {
     "id": "D-0029",
@@ -814,8 +815,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:29Z",
-    "sha256": "18044ab7ba721037ac14a389e1cdff816191dc3196f7039348b06d152d4a2e6d"
+    "created_at": "2026-10-03T16:11:22Z",
+    "sha256": "b6ce0b034958e3a03345d5aa83e411dd0cc0d3d8f982bdcfbfadf01de5c2548c"
    },
    {
     "id": "D-0030",
@@ -827,11 +828,24 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:29Z",
-    "sha256": "24575dfbb48369c32ad5a7655b9a2bc957b434036f6b9a6c0cad5731b9698aad"
+    "created_at": "2026-10-03T16:11:22Z",
+    "sha256": "e6602832c8dbf9cc18e60c25d7c3530b5b39709e1cf0967e408ccbb95535cb06"
    },
    {
     "id": "D-0031",
+    "path": "hypotheses/H-0003/decisions/expandable.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0003 可拓展",
+    "summary": "H-0003 可拓展",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-03T16:11:22Z",
+    "sha256": "ebc422510bcbe02016f71e65f7ed1e145dd3deb33533ed02fc4864a49f43b80c"
+   },
+   {
+    "id": "D-0032",
     "path": "hypotheses/H-0004/hypothesis.v1.md",
     "version": 1,
     "doc_type": "hypothesis",
@@ -840,11 +854,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:29Z",
-    "sha256": "71207ee21570d7dfffd03851d9a3826e5574555004220c1787c848efa0b0a023"
+    "created_at": "2026-10-03T16:11:22Z",
+    "sha256": "8dd85a2469a0bb13cb556c524f21e5c92e0af47a2e6fa17d70d99e860e4d36ad"
    },
    {
-    "id": "D-0032",
+    "id": "D-0033",
     "path": "hypotheses/H-0004/decisions/start.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -853,11 +867,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:29Z",
-    "sha256": "8cfb1ab5c5d654e8b7b2f6f0381ad677f97e08c0b434ebdc9031be04dea28bc5"
+    "created_at": "2026-10-03T16:11:22Z",
+    "sha256": "5d2a6a6d1be81224cffb0c026ca3a8146a359614c1ff8fa4d296c57263c98e14"
    },
    {
-    "id": "D-0033",
+    "id": "D-0034",
     "path": "hypotheses/H-0004/experiments/momentum-874/design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
@@ -866,11 +880,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "w3",
-    "created_at": "2026-10-03T13:19:29Z",
-    "sha256": "520c5705adb5b23e0af987e8e0f9c7560eb40ab536860ec4ae14ca8cc0d5c86b"
+    "created_at": "2026-10-03T16:11:22Z",
+    "sha256": "642f9b8d7c1e14862f0e76e71d6b9b0a572f580daa0a181e35570585e3aa8a1b"
    },
    {
-    "id": "D-0034",
+    "id": "D-0035",
     "path": "hypotheses/H-0004/experiments/E-0005/result.v2.md",
     "version": 2,
     "doc_type": "experiment_result",
@@ -879,11 +893,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "w3",
-    "created_at": "2026-10-03T13:19:30Z",
-    "sha256": "5995b6060ea2626f3ecf93c3b96c8eeee840be587aaf73370a24129cb91ff328"
+    "created_at": "2026-10-03T16:11:22Z",
+    "sha256": "22da1445584448df3e4b40bcc17f78a03ddc5ad1733591bf737d06615f7390b6"
    },
    {
-    "id": "D-0035",
+    "id": "D-0036",
     "path": "hypotheses/H-0004/decisions/prunable.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -892,11 +906,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:30Z",
-    "sha256": "5cb1803fa161b69c191ee6b17168f73cb07930de9c0610929f94b38ec6810beb"
+    "created_at": "2026-10-03T16:11:22Z",
+    "sha256": "5c7ca616e98d356007fda0d50e9b8968e6799830704860aa04710c87e73e347c"
    },
    {
-    "id": "D-0036",
+    "id": "D-0037",
     "path": "hypotheses/H-0004/decisions/branch-deleted.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -905,11 +919,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:30Z",
-    "sha256": "9d64255cf4d9f4754b6d9e94e1bd13d664dff48ec010c9d17e154fe5f880e139"
+    "created_at": "2026-10-03T16:11:23Z",
+    "sha256": "0f737273d2f900e6b6de15f64389c437a04c11370c7127ec9a7d3693c624f0b3"
    },
    {
-    "id": "D-0037",
+    "id": "D-0038",
     "path": "hypotheses/H-0005/hypothesis.v1.md",
     "version": 1,
     "doc_type": "hypothesis",
@@ -918,11 +932,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:30Z",
-    "sha256": "d57083b2954e65c68a83d563f0fd9b7d7d6c19f2e2c8b150cc1408463f877473"
+    "created_at": "2026-10-03T16:11:23Z",
+    "sha256": "7eecc13b3e160d62c34f67cce281885417d0b77b268f078337a76fa0f36f06d6"
    },
    {
-    "id": "D-0038",
+    "id": "D-0039",
     "path": "hypotheses/H-0005/decisions/start.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -931,11 +945,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:30Z",
-    "sha256": "8cb1f0747a6654444fb7e6a29eb7d9e7e520eaa66985ee8a5be268a75a34d2f4"
+    "created_at": "2026-10-03T16:11:23Z",
+    "sha256": "f053169caef8ea0cf36f15b399f5856cde15718c2a95aabfd8e7b830671d282a"
    },
    {
-    "id": "D-0039",
+    "id": "D-0040",
     "path": "hypotheses/H-0005/experiments/kron-dia-330/design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
@@ -944,11 +958,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "w2",
-    "created_at": "2026-10-03T13:19:30Z",
-    "sha256": "9eb3f9e0d3c7506d88d65cdb2589cdc2f24328424046a1f9d7cc6eadd55b77f7"
+    "created_at": "2026-10-03T16:11:23Z",
+    "sha256": "67a821b0635495c26f3a0f66666a9d32994cbba1278a3a3543c057cb4b90b293"
    },
    {
-    "id": "D-0040",
+    "id": "D-0041",
     "path": "hypotheses/H-0005/experiments/E-0006/result.v2.md",
     "version": 2,
     "doc_type": "experiment_result",
@@ -957,11 +971,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "w2",
-    "created_at": "2026-10-03T13:19:31Z",
-    "sha256": "c11e8b088211601bfe897da8fa7d12ea6b10884fa12d43a4ee3915da451cd4c4"
+    "created_at": "2026-10-03T16:11:23Z",
+    "sha256": "ed44709084515cf18a8344bca2789c131af3b941d6d14f1b0954fe71846329df"
    },
    {
-    "id": "D-0041",
+    "id": "D-0042",
     "path": "hypotheses/H-0006/hypothesis.v1.md",
     "version": 1,
     "doc_type": "hypothesis",
@@ -970,11 +984,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:31Z",
-    "sha256": "11ffcb332578e8d3c982745877e49b81f015ff784f93bc16c63d61cab0032721"
+    "created_at": "2026-10-03T16:11:23Z",
+    "sha256": "eb811e1b4d71251f9dfe6b78811adda978c8fee05970a933301451e4dc397de8"
    },
    {
-    "id": "D-0042",
+    "id": "D-0043",
     "path": "instructions/UI-0002.v1.md",
     "version": 1,
     "doc_type": "user_instruction",
@@ -983,11 +997,11 @@
     "status": "current",
     "author_role": "ui",
     "author_id": "ui",
-    "created_at": "2026-10-03T13:19:31Z",
-    "sha256": "f3ae98313e1530e90bda004fa3019544077c47df5224bf9269feda64f483a036"
+    "created_at": "2026-10-03T16:11:23Z",
+    "sha256": "94af69a85aef98e8ca9e85b09ecba58dd148e2a17b41d53054631387985cd1d7"
    },
    {
-    "id": "D-0043",
+    "id": "D-0044",
     "path": "hypotheses/H-0006/decisions/infeasible.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -996,11 +1010,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:31Z",
-    "sha256": "55644d93d8c811f655ebbd50b6244e542e72a82f52885f31517865c71c7e0a12"
+    "created_at": "2026-10-03T16:11:23Z",
+    "sha256": "14928ad3f73e82917cc5cd72655046fab221b785f48ffa119b44d0f52779631f"
    },
    {
-    "id": "D-0044",
+    "id": "D-0045",
     "path": "hypotheses/H-0007/hypothesis.v1.md",
     "version": 1,
     "doc_type": "hypothesis",
@@ -1009,11 +1023,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:31Z",
-    "sha256": "dfaefe303cff6b4f818a7950634309963f460ef236de740e81d1d2cfd0339876"
+    "created_at": "2026-10-03T16:11:23Z",
+    "sha256": "2ee8b139d1772033f7cf951b8f0d3072c3361dcf081854a3075202a42c3d550c"
    },
    {
-    "id": "D-0045",
+    "id": "D-0046",
     "path": "hypotheses/H-0007/decisions/start.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -1022,11 +1036,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:31Z",
-    "sha256": "fc4d89d70ee509e1dc7e96887a18f70b504ab17f12bb7a8e861660605d65e7af"
+    "created_at": "2026-10-03T16:11:24Z",
+    "sha256": "a22c64ee7ccd86612886d31bfeb530a92911d74db16d69f3796e4586558f3dbc"
    },
    {
-    "id": "D-0046",
+    "id": "D-0047",
     "path": "hypotheses/H-0007/experiments/state-8b-411/design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
@@ -1035,11 +1049,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "w3",
-    "created_at": "2026-10-03T13:19:31Z",
-    "sha256": "63dfec06fbd61c3fcd53bc18af4dd7d0eca08d0d006b2465f085ce3deef13332"
+    "created_at": "2026-10-03T16:11:24Z",
+    "sha256": "e0625e777a20b8cf86aebd838045af2eb9e373e6814593cf28577cff1d74f9d1"
    },
    {
-    "id": "D-0047",
+    "id": "D-0048",
     "path": "hypotheses/H-0007/experiments/E-0007/result.v2.md",
     "version": 2,
     "doc_type": "experiment_result",
@@ -1048,11 +1062,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "w3",
-    "created_at": "2026-10-03T13:19:31Z",
-    "sha256": "cad5f8a8dd17640d355d7f12993dfb9e55f9e6d060162d414bdaeb4cab740098"
+    "created_at": "2026-10-03T16:11:24Z",
+    "sha256": "5cc2fe137c3b3044a2dd5c84fc1d472723837b45abac2f266d20771b618f6d6d"
    },
    {
-    "id": "D-0048",
+    "id": "D-0049",
     "path": "hypotheses/H-0008/hypothesis.v1.md",
     "version": 1,
     "doc_type": "hypothesis",
@@ -1061,11 +1075,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:31Z",
-    "sha256": "841c7d70fbbc6b6bde4e495ff397db5627810c1a5785aefd40d9b623516d978f"
+    "created_at": "2026-10-03T16:11:24Z",
+    "sha256": "7d758a407f962e1ce3fe130544873b2e2e5b0f2f2b2c0c9e5867b1e072630e00"
    },
    {
-    "id": "D-0049",
+    "id": "D-0050",
     "path": "tasks/T-0002/request.v1.md",
     "version": 1,
     "doc_type": "task_request",
@@ -1074,8 +1088,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T13:19:31Z",
-    "sha256": "ca520765aafa5357f28174be665d28afcba87c149c1826d382a76335a702074b"
+    "created_at": "2026-10-03T16:11:24Z",
+    "sha256": "0b727ab18d62fa6fb54626eca578b70f9bc0798bbd5d77110726c20846428238"
    }
   ],
   "decision": [
@@ -1087,7 +1101,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0014",
     "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:27Z",
+    "decided_at": "2026-10-03T16:11:20Z",
     "target_id": "H-0001"
    },
    {
@@ -1098,7 +1112,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0014",
     "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:27Z",
+    "decided_at": "2026-10-03T16:11:20Z",
     "target_id": "H-0001"
    },
    {
@@ -1109,7 +1123,7 @@
     "reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
     "doc_id": "D-0017",
     "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:27Z",
+    "decided_at": "2026-10-03T16:11:20Z",
     "target_id": "H-0001"
    },
    {
@@ -1120,7 +1134,7 @@
     "reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
     "doc_id": "D-0017",
     "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:27Z",
+    "decided_at": "2026-10-03T16:11:20Z",
     "target_id": "H-0001"
    },
    {
@@ -1131,7 +1145,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0019",
     "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:28Z",
+    "decided_at": "2026-10-03T16:11:20Z",
     "target_id": "H-0002"
    },
    {
@@ -1142,7 +1156,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0019",
     "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:28Z",
+    "decided_at": "2026-10-03T16:11:20Z",
     "target_id": "H-0002"
    },
    {
@@ -1153,7 +1167,7 @@
     "reason": "所有指标都不优于SOTA，按规则消灭。",
     "doc_id": "D-0022",
     "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:28Z",
+    "decided_at": "2026-10-03T16:11:21Z",
     "target_id": "H-0002"
    },
    {
@@ -1164,7 +1178,7 @@
     "reason": "所有指标都不优于SOTA，按规则消灭。",
     "doc_id": "D-0022",
     "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:28Z",
+    "decided_at": "2026-10-03T16:11:21Z",
     "target_id": "H-0002"
    },
    {
@@ -1175,7 +1189,7 @@
     "reason": "无提升，删除分支（实验提交已打标签）。",
     "doc_id": "D-0023",
     "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:28Z",
+    "decided_at": "2026-10-03T16:11:21Z",
     "target_id": "BR-0002"
    },
    {
@@ -1186,7 +1200,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0025",
     "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:28Z",
+    "decided_at": "2026-10-03T16:11:21Z",
     "target_id": "H-0003"
    },
    {
@@ -1197,7 +1211,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0025",
     "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:28Z",
+    "decided_at": "2026-10-03T16:11:21Z",
     "target_id": "H-0003"
    },
    {
@@ -1207,7 +1221,7 @@
     "to_value": "beats_sota",
     "reason": "3个seed判定",
     "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:29Z",
+    "decided_at": "2026-10-03T16:11:22Z",
     "target_id": "H-0003"
    },
    {
@@ -1217,7 +1231,7 @@
     "to_value": "pass",
     "reason": "复核通过",
     "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:29Z",
+    "decided_at": "2026-10-03T16:11:22Z",
     "target_id": "H-0003"
    },
    {
@@ -1227,117 +1241,128 @@
     "to_value": "pass",
     "reason": "复核通过",
     "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:29Z",
+    "decided_at": "2026-10-03T16:11:22Z",
     "target_id": "H-0003"
    },
    {
     "id": "DEC-0015",
+    "field": "status",
+    "from_value": "verifying",
+    "to_value": "expandable",
+    "reason": "优于SOTA且复核通过，可拓展",
+    "doc_id": "D-0031",
+    "decided_by": "main",
+    "decided_at": "2026-10-03T16:11:22Z",
+    "target_id": "H-0003"
+   },
+   {
+    "id": "DEC-0016",
     "field": "experiment_status",
     "from_value": "todo",
     "to_value": "running",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0032",
+    "doc_id": "D-0033",
     "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:29Z",
-    "target_id": "H-0004"
-   },
-   {
-    "id": "DEC-0016",
-    "field": "status",
-    "from_value": "pending",
-    "to_value": "verifying",
-    "reason": "开始代码改进与实验",
-    "doc_id": "D-0032",
-    "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:29Z",
+    "decided_at": "2026-10-03T16:11:22Z",
     "target_id": "H-0004"
    },
    {
     "id": "DEC-0017",
-    "field": "experiment_status",
-    "from_value": "running",
-    "to_value": "no_gain",
-    "reason": "相对父节点各项指标都不更好，按规则消灭。",
-    "doc_id": "D-0035",
-    "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:30Z",
-    "target_id": "H-0004"
-   },
-   {
-    "id": "DEC-0018",
-    "field": "status",
-    "from_value": "verifying",
-    "to_value": "prunable",
-    "reason": "相对父节点各项指标都不更好，按规则消灭。",
-    "doc_id": "D-0035",
-    "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:30Z",
-    "target_id": "H-0004"
-   },
-   {
-    "id": "DEC-0019",
-    "field": "branch_status",
-    "from_value": "returned",
-    "to_value": "deleted",
-    "reason": "无提升，删除分支。",
-    "doc_id": "D-0036",
-    "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:30Z",
-    "target_id": "BR-0004"
-   },
-   {
-    "id": "DEC-0020",
-    "field": "experiment_status",
-    "from_value": "todo",
-    "to_value": "running",
-    "reason": "开始代码改进与实验",
-    "doc_id": "D-0038",
-    "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:30Z",
-    "target_id": "H-0005"
-   },
-   {
-    "id": "DEC-0021",
     "field": "status",
     "from_value": "pending",
     "to_value": "verifying",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0038",
+    "doc_id": "D-0033",
     "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:30Z",
+    "decided_at": "2026-10-03T16:11:22Z",
+    "target_id": "H-0004"
+   },
+   {
+    "id": "DEC-0018",
+    "field": "experiment_status",
+    "from_value": "running",
+    "to_value": "no_gain",
+    "reason": "相对父节点各项指标都不更好，按规则消灭。",
+    "doc_id": "D-0036",
+    "decided_by": "main",
+    "decided_at": "2026-10-03T16:11:22Z",
+    "target_id": "H-0004"
+   },
+   {
+    "id": "DEC-0019",
+    "field": "status",
+    "from_value": "verifying",
+    "to_value": "prunable",
+    "reason": "相对父节点各项指标都不更好，按规则消灭。",
+    "doc_id": "D-0036",
+    "decided_by": "main",
+    "decided_at": "2026-10-03T16:11:22Z",
+    "target_id": "H-0004"
+   },
+   {
+    "id": "DEC-0020",
+    "field": "branch_status",
+    "from_value": "returned",
+    "to_value": "deleted",
+    "reason": "无提升，删除分支。",
+    "doc_id": "D-0037",
+    "decided_by": "main",
+    "decided_at": "2026-10-03T16:11:23Z",
+    "target_id": "BR-0004"
+   },
+   {
+    "id": "DEC-0021",
+    "field": "experiment_status",
+    "from_value": "todo",
+    "to_value": "running",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0039",
+    "decided_by": "main",
+    "decided_at": "2026-10-03T16:11:23Z",
     "target_id": "H-0005"
    },
    {
     "id": "DEC-0022",
     "field": "status",
     "from_value": "pending",
-    "to_value": "prunable",
-    "reason": "用户决定放弃（超出单次运行上限）",
-    "doc_id": "D-0043",
+    "to_value": "verifying",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0039",
     "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:31Z",
-    "target_id": "H-0006"
+    "decided_at": "2026-10-03T16:11:23Z",
+    "target_id": "H-0005"
    },
    {
     "id": "DEC-0023",
+    "field": "status",
+    "from_value": "pending",
+    "to_value": "prunable",
+    "reason": "用户决定放弃（超出单次运行上限）",
+    "doc_id": "D-0044",
+    "decided_by": "main",
+    "decided_at": "2026-10-03T16:11:23Z",
+    "target_id": "H-0006"
+   },
+   {
+    "id": "DEC-0024",
     "field": "experiment_status",
     "from_value": "todo",
     "to_value": "running",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0045",
+    "doc_id": "D-0046",
     "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:31Z",
+    "decided_at": "2026-10-03T16:11:24Z",
     "target_id": "H-0007"
    },
    {
-    "id": "DEC-0024",
+    "id": "DEC-0025",
     "field": "status",
     "from_value": "pending",
     "to_value": "verifying",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0045",
+    "doc_id": "D-0046",
     "decided_by": "main",
-    "decided_at": "2026-10-03T13:19:31Z",
+    "decided_at": "2026-10-03T16:11:24Z",
     "target_id": "H-0007"
    }
   ],
@@ -1349,8 +1374,8 @@
     "assignee_role": "worker",
     "assignee_id": "w1",
     "request_doc_id": "D-0004",
-    "created_at": "2026-10-03T13:19:26Z",
-    "updated_at": "2026-10-03T13:19:26Z",
+    "created_at": "2026-10-03T16:11:19Z",
+    "updated_at": "2026-10-03T16:11:19Z",
     "delivery_doc_id": "D-0007"
    },
    {
@@ -1359,9 +1384,9 @@
     "status": "in_progress",
     "assignee_role": "worker",
     "assignee_id": "w2",
-    "request_doc_id": "D-0049",
-    "created_at": "2026-10-03T13:19:32Z",
-    "updated_at": "2026-10-03T13:19:32Z",
+    "request_doc_id": "D-0050",
+    "created_at": "2026-10-03T16:11:24Z",
+    "updated_at": "2026-10-03T16:11:24Z",
     "target_id": "H-0005"
    }
   ],
@@ -1975,11 +2000,11 @@
     "target_id": "H-0003"
    },
    {
-    "source_id": "D-0032",
-    "target_id": "H-0004"
+    "source_id": "D-0031",
+    "target_id": "H-0003"
    },
    {
-    "source_id": "D-0035",
+    "source_id": "D-0033",
     "target_id": "H-0004"
    },
    {
@@ -1987,19 +2012,23 @@
     "target_id": "H-0004"
    },
    {
-    "source_id": "D-0038",
-    "target_id": "H-0005"
+    "source_id": "D-0037",
+    "target_id": "H-0004"
    },
    {
-    "source_id": "D-0042",
-    "target_id": "H-0006"
+    "source_id": "D-0039",
+    "target_id": "H-0005"
    },
    {
     "source_id": "D-0043",
     "target_id": "H-0006"
    },
    {
-    "source_id": "D-0045",
+    "source_id": "D-0044",
+    "target_id": "H-0006"
+   },
+   {
+    "source_id": "D-0046",
     "target_id": "H-0007"
    }
   ],
@@ -2042,16 +2071,16 @@
     "target_id": "D-0030"
    },
    {
-    "source_id": "DEC-0017",
-    "target_id": "E-0005"
-   },
-   {
     "source_id": "DEC-0018",
     "target_id": "E-0005"
    },
    {
-    "source_id": "DEC-0022",
-    "target_id": "D-0042"
+    "source_id": "DEC-0019",
+    "target_id": "E-0005"
+   },
+   {
+    "source_id": "DEC-0023",
+    "target_id": "D-0043"
    }
   ]
  }

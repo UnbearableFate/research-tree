@@ -133,7 +133,7 @@ created_at: 2026-10-03T10:21:00Z
 
 - **冻结框架。** 根节点worker实现实验框架与统计代码，RLD审核后用 `update_project(harness_ref, harness_paths)` 冻结。此后所有实验的代码必须包含该版本，且框架文件与之完全一致（git核对），否则不能记录判定。更换框架会清空SOTA基线，必须用新框架重跑。
 - **SOTA基线与seed预算。** SOTA基线在统一seed上跑满 `gate_seeds`（默认3）个seed并记录结果后，才能设为项目的SOTA。节点实验的初始seed数由SOTA第一个seed的成本 c（节点数×时长）决定：满足 n×c < `screen_budget_node_h`（默认10 node·h）的最大n，至少1、至多3。判定为“差不多”或“优于父节点”时，worker可扩展到3个seed；RLD可随时扩展。
-- **创建节点**必须引用至少 `project.min_related_work`（默认3）篇现行的literature文档（`rel_references`）。
+- **创建节点**必须引用至少 `project.min_related_work`（默认3）篇现行的literature文档（`rel_references`）。根节点（项目本身）只存放 baselines；不指定父节点时新节点挂在根节点下（初始假说都是如此）；指定父节点时，父节点必须已是可拓展状态。
 - **开始验证**要求节点已有代码分支，且 `experiment_status` 为running；节点实验的代码必须是不同于分支基准的提交。
 - **记录判定**（`record_verdict`）要求每个seed的运行都有效且记录了主指标、其他指标、实际节点数与时长；比较对象固定为SOTA，以及父节点最新已判定的实验（顶层节点只比SOTA）。接口核对判定与比较数据一致：“无提升”当且仅当相对父节点的所有指标都不更好；“优于父节点”要求主指标更好；“优于SOTA”要求3个seed全部配对且主指标领先超过 `go_margin`（`passes_gate` 由接口计算），通过该门槛时判定只能是“优于SOTA”或“需要RLD复核”；少于3个seed时不能判“优于SOTA”，3个seed时不能判“差不多”。
 - **节点结论**（`experiment_status`）必须等于节点最新已判定实验的判定，并引用该实验；“差不多”须先扩展seed；“需要RLD复核”由RLD附决定文档自行选择（选“优于SOTA”仍须通过门槛）。“无提升”的节点必须同时标为可消灭；可拓展要求优于父节点或优于SOTA。

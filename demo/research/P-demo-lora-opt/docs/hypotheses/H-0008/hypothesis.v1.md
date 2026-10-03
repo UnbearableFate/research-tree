@@ -1,5 +1,5 @@
 ---
-id: "D-0048"
+id: "D-0049"
 doc_type: "hypothesis"
 version: 1
 title: "自适应秩分配"
@@ -7,7 +7,7 @@ summary: "按层的子批次方差分配LoRA秩，可在同等参数量下提升
 about: []
 author_role: "rld"
 author_id: "main"
-created_at: "2026-10-03T13:19:31Z"
+created_at: "2026-10-03T16:11:24Z"
 parent: "H-0003"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。

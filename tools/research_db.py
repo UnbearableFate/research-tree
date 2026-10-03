@@ -603,10 +603,22 @@ class ResearchDB:
     def create_hypothesis(self, title: str, statement: str, doc_id: str, related_work: list[str],
                           parent_id: str | None = None, priority: int = 0) -> str:
         """related_work: current literature documents consulted when creating the node (the cached
-        related research); the hypothesis document records the creation rationale."""
+        related research); the hypothesis document records the creation rationale.
+
+        The tree's root is the project: it holds the baselines (frozen harness, SOTA and other baseline
+        experiments) and no hypothesis. Without parent_id a node is a child of the root, as every initial
+        hypothesis is; a node is derived below another hypothesis only once that one is verified and
+        expandable, so the level of a node never has to be guessed."""
         self._require_role("rld")
         with self._writer() as tx:
             project = self._project(tx)
+            if parent_id is not None and parent_id != project["id"]:
+                parent = tx.require(parent_id, ("hypothesis",))
+                if parent["status"] != "expandable":
+                    raise ResearchDBError(
+                        f"{parent_id} is {parent['status']}: new nodes go below the root (no parent_id) or below a "
+                        "verified, expandable node"
+                    )
             related = sorted(set(related_work))
             if len(related) < project["min_related_work"]:
                 raise ResearchDBError(

@@ -344,6 +344,9 @@ class Demo:
         theo = self.doc(rld, f"hypotheses/{h3}/theory.v1.md", "theory", f"{h3} 理论复核",
                         "## 核对\n\n尺度平衡使A、B因子的有效学习率一致；与实验中loss_auc改善一致。\n", "推导核对无误", about=(h3,))
         rld.decide(h3, {"novelty_recheck": "pass", "theory_recheck": "pass"}, "复核通过", based_on=[nov, theo])
+        dd3 = self.decision(f"hypotheses/{h3}/decisions/expandable.v1.md", f"{h3} 可拓展",
+                            "优于SOTA且两项复核通过；作为GO候选，同时可派生子节点。", h3)
+        rld.decide(h3, {"status": "expandable"}, "优于SOTA且复核通过，可拓展", doc_id=dd3)
         # H-0004: child of H-0001 — no gain against the parent; pruned.
         h4 = node("子批次二阶矩 + 动量重标度", "按子批次方差重标度动量可减少噪声。", [lit[0], lit[1], lit[4]], parent=h1,
                   rationale="H-0001 的变体，检验噪声来源。")

@@ -282,8 +282,8 @@ function planningPrompt(project: ResearchProject, cfg: Config): string {
 请作为 Research Leader 完成立项规划。本阶段不要启动 worker，也不要提交任何作业：
 1. 读原文。写 docs/project/goal.v1.md（研究目标）和 docs/project/min-setup.v1.md（最小实验设定：模型、数据、训练量、评测、主指标及优劣方向、其他比较指标、3个统一seed、单次运行上限与筛选预算、计划的实验框架与判定规则）；用 research_db 登记（register_document）并设为现行。
 2. create_project：id 为 ${project.project_id}，repo_path 为本项目代码仓库的绝对路径（原文未给出就在 ${project.root}/../.. 下合适的位置新建 git 仓库），其余参数取自最小实验设定。
-3. 为原文中的每个初始假说检索并缓存相关研究（docs/literature/，每个节点至少3篇，原文缓存到 cache/literature/），写假说文档（创建理由、计划的代码改动、实验计划），create_hypothesis 建初始节点（状态为待验证）。
-4. 根节点：写 docs/tasks/T-0001/request.v1.md，说明要实现的实验骨架与统计代码，以及要运行的SOTA基线（baselines）方案；create_task(kind=harness, assignee_role=worker)，先不指派。
+3. 为原文中的每个初始假说检索并缓存相关研究（docs/literature/，每个节点至少3篇，原文缓存到 cache/literature/），写假说文档（创建理由、计划的代码改动、实验计划），create_hypothesis 建初始节点（状态为待验证）。所有初始假说都不指定 parent_id：它们都是根节点的直接子节点、彼此平级，即使原文暗示了先后或包含关系也不在初始假说之间建立父子关系（只有验证完成、可拓展的节点才能派生子节点）。
+4. 根节点只存放 baselines：写 docs/tasks/T-0001/request.v1.md，说明要实现的实验骨架与统计代码，以及要运行的SOTA与其他基线方案；create_task(kind=harness, assignee_role=worker)，先不指派。
 5. 写 docs/project/reports/init-plan.v1.md 汇总以上（目标、设定、初始节点、基线与根节点方案、预计资源），登记并设为现行，然后调用 post_to_ui(type=confirm_request, docs=["project/reports/init-plan.v1.md"]) 请用户在研究对话窗口确认。
 用户确认之前 mod 会拒绝启动 worker。规则文件：${cfg.toolsDir}/reusable-research-agent-rules-20261003.md。`
 }
@@ -296,6 +296,7 @@ function startPrompt(project: ResearchProject, confirmation: { doc_id: string; p
 const WORKFLOW = `## research-tree 工作流（由 research-agent mod 注入）
 - 研究项目的状态、节点、实验、判定和决定都在当前目录 research/<项目ID>/ 的 LatticeDB 研究数据库里；只能通过 ${'`'}${TOOL}${'`'} 工具（或 tools/research_db.py）读写，不要直接改数据库文件。
 - 实验优先：每个节点都要有实质性代码改动和实验；节点结论跟随冻结统计代码的判定（无提升→可消灭，优于父节点→可拓展，优于SOTA→RLD复核新颖性与理论正确性）。
+- 搜索树的根节点只存放 baselines（冻结框架、SOTA与其他基线实验）；用户的初始假说都是根节点的直接子节点；只有验证完成、可拓展的节点才能派生子节点。
 - 已生效的文档不可修改，改动写新版本；节点代码中不能改动冻结框架。
 - 立项计划须经用户确认后才能启动 ${WORKER_AGENT} 子代理；需要用户决定的事用 post_to_ui，用户的话经 UI 登记后由 relay_to_rld 送达。
 - /${COMMAND} 查看进度；/${COMMAND} ui 打开研究对话窗口；/${COMMAND} pane 打开进度面板；/${COMMAND} build 生成离线进度页面。`
@@ -703,7 +704,7 @@ function registerProgressPane(on: Parameters<Register>[0], cfg: Config): void {
         walk(n.id, depth + 1)
       }
     }
-    walk(summary.project.id, 0)
+    walk(summary.project.id, 1)
     const room = Math.max(4, (e.viewport?.rows ?? 30) - 12 - Math.min(summary.attention.length, 6))
     return (
       <Box flexDirection="column">
@@ -715,6 +716,9 @@ function registerProgressPane(on: Parameters<Register>[0], cfg: Config): void {
           节点 {summary.nodes.length} · 优于SOTA {summary.counts.exp_status.beats_sota ?? 0} · GO候选 {summary.counts.go} · {summary.counts.node_hours} node·h
         </Text>
         <Text> </Text>
+        <Text wrap="truncate">
+          <Text bold>根节点 · baselines</Text> <Text dimColor>SOTA {summary.project.sota_experiment_id ?? '未设置'} · 框架 {summary.project.harness_ref ? summary.project.harness_ref.slice(0, 10) : '未冻结'}</Text>
+        </Text>
         {rows.slice(0, room).map(({ node, depth }) => (
           <Text key={node.id} wrap="truncate">
             {'  '.repeat(depth)}

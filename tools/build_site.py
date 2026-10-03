@@ -452,7 +452,7 @@ function tabs() {
   nav.addEventListener("click", e => { const k = e.target.dataset.tab; if (k) show(k); });
   const [k, id] = location.hash.slice(1).split("/");  // #tree/H-0003 opens a node
   show(k || "overview");
-  if (id && NODES[id]) nodeDetail(id);
+  if (id && (NODES[id] || id === P.id)) nodeDetail(id);
 }
 function show(k) {
   if (!document.getElementById("v-" + k)) k = "overview";
@@ -492,7 +492,7 @@ function decisionTable(list) {
     <tr><td>${esc(d.decided_at)}</td><td>${nodeRef(d.target_id)}</td><td>${esc(d.field)}：${esc(L(d.from_value))} → <b>${esc(L(d.to_value))}</b></td>
     <td>${esc(d.reason)}${d.doc_id ? "<br>" + docLink(d.doc_id) : ""}</td><td>${d.based_on.map(x => D.docs[x] ? docLink(x) : esc(x)).join("<br>")}</td></tr>`).join("")}</tbody></table>`;
 }
-const nodeRef = id => NODES[id] ? `<a href="#" data-node="${esc(id)}">${esc(id)}</a>` : esc(id);
+const nodeRef = id => NODES[id] || id === P.id ? `<a href="#" data-node="${esc(id)}">${esc(id)}</a>` : esc(id);
 
 // ---- tree ----
 let selected = null;
@@ -509,7 +509,7 @@ function tree() {
   document.getElementById("v-tree").innerHTML = `<div class="layout"><div class="panel tree">
       <div class="controls"><input id="q" placeholder="搜索 ID/标题/假说"><select id="st"><option value="">全部状态</option>
       ${["pending","verifying","expandable","prunable"].map(s => `<option value="${s}">${L(s)}</option>`).join("")}</select></div>
-      <ul><li><b>${esc(P.id)}</b> <span class="muted">项目根（SOTA基线 ${esc(P.sota_experiment_id || "未设置")}）</span><ul>${(kids[P.id] || []).map(li).join("")}</ul></li></ul>
+      <ul><li><span class="node" data-node="${esc(P.id)}"><b>${esc(P.id)}</b> 根节点 · baselines <span class="muted">SOTA ${esc(P.sota_experiment_id || "未设置")}</span></span><ul>${(kids[P.id] || []).map(li).join("")}</ul></li></ul>
     </div><div class="panel" id="detail"><p class="muted">点击左侧节点查看详情。</p></div></div>`;
   const q = document.getElementById("q"), st = document.getElementById("st");
   const filter = () => {
@@ -530,7 +530,28 @@ function deltaText(n) {
   const e = n.latest && EXP[n.latest]; if (!e) return "";
   return e.comparisons.map(c => `<span class="muted">${c.role === "sota" ? "vs SOTA" : "vs 父"} ${c.delta_mean >= 0 ? "+" : ""}${fmt(c.delta_mean)}</span>`).join(" ");
 }
+function rootDetail() {
+  selected = P.id;
+  history.replaceState(null, "", "#tree/" + P.id);
+  document.querySelectorAll(".tree .node").forEach(el => el.classList.toggle("sel", el.dataset.node === P.id));
+  const baselines = Object.values(EXP).filter(e => e.kind === "baseline");
+  const tasks = D.tasks.filter(t => t.kind === "harness");
+  document.getElementById("detail").innerHTML = `
+    <h2>${esc(P.id)} 根节点 · baselines</h2>
+    <p class="muted">根节点只存放基线：冻结的实验框架与统计代码、SOTA和其他基线实验。用户给出的初始假说都是它的子节点。</p>
+    <table>
+      <tr><th>最小实验设定</th><td>${docLink(P.min_setup_doc_id)}</td></tr>
+      <tr><th>冻结框架</th><td>${P.harness_ref ? esc(P.harness_ref.slice(0, 10)) + "：" + esc((P.harness_paths || []).join("、")) : '<span class="warn">未冻结</span>'}</td></tr>
+      <tr><th>SOTA基线</th><td>${EXP[P.sota_experiment_id] ? `${esc(P.sota_experiment_id)} ${esc(EXP[P.sota_experiment_id].method)}` : '<span class="warn">未设置</span>'}</td></tr>
+      <tr><th>筛选seed数</th><td>${esc(D.screen_seeds ?? "未知")}</td></tr>
+      <tr><th>根节点任务</th><td>${tasks.map(t => `${esc(t.id)}（${esc(t.status)}，${esc(t.assignee_role)}/${esc(t.assignee_id || "未指派")}）：${docLink(t.request_doc_id)}`).join("<br>") || "无"}</td></tr>
+      <tr><th>子节点（初始假说等）</th><td>${D.nodes.filter(n => n.parent === P.id).map(n => nodeRef(n.id) + " " + esc(n.title)).join("<br>") || "无"}</td></tr>
+    </table>
+    <h3>基线实验</h3>${baselines.length ? baselines.map(expBlock).join("") : '<p class="muted">暂无基线实验</p>'}
+    <h3>决定历史</h3>${decisionTable(D.decisions.filter(d => d.target_id === P.id))}`;
+}
 function nodeDetail(id) {
+  if (id === P.id) return rootDetail();
   const n = NODES[id]; if (!n) return;
   selected = id;
   history.replaceState(null, "", "#tree/" + id);
@@ -545,7 +566,7 @@ function nodeDetail(id) {
       <tr><th>实验结论</th><td>${badge(n.exp_status, "v-" + n.exp_status)} 最新判定实验：${esc(n.latest || "无")}</td></tr>
       <tr><th>复核（优于SOTA后）</th><td>新颖性 ${esc(n.novelty === "pending" ? "未复核" : L(n.novelty))}；理论 ${esc(n.theory === "pending" ? "未复核" : L(n.theory))}</td></tr>
       <tr><th>关键时间</th><td>${keyTimes(n)}</td></tr>
-      <tr><th>父节点</th><td>${n.parent === P.id ? "项目根（与SOTA比较）" : nodeRef(n.parent)}</td></tr>
+      <tr><th>父节点</th><td>${n.parent === P.id ? nodeRef(P.id) + " 根节点 · baselines（与SOTA比较）" : nodeRef(n.parent)}</td></tr>
       <tr><th>代码分支</th><td>${n.branch ? `${esc(n.branch.name)}（${esc(n.branch.status)}，基准 ${esc(n.branch.base)}${n.branch.head ? "，交还 " + esc(n.branch.head) : ""}）` : "无"}</td></tr>
       <tr><th>假说文档</th><td>${docLink(n.doc)}</td></tr>
       <tr><th>创建时参考的相关研究</th><td>${n.references.map(docLink).join("<br>") || "无"}</td></tr>
@@ -573,7 +594,7 @@ function expBlock(e) {
     <td class="num">${fmt(r.metric)}</td>${(P.secondary_metrics || []).map(k => `<td class="num">${fmt(r.secondary?.[k])}</td>`).join("")}<td class="num">${fmt(r.node_h, 2)}</td>
     <td>${r.curve_problem ? `<span class="warn">${esc(r.curve_problem)}</span>` : "有"}</td></tr>`).join("");
   return `<div class="panel"><b>${esc(e.id)}</b> ${esc(e.method)} · ${esc(e.kind)} · seeds ${esc(e.seeds.join(", "))} · 代码 ${esc(e.code)}
-    ${e.verdict ? badge(e.verdict, "v-" + e.verdict) : '<span class="muted">未判定</span>'}${e.stale_harness ? '<span class="warn">框架已更换，结果不可比</span>' : ""}
+    ${e.verdict ? badge(e.verdict, "v-" + e.verdict) : e.kind === "baseline" ? `<span class="muted">${e.evaluated ? "基线结果已记录" : "基线结果未记录"}</span>` : '<span class="muted">未判定</span>'}${e.stale_harness ? '<span class="warn">框架已更换，结果不可比</span>' : ""}
     <div>设计：${docLink(e.design)}；结果：${docLink(e.result)}</div>
     <table class="heat"><thead><tr><th>seed</th><th>执行</th><th>验收</th><th>${esc(P.primary_metric)}</th>${(P.secondary_metrics || []).map(k => `<th>${esc(k)}</th>`).join("")}<th>node·h</th><th>曲线</th></tr></thead><tbody>${runs}</tbody></table>
     ${e.comparisons.length ? `<table class="heat"><thead><tr><th>比较</th><th>配对seed</th><th>Δ${esc(P.primary_metric)}</th>${(P.secondary_metrics || []).map(k => `<th>Δ${esc(k)}</th>`).join("")}<th>过SOTA门槛</th></tr></thead><tbody>

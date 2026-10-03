@@ -220,12 +220,12 @@ class HypothesisTest(Fixture):
     def test_create_tree_and_data_version(self):
         before = self.rld.export_snapshot()["meta"]["data_version"]
         h1 = self.hypothesis()
-        h2 = self.hypothesis(parent=h1)
+        h2 = self.hypothesis()  # initial hypotheses are siblings below the root
         rec = self.rld.get(h1)
         self.assertEqual((rec["status"], rec["experiment_status"], rec["novelty_recheck"], rec["parent_id"]),
                          ("pending", "todo", "pending", "P-test"))
-        self.assertEqual(self.rld.children("P-test"), [h1])
-        self.assertEqual(self.rld.find("hypothesis", parent_id=h1), [self.rld.get(h2)])
+        self.assertEqual(self.rld.children("P-test"), [h1, h2])
+        self.assertEqual(self.rld.find("hypothesis", parent_id="P-test"), [rec, self.rld.get(h2)])
         # per hypothesis: register + set current its document, then create = 3 writes
         self.assertEqual(self.rld.export_snapshot()["meta"]["data_version"], before + 6)
 
@@ -477,6 +477,19 @@ class DecisionTest(Fixture):
         self.evaluate(one, "close", sota=(0.01, 0.0, 0.0))
         with self.assertRaisesRegex(ResearchDBError, "extend its seeds first"):
             self.rld.decide(h, {"experiment_status": "beats_parent"}, "x", based_on=[one])
+
+    def test_children_only_below_expandable_nodes(self):
+        pending = self.hypothesis()
+        with self.assertRaisesRegex(ResearchDBError, "is pending: new nodes go below the root"):
+            self.hypothesis(parent=pending)
+        h, exp = self.concluded("beats_parent", sota=(0.02, 0.0, 0.0))
+        with self.assertRaisesRegex(ResearchDBError, "is verifying"):
+            self.hypothesis(parent=h)
+        self.rld.decide(h, {"experiment_status": "beats_parent", "status": "expandable"}, "keep",
+                        doc_id=self.decision_doc(), based_on=[exp])
+        child = self.hypothesis(parent=h)
+        self.assertEqual(self.rld.children(h), [child])
+        self.assertEqual(self.rld.get(self.hypothesis(parent="P-test"))["parent_id"], "P-test")  # the root by name
 
     def test_child_compares_with_parent_result(self):
         parent, parent_exp = self.concluded("beats_parent", sota=(0.02, 0.0, 0.0))
