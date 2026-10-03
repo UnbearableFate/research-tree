@@ -16,6 +16,7 @@
 | `tools/make_demo.py` | 生成虚构示例项目（代码仓库、数据库、文档库、消息、页面） |
 | `tests/` | 单元与端到端测试 |
 | `demo/` | `make_demo.py` 生成的虚构示例项目 |
+| `claude-mod/research-agent/` | Claude Code mod：研究对话窗口（UI agent）、进度面板与状态栏、`/research` 命令、`research_db` 等工具、工作流系统提示、文档与框架写入保护 |
 
 ## 构建与验证
 
@@ -30,6 +31,15 @@ cd research-agent
 ```
 
 示例页面：`demo/research/P-demo-lora-opt/site/index.html`（离线打开；`#tree/H-0003` 直接打开节点详情）。示例中的方法、文献与数字全部是虚构的。
+
+## Claude Code mod
+
+```bash
+claude --plugin-dir claude-mod/research-agent      # 项目数据库等在 /config 的 research-agent 选项中设置
+claude plugin test claude-mod/research-agent       # mod 自身的测试（Miyabi 上在计算节点运行）
+```
+
+主会话即 Research Leader。`/research ui` 打开“研究对话”窗口：输入框里的每条消息交给 mod 定义的 `research-agent:ui` 子代理（主模型不会调用它），回复显示在窗口中；UI 用 `relay_to_rld` 把登记过的指令或问题转交主会话，主会话用 `post_to_ui` 把需要用户决定的事项发回窗口。`/research pane` 打开进度面板，`/research build` 生成离线页面。
 
 ## 新项目
 

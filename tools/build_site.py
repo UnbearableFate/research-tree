@@ -243,7 +243,38 @@ def collect(db_path: Path) -> dict:
         "docs": docs, "nodes": nodes, "experiments": experiments, "decisions": decisions,
         "tasks": [{k: v for k, v in t.items() if k != "_table"} for t in tables["task"]],
         "attention": attention, "node_hours": round(node_hours, 2),
+        "active_worktrees": sorted(b["worktree_path"] for b in tables["branch"]
+                                   if b["status"] == "active" and b.get("worktree_path")),
         "screen_seeds": _screen_seeds(experiments, project),
+    }
+
+
+def summary(data: dict, db_path: Path) -> dict:
+    """Compact view of collect()'s data for tools that show progress elsewhere (the Claude Code mod): counts,
+    the tree with each node's latest comparison, attention items, and the paths a guard should protect."""
+    root, project = db_path.resolve().parent, data["project"]
+    nodes = []
+    for n in data["nodes"]:
+        latest = n["latest"] and data["experiments"][n["latest"]]
+        deltas = {c["role"]: c["delta_mean"] for c in latest["comparisons"]} if latest else {}
+        nodes.append({k: n[k] for k in ("id", "title", "parent", "status", "exp_status", "novelty", "theory", "go")}
+                     | {"verdict": latest and latest["verdict"], "seeds": latest and len(latest["seeds"]),
+                        "vs_sota": deltas.get("sota"), "vs_parent": deltas.get("parent", deltas.get("sota")),
+                        "concluded_at": n["times"]["concluded_at"]})
+    count = lambda key: {v: sum(1 for n in nodes if n[key] == v) for v in sorted({n[key] for n in nodes})}
+    harness = project.get("harness_paths") or []
+    return {
+        "meta": data["meta"], "db_path": str(db_path.resolve()),
+        "project": {k: project.get(k) for k in ("id", "title", "status", "stage", "sota_experiment_id", "go_margin",
+                                                 "harness_ref", "repo_path")},
+        "counts": {"status": count("status"), "exp_status": count("exp_status"),
+                   "go": sum(n["go"] for n in nodes), "node_hours": data["node_hours"],
+                   "screen_seeds": data["screen_seeds"]},
+        "nodes": nodes, "attention": data["attention"],
+        "guards": {
+            "frozen_docs": sorted(str(root / "docs" / d["path"]) for d in data["docs"].values() if d["status"] != "draft"),
+            "harness": sorted(f"{wt.rstrip('/')}/{p.strip('/')}" for wt in data["active_worktrees"] for p in harness),
+        },
     }
 
 
@@ -294,6 +325,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--db", type=Path, required=True)
     p.add_argument("--out", type=Path, help="default: <db dir>/site/index.html")
     p.add_argument("--check", action="store_true", help="only report whether the page is up to date")
+    p.add_argument("--summary", action="store_true", help="print a compact JSON summary instead of building")
     args = p.parse_args(argv)
     out = args.out or args.db.parent / "site" / "index.html"
     try:
@@ -302,6 +334,9 @@ def main(argv: list[str] | None = None) -> int:
             built = page_version(out)
             print(json.dumps({"page_version": built, "db_version": current, "stale": built != current}))
             return 0 if built == current else 1
+        if args.summary:
+            print(json.dumps(summary(collect(args.db), args.db), ensure_ascii=False))
+            return 0
         data = build(args.db, out)
     except ResearchDBError as exc:
         print(f"error: {exc}", file=sys.stderr)

@@ -1,0 +1,32 @@
+{
+  "name": "research-agent",
+  "version": "0.1.0",
+  "description": "Research-agent workflow in Claude Code: progress pane and status line from the research database, /research commands, a research_db tool for the model, workflow rules in the system prompt, and guards for frozen documents, the frozen harness and the database file.",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "toolsDir": {
+      "type": "string",
+      "title": "research-agent directory",
+      "description": "The research-agent repository holding tools/research_db.py, tools/build_site.py and the rules file.",
+      "default": "/work/xg24i002/x10041/research-agent"
+    },
+    "projectDb": {
+      "type": "string",
+      "title": "Project database",
+      "description": "research/<project-id>/research_tree.db of the project this session works on; empty turns the mod idle.",
+      "default": "/work/xg24i002/x10041/research-agent/demo/research/P-demo-lora-opt/research_tree.db"
+    },
+    "python": {
+      "type": "string",
+      "title": "Python interpreter",
+      "description": "Interpreter with latticedb and jsonschema; empty means <toolsDir>/.venv/bin/python.",
+      "default": ""
+    },
+    "actor": {
+      "type": "string",
+      "title": "Actor",
+      "description": "Who this session is in the research team (<role>/<agent-id>), used by the research_db tool when a call names none.",
+      "default": "rld/main"
+    }
+  }
+}

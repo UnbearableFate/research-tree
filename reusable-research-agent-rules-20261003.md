@@ -18,7 +18,7 @@
 
 ### 启动独立User Interface session
 
-以下步骤由Leader在采用本版规则启动研究任务时执行。Herdr启动流程针对Codex；其他宿主不得假定具备相同能力。
+以下步骤由Leader在采用本版规则启动研究任务时执行。Herdr启动流程针对Codex；其他宿主不得假定具备相同能力。在Claude Code中使用仓库的 `claude-mod/research-agent` mod 时，主会话即Leader，UI是CLI中的“研究对话”窗口（mod启动的UI子代理，主模型不能调用），UI与Leader通过 `relay_to_rld` 和 `post_to_ui` 往来，消息同样经 `tools/send_message.py` 校验和记录；此时不执行下列Herdr步骤。
 
 1. **检查环境与现有绑定。** 先读取`herdr`技能并检查`test "${HERDR_ENV:-}" = 1`。不满足时停止Herdr操作并报告环境缺口，不能从外部控制用户当前聚焦的Herdr session。满足后先读`herdr --help`、`herdr agent`、`herdr pane`，以安装版本为准；检查本研究已有UI绑定，存在且身份有效则复用，避免每次恢复都新建UI。
 2. **创建布局。** 用`herdr pane current --current`和`herdr pane layout --current`确认调用pane及布局。默认同tab、同工作目录创建相邻pane，宽pane向右，窄或高pane向下；使用`--no-focus`保持用户焦点，不擅自创建workspace、tab或worktree。

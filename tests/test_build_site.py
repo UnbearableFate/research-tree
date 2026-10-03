@@ -93,6 +93,24 @@ class BuildSiteTest(Fixture):
         self.assertEqual(result.returncode, 0, result.stderr)
 
 
+class SummaryTest(Fixture):
+    def test_summary_for_the_mod(self):
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h)
+        self.evaluate(exp, "beats_sota")
+        out = subprocess.run([sys.executable, str(REPO / "tools" / "build_site.py"), "--db", str(self.db), "--summary"],
+                             capture_output=True, text=True, check=True)
+        data = json.loads(out.stdout)
+        node = data["nodes"][0]
+        self.assertEqual((node["id"], node["verdict"], node["seeds"], node["vs_sota"]), (h, "beats_sota", 3, 0.3))
+        self.assertEqual(data["counts"]["status"], {"verifying": 1})
+        self.assertIn(str((self.root / "docs" / self.rld.get(node_doc := self.rld.get(h)["doc_id"])["path"]).resolve()),
+                      data["guards"]["frozen_docs"], node_doc)
+        self.assertEqual(data["guards"]["harness"], [str(Path(self.tmp.name) / "wt" / h / "harness")])
+        self.assertTrue(any(a["kind"] == "结论待更新" for a in data["attention"]))
+
+
 class MarkdownTest(unittest.TestCase):
     def test_subset(self):
         out = build_site.render_markdown("---\nid: D-1\n---\n# 标题\n\n- 甲 **重点**\n- 乙\n\n| a | b |\n|---|---|\n| 1 | `x<y` |\n\n```\nraw <b>\n```\n")
