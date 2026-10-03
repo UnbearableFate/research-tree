@@ -1,0 +1,17 @@
+{
+  "name": "research-tree",
+  "version": "0.1.0",
+  "description": "research-tree for ML method discovery in Claude Code: /research-tree init <plan.md> sets up a uv project and a research database in the current directory, the main session plans as Research Leader, the UI agent talks with you in a window, and one worker per node implements and evaluates after you confirm the plan. Bundles its Python tools, schema and rules.",
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "actor": {
+      "type": "string",
+      "title": "Actor",
+      "description": "Who the main session is in the research team (<role>/<agent-id>); UI and worker runs are fixed by the mod.",
+      "default": "rld/main"
+    }
+  },
+  "author": {
+    "name": "yu mingzhe"
+  }
+}

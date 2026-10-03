@@ -1,6 +1,6 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "research-agent/message.schema.json",
+  "$id": "research-tree/message.schema.json",
   "title": "Agent message",
   "description": "One agent-to-agent message: a short note plus references. Serialize as one line of compact UTF-8 JSON (ensure_ascii=False, no spaces); the serialized line must be <= 1000 bytes. The sender appends the exact line to messages/<sender-id>.jsonl before sending.",
   "type": "object",

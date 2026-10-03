@@ -67,7 +67,7 @@ export type ResearchChatEntry = { role: 'user' | 'ui' | 'rld' | 'note'; text: st
 
 declare module 'claude-code' {
   interface PluginState {
-    'research-agent': {
+    'research-tree': {
       summary: ResearchSummary | null
       error: string | null
       refreshedAt: string | null

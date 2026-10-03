@@ -7,7 +7,7 @@ const PANE_PROPS = {
   title: '研究对话（UI）', isFocused: true, bodyColumns: 80, placement: 'dock' as const,
   scroll: { offset: 0, bodyRows: 30 }, view: {},
 }
-const UI = { plugin: 'research-agent', component: 'Pane' as const, requestId: 'research-ui', props: PANE_PROPS }
+const UI = { plugin: 'research-tree', component: 'Pane' as const, requestId: 'research-ui', props: PANE_PROPS }
 
 const SUMMARY = {
   guards: {
@@ -71,7 +71,7 @@ test('no worker starts before the user confirmed the plan', async ($, on) => {
     reached += 1
     return { model: 'test-model' }
   })
-  const denied = await $.agent.spawn({ subagentType: 'research-agent:worker', prompt: '你是 worker/w1。实现 T-0001。' } as never)
+  const denied = await $.agent.spawn({ subagentType: 'research-tree:worker', prompt: '你是 worker/w1。实现 T-0001。' } as never)
   expect((denied as { deny?: string }).deny).toContain('/research-tree init')
   expect(reached).toBe(0)
   // Other agent types are not held back.
@@ -103,7 +103,7 @@ test('worker identities resolve to their node, and bound sessions to their ident
 })
 
 test('only the UI agent records a confirmation', async $ => {
-  const ran = await $.tool.call({ tool: 'mcp__research-agent__confirm_plan', words: '同意' } as never)
+  const ran = await $.tool.call({ tool: 'mcp__research-tree__confirm_plan', words: '同意' } as never)
   expect(ran.isError).toBe(true)
   expect(String(ran.result)).toContain('只能由研究对话窗口的 UI agent')
 })
@@ -126,7 +126,7 @@ test('the UI window hands the message to a UI agent run with the conversation', 
   const ui = await $.ui.mount({ ...UI, surface: 'terminal' })
   await ui.input({ key: 'ask', text: '现在进度如何？' })
   await ui.input({ key: 'ask', text: '只看GO候选' })
-  expect(spawns.map(s => s.type)).toEqual(['research-agent:ui', 'research-agent:ui'])
+  expect(spawns.map(s => s.type)).toEqual(['research-tree:ui', 'research-tree:ui'])
   expect(spawns[0]?.prompt).toContain('## 用户的新消息\n现在进度如何？')
   expect(spawns[0]?.prompt).toContain('User Interface（UI）agent')
   expect(spawns[0]?.prompt).toContain('当前目录没有研究项目')
@@ -138,8 +138,8 @@ test('the UI window hands the message to a UI agent run with the conversation', 
 
 test('the main model is never offered the UI agent', async $ => {
   const offered = await $.agent.offer({
-    agent: 'research-agent:ui', description: 'UI', source: 'plugin',
-    provider: { plugin: 'research-agent', tier: 'user' },
+    agent: 'research-tree:ui', description: 'UI', source: 'plugin',
+    provider: { plugin: 'research-tree', tier: 'user' },
   } as never)
   expect(offered.isOffered).toBe(false)
 })

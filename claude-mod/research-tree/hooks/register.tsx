@@ -3,29 +3,29 @@ import type { EngineInterface, PluginOptions, Register } from 'claude-code'
 
 import type { ResearchChatEntry, ResearchNode, ResearchProject, ResearchSummary } from '../types'
 
-const PLUGIN = 'research-agent'
+const PLUGIN = 'research-tree'
 const COMMAND = 'research-tree'
 const PANE = 'research-progress'
 const UI_PANE = 'research-ui'
-const UI_AGENT = 'research-agent:ui'
-const WORKER_AGENT = 'research-agent:worker'
-const TOOL = 'mcp__research-agent__research_db'
-const RELAY_TOOL = 'mcp__research-agent__relay_to_rld'
-const POST_TOOL = 'mcp__research-agent__post_to_ui'
-const CONFIRM_TOOL = 'mcp__research-agent__confirm_plan'
+const UI_AGENT = 'research-tree:ui'
+const WORKER_AGENT = 'research-tree:worker'
+const TOOL = 'mcp__research-tree__research_db'
+const RELAY_TOOL = 'mcp__research-tree__relay_to_rld'
+const POST_TOOL = 'mcp__research-tree__post_to_ui'
+const CONFIRM_TOOL = 'mcp__research-tree__confirm_plan'
 const VENV_PYTHON = '.venv/bin/python'
 const MARKER = '.research-tree.json'
 const DEFAULT_PYTHON = '3.13'
 const DEPENDENCIES = ['latticedb==0.15.0', 'jsonschema>=4.26']
 const READ_ONLY = /^(get|find|edges|children|history|go_candidates|latest_result|screen_seed_count|export_snapshot|verify_document)$/
 
-const summaryRef = { plugin: 'research-agent', key: 'summary' } as const
-const errorRef = { plugin: 'research-agent', key: 'error' } as const
-const refreshedRef = { plugin: 'research-agent', key: 'refreshedAt' } as const
-const chatRef = { plugin: 'research-agent', key: 'chat' } as const
-const uiAgentRef = { plugin: 'research-agent', key: 'uiAgentId' } as const
-const projectRef = { plugin: 'research-agent', key: 'project' } as const
-const agentsRef = { plugin: 'research-agent', key: 'agents' } as const
+const summaryRef = { plugin: 'research-tree', key: 'summary' } as const
+const errorRef = { plugin: 'research-tree', key: 'error' } as const
+const refreshedRef = { plugin: 'research-tree', key: 'refreshedAt' } as const
+const chatRef = { plugin: 'research-tree', key: 'chat' } as const
+const uiAgentRef = { plugin: 'research-tree', key: 'uiAgentId' } as const
+const projectRef = { plugin: 'research-tree', key: 'project' } as const
+const agentsRef = { plugin: 'research-tree', key: 'agents' } as const
 const summaryAtom = atom(summaryRef, null)
 const errorAtom = atom(errorRef, null)
 const refreshedAtom = atom(refreshedRef, null)
@@ -34,7 +34,10 @@ const uiAgentAtom = atom(uiAgentRef, null)
 const projectAtom = atom(projectRef, null)
 const agentsAtom = atom(agentsRef, {})
 
-type Config = { toolsDir: string; actor: string }
+type Config = { actor: string }
+
+/** Where the plugin keeps its Python tools, schema and rules: its own directory. */
+const RULES = 'rules/reusable-research-agent-rules-20261003.md'
 
 const LABEL: Record<string, string> = {
   pending: '待验证', verifying: '验证中', expandable: '可拓展', prunable: '可消灭',
@@ -49,7 +52,6 @@ const now = () => new Date().toISOString().slice(0, 19).replace('T', ' ')
 
 function config(options: PluginOptions): Config {
   return {
-    toolsDir: String(options.toolsDir ?? '').replace(/\/+$/, ''),
     actor: String(options.actor || 'rld/main'),
   }
 }
@@ -85,11 +87,11 @@ async function venv($: EngineInterface): Promise<{ python: string } | { problem:
   }
 }
 
-/** Runs one of the research-agent Python tools with the session directory's .venv, in that directory. */
+/** Runs one of the research-tree Python tools with the session directory's .venv, in that directory. */
 async function runTool($: EngineInterface, cfg: Config, script: string, args: string[], timeoutMs = 60_000) {
   const env = await venv($)
   if ('problem' in env) return { exitCode: 127, stdout: '', stderr: env.problem }
-  return $.process.run([env.python, `${cfg.toolsDir}/tools/${script}`, ...args], { timeoutMs })
+  return $.process.run([env.python, `${$.plugin.root}/tools/${script}`, ...args], { timeoutMs })
 }
 
 async function refresh($: EngineInterface, cfg: Config): Promise<ResearchSummary | null> {
@@ -265,24 +267,24 @@ function workerBlock(project: ResearchProject | null | undefined): string | unde
 // Prompts
 // ---------------------------------------------------------------------------
 
-function uiPrompt(cfg: Config, project: ResearchProject | null): string {
+function uiPrompt(pluginRoot: string, project: ResearchProject | null): string {
   const docs = project ? `${project.root}/docs` : '（尚无项目）'
   return `你是研究项目的 User Interface（UI）agent，运行在 Claude Code 的“研究对话”窗口里，直接与用户对话。Research Leader（RLD）是主会话，负责研究管理与执行；你不是RLD的worker。
 
 职责：
 1. 理解和澄清用户意图；区分讨论、问题、偏好、明确决定和行动指令；只追问会改变执行的缺口。
 2. 回答进度与结果问题：依据共享记录（每条消息附带的项目摘要、research_db 只读方法 get/find/history/latest_result/go_candidates、文档库中的文档），注明数据版本；不自行查询作业，不调度worker。
-3. 用户的指令（停止、暂停、改变目标或范围、授权、约束、放弃某个节点等）：先写用户指令文档 ${docs}/instructions/UI-<四位序号>.v1.md，内容为用户原话（逐字）、你的理解、类型、生效范围、取代的旧指令；再用 mcp__research-agent__research_db 调用 register_document（doc_type 为 user_instruction，about 填相关的节点或项目ID）和 set_document_current；最后用 relay_to_rld（type=instruction，docs 填该文档相对 docs/ 的路径）转交RLD。指令必须先登记再转交。
+3. 用户的指令（停止、暂停、改变目标或范围、授权、约束、放弃某个节点等）：先写用户指令文档 ${docs}/instructions/UI-<四位序号>.v1.md，内容为用户原话（逐字）、你的理解、类型、生效范围、取代的旧指令；再用 mcp__research-tree__research_db 调用 register_document（doc_type 为 user_instruction，about 填相关的节点或项目ID）和 set_document_current；最后用 relay_to_rld（type=instruction，docs 填该文档相对 docs/ 的路径）转交RLD。指令必须先登记再转交。
 4. 立项计划等待用户确认时（项目阶段为“等待用户确认”），用户明确表示同意，就用 confirm_plan 记录确认（words 填用户原话）；用户提出修改意见时，按第3条登记为指令转交RLD，不要确认。
 5. 需要RLD回答的问题用 relay_to_rld（type=question）；普通讨论和偏好记在回复里，到决策点再合并转交，不逐句打扰RLD。
 6. 不派发、暂停或重分配worker，不替RLD作研究决定，不修改研究数据库中的节点、实验和项目状态。
 7. 用中文简洁回复，说明哪些是已记录的事实、哪些是你的理解。
 
-规则文件：${cfg.toolsDir}/reusable-research-agent-rules-20261003.md；文档库：${docs}。`
+规则文件：${pluginRoot}/${RULES}；文档库：${docs}。`
 }
 
 const WORKER_PROMPT = `你是 research-tree 项目的 worker，由 Research Leader（RLD）委派；你的身份（worker/<id>）写在任务说明开头。一个节点一个 worker：你从头负责这个节点直到它完成，RLD 会用 SendMessage 把后续步骤交给你。
-- 开始时用 mcp__research-agent__research_db 调用 resume_package（node_id 为你的节点，根节点为项目ID），读完其中列出的全部文档：这是你的工作依据；之后可能由另一个会话以同一身份接手，所以重要的中间结论要写成文档，并用 add_resume_docs 加进节点的恢复文档。
+- 开始时用 mcp__research-tree__research_db 调用 resume_package（node_id 为你的节点，根节点为项目ID），读完其中列出的全部文档：这是你的工作依据；之后可能由另一个会话以同一身份接手，所以重要的中间结论要写成文档，并用 add_resume_docs 加进节点的恢复文档。
 - 只在认领的任务范围内工作：先读取任务（get）和请求文档，再用 update_task 把任务改为 in_progress。
 - 代码改动只在任务指定的仓库分支或worktree中进行并提交；除根节点框架任务外，不改动冻结的实验框架与统计代码。
 - 在 Miyabi 上，测试、训练、推理等计算类工作必须在计算节点运行（miyabi-pbs-cmd 技能）。
@@ -290,7 +292,7 @@ const WORKER_PROMPT = `你是 research-tree 项目的 worker，由 Research Lead
 - 交付：写 tasks/<任务ID>/delivery.v1.md（实际做了什么、产出的文档与实验ID、未完成项和未知项），登记并设为现行，再 update_task(status=delivered, delivery_doc_id)；最终回复只给简短说明和文档引用。
 - 不自行改变研究目标、选择新的研究分支或接管他人任务；范围变化交RLD。`
 
-function planningPrompt(project: ResearchProject, cfg: Config): string {
+function planningPrompt(project: ResearchProject, pluginRoot: string): string {
   const instr = project.plan_instruction
   return `/${COMMAND} init 已在 ${project.root} 建立研究项目 ${project.project_id}（数据库 ${project.db}）。用户的研究目标与初始方案已逐字登记为用户指令 ${instr.doc_id}（docs/${instr.path}，原文件 ${project.plan}）。
 
@@ -300,7 +302,7 @@ function planningPrompt(project: ResearchProject, cfg: Config): string {
 3. 为原文中的每个初始假说检索并缓存相关研究（docs/literature/，每个节点至少3篇，原文缓存到 cache/literature/），写假说文档（创建理由、计划的代码改动、实验计划），create_hypothesis 建初始节点（状态为待验证）。所有初始假说都不指定 parent_id：它们都是根节点的直接子节点、彼此平级，即使原文暗示了先后或包含关系也不在初始假说之间建立父子关系（只有验证完成、可拓展的节点才能派生子节点）。
 4. 根节点只存放 baselines：写 docs/tasks/T-0001/request.v1.md，说明要实现的实验骨架与统计代码，以及要运行的SOTA与其他基线方案；create_task(kind=harness, assignee_role=worker)，先不指派。
 5. 写 docs/project/reports/init-plan.v1.md 汇总以上（目标、设定、初始节点、基线与根节点方案、预计资源），登记并设为现行，然后调用 post_to_ui(type=confirm_request, docs=["project/reports/init-plan.v1.md"]) 请用户在研究对话窗口确认。
-用户确认之前 mod 会拒绝启动 worker。规则文件：${cfg.toolsDir}/reusable-research-agent-rules-20261003.md。`
+用户确认之前 mod 会拒绝启动 worker。规则文件：${pluginRoot}/${RULES}。`
 }
 
 function startPrompt(project: ResearchProject, confirmation: { doc_id: string; path: string }): string {
@@ -308,7 +310,7 @@ function startPrompt(project: ResearchProject, confirmation: { doc_id: string; p
 请开始实现根节点：用 research_db 的 assign_worker（node_id=${project.project_id}）为根节点指派 worker（默认 root），用 update_task 把根节点任务（kind=harness，通常是 T-0001）指派给它（assignee_id=root），然后用 Agent 工具启动 subagent_type="${WORKER_AGENT}" 的子代理，任务说明以“你是 worker/root”开头，写明任务ID、请求文档和交付要求。worker 交付后，按规则审核框架与基线结果并冻结框架（update_project harness_ref/harness_paths），设置SOTA基线后再推进各节点。`
 }
 
-const WORKFLOW = `## research-tree 工作流（由 research-agent mod 注入）
+const WORKFLOW = `## research-tree 工作流（由 research-tree mod 注入）
 - 研究项目的状态、节点、实验、判定和决定都在当前目录 research/<项目ID>/ 的 LatticeDB 研究数据库里；只能通过 ${'`'}${TOOL}${'`'} 工具（或 tools/research_db.py）读写，不要直接改数据库文件。
 - 实验优先：每个节点都要有实质性代码改动和实验；节点结论跟随冻结统计代码的判定（无提升→可消灭，优于父节点→可拓展，优于SOTA→RLD复核新颖性与理论正确性）。
 - 搜索树的根节点只存放 baselines（冻结框架、SOTA与其他基线实验）；用户的初始假说都是根节点的直接子节点；只有验证完成、可拓展的节点才能派生子节点。
@@ -338,7 +340,7 @@ async function askUi($: EngineInterface, cfg: Config, text: string): Promise<voi
   const project = (await $.state.get(projectRef)).value ?? null
   const summary = (await $.state.get(summaryRef)).value
   const prompt = [
-    uiPrompt(cfg, project),
+    uiPrompt($.plugin.root, project),
     `## 当前项目\n${project ? `${project.project_id}，阶段：${L(project.phase)}` : '当前目录没有研究项目'}` +
       (summary ? `\n${statusText(summary, project)}` : ''),
     history.length ? `## 最近的对话\n${history.map(h => `[${h.role}] ${h.text}`).join('\n')}` : '',
@@ -454,8 +456,8 @@ export const register: Register = (on, options) => {
     })
     await $.agent.register({
       name: 'ui',
-      description: 'research-tree 的 User Interface：在“研究对话”窗口与用户对话（只由 research-agent mod 启动）',
-      prompt: uiPrompt(cfg, null),
+      description: 'research-tree 的 User Interface：在“研究对话”窗口与用户对话（只由 research-tree mod 启动）',
+      prompt: uiPrompt($.plugin.root, null),
       tools: ['Read', 'Write', 'Bash', TOOL, RELAY_TOOL, CONFIRM_TOOL],
       model: 'inherit',
     })
@@ -526,7 +528,7 @@ export const register: Register = (on, options) => {
       await refresh($, cfg)
       await $.ui.open({ id: UI_PANE, title: '研究对话（UI）' })
       await say($, 'note', `已建立 ${project.project_id}；计划已登记为 ${project.plan_instruction.doc_id}。RLD 正在整理立项计划，完成后会在这里请你确认。`)
-      await $.prompt.submit({ text: planningPrompt(project, cfg) })
+      await $.prompt.submit({ text: planningPrompt(project, $.plugin.root) })
       return {
         text: [...env.log, `已在 ${project.root} 建立研究项目 ${project.project_id}：目录、数据库、通信登记表已就绪，` +
           `计划原文登记为 ${project.plan_instruction.doc_id}。研究对话窗口已打开；RLD 将据计划建立目标、初始节点和根节点方案，并请你确认。`].join('\n'),
