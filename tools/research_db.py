@@ -74,7 +74,7 @@ EDGE_COLUMNS = {
     ("branch", "hypothesis_id"): ("hypothesis",),
     ("run", "experiment_id"): ("experiment",),
     ("decision", "target_id"): ("hypothesis", "project", "branch"),
-    ("task", "target_id"): ("hypothesis", "experiment"),
+    ("task", "target_id"): ("hypothesis", "project", "experiment"),
 }
 
 ENTITY_TABLES = tuple(ID_PREFIX) + ("run",)
@@ -547,6 +547,7 @@ class ResearchDB:
             "metric_direction": metric_direction, "metric_is_percent": metric_is_percent,
             "secondary_metrics": secondary_metrics, "seeds": seeds, "stage": "stage1", "status": "active",
             "owner": self.agent, **optional,
+            "resume_doc_ids": [min_setup_doc_id] + ([optional["goal_doc_id"]] if optional.get("goal_doc_id") else []),
         }
         self._check_comparison_setup({"gate_seeds": SPEC["project"].columns["gate_seeds"].default, **record})
         with self._writer() as tx:
@@ -631,7 +632,7 @@ class ResearchDB:
                 "id": tx.next_id("hypothesis"), "project_id": project["id"], "parent_id": parent_id or project["id"],
                 "title": title, "statement": statement, "doc_id": doc_id, "status": "pending",
                 "experiment_status": "todo", "novelty_recheck": "pending", "theory_recheck": "pending",
-                "priority": priority, "owner": self.agent,
+                "priority": priority, "owner": self.agent, "resume_doc_ids": [doc_id],
             })
             for doc_id_ in related:
                 tx.link("rel_references", hyp_id, doc_id_)
@@ -827,10 +828,11 @@ class ResearchDB:
             n = limit if n_seeds is None else n_seeds
             if not 1 <= n <= limit:
                 raise ResearchDBError(f"this experiment may start with 1..{limit} seeds, got {n}")
-            if hypothesis_id is not None:
-                tx.require(hypothesis_id, ("hypothesis",))
-                if self._branch_of(tx, hypothesis_id) is None:
-                    raise ResearchDBError(f"{hypothesis_id} needs a code branch before experiments")
+            node = tx.require(hypothesis_id, ("hypothesis",)) if hypothesis_id is not None else project
+            if self.role == "worker" and node.get("worker_id") and node["worker_id"] != self.agent:
+                raise PermissionDenied(f"{node['id']} is worker/{node['worker_id']}'s node")
+            if hypothesis_id is not None and self._branch_of(tx, hypothesis_id) is None:
+                raise ResearchDBError(f"{hypothesis_id} needs a code branch before experiments")
             resolved = _git_commit(project["repo_path"], code_ref)
             if resolved is None:
                 raise ResearchDBError(f"code_ref {code_ref} is not a commit in {project['repo_path']}")
@@ -1161,11 +1163,15 @@ class ResearchDB:
 
     # -- branches -----------------------------------------------------------------------
 
-    def create_branch(self, hypothesis_id: str, name: str, base_ref: str, base_commit: str, owner: str,
-                      worktree_path: str) -> str:
-        """The branch lives in the project's code repository (project.repo_path)."""
+    def create_branch(self, hypothesis_id: str, name: str, base_ref: str, base_commit: str, worktree_path: str,
+                      owner: str | None = None) -> str:
+        """The branch lives in the project's code repository (project.repo_path); its owner is the node's
+        worker unless given."""
         self._require_role("rld")
         with self._writer() as tx:
+            owner = owner or tx.require(hypothesis_id, ("hypothesis",)).get("worker_id")
+            if not owner:
+                raise ResearchDBError(f"assign {hypothesis_id} a worker (assign_worker) or pass owner")
             if self._branch_of(tx, hypothesis_id) is not None:
                 raise ResearchDBError(f"{hypothesis_id} already has a branch")
             repo = self._project(tx).get("repo_path")
@@ -1229,16 +1235,109 @@ class ResearchDB:
             if tagged is None or tagged != _git_commit(branch["repo_path"], row["ref"]):
                 raise ResearchDBError(f"tag exp/{row['id']} must point at code_ref {row['ref']} before deleting the branch")
 
+    # -- node workers -----------------------------------------------------------------------
+    # One node, one worker identity (worker/<worker_id>), responsible from start to completion. The current
+    # agent session is recorded so the RLD can continue it (SendMessage); when it cannot be continued, a new
+    # session with the same identity takes over from the node's resume documents.
+
+    def assign_worker(self, node_id: str, worker_id: str | None = None) -> str:
+        """Give a node (hypothesis, or the project as the root) its worker identity; set once."""
+        self._require_role("rld")
+        with self._writer() as tx:
+            node = tx.require(node_id, ("hypothesis", "project"))
+            wanted = worker_id or default_worker_id(node_id, node["_table"])
+            if not re.fullmatch(r"[A-Za-z0-9_.]+", wanted):
+                raise ResearchDBError(f"worker id must be letters, digits, _ or ., got {wanted!r}")
+            if node.get("worker_id") and node["worker_id"] != wanted:
+                raise ResearchDBError(f"{node_id} already belongs to worker/{node['worker_id']}")
+            taken = [n["id"] for t in ("hypothesis", "project") for n in (tx.get(i) for i in tx.ids(t))
+                     if n.get("worker_id") == wanted and n["id"] != node_id]
+            if taken:
+                raise ResearchDBError(f"worker/{wanted} already works on {taken[0]}")
+            if not node.get("worker_id"):
+                tx.set(node_id, {"worker_id": wanted})
+            return wanted
+
+    def bind_worker_session(self, node_id: str, agent_id: str) -> None:
+        """Record the agent session now working as the node's worker (a new one replaces the old)."""
+        self._require_role("rld")
+        with self._writer() as tx:
+            node = tx.require(node_id, ("hypothesis", "project"))
+            if not node.get("worker_id"):
+                raise ResearchDBError(f"assign {node_id} a worker before binding a session")
+            self._check_values(node["_table"], {"worker_agent_id": agent_id})
+            tx.set(node_id, {"worker_agent_id": agent_id, "worker_session_at": now_utc()})
+
+    def add_resume_docs(self, node_id: str, doc_ids: list[str]) -> list[str]:
+        """Add documents a new worker session needs to take over the node; rld or the node's worker."""
+        with self._writer() as tx:
+            node = tx.require(node_id, ("hypothesis", "project"))
+            if self.role != "rld" and (self.role, self.agent) != ("worker", node.get("worker_id")):
+                raise PermissionDenied(f"only rld or worker/{node.get('worker_id')} adds resume documents to {node_id}")
+            for doc_id in doc_ids:
+                tx.require(doc_id, ("document",))
+            return self._append_resume(tx, node_id, doc_ids)
+
+    def _append_resume(self, tx: _Tx, node_id: str, doc_ids: list[str]) -> list[str]:
+        current = list(tx.get(node_id).get("resume_doc_ids") or [])
+        merged = current + [d for d in doc_ids if d not in current]
+        if merged != current:
+            tx.set(node_id, {"resume_doc_ids": merged})
+        return merged
+
+    def resume_package(self, node_id: str) -> dict:
+        """What a worker session needs to take over a node: identity, the session to continue, the resume
+        documents at their current versions, the node's tasks, experiments, branch and comparison context."""
+        with self.reader() as tx:
+            node = tx.require(node_id, ("hypothesis", "project"))
+            docs = []
+            for doc_id in node.get("resume_doc_ids") or []:
+                current = doc_id
+                while newer := tx.edges("rel_supersedes", target=current):
+                    current = newer[0]["source_id"]
+                doc = tx.get(current)
+                docs.append({"id": current, "path": doc["path"], "title": doc["title"], "doc_type": doc["doc_type"],
+                             "status": doc["status"], "listed_as": doc_id})
+            tasks = [{k: t.get(k) for k in ("id", "kind", "status", "assignee_id", "request_doc_id", "delivery_doc_id")}
+                     for t in (tx.get(i) for i in tx.ids("task")) if t.get("target_id") == node_id]
+            package = {
+                "node": {k: v for k, v in node.items() if k != "_table"},
+                "worker": f"worker/{node['worker_id']}" if node.get("worker_id") else None,
+                "agent_id": node.get("worker_agent_id"), "session_at": node.get("worker_session_at"),
+                "documents": docs, "tasks": tasks,
+            }
+            if node["_table"] == "hypothesis":
+                exps = [tx.get(r["id"]) for r in tx.query(
+                    "MATCH (e:Experiment)-[:TESTS]->(h:Hypothesis {id: $id}) RETURN e.id AS id", id=node_id)]
+                package["experiments"] = [{k: e.get(k) for k in ("id", "kind", "seeds", "verdict", "code_ref",
+                                                                  "result_doc_id")} for e in exps]
+                branch = self._branch_of(tx, node_id)
+                package["branch"] = branch and {k: branch.get(k) for k in ("id", "name", "status", "base_commit",
+                                                                            "worktree_path", "head_commit")}
+                latest = self._latest_evaluated(tx, node_id)
+                package["latest_result"] = latest and latest["id"]
+                parent = node.get("parent_id")
+                if parent and table_of(parent) == "hypothesis":
+                    ref = self._latest_evaluated(tx, parent)
+                    package["parent_result"] = ref and {"id": ref["id"], "result_doc_id": ref.get("result_doc_id")}
+            else:
+                package["baselines"] = [{k: e.get(k) for k in ("id", "seeds", "code_ref", "result_doc_id", "evaluated_at")}
+                                        for e in (tx.get(i) for i in tx.ids("experiment")) if e["kind"] == "baseline"]
+            return package
+
     # -- tasks ----------------------------------------------------------------------------
 
     def create_task(self, kind: str, assignee_role: str, request_doc_id: str, target_id: str | None = None,
                     assignee_id: str | None = None) -> str:
         self._require_role("rld")
         with self._writer() as tx:
-            return self._insert(tx, "task", {
+            task_id = self._insert(tx, "task", {
                 "id": tx.next_id("task"), "kind": kind, "target_id": target_id, "status": "open",
                 "assignee_role": assignee_role, "assignee_id": assignee_id, "request_doc_id": request_doc_id,
             }, current_docs=True)
+            if target_id and table_of(target_id) in ("hypothesis", "project"):
+                self._append_resume(tx, target_id, [request_doc_id])
+            return task_id
 
     def update_task(self, task_id: str, status: str | None = None, delivery_doc_id: str | None = None,
                     assignee_id: str | None = None) -> None:
@@ -1268,6 +1367,9 @@ class ResearchDB:
             if not changes:
                 raise ResearchDBError("nothing to change")
             self._update(tx, task_id, changes, current_docs=True)
+            target = task.get("target_id")
+            if delivery_doc_id is not None and target and table_of(target) in ("hypothesis", "project"):
+                self._append_resume(tx, target, [delivery_doc_id])
 
     # -- reads ------------------------------------------------------------------------------
 
@@ -1351,6 +1453,11 @@ def _node_timestamps(hyp: dict, changes: dict, now: str) -> dict:
     if changes.get("experiment_status") == "beats_sota" and not hyp.get("beats_sota_at"):
         stamps["beats_sota_at"] = now
     return stamps
+
+
+def default_worker_id(node_id: str, table: str) -> str:
+    """The worker identity a node gets by default: `root` for the project, `h0007` for H-0007."""
+    return "root" if table == "project" else re.sub(r"[^A-Za-z0-9_.]", "", node_id).lower()
 
 
 def _is_go_candidate(hyp: dict) -> bool:

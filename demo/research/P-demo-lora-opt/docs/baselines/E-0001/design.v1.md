@@ -6,8 +6,8 @@ title: "SOTA基线 BaseOpt-A"
 summary: "SOTA基线设计"
 about: []
 author_role: "worker"
-author_id: "w1"
-created_at: "2026-10-03T16:11:19Z"
+author_id: "root"
+created_at: "2026-10-03T16:30:00Z"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
 

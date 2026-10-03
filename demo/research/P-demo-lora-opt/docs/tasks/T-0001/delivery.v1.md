@@ -6,9 +6,9 @@ title: "根节点交付"
 summary: "框架与SOTA完成"
 about: []
 author_role: "worker"
-author_id: "w1"
-created_at: "2026-10-03T16:11:19Z"
+author_id: "root"
+created_at: "2026-10-03T16:30:00Z"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
 
-框架提交 c896908f93；SOTA实验 E-0001。
+框架提交 46e9243540；SOTA实验 E-0001。

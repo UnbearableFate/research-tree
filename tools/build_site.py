@@ -208,6 +208,7 @@ def collect(db_path: Path) -> dict:
             "branch": b and {"name": b["name"], "status": b["status"], "base": b["base_commit"][:10],
                              "head": (b.get("head_commit") or "")[:10]},
             "go": h["experiment_status"] == "beats_sota" and h["novelty_recheck"] == h["theory_recheck"] == "pass",
+            "worker": _worker(h),
         })
 
     attention = []
@@ -242,11 +243,17 @@ def collect(db_path: Path) -> dict:
         "project": {k: v for k, v in project.items() if k != "_table"},
         "docs": docs, "nodes": nodes, "experiments": experiments, "decisions": decisions,
         "tasks": [{k: v for k, v in t.items() if k != "_table"} for t in tables["task"]],
-        "attention": attention, "node_hours": round(node_hours, 2),
+        "attention": attention, "node_hours": round(node_hours, 2), "project_worker": _worker(project),
         "active_worktrees": sorted(b["worktree_path"] for b in tables["branch"]
                                    if b["status"] == "active" and b.get("worktree_path")),
         "screen_seeds": _screen_seeds(experiments, project),
     }
+
+
+def _worker(node: dict) -> dict:
+    """A node's worker binding: identity, current agent session and the documents to resume from."""
+    return {"id": node.get("worker_id"), "agent_id": node.get("worker_agent_id"),
+            "session_at": node.get("worker_session_at"), "resume": node.get("resume_doc_ids") or []}
 
 
 def summary(data: dict, db_path: Path) -> dict:
@@ -257,7 +264,8 @@ def summary(data: dict, db_path: Path) -> dict:
     for n in data["nodes"]:
         latest = n["latest"] and data["experiments"][n["latest"]]
         deltas = {c["role"]: c["delta_mean"] for c in latest["comparisons"]} if latest else {}
-        nodes.append({k: n[k] for k in ("id", "title", "parent", "status", "exp_status", "novelty", "theory", "go")}
+        nodes.append({k: n[k] for k in ("id", "title", "parent", "status", "exp_status", "novelty", "theory", "go",
+                                        "worker")}
                      | {"verdict": latest and latest["verdict"], "seeds": latest and len(latest["seeds"]),
                         "vs_sota": deltas.get("sota"), "vs_parent": deltas.get("parent", deltas.get("sota")),
                         "concluded_at": n["times"]["concluded_at"]})
@@ -266,7 +274,7 @@ def summary(data: dict, db_path: Path) -> dict:
     return {
         "meta": data["meta"], "db_path": str(db_path.resolve()),
         "project": {k: project.get(k) for k in ("id", "title", "status", "stage", "sota_experiment_id", "go_margin",
-                                                 "harness_ref", "repo_path")},
+                                                 "harness_ref", "repo_path")} | {"worker": data["project_worker"]},
         "counts": {"status": count("status"), "exp_status": count("exp_status"),
                    "go": sum(n["go"] for n in nodes), "node_hours": data["node_hours"],
                    "screen_seeds": data["screen_seeds"]},
@@ -544,11 +552,17 @@ function rootDetail() {
       <tr><th>冻结框架</th><td>${P.harness_ref ? esc(P.harness_ref.slice(0, 10)) + "：" + esc((P.harness_paths || []).join("、")) : '<span class="warn">未冻结</span>'}</td></tr>
       <tr><th>SOTA基线</th><td>${EXP[P.sota_experiment_id] ? `${esc(P.sota_experiment_id)} ${esc(EXP[P.sota_experiment_id].method)}` : '<span class="warn">未设置</span>'}</td></tr>
       <tr><th>筛选seed数</th><td>${esc(D.screen_seeds ?? "未知")}</td></tr>
+      <tr><th>worker</th><td>${workerCell(D.project_worker)}</td></tr>
       <tr><th>根节点任务</th><td>${tasks.map(t => `${esc(t.id)}（${esc(t.status)}，${esc(t.assignee_role)}/${esc(t.assignee_id || "未指派")}）：${docLink(t.request_doc_id)}`).join("<br>") || "无"}</td></tr>
       <tr><th>子节点（初始假说等）</th><td>${D.nodes.filter(n => n.parent === P.id).map(n => nodeRef(n.id) + " " + esc(n.title)).join("<br>") || "无"}</td></tr>
     </table>
     <h3>基线实验</h3>${baselines.length ? baselines.map(expBlock).join("") : '<p class="muted">暂无基线实验</p>'}
     <h3>决定历史</h3>${decisionTable(D.decisions.filter(d => d.target_id === P.id))}`;
+}
+function workerCell(w) {
+  if (!w || !w.id) return '<span class="muted">未指派</span>';
+  return `worker/${esc(w.id)}；会话 ${w.agent_id ? esc(w.agent_id) + "（" + esc(w.session_at) + "）" : '<span class="muted">未绑定</span>'}` +
+    `<br>恢复文档：${w.resume.length ? w.resume.map(docLink).join("<br>") : '<span class="muted">无</span>'}`;
 }
 function nodeDetail(id) {
   if (id === P.id) return rootDetail();
@@ -567,6 +581,7 @@ function nodeDetail(id) {
       <tr><th>复核（优于SOTA后）</th><td>新颖性 ${esc(n.novelty === "pending" ? "未复核" : L(n.novelty))}；理论 ${esc(n.theory === "pending" ? "未复核" : L(n.theory))}</td></tr>
       <tr><th>关键时间</th><td>${keyTimes(n)}</td></tr>
       <tr><th>父节点</th><td>${n.parent === P.id ? nodeRef(P.id) + " 根节点 · baselines（与SOTA比较）" : nodeRef(n.parent)}</td></tr>
+      <tr><th>worker</th><td>${workerCell(n.worker)}</td></tr>
       <tr><th>代码分支</th><td>${n.branch ? `${esc(n.branch.name)}（${esc(n.branch.status)}，基准 ${esc(n.branch.base)}${n.branch.head ? "，交还 " + esc(n.branch.head) : ""}）` : "无"}</td></tr>
       <tr><th>假说文档</th><td>${docLink(n.doc)}</td></tr>
       <tr><th>创建时参考的相关研究</th><td>${n.references.map(docLink).join("<br>") || "无"}</td></tr>

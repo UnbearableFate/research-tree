@@ -138,14 +138,14 @@ class Demo:
         create_db.create_db(self.root / "research_tree.db")
         db = self.root / "research_tree.db"
         rld, ui = ResearchDB(db, "rld/main"), ResearchDB(db, "ui/ui")
-        w1, w2, w3 = (ResearchDB(db, f"worker/w{i}") for i in (1, 2, 3))
+        librarian = ResearchDB(db, "worker/lit")  # caches the related work before the nodes exist
         self.rld = rld
 
         # User instruction, goal and minimal setup.
         (self.root / "agents.json").write_text(json.dumps({
             "ui/ui": {"channel": "native", "thread": "demo-ui-thread"},
             "rld/main": {"channel": "native", "thread": "demo-rld-thread"},
-            **{f"worker/w{i}": {"channel": "native", "thread": f"demo-w{i}-thread"} for i in (1, 2, 3)},
+            "worker/root": {"channel": "native", "thread": "demo-root-worker-thread"},
         }, indent=1), encoding="utf-8")
         instr = self.doc(ui, "instructions/UI-0001.v1.md", "user_instruction", "立项：寻找可发表的LoRA优化器改进",
                          "## 用户原话\n\n“在最小设定下寻找能超过当前最强LoRA优化器的新方法，目标是AI顶会论文。”\n\n"
@@ -167,7 +167,8 @@ class Demo:
         rld.create_project(PROJECT_ID, "虚构示例：LoRA优化器方法发现", setup, "acc", "higher", True, SECONDARY,
                            SEEDS, goal_doc_id=goal, repo_path=str(self.code))
 
-        # Root node: harness and SOTA baseline (worker w1), reviewed and frozen by RLD.
+        # Root node (baselines): harness and SOTA baseline by the root's worker, reviewed and frozen by RLD.
+        w1 = ResearchDB(db, f"worker/{rld.assign_worker(PROJECT_ID)}")
         self.code.mkdir(parents=True)
         self.git("init", "-q", "-b", "main")
         harness = self.commit(self.code, {
@@ -178,7 +179,7 @@ class Demo:
         req = self.doc(rld, "tasks/T-0001/request.v1.md", "task_request", "根节点：实现实验框架并运行SOTA",
                        "实现训练/评测骨架与统计代码，记录过程曲线；在3个seed上运行SOTA基线 BaseOpt-A。\n",
                        "根节点框架任务")
-        t_root = rld.create_task("harness", "worker", req, assignee_id="w1")
+        t_root = rld.create_task("harness", "worker", req, target_id=PROJECT_ID, assignee_id=w1.agent)
         w1.update_task(t_root, status="in_progress")
         rld.update_project(harness_ref=harness, harness_paths=["harness"])
         sota_design = self.doc(w1, "baselines/E-0001/design.v1.md", "experiment_design", "SOTA基线 BaseOpt-A",
@@ -208,7 +209,7 @@ class Demo:
         ], start=1):
             (self.root / "cache" / "literature").mkdir(parents=True, exist_ok=True)
             (self.root / "cache" / "literature" / f"LIT-{i:04d}.txt").write_text(f"{title}\n（虚构原文缓存）\n", encoding="utf-8")
-            lit.append(self.doc(w2, f"literature/LIT-{i:04d}.v1.md", "literature", title,
+            lit.append(self.doc(librarian, f"literature/LIT-{i:04d}.v1.md", "literature", title,
                                 f"- 出处：{title}，2026（虚构）\n- 访问日期：2026-10-03\n- 本地缓存：`cache/literature/LIT-{i:04d}.txt`\n"
                                 f"- 核心方法：{gist}\n- 与本项目的关系：作为节点创建时的参考\n", gist))
 
@@ -221,13 +222,14 @@ class Demo:
                            parent=parent or PROJECT_ID)
             return rld.create_hypothesis(title, statement, doc, refs, parent)
 
-        def start(h, worker, base_commit, base_ref="main"):
+        def start(h, base_commit, base_ref="main"):
+            worker = ResearchDB(db, f"worker/{rld.assign_worker(h)}")  # one node, one worker identity
             wt = self.dest / "worktrees" / h
             self.git("worktree", "add", "-q", "-b", f"node/{h}", str(wt), base_commit)
-            rld.create_branch(h, f"node/{h}", base_ref, base_commit, worker.agent, str(wt))
+            rld.create_branch(h, f"node/{h}", base_ref, base_commit, str(wt))
             dd = self.decision(f"hypotheses/{h}/decisions/start.v1.md", f"{h} 开始验证", "代码分支已建立，开始实验。", h)
             rld.decide(h, {"experiment_status": "running", "status": "verifying"}, "开始代码改进与实验", doc_id=dd)
-            return wt
+            return wt, worker
 
         def experiment(h, worker, wt, change, effect, verdict_fn, n_seeds=None):
             code = self.commit(wt, {f"methods/{h.lower()}.py": f"# 虚构示例：{change}\n# rev {self.rng.random():.6f}\n"}, change)
@@ -240,16 +242,15 @@ class Demo:
 
         self.experiment, self.start = experiment, start
         self.lit, self.node = lit, node
-        self.w = {"w1": w1, "w2": w2, "w3": w3}
         self.story(rld, ui, instr)
 
         # Messages through the send tool (native channel: logged and printed).
         for args in (
             ["--from", "ui/ui", "--to", "rld/main", "--type", "instruction", "--text", "立项指令已登记，请开始阶段1。",
              "--docs", "instructions/UI-0001.v1.md", "--about", PROJECT_ID],
-            ["--from", "rld/main", "--to", "worker/w1", "--type", "task", "--text", "T-0001：实现框架并运行SOTA。",
+            ["--from", "rld/main", "--to", "worker/root", "--type", "task", "--text", "T-0001：实现框架并运行SOTA。",
              "--docs", "tasks/T-0001/request.v1.md", "--about", "T-0001"],
-            ["--from", "worker/w1", "--to", "rld/main", "--type", "delivery", "--re", "main-0001",
+            ["--from", "worker/root", "--to", "rld/main", "--type", "delivery", "--re", "main-0001",
              "--text", "T-0001完成：框架已提交，SOTA三个seed有效。", "--docs", "tasks/T-0001/delivery.v1.md",
              "--about", "T-0001", "E-0001"],
         ):
@@ -287,7 +288,6 @@ class Demo:
         return exp, verdict
 
     def story(self, rld: ResearchDB, ui: ResearchDB, instr: str) -> None:
-        w1, w2, w3 = self.w["w1"], self.w["w2"], self.w["w3"]
         lit, node, start, experiment = self.lit, self.node, self.start, self.experiment
 
         def rule(cmps):  # the frozen statistics rule from the minimal-setup document
@@ -314,28 +314,28 @@ class Demo:
         # H-0001: sub-batch second moments — beats the parent (SOTA) without the gate; expandable.
         h1 = node("子批次二阶矩预条件", "用未裁剪的微批次梯度平方替代全批次二阶矩，可改善LoRA更新方向。", lit[:3],
                   rationale="文献A给出估计方法，但未用于低秩因子；文献B指出因子尺度问题可能放大估计误差。")
-        wt1 = start(h1, w2, self.harness)
-        e1, _ = experiment(h1, w2, wt1, "subbatch-moment", {"acc": 0.15, "peak_mem_gb": 1.2, "loss_auc": -0.01}, rule)
+        wt1, wk1 = start(h1, self.harness)
+        e1, _ = experiment(h1, wk1, wt1, "subbatch-moment", {"acc": 0.15, "peak_mem_gb": 1.2, "loss_auc": -0.01}, rule)
         conclude(h1, e1, "expandable", "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。")
         head1 = self.git("rev-parse", "HEAD", cwd=wt1)
         rld.find("branch")  # noqa: B018 — read path exercised
         # H-0002: orthogonalised updates — no gain; pruned, branch deleted after tagging.
         h2 = node("正交化LoRA更新", "对LoRA因子更新做正交化可改善条件数，提高精度。", [lit[0], lit[2], lit[3]],
                   rationale="文献C在全参数上有效，低秩情形未被检验。")
-        wt2 = start(h2, w3, self.harness)
-        e2, _ = experiment(h2, w3, wt2, "orthogonal-update", {"acc": -0.25, "final_loss": 0.01, "loss_auc": 0.02,
+        wt2, wk2 = start(h2, self.harness)
+        e2, _ = experiment(h2, wk2, wt2, "orthogonal-update", {"acc": -0.25, "final_loss": 0.01, "loss_auc": 0.02,
                                                                "peak_mem_gb": 0.6, "train_time_s": 140}, rule)
         conclude(h2, e2, "prunable", "所有指标都不优于SOTA，按规则消灭。")
-        self.close_branch(h2, w3, wt2, "deleted", "无提升，删除分支（实验提交已打标签）。")
+        self.close_branch(h2, wk2, wt2, "deleted", "无提升，删除分支（实验提交已打标签）。")
         # H-0003: child of H-0001 — 2 seeds close to SOTA, extended to 3, beats SOTA; rechecked; GO candidate.
         h3 = node("子批次二阶矩 + 因子尺度平衡", "在子批次二阶矩基础上平衡A、B因子尺度，可进一步提升精度。", lit[:3], parent=h1,
                   rationale="H-0001 已优于SOTA父节点；文献B的尺度平衡与其互补。")
-        wt3 = start(h3, w2, head1, base_ref=f"node/{h1}")
-        e3, v3 = experiment(h3, w2, wt3, "moment-balance", {"acc": 0.24, "peak_mem_gb": 1.0, "loss_auc": -0.02}, rule)
+        wt3, wk3 = start(h3, head1, base_ref=f"node/{h1}")
+        e3, v3 = experiment(h3, wk3, wt3, "moment-balance", {"acc": 0.24, "peak_mem_gb": 1.0, "loss_auc": -0.02}, rule)
         if v3 in ("close", "beats_parent"):
-            w2.extend_seeds(e3, 3)
-            self.values[e3] = self.finish_experiment(w2, e3, {"acc": 0.24, "peak_mem_gb": 1.0, "loss_auc": -0.02}, nodes=4)
-            self.evaluate(h3, w2, e3, rule)
+            wk3.extend_seeds(e3, 3)
+            self.values[e3] = self.finish_experiment(wk3, e3, {"acc": 0.24, "peak_mem_gb": 1.0, "loss_auc": -0.02}, nodes=4)
+            self.evaluate(h3, wk3, e3, rule)
         rld.decide(h3, {"experiment_status": rld.get(e3)["verdict"]}, "3个seed判定", based_on=[e3])
         nov = self.doc(rld, f"hypotheses/{h3}/novelty.v1.md", "novelty", f"{h3} 新颖性复核",
                        "## 最接近工作对比\n\n| 工作 | 机制 | 差异 |\n|---|---|---|\n| 文献A | 子批次二阶矩 | 未处理低秩因子尺度 |\n"
@@ -350,16 +350,16 @@ class Demo:
         # H-0004: child of H-0001 — no gain against the parent; pruned.
         h4 = node("子批次二阶矩 + 动量重标度", "按子批次方差重标度动量可减少噪声。", [lit[0], lit[1], lit[4]], parent=h1,
                   rationale="H-0001 的变体，检验噪声来源。")
-        wt4 = start(h4, w3, head1, base_ref=f"node/{h1}")
-        e4, _ = experiment(h4, w3, wt4, "momentum-rescale", {"acc": 0.0, "final_loss": 0.02, "loss_auc": 0.03,
+        wt4, wk4 = start(h4, head1, base_ref=f"node/{h1}")
+        e4, _ = experiment(h4, wk4, wt4, "momentum-rescale", {"acc": 0.0, "final_loss": 0.02, "loss_auc": 0.03,
                                                               "peak_mem_gb": 1.6, "train_time_s": 90}, rule)
         conclude(h4, e4, "prunable", "相对父节点各项指标都不更好，按规则消灭。")
-        self.close_branch(h4, w3, wt4, "deleted", "无提升，删除分支。")
+        self.close_branch(h4, wk4, wt4, "deleted", "无提升，删除分支。")
         # H-0005: diagonal Kronecker approximation — 2 seeds, close; extension pending (attention item).
         h5 = node("Kronecker因子对角近似", "对Kronecker预条件取对角近似，在低秩上以低成本获得二阶信息。", [lit[2], lit[3], lit[4]],
                   rationale="文献D的近似未在LoRA上评测。")
-        wt5 = start(h5, w2, self.harness)
-        experiment(h5, w2, wt5, "kron-diag", {"acc": 0.06, "peak_mem_gb": 0.4}, rule)
+        wt5, wk5 = start(h5, self.harness)
+        experiment(h5, wk5, wt5, "kron-diag", {"acc": 0.06, "peak_mem_gb": 0.4}, rule)
         # H-0006: full Kronecker preconditioning — infeasible within caps; user declined.
         h6 = node("完整Kronecker二阶预条件", "对每层使用完整Kronecker因子预条件。", [lit[2], lit[3], lit[0]],
                   rationale="理论上最充分利用二阶信息，但成本未知。")
@@ -371,16 +371,16 @@ class Demo:
         # H-0007: 8-bit optimizer state — accuracy level with parent, memory much lower; needs RLD.
         h7 = node("8-bit优化器状态", "以8-bit存储优化器状态，在精度不变时显著降低显存。", [lit[4], lit[0], lit[1]],
                   rationale="文献E在全参数微调上验证，LoRA场景未知。")
-        wt7 = start(h7, w3, self.harness)
-        experiment(h7, w3, wt7, "state-8bit", {"acc": 0.0, "peak_mem_gb": -6.0, "train_time_s": 30}, rule)
+        wt7, wk7 = start(h7, self.harness)
+        experiment(h7, wk7, wt7, "state-8bit", {"acc": 0.0, "peak_mem_gb": -6.0, "train_time_s": 30}, rule)
         # H-0008: child of H-0003 — created, not started yet (pending).
         node("自适应秩分配", "按层的子批次方差分配LoRA秩，可在同等参数量下提升精度。", lit[:3], parent=h3,
              rationale="H-0003 优于SOTA；按层统计可能进一步提升。")
         # Open work: extension task for H-0005, decision pending for H-0007.
         req = self.doc(rld, "tasks/T-0002/request.v1.md", "task_request", "H-0005 扩展到3个seed",
                        "判定为差不多，扩展到3个seed后重新判定。\n", "扩展seed")
-        t = rld.create_task("experiment", "worker", req, target_id=h5, assignee_id="w2")
-        w2.update_task(t, status="in_progress")
+        t = rld.create_task("experiment", "worker", req, target_id=h5, assignee_id=wk5.agent)
+        wk5.update_task(t, status="in_progress")
 
     def close_branch(self, h: str, worker: ResearchDB, wt: Path, to_status: str, reason: str) -> None:
         br = self.rld.find("branch", hypothesis_id=h)[0]["id"]

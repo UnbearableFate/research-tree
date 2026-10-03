@@ -37,7 +37,8 @@ MARKER = Path(".research-tree.json")
 PHASES = ("planning", "awaiting_confirmation", "confirmed")
 SUBDIRS = ("docs/project/reports", "docs/instructions", "docs/literature", "docs/hypotheses", "docs/tasks",
            "docs/baselines", "docs/workflow", "messages", "snapshots", "cache/literature", "outputs", "site")
-AGENTS = ["ui/ui", "rld/main"] + [f"worker/w{i}" for i in range(1, 9)] + ["assistant/a1", "web_builder/site"]
+# Node workers are named after their node (worker/h0007) and only send; the root's worker also receives.
+AGENTS = ["ui/ui", "rld/main", "worker/root", "assistant/a1", "web_builder/site"]
 
 
 class TreeError(Exception):

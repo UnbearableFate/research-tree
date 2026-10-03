@@ -1,1 +1,1 @@
-{"id":"main-0001","ts":"2026-10-03T16:11:24Z","to":"worker/w1","channel":"native","status":"printed","detail":"send with Codex send_message_to_thread to thread demo-w1-thread"}
+{"id":"main-0001","ts":"2026-10-03T16:30:05Z","to":"worker/root","channel":"native","status":"printed","detail":"send with Codex send_message_to_thread to thread demo-root-worker-thread"}

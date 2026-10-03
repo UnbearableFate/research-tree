@@ -13,7 +13,11 @@ export type ResearchNode = {
   vs_sota: number | null
   vs_parent: number | null
   concluded_at: string | null
+  worker: ResearchWorker
 }
+
+/** A node's worker: identity, the agent session to continue, and the documents a new session resumes from. */
+export type ResearchWorker = { id: string | null; agent_id: string | null; session_at: string | null; resume: string[] }
 
 /** Something waiting on someone: an extension, an RLD decision, a task, a broken document. */
 export type ResearchAttention = { kind: string; id: string | null; text: string }
@@ -32,6 +36,7 @@ export type ResearchSummary = {
     go_margin: number
     harness_ref: string | null
     repo_path: string | null
+    worker: ResearchWorker
   }
   counts: {
     status: Record<string, number>

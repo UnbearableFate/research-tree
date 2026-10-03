@@ -125,7 +125,9 @@ created_at: 2026-10-03T10:21:00Z
 |---|---|
 | 项目、假说节点、分支创建与处置、任务创建与验收、所有状态决定（`decide`） | 只有RLD |
 | 文档登记、修改草稿、`draft → current` | 作者（文档类型须是该角色可写的类型），或RLD |
-| 实验、运行、扩展seed（`extend_seeds`）、记录判定（`record_verdict`）、实验依赖 | 实验owner worker，或RLD |
+| 节点worker的指派（`assign_worker`）与会话绑定（`bind_worker_session`） | 只有RLD（mod 在启动worker时自动绑定会话） |
+| 节点恢复文档的追加（`add_resume_docs`） | 节点的worker，或RLD |
+| 实验、运行、扩展seed（`extend_seeds`）、记录判定（`record_verdict`）、实验依赖 | 实验owner worker，或RLD；节点已指派worker时，只有该worker能为它建实验 |
 | 分支交还（`active → returned`） | 分支owner worker，或RLD |
 | 任务开始与交付 | 任务的assignee |
 

@@ -238,6 +238,20 @@ function writesDatabase(command: string): boolean {
   return DB_WRITE.test(command)
 }
 
+/** The node (hypothesis id, or the project for the root) whose assigned worker identity is `workerId`. */
+function workerNode(s: ResearchSummary | null | undefined, workerId: string): string | undefined {
+  if (!s) return undefined
+  if (s.project?.worker?.id === workerId) return s.project.id
+  return s.nodes.find(n => n.worker?.id === workerId)?.id
+}
+
+/** worker/<id> for an agent session the database binds to a node (sessions bound in an earlier session too). */
+function workerActor(s: ResearchSummary | null | undefined, agentId: string): string | undefined {
+  if (!s) return undefined
+  const found = s.project?.worker?.agent_id === agentId ? s.project.worker : s.nodes.find(n => n.worker?.agent_id === agentId)?.worker
+  return found?.id ? `worker/${found.id}` : undefined
+}
+
 /** Why a worker may not start yet, or undefined once the user confirmed the plan. */
 function workerBlock(project: ResearchProject | null | undefined): string | undefined {
   if (!project) return `当前目录没有研究项目；先运行 /${COMMAND} init <计划.md>。`
@@ -267,8 +281,9 @@ function uiPrompt(cfg: Config, project: ResearchProject | null): string {
 规则文件：${cfg.toolsDir}/reusable-research-agent-rules-20261003.md；文档库：${docs}。`
 }
 
-const WORKER_PROMPT = `你是 research-tree 项目的 worker，由 Research Leader（RLD）委派；你的身份（worker/<id>）写在任务说明开头。
-- 只在认领的任务范围内工作：先用 mcp__research-agent__research_db 读取任务（get）和请求文档，再用 update_task 把任务改为 in_progress。
+const WORKER_PROMPT = `你是 research-tree 项目的 worker，由 Research Leader（RLD）委派；你的身份（worker/<id>）写在任务说明开头。一个节点一个 worker：你从头负责这个节点直到它完成，RLD 会用 SendMessage 把后续步骤交给你。
+- 开始时用 mcp__research-agent__research_db 调用 resume_package（node_id 为你的节点，根节点为项目ID），读完其中列出的全部文档：这是你的工作依据；之后可能由另一个会话以同一身份接手，所以重要的中间结论要写成文档，并用 add_resume_docs 加进节点的恢复文档。
+- 只在认领的任务范围内工作：先读取任务（get）和请求文档，再用 update_task 把任务改为 in_progress。
 - 代码改动只在任务指定的仓库分支或worktree中进行并提交；除根节点框架任务外，不改动冻结的实验框架与统计代码。
 - 在 Miyabi 上，测试、训练、推理等计算类工作必须在计算节点运行（miyabi-pbs-cmd 技能）。
 - 实验、运行与判定只通过 research_db 登记（create_experiment、create_run、update_run、record_verdict），不编造数字；工程失败如实记录，不当作科学结论。
@@ -290,7 +305,7 @@ function planningPrompt(project: ResearchProject, cfg: Config): string {
 
 function startPrompt(project: ResearchProject, confirmation: { doc_id: string; path: string }): string {
   return `用户已确认 ${project.project_id} 的立项计划（用户指令 ${confirmation.doc_id}，docs/${confirmation.path}）。
-请开始实现根节点：用 research_db 的 update_task 把根节点任务（kind=harness，通常是 T-0001）指派给 worker（例如 assignee_id=w1），然后用 Agent 工具启动 subagent_type="${WORKER_AGENT}" 的子代理，任务说明以“你是 worker/w1”开头，写明任务ID、请求文档和交付要求。worker 交付后，按规则审核框架与基线结果并冻结框架（update_project harness_ref/harness_paths），设置SOTA基线后再推进各节点。`
+请开始实现根节点：用 research_db 的 assign_worker（node_id=${project.project_id}）为根节点指派 worker（默认 root），用 update_task 把根节点任务（kind=harness，通常是 T-0001）指派给它（assignee_id=root），然后用 Agent 工具启动 subagent_type="${WORKER_AGENT}" 的子代理，任务说明以“你是 worker/root”开头，写明任务ID、请求文档和交付要求。worker 交付后，按规则审核框架与基线结果并冻结框架（update_project harness_ref/harness_paths），设置SOTA基线后再推进各节点。`
 }
 
 const WORKFLOW = `## research-tree 工作流（由 research-agent mod 注入）
@@ -298,6 +313,7 @@ const WORKFLOW = `## research-tree 工作流（由 research-agent mod 注入）
 - 实验优先：每个节点都要有实质性代码改动和实验；节点结论跟随冻结统计代码的判定（无提升→可消灭，优于父节点→可拓展，优于SOTA→RLD复核新颖性与理论正确性）。
 - 搜索树的根节点只存放 baselines（冻结框架、SOTA与其他基线实验）；用户的初始假说都是根节点的直接子节点；只有验证完成、可拓展的节点才能派生子节点。
 - 已生效的文档不可修改，改动写新版本；节点代码中不能改动冻结框架。
+- 一个节点一个 worker：先用 assign_worker 为节点指派身份（假说节点默认 h<编号>，根节点 root），启动 ${WORKER_AGENT} 时任务说明以“你是 worker/<id>”开头；mod 会把会话的 agent ID 记进节点（worker_agent_id）。节点的后续步骤用 SendMessage 续接这个 agent；无法续接或上下文过长时，用 resume_package 取恢复包，以同一身份新起一个 worker 接手。
 - 立项计划须经用户确认后才能启动 ${WORKER_AGENT} 子代理；需要用户决定的事用 post_to_ui，用户的话经 UI 登记后由 relay_to_rld 送达。
 - /${COMMAND} 查看进度；/${COMMAND} ui 打开研究对话窗口；/${COMMAND} pane 打开进度面板；/${COMMAND} build 生成离线进度页面。`
 
@@ -463,14 +479,23 @@ export const register: Register = (on, options) => {
     if (type !== WORKER_AGENT) return next(e)
     const blocked = workerBlock((await $.state.get(projectRef)).value)
     if (blocked) return { deny: `${PLUGIN}: ${blocked}` }
+    // A worker is a node's: the prompt names the node's assigned identity, and the new session is bound to it.
     const named = /worker\/([A-Za-z0-9_.]+)/.exec(e.prompt)?.[1]
-    const known = Object.values((await $.state.get(agentsRef)).value ?? {})
-    let id = named
-    for (let n = 1; !id; n++) if (!known.includes(`worker/w${n}`)) id = `w${n}`
-    const spawned = await next(named ? e : { ...e, prompt: `你是 worker/${id}。\n\n${e.prompt}` })
+    if (!named) {
+      return { deny: `${PLUGIN}: 任务说明开头要写“你是 worker/<id>”，<id> 是节点的 worker_id（用 research_db 的 assign_worker 指派）。` }
+    }
+    const node = workerNode(await refresh($, cfg), named)
+    if (!node) return { deny: `${PLUGIN}: worker/${named} 没有指派给任何节点；先用 research_db 的 assign_worker 为节点指派。` }
+    const spawned = await next(e)
     if (spawned.agentId) {
       const agentId = spawned.agentId
-      await update($, agentsAtom, map => ({ ...(map ?? {}), [agentId]: `worker/${id}` }))
+      await update($, agentsAtom, map => ({ ...(map ?? {}), [agentId]: `worker/${named}` }))
+      const project = (await $.state.get(projectRef)).value
+      if (project) {
+        await runTool($, cfg, 'research_db.py', ['--db', project.db, '--actor', cfg.actor, 'bind_worker_session',
+          JSON.stringify({ node_id: node, agent_id: agentId })])
+        await refresh($, cfg)
+      }
     }
     return spawned
   })
@@ -545,7 +570,7 @@ export const register: Register = (on, options) => {
     // The UI and worker runs act as themselves whatever they pass.
     const fixed = e.agentId === undefined ? undefined
       : e.agentId === (await $.state.get(uiAgentRef)).value ? 'ui/ui'
-      : (await $.state.get(agentsRef)).value?.[e.agentId]
+      : (await $.state.get(agentsRef)).value?.[e.agentId] ?? workerActor((await $.state.get(summaryRef)).value, e.agentId)
     const actor = fixed ?? (typeof input.actor === 'string' && input.actor ? input.actor : cfg.actor)
     const out = await runTool($, cfg, 'research_db.py', [
       '--db', project.db, '--actor', actor, input.method, JSON.stringify(input.kwargs ?? {}),
@@ -741,4 +766,4 @@ function registerProgressPane(on: Parameters<Register>[0], cfg: Config): void {
   })
 }
 
-export const internals = { guardReason, writesDatabase, statusText, statusLine, workerBlock, parseInit }
+export const internals = { guardReason, writesDatabase, statusText, statusLine, workerBlock, parseInit, workerNode, workerActor }

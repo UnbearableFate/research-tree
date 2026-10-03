@@ -7,16 +7,8 @@
   "channel": "native",
   "thread": "demo-rld-thread"
  },
- "worker/w1": {
+ "worker/root": {
   "channel": "native",
-  "thread": "demo-w1-thread"
- },
- "worker/w2": {
-  "channel": "native",
-  "thread": "demo-w2-thread"
- },
- "worker/w3": {
-  "channel": "native",
-  "thread": "demo-w3-thread"
+  "thread": "demo-root-worker-thread"
  }
 }

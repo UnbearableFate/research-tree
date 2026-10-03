@@ -87,6 +87,21 @@ test('the start-up rule follows the confirmation phase', () => {
   expect(internals.workerBlock({ ...project!, phase: 'confirmed' })).toBeUndefined()
 })
 
+test('worker identities resolve to their node, and bound sessions to their identity', () => {
+  const worker = (id: string | null, agent: string | null) => ({ id, agent_id: agent, session_at: null, resume: [] })
+  const s = {
+    project: { id: 'my-study', worker: worker('root', 'agent-root') },
+    nodes: [{ id: 'H-0001', worker: worker('h0001', 'agent-1') }, { id: 'H-0002', worker: worker(null, null) }],
+  } as unknown as ResearchSummary
+  expect(internals.workerNode(s, 'root')).toBe('my-study')
+  expect(internals.workerNode(s, 'h0001')).toBe('H-0001')
+  expect(internals.workerNode(s, 'h0002')).toBeUndefined()
+  expect(internals.workerNode(null, 'h0001')).toBeUndefined()
+  expect(internals.workerActor(s, 'agent-1')).toBe('worker/h0001')
+  expect(internals.workerActor(s, 'agent-root')).toBe('worker/root')
+  expect(internals.workerActor(s, 'agent-x')).toBeUndefined()
+})
+
 test('only the UI agent records a confirmation', async $ => {
   const ran = await $.tool.call({ tool: 'mcp__research-agent__confirm_plan', words: '同意' } as never)
   expect(ran.isError).toBe(true)

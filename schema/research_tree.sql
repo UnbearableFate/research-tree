@@ -1,4 +1,4 @@
--- 研究假说树 LatticeDB 数据模型（schema_version 4，2026-10-03）
+-- 研究假说树 LatticeDB 数据模型（schema_version 5，2026-10-04）
 --
 -- 说明
 -- * LatticeDB 是属性图数据库（Cypher 查询），不执行 SQL。本文件用 SQL DDL 作为可读的
@@ -57,6 +57,12 @@ CREATE TABLE project (
     harness_paths       TEXT_LIST,             -- 框架与统计代码的文件/目录，节点代码中必须与 harness_ref 一致
     sota_experiment_id  TEXT,                  -- 当前 SOTA 基线实验；edge: SOTA_BASELINE
     owner               TEXT NOT NULL,         -- RLD 身份
+    -- 根节点（baselines）的 worker，同下方 hypothesis 的 worker 字段
+    -- 节点的 worker：一个节点一个 worker 身份，从头负责到节点完成；会话丢失时用同一身份从恢复文档接手
+    worker_id           TEXT,                  -- worker 身份 worker/<worker_id>；指派后不变（假说为 h<编号>，根节点为 root）
+    worker_agent_id     TEXT,                  -- 当前 worker 会话的 agent ID（Claude Code 用 SendMessage 续接）
+    worker_session_at   TEXT,                  -- 当前会话绑定的时间
+    resume_doc_ids      TEXT_LIST,             -- 恢复 worker 所需的文档：节点文档、任务请求与交付等（自动维护，可追加）
     created_at          TEXT NOT NULL,
     updated_at          TEXT NOT NULL
 );
@@ -89,6 +95,11 @@ CREATE TABLE hypothesis (
     priority            INTEGER NOT NULL DEFAULT 0,  -- 越大越优先；实验信号是第一推动因素
     status_reason       TEXT,                  -- 当前状态的一句话理由；详细见最近 decision
     owner               TEXT NOT NULL,
+    -- 节点的 worker：一个节点一个 worker 身份，从头负责到节点完成；会话丢失时用同一身份从恢复文档接手
+    worker_id           TEXT,                  -- worker 身份 worker/<worker_id>；指派后不变（假说为 h<编号>，根节点为 root）
+    worker_agent_id     TEXT,                  -- 当前 worker 会话的 agent ID（Claude Code 用 SendMessage 续接）
+    worker_session_at   TEXT,                  -- 当前会话绑定的时间
+    resume_doc_ids      TEXT_LIST,             -- 恢复 worker 所需的文档：节点文档、任务请求与交付等（自动维护，可追加）
     -- 关键时间戳：由写入代码自动记录，调用者不能设置
     created_at          TEXT NOT NULL,         -- 节点创建
     started_at          TEXT,                  -- 首次开始验证（待验证 → 验证中）；重新验证不改写
@@ -260,7 +271,7 @@ CREATE TABLE task (
                             'harness', 'literature', 'experiment',
                             'analysis', 'web_build', 'cleanup', 'other'
                         )),
-    target_id           TEXT,                  -- hypothesis 或 experiment；edge: FOR
+    target_id           TEXT,                  -- hypothesis、project（根节点）或 experiment；edge: FOR
     status              TEXT NOT NULL CHECK (status IN (
                             'open', 'in_progress', 'delivered',
                             'accepted', 'rejected', 'cancelled'

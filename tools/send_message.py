@@ -234,7 +234,8 @@ def main(argv: list[str] | None = None) -> int:
         missing = [name for name in ("sender", "to", "type", "text") if getattr(args, name) is None]
         if missing:
             p.error("required for a new message: " + ", ".join("--" + ("from" if m == "sender" else m) for m in missing))
-        if args.sender not in registry:
+        # Node workers are named after their node (worker/h0007) and only send; every other sender is registered.
+        if args.sender not in registry and not args.sender.startswith("worker/"):
             raise MessageError(f"{args.sender} is not in agents.json")
         recipient_config(registry, args.to, args.channel)
 

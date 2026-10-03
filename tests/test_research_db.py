@@ -121,8 +121,8 @@ class Fixture(unittest.TestCase):
         return self.rld.create_hypothesis("h", "s", doc, self.literature, parent)
 
     def branch(self, hyp: str) -> str:
-        return self.rld.create_branch(hyp, f"node/{hyp}", "main", self.harness, "w1",
-                                      str(Path(self.tmp.name) / "wt" / hyp))
+        return self.rld.create_branch(hyp, f"node/{hyp}", "main", self.harness,
+                                      str(Path(self.tmp.name) / "wt" / hyp), owner="w1")
 
     def start(self, hyp: str) -> None:
         self.branch(hyp)
@@ -549,6 +549,75 @@ class DecisionTest(Fixture):
             self.rld.decide("P-test", {"status": "active"}, "resume", doc_id=self.decision_doc())
 
 
+class WorkerTest(Fixture):
+    def test_assignment(self):
+        h = self.hypothesis()
+        self.assertEqual(self.rld.assign_worker(h), h.replace("-", "").lower())
+        self.assertEqual(self.rld.assign_worker(h), "h0001")  # idempotent
+        with self.assertRaisesRegex(ResearchDBError, "already belongs to worker/h0001"):
+            self.rld.assign_worker(h, "other")
+        self.assertEqual(self.rld.assign_worker("P-test"), "root")
+        h2 = self.hypothesis()
+        with self.assertRaisesRegex(ResearchDBError, "already works on"):
+            self.rld.assign_worker(h2, "h0001")
+        with self.assertRaisesRegex(ResearchDBError, "letters, digits"):
+            self.rld.assign_worker(h2, "bad/id")
+        with self.assertRaises(PermissionDenied):
+            self.worker.assign_worker(h2)
+
+    def test_sessions_and_ownership(self):
+        h = self.hypothesis()
+        with self.assertRaisesRegex(ResearchDBError, "assign H-0001 a worker"):
+            self.rld.bind_worker_session(h, "agent-1")
+        wid = self.rld.assign_worker(h)
+        self.rld.bind_worker_session(h, "agent-1")
+        first = self.rld.get(h)
+        self.assertEqual((first["worker_agent_id"], bool(first["worker_session_at"])), ("agent-1", True))
+        self.rld.bind_worker_session(h, "agent-2")  # a new session takes over under the same identity
+        self.assertEqual(self.rld.get(h)["worker_agent_id"], "agent-2")
+
+        br = self.rld.create_branch(h, f"node/{h}", "main", self.harness, str(Path(self.tmp.name) / "wt"))
+        self.assertEqual(self.rld.get(br)["owner"], wid)  # the node's worker owns its branch
+        self.rld.decide(h, {"experiment_status": "running", "status": "verifying"}, "start", doc_id=self.decision_doc())
+        own = ResearchDB(self.db, f"worker/{wid}")
+        design = self.doc(own, "exp/w/design.v1.md", "experiment_design")
+        with self.assertRaisesRegex(PermissionDenied, f"worker/{wid}'s node"):
+            self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h)
+        exp = own.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h)
+        self.assertEqual(self.rld.get(exp)["owner"], wid)
+
+    def test_resume_documents(self):
+        h = self.hypothesis()
+        hyp_doc = self.rld.get(h)["doc_id"]
+        self.assertEqual(self.rld.get(h)["resume_doc_ids"], [hyp_doc])
+        self.assertEqual(self.rld.get("P-test")["resume_doc_ids"], ["D-0001"])  # the root starts with the setup
+        wid = self.rld.assign_worker(h)
+        own = ResearchDB(self.db, f"worker/{wid}")
+        req = self.doc(self.rld, "tasks/t/request.v1.md", "task_request")
+        task = self.rld.create_task("experiment", "worker", req, target_id=h, assignee_id=wid)
+        own.update_task(task, status="in_progress")
+        delivery = self.doc(own, "tasks/t/delivery.v1.md", "task_delivery")
+        own.update_task(task, status="delivered", delivery_doc_id=delivery)
+        note = self.doc(own, "h/notes/n.v1.md", "experiment_design")
+        own.add_resume_docs(h, [note])
+        with self.assertRaises(PermissionDenied):
+            self.worker.add_resume_docs(h, [note])
+        self.assertEqual(self.rld.get(h)["resume_doc_ids"], [hyp_doc, req, delivery, note])
+
+        # The package resolves a superseded document to its current version.
+        new = self.doc(self.rld, f"h/{h}/hypothesis.v2.md", "hypothesis")
+        self.rld.supersede_document(hyp_doc, new)
+        package = self.rld.resume_package(h)
+        self.assertEqual(package["worker"], f"worker/{wid}")
+        self.assertEqual(package["documents"][0]["id"], new)
+        self.assertEqual(package["documents"][0]["listed_as"], hyp_doc)
+        self.assertEqual([d["id"] for d in package["documents"][1:]], [req, delivery, note])
+        self.assertEqual(package["tasks"][0]["id"], task)
+        self.assertEqual(package["experiments"], [])
+        root = self.rld.resume_package("P-test")
+        self.assertEqual([b["id"] for b in root["baselines"]], [self.sota])
+
+
 class DocumentTest(Fixture):
     def test_paths_roles_and_freeze(self):
         (self.root / "docs" / "a.md").write_text("x", encoding="utf-8")
@@ -615,9 +684,9 @@ class BranchTest(Fixture):
         h = self.hypothesis()
         worktree = Path(self.tmp.name) / "wt"
         worktree.mkdir()
-        br = self.rld.create_branch(h, f"node/{h}", "main", self.harness, "w1", str(worktree))
+        br = self.rld.create_branch(h, f"node/{h}", "main", self.harness, str(worktree), owner="w1")
         with self.assertRaisesRegex(ResearchDBError, "already has a branch"):
-            self.rld.create_branch(h, "x", "main", self.harness, "w1", str(worktree))
+            self.rld.create_branch(h, "x", "main", self.harness, str(worktree), owner="w1")
         head = self.commit()
         with self.assertRaises(PermissionDenied):
             ResearchDB(self.db, "worker/w2").return_branch(br, head)

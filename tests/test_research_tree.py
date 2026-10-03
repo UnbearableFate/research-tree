@@ -56,7 +56,7 @@ class ResearchTreeTest(unittest.TestCase):
         self.assertEqual(json.loads((self.cwd / ".research-tree.json").read_text())["db"], marker["db"])
         registry = json.loads((root / "agents.json").read_text())
         self.assertIn("ui/ui", registry)
-        self.assertIn("worker/w1", registry)
+        self.assertIn("worker/root", registry)
 
         doc = ResearchDB(root / "research_tree.db", "rld/main").get(marker["plan_instruction"]["doc_id"])
         self.assertEqual((doc["doc_type"], doc["status"], doc["author_role"]), ("user_instruction", "current", "ui"))
