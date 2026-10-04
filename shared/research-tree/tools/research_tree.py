@@ -22,6 +22,8 @@ Usage (run with the project's own interpreter, ./.venv/bin/python, after `uv ini
     research_tree.py config apply [--words "..."] [--require-project]
     research_tree.py ui reply|confirm|instruction|question|submit --run RUN ...  # the UI agent's outbox
     research_tree.py requirement draft|list|submit ...    # the UI's requirement drafts and their documents
+    research_tree.py query METHOD ['{"kwarg": ...}']      # the UI's read-only access to the database
+    research_tree.py agent-log --agent ID --actor ROLE/ID --event requested|observed --model M
     research_tree.py status                               # the marker as JSON
 
 init starts from the default configuration (schema/config.template.yaml) unless --config names a file to start
@@ -51,12 +53,12 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 import create_db  # noqa: E402
 import project_config  # noqa: E402
 from project_config import CONFIG_NAME, ConfigError  # noqa: E402
-from research_db import GATE_FIELDS, ResearchDB, ResearchDBError, table_of  # noqa: E402
+from research_db import GATE_FIELDS, READ_METHODS, ResearchDB, ResearchDBError, describe, table_of  # noqa: E402
 
 MARKER = Path(".research-tree.json")
 PHASES = ("planning", "awaiting_confirmation", "confirmed")
 SUBDIRS = ("docs/project/reports", "docs/instructions", "docs/requirements", "docs/literature", "docs/hypotheses", "docs/tasks",
-           "docs/baselines", "docs/workflow", "messages", "snapshots", "cache/literature", "outputs", "site")
+           "docs/baselines", "docs/workflow", "messages", "snapshots", "cache/literature", "outputs", "site", "logs")
 # Node workers are named after their node (worker/h0007) and only send; the root's worker also receives.
 AGENTS = ["ui/ui", "rld/main", "worker/root", "assistant/a1", "web_builder/site"]
 
@@ -360,6 +362,29 @@ def ui_outbox(cwd: Path, run: str, entry: dict) -> dict:
     return {"outbox": str(outbox), **entry}
 
 
+def query(cwd: Path, method: str, kwargs: dict):
+    """A read of the research database as ui/ui: the UI's only way into it, so it cannot write."""
+    if method not in READ_METHODS:
+        raise TreeError(f"query reads only ({', '.join(READ_METHODS)}); {method} is not one of them")
+    if method == "help":
+        return describe(**kwargs)
+    return getattr(ResearchDB(Path(read_marker(cwd)["db"]), "ui/ui"), method)(**kwargs)
+
+
+AGENT_LOG = Path("logs") / "agent_models.jsonl"
+
+
+def log_agent_model(root: Path, entry: dict) -> dict:
+    """Records which model an agent run asked for (requested, at its start) or ran on (observed, from the host's
+    runtime report): the evidence for rule 2's model records. Appends to logs/agent_models.jsonl."""
+    record = {"ts": now_utc(), **{k: v for k, v in entry.items() if v not in (None, "")}}
+    log = root / AGENT_LOG
+    log.parent.mkdir(parents=True, exist_ok=True)
+    with log.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(record, ensure_ascii=False) + "\n")
+    return record
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Set up and steer a research project in the current directory.")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -396,6 +421,15 @@ def main(argv: list[str] | None = None) -> int:
         rq.add_argument(f"--{key}", help=label)
     rq.add_argument("--messages", nargs="*", default=[], help="ids of the person's messages it rests on (w-<n>)")
     rq.add_argument("--about", nargs="*", default=[])
+    q = sub.add_parser("query", help="read the research database as the UI (read methods only)")
+    q.add_argument("method")
+    q.add_argument("kwargs", nargs="?", default="{}", help="JSON object of keyword arguments")
+    al = sub.add_parser("agent-log", help="record an agent run's requested or observed model")
+    al.add_argument("--agent", required=True, help="the host's id of the agent run")
+    al.add_argument("--actor", required=True, help="<role>/<id> the run acts as")
+    al.add_argument("--event", required=True, choices=("requested", "observed"))
+    al.add_argument("--model", default="")
+    al.add_argument("--effort", default="")
     sub.add_parser("status")
     args = p.parse_args(argv)
     cwd = Path.cwd()
@@ -417,6 +451,15 @@ def main(argv: list[str] | None = None) -> int:
             if args.action == "submit" and not (args.req and REQ_RE.match(args.req)):
                 raise TreeError("submit needs --req REQ-<n>")
             result = ui_outbox(cwd, args.run, {"type": args.action, **{k: getattr(args, k) for k in fields}})
+        elif args.cmd == "query":
+            kwargs = json.loads(args.kwargs)
+            if not isinstance(kwargs, dict):
+                raise TreeError("kwargs must be a JSON object")
+            result = query(cwd, args.method, kwargs)
+        elif args.cmd == "agent-log":
+            result = log_agent_model(Path(read_marker(cwd)["root"]), {
+                "agent": args.agent, "actor": args.actor, "event": args.event, "model": args.model,
+                "effort": args.effort})
         elif args.cmd == "requirement":
             if args.action == "draft":
                 result = draft_requirement(cwd, args.req, args.title, {k: getattr(args, k) for k in REQ_FIELDS},
@@ -429,7 +472,7 @@ def main(argv: list[str] | None = None) -> int:
                 result = list_requirements(cwd)
         else:
             result = read_marker(cwd)
-    except (TreeError, ResearchDBError, ConfigError) as exc:
+    except (TreeError, ResearchDBError, ConfigError, TypeError, json.JSONDecodeError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False))
         return 2
     print(json.dumps({"ok": True, "result": result}, ensure_ascii=False))

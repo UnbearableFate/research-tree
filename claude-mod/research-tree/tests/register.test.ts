@@ -51,6 +51,33 @@ test('redirections and wrapped commands into a project database count; quoted an
   expect(internals.writesDatabase(`cat <<EOF > notes.txt\nrm ${db}\nEOF\nrm ${db}`)).toBe(true)
 })
 
+test('the project configuration is the user\'s: edits and shell writes to it are refused', () => {
+  const config = '/w/study/research-tree.yaml'
+  expect(internals.guardReason(null, config, config)).toContain('由用户修改')
+  expect(internals.guardReason(null, '/w/other/research-tree.yaml', config)).toBeUndefined()
+  expect(internals.writesConfig('cat > research-tree.yaml <<EOF\nx\nEOF', config)).toBe(true)
+  expect(internals.writesConfig(`sed -i 's/a/b/' ${config}`, config)).toBe(true)
+  expect(internals.writesConfig('sed s/a/b/ research-tree.yaml', config)).toBe(false)
+  expect(internals.writesConfig('cat research-tree.yaml', config)).toBe(false)
+  expect(internals.writesConfig('cp /tmp/x/research-tree.yaml /tmp/y', config)).toBe(false)  // another project's
+})
+
+test('a subagent is never the RLD: a worker acts as itself, other helpers only read', () => {
+  const db = '.venv/bin/python /p/tools/research_db.py --db research/p/research_tree.db'
+  const calls = internals.researchCalls(`${db} --actor rld/main update_run '{}' && ${db} --actor=worker/h0001 get '{}'`)
+  expect(calls).toEqual([
+    { script: 'research_db.py', actor: 'rld/main', method: 'update_run' },
+    { script: 'research_db.py', actor: 'worker/h0001', method: 'get' },
+  ])
+  expect(internals.subagentCallBlock(calls, 'worker/h0001')).toContain('只能以自己的身份')
+  expect(internals.subagentCallBlock(calls.slice(1), 'worker/h0001')).toBeUndefined()
+  expect(internals.subagentCallBlock(calls.slice(1), undefined)).toBeUndefined()
+  expect(internals.subagentCallBlock(calls, undefined)).toContain('只读')
+  expect(internals.subagentCallBlock(internals.researchCalls('python tools/research_tree.py phase --set confirmed'), 'worker/h0001'))
+    .toContain('research_tree.py phase')
+  expect(internals.subagentCallBlock(internals.researchCalls("python tools/research_tree.py query get '{}'"), undefined)).toBeUndefined()
+})
+
 test('a shell command writing the database file is refused', async ($, on) => {
   on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: 'ran', stderr: '', interrupted: false } } as never))
   const denied = await $.tool.call({ tool: 'Bash', command: 'rm demo/research/P-x/research_tree.db' })
@@ -180,7 +207,8 @@ test('a UI run reads with the CLI and acts only through its own outbox', () => {
     Parameters<typeof internals.uiPrompt>[1]
   const prompt = internals.uiPrompt('/plug', project, 'r123', '/w/study/.venv/bin/python')
   expect(prompt).toContain('在项目目录 /w/study 运行命令')
-  expect(prompt).toContain("/w/study/.venv/bin/python /plug/tools/research_db.py --db /w/study/research/p/research_tree.db --actor ui/ui get")
+  expect(prompt).toContain(`/w/study/.venv/bin/python /plug/tools/research_tree.py query get '{"entity_id": "H-0001"}'`)
+  expect(prompt).not.toContain('research_db.py')  // no way to name another actor
   expect(prompt).toContain('/plug/tools/research_tree.py requirement draft')
   for (const action of ['reply', 'confirm', 'instruction', 'question', 'submit']) {
     expect(prompt).toContain(`/plug/tools/research_tree.py ui ${action} --run r123`)

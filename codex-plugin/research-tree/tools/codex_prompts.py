@@ -21,8 +21,10 @@ Research Leader 是用户现有的主会话。不要创建另一个Leader或自�
 文档目录：{project['root']}/docs。
 用 update_task 认领已指派给你的任务；只在任务规定的分支/worktree改代码并提交。
 根节点实现框架与baselines；其他节点不改冻结框架和统计代码。
-实验、运行和判定通过 research_db 登记；错误如实报告，工程失败不当科学结论。
-重要中间结论写版本化文档并 add_resume_docs。交付写 tasks/<任务ID>/delivery.vN.md，register_document、
+实验、运行和判定通过 research_db 登记；运行按 planned→submitted→succeeded 推进，设为有效时附 log_path 或 output_path，
+验收不通过时设 valid=false 并写 invalid_reason。错误如实报告，工程失败不当科学结论。
+重要中间结论写版本化文档并 add_resume_docs。交付写 tasks/<任务ID>/delivery.vN.md（章节：实际改动与版本、运行与产物、
+验证结果、资源观测、未完成与未知项；内容见规则第4节），register_document、
 set_document_current，然后 update_task(status=delivered, delivery_doc_id)。用 research_message(type=delivery,
 docs=[交付文档相对路径], about=[任务ID], text=短说明) 通知Leader，最终回答简短引用交付文档和未完成项。
 {platform(conf)}
@@ -58,7 +60,8 @@ def planning(project, conf):
 1. 写并登记 goal 与 min_setup 文档；模型、数据、训练量、主指标方向、其他指标、统一seed与框架规则明确。
 2. create_project 使用本项目ID {project['project_id']}、真实git仓库路径、配置中的预算与门槛；接口参数先查 help。
 3. 为每个初始假说检索相关研究，缓存原文并登记引用与假说文档，create_hypothesis 不指定parent_id，全部直属根节点。
-4. 根节点只放 baselines；创建尚未指派的 harness 任务，写任务请求，覆盖框架、统计代码和SOTA/其他基线。
+4. 根节点只放 baselines；写任务请求（章节：任务与节点、问题与预测、干预与对照、范围与权限、资源与预算、验收与停止条件、
+交付；内容见规则第4节），覆盖框架、统计代码和SOTA/其他基线，再创建尚未指派的 harness 任务。
 5. 写并登记 project/reports/init-plan.v1.md，post_to_ui(type=confirm_request, docs=[该路径]) 请用户确认。
 确认前配置与计划若冲突要指出，由用户决定；确认后先指派根节点worker并实现框架与基线，审核后冻结框架、设置SOTA，再推进假说。
 {platform(conf)}

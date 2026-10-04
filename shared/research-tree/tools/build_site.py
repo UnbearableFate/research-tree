@@ -19,12 +19,17 @@ import shutil
 import sys
 from pathlib import Path
 
-from research_db import ResearchDB, ResearchDBError, busy_workers, now_utc, sha256_file
+from research_db import ResearchDB, ResearchDBError, busy_workers, now_utc, run_node_hours, sha256_file
 
 MAX_DOC_CHARS = 20000
 NODE_TIMES = ("created_at", "started_at", "first_experiment_at", "first_result_at", "beats_sota_at", "concluded_at")
 CURVE_POINTS = 200
-ALERT_KIND = "资源提醒"
+# Attention kinds are codes; the page and the hosts label them.
+ATTENTION_LABELS = {
+    "usage_alert": "资源提醒", "awaiting_reply": "待RLD回执", "extend_seeds": "待扩展seed", "needs_rld": "需要RLD复核",
+    "stale_harness": "框架已更换", "run_unknown": "作业状态未知", "curve_missing": "曲线缺失",
+    "conclusion_outdated": "结论待更新", "task": "任务", "doc_integrity": "文档完整性",
+}
 VERSION_RE = re.compile(r'<meta name="data-version" content="(\d+)">')
 
 
@@ -160,7 +165,7 @@ def collect(db_path: Path) -> dict:
 
     runs_by_exp = {}
     for r in tables["run"]:
-        node_h = r["nodes_used"] * r["walltime_used_s"] / 3600 if r.get("nodes_used") and r.get("walltime_used_s") else None
+        node_h = run_node_hours(r)
         curve, problem = load_curve(r.get("curve_path"), root)
         runs_by_exp.setdefault(r["experiment_id"], []).append({
             "id": r["id"], "seed": r["seed"], "status": r["exec_status"], "valid": r.get("valid"),
@@ -216,35 +221,38 @@ def collect(db_path: Path) -> dict:
     attention = []
     for e in experiments.values():
         if e["verdict"] == "close":
-            attention.append({"kind": "待扩展seed", "id": e["hyp"], "text": f"{e['id']} 判定为差不多，需扩展到3个seed"})
+            attention.append({"kind": "extend_seeds", "id": e["hyp"], "text": f"{e['id']} 判定为差不多，需扩展到3个seed"})
         if e["verdict"] == "needs_rld":
-            attention.append({"kind": "需要RLD复核", "id": e["hyp"], "text": f"{e['id']} 的统计代码无法判定，等待RLD决定"})
+            attention.append({"kind": "needs_rld", "id": e["hyp"], "text": f"{e['id']} 的统计代码无法判定，等待RLD决定"})
         if e["stale_harness"]:
-            attention.append({"kind": "框架已更换", "id": e["hyp"] or e["id"], "text": f"{e['id']} 用旧框架判定，结果不可比"})
+            attention.append({"kind": "stale_harness", "id": e["hyp"] or e["id"], "text": f"{e['id']} 用旧框架判定，结果不可比"})
         for r in e["runs"]:
             if r["status"] == "unknown":
-                attention.append({"kind": "作业状态未知", "id": r["id"], "text": f"{r['id']} 执行状态 unknown"})
+                attention.append({"kind": "run_unknown", "id": r["id"], "text": f"{r['id']} 执行状态 unknown"})
             if r["valid"] and r["curve_problem"]:
-                attention.append({"kind": "曲线缺失", "id": r["id"], "text": f"{r['id']}：{r['curve_problem']}"})
+                attention.append({"kind": "curve_missing", "id": r["id"], "text": f"{r['id']}：{r['curve_problem']}"})
     for n in nodes:
         latest = n["latest"] and experiments[n["latest"]]
         if latest and latest["verdict"] in ("no_gain", "beats_parent", "beats_sota") and latest["verdict"] != n["exp_status"]:
-            attention.append({"kind": "结论待更新", "id": n["id"],
+            attention.append({"kind": "conclusion_outdated", "id": n["id"],
                               "text": f"{n['id']} 最新判定为 {latest['verdict']}，节点结论仍为 {n['exp_status']}"})
     for t in tables["task"]:
         if t["status"] in ("open", "in_progress", "delivered", "rejected"):
-            attention.append({"kind": "任务", "id": t["id"],
+            attention.append({"kind": "task", "id": t["id"],
                               "text": f"{t['id']}（{t['kind']}，{t['assignee_role']}/{t.get('assignee_id') or '未指派'}）：{t['status']}"})
+    attention += unanswered(root)
     for d in docs.values():
         if d["hash_ok"] is False:
-            attention.append({"kind": "文档完整性", "id": d["id"], "text": f"{d['id']} {d['path']} 与登记的哈希不一致或文件缺失"})
+            attention.append({"kind": "doc_integrity", "id": d["id"], "text": f"{d['id']} {d['path']} 与登记的哈希不一致或文件缺失"})
 
     node_hours = sum(r["node_h"] or 0 for e in experiments.values() for r in e["runs"])
     alert = project.get("alert_node_h")
     if alert is not None and node_hours >= alert:
-        attention.insert(0, {"kind": ALERT_KIND, "id": project["id"],
+        attention.insert(0, {"kind": "usage_alert", "id": project["id"],
                              "text": f"累计用量 {node_hours:.2f} node·h 已达到提醒阈值 {alert} node·h：新实验和扩展seed已暂停，"
                                      "由用户决定是否继续（调高或取消 research-tree.yaml 的 alert_node_h 后 /research-tree config apply）"})
+    for a in attention:
+        a["label"] = ATTENTION_LABELS[a["kind"]]
     return {
         "meta": {**snap["meta"], "generated_at": now_utc()},
         "project": {k: v for k, v in project.items() if k != "_table"},
@@ -256,6 +264,17 @@ def collect(db_path: Path) -> dict:
         "screen_seeds": _screen_seeds(experiments, project),
         "busy_workers": sorted(busy_workers(tables["task"])),
     }
+
+
+def unanswered(root: Path) -> list[dict]:
+    """Messages from the UI that ask the RLD for a receipt or an answer and have none yet (no message re it)."""
+    logs = [p for p in sorted((root / "messages").glob("*.jsonl")) if p.name != "window.jsonl"]
+    messages = [json.loads(line) for p in logs for line in p.read_text(encoding="utf-8").splitlines() if line.strip()]
+    answered = {m["re"] for m in messages if m.get("re")}
+    return [{"kind": "awaiting_reply", "id": (m.get("about") or [None])[0],
+             "text": f"{m['id']}（{m['type']}）尚无RLD回执：{m['text'][:80]}"}
+            for m in messages if m.get("from") == "ui/ui" and m.get("to") == "rld/main"
+            and m.get("need") in ("ack", "answer") and m["id"] not in answered]
 
 
 def _worker(node: dict) -> dict:
@@ -751,7 +770,7 @@ function attention() {
   const groups = {};
   D.attention.forEach(a => (groups[a.kind] = groups[a.kind] || []).push(a));
   document.getElementById("v-attention").innerHTML = Object.keys(groups).length
-    ? Object.entries(groups).map(([k, items]) => `<div class="panel"><h2>${esc(k)}（${items.length}）</h2><ul>${items.map(a => `<li>${NODES[a.id] ? nodeRef(a.id) + " " : ""}${esc(a.text)}</li>`).join("")}</ul></div>`).join("")
+    ? Object.entries(groups).map(([k, items]) => `<div class="panel"><h2>${esc(items[0].label)}（${items.length}）</h2><ul>${items.map(a => `<li>${NODES[a.id] ? nodeRef(a.id) + " " : ""}${esc(a.text)}</li>`).join("")}</ul></div>`).join("")
     : '<p class="muted">没有待处理事项。</p>';
 }
 

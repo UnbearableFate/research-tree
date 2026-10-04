@@ -107,8 +107,8 @@ created_at: 2026-10-03T10:21:00Z
 | `experiment_result` | worker | 冻结统计代码的输出：逐seed的主指标、其他指标、过程曲线路径、实际节点数与时长；与父节点和SOTA的配对差值及离散度；判定及依据；局限；原始产物路径 |
 | `decision` | RLD | 变更字段与前后取值；理由；依据（实验、文档、用户指令ID）；判定为“需要RLD复核”时RLD的判断理由 |
 | `user_instruction` | UI | 用户原话（逐字）；UI的理解；类型（指令/偏好/问题/讨论）；生效范围；取代的旧指令ID |
-| `task_request` | RLD | 第4节交接表要求的字段；目标节点或实验；交付文档的位置和类型 |
-| `task_delivery` | worker/助手/web builder | 实际做了什么；产出的文档ID；未完成项和未知项 |
+| `task_request` | RLD | 章节（接口检查）：任务与节点、问题与预测、干预与对照、范围与权限、资源与预算、验收与停止条件、交付；各章节的内容见规则第4节 |
+| `task_delivery` | worker/助手/web builder | 章节（接口检查）：实际改动与版本、运行与产物、验证结果、资源观测、未完成与未知项；各章节的内容见规则第4节 |
 | `workflow` | RLD | 规则版本、模板、项目约定 |
 | `report` | RLD | 阶段总结、GO/NOT GO报告（第6、7节要求的内容） |
 | `config` | RLD（mod 代用户登记） | 项目目录 `research-tree.yaml` 的原文：开发与实验平台、资源预算、阶段1门槛、子代理模型；立项确认与每次 `/research-tree config apply` 时登记新版本 |
@@ -141,6 +141,9 @@ created_at: 2026-10-03T10:21:00Z
 - **SOTA基线与seed预算。** SOTA基线在统一seed上跑满 `gate_seeds`（默认3）个seed并记录结果后，才能设为项目的SOTA。节点实验的初始seed数由SOTA第一个seed的成本 c（节点数×时长）决定：满足 n×c < `screen_budget_node_h`（默认10 node·h）的最大n，至少1、至多3。判定为“差不多”或“优于父节点”时，worker可扩展到3个seed；RLD可随时扩展。
 - **创建节点**必须引用至少 `project.min_related_work`（默认3）篇现行的literature文档（`rel_references`）。根节点（项目本身）只存放 baselines；不指定父节点时新节点挂在根节点下（初始假说都是如此）；指定父节点时，父节点必须已是可拓展状态。
 - **开始验证**要求节点已有代码分支，且 `experiment_status` 为running；节点实验的代码必须是不同于分支基准的提交。
+- **运行**按 planned → submitted（→ running）→ succeeded/failed/cancelled 推进；主指标与其他指标只能记在已成功的运行上。设为有效需要主指标、其他指标、实际节点数与时长，以及日志或输出路径；设为无效需要写明原因。重新提交（attempt 加1）只适用于失败、取消，或已成功但被判为无效的运行；之前每次 attempt 的记录保留在运行的 `attempts` 中，其用量计入累计用量。
+- **项目结项后**（GO、NOT GO、停止）不能再新建假说、实验、运行、分支或研究类任务（harness、literature、experiment、analysis）；恢复研究需要用户指令。
+- **任务文档**：建任务时请求文档、交付时交付文档必须有规定的章节（见第4节文档类型表）。
 - **记录判定**（`record_verdict`）要求每个seed的运行都有效且记录了主指标、其他指标、实际节点数与时长；比较对象固定为SOTA，以及父节点最新已判定的实验（顶层节点只比SOTA）。接口核对判定与比较数据一致：“无提升”当且仅当相对父节点的所有指标都不更好；“优于父节点”要求主指标更好；“优于SOTA”要求3个seed全部配对且主指标领先超过 `go_margin`（`passes_gate` 由接口计算），通过该门槛时判定只能是“优于SOTA”或“需要RLD复核”；少于3个seed时不能判“优于SOTA”，3个seed时不能判“差不多”。
 - **节点结论**（`experiment_status`）必须等于节点最新已判定实验的判定，并引用该实验；“差不多”须先扩展seed；“需要RLD复核”由RLD附决定文档自行选择（选“优于SOTA”仍须通过门槛）。“无提升”的节点必须同时标为可消灭；可拓展要求优于父节点或优于SOTA。
 - **复核**只在节点优于SOTA后进行，判为通过或未通过须引用RLD写的、描述该节点的novelty或theory文档；复核失败可将节点标为可消灭。

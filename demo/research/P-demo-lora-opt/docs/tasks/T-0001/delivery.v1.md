@@ -7,8 +7,27 @@ summary: "框架与SOTA完成"
 about: []
 author_role: "worker"
 author_id: "root"
-created_at: "2026-10-04T06:05:10Z"
+created_at: "2026-10-04T12:36:04Z"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
 
-框架提交 fcc32f0345；SOTA实验 E-0001。
+## 实际改动与版本
+
+框架提交 61ed7ace39（harness/）。
+
+## 运行与产物
+
+SOTA实验 E-0001，3个seed，输出见 outputs/E-0001/。
+
+## 验证结果
+
+3个seed均有效；结果见 baselines/E-0001/result.v1.md。
+
+## 资源观测
+
+12 node·h。
+
+## 未完成与未知项
+
+无。
+

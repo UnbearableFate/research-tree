@@ -16,7 +16,7 @@ const MARKER = '.research-tree.json'
 const DEFAULT_PYTHON = '3.13'
 const DEPENDENCIES = ['latticedb==0.15.0', 'jsonschema>=4.26', 'pyyaml>=6.0']
 const CONFIG_FILE = 'research-tree.yaml'
-const ALERT_KIND = '资源提醒'
+const ALERT_KIND = 'usage_alert'
 const READ_ONLY = /^(help|get|find|edges|children|history|go_candidates|latest_result|screen_seed_count|export_snapshot|verify_document|resume_package)$/
 
 const summaryRef = { plugin: 'research-tree', key: 'summary' } as const
@@ -138,6 +138,17 @@ async function alertUsage($: EngineInterface, summary: ResearchSummary): Promise
   void $.ui.open({ id: UI_PANE, title: '研究对话（UI）' })
 }
 
+/** Records the model an agent run asked for (requested, at its start) or ran on (observed, as the API reports
+ *  it): rule 2's model records, in the project's logs/agent_models.jsonl. */
+async function logAgentModel($: EngineInterface, cfg: Config, agent: string, actor: string,
+  event: 'requested' | 'observed', model: string | undefined, effort?: string | number | null): Promise<void> {
+  await tree($, cfg, ['agent-log', '--agent', agent, '--actor', actor, '--event', event, '--model', model ?? '',
+    ...(effort != null ? ['--effort', String(effort)] : [])])
+}
+
+// Agent runs whose observed model is logged already, with that model: one record per run and model.
+const observedModels = new Map<string, string>()
+
 /** One of the research_tree.py subcommands; its JSON answer. */
 async function tree($: EngineInterface, cfg: Config, args: string[]): Promise<{ ok: boolean; result?: any; error?: string }> {
   const out = await runTool($, cfg, 'research_tree.py', args)
@@ -209,7 +220,7 @@ function statusText(s: ResearchSummary, p?: ResearchProject | null): string {
       `${s.project.alert_node_h != null ? `（提醒阈值 ${s.project.alert_node_h}）` : ''}；有任务的worker ${s.busy_workers.length}` +
       `${s.project.max_parallel_workers != null ? `/${s.project.max_parallel_workers}` : ''}`,
   ]
-  if (s.attention.length) lines.push('待处理：', ...s.attention.map(a => `- [${a.kind}] ${a.text}`))
+  if (s.attention.length) lines.push('待处理：', ...s.attention.map(a => `- [${a.label}] ${a.text}`))
   return lines.join('\n')
 }
 
@@ -293,8 +304,17 @@ async function setUpEnvironment($: EngineInterface, python: string, updateUv: bo
 // Guards
 // ---------------------------------------------------------------------------
 
-/** Paths a write must not touch: current/superseded documents and the harness inside node worktrees. */
-function guardReason(s: ResearchSummary | null | undefined, path: string): string | undefined {
+/** The project's code directory: the research root research/<id>/ lives in it, beside research-tree.yaml. */
+function projectDir(project: ResearchProject): string {
+  return project.root.replace(/\/research\/[^/]+$/, '')
+}
+
+const CONFIG_REASON = `${CONFIG_FILE} 由用户修改：请用户自己编辑它，再运行 /${COMMAND} config apply 生效；需要变更时向用户说明理由。`
+
+/** Paths a write must not touch: current/superseded documents, the harness inside node worktrees, and the
+ *  project configuration (`config`, its absolute path). */
+function guardReason(s: ResearchSummary | null | undefined, path: string, config?: string): string | undefined {
+  if (config && path === config) return CONFIG_REASON
   if (!s || !path) return undefined
   if (s.guards.frozen_docs.includes(path)) {
     return `${path} 是已生效的文档，不能原地修改：写 vN+1 新版本文件，用 research_db 的 register_document 登记，再用 supersede_document 取代旧版本。`
@@ -307,7 +327,8 @@ function guardReason(s: ResearchSummary | null | undefined, path: string): strin
 }
 
 async function guard($: EngineInterface, path: string): Promise<{ deny: string } | undefined> {
-  const reason = guardReason((await $.state.get(summaryRef)).value, path)
+  const project = (await $.state.get(projectRef)).value
+  const reason = guardReason((await $.state.get(summaryRef)).value, path, project ? `${projectDir(project)}/${CONFIG_FILE}` : undefined)
   return reason ? { deny: `${PLUGIN}: ${reason}` } : undefined
 }
 
@@ -315,6 +336,8 @@ async function guard($: EngineInterface, path: string): Promise<{ deny: string }
 const PROJECT_DB = /(^|[=/])research\/[^\s/]+\/research_tree\.db/
 // Commands that write or remove the files named among their arguments.
 const DB_WRITERS = new Set(['rm', 'mv', 'cp', 'dd', 'truncate', 'sqlite3', 'shred', 'tee'])
+// Editors that write the files they name when given -i.
+const IN_PLACE = new Set(['sed', 'perl'])
 // Prefixes that run the next word as the command.
 const WRAPPERS = new Set(['sudo', 'env', 'command', 'exec', 'nice', 'nohup', 'time', 'timeout', 'xargs'])
 
@@ -399,12 +422,22 @@ function shellTokens(command: string): ShellToken[] {
   return tokens
 }
 
-/** A shell command that writes a project database directly instead of going through the tools: a redirection
- *  into it, or a writing command (rm, cp, sqlite3, ...) naming it. The database is the current project's, or
- *  any research/<id>/research_tree.db; other files that happen to be named research_tree.db (a scratch or test
- *  database) are not protected. */
+/** A shell command that writes a project database directly instead of going through the tools. The database is
+ *  the current project's, or any research/<id>/research_tree.db; other files that happen to be named
+ *  research_tree.db (a scratch or test database) are not protected. */
 function writesDatabase(command: string, projectDb?: string | null): boolean {
-  const isDb = (w: string) => PROJECT_DB.test(w) || (!!projectDb && w.includes(projectDb))
+  return writesTo(command, w => PROJECT_DB.test(w) || (!!projectDb && w.includes(projectDb)))
+}
+
+/** A shell command that writes the project configuration: research-tree.yaml named relatively, or by `config`,
+ *  its absolute path. */
+function writesConfig(command: string, config?: string): boolean {
+  return writesTo(command, w => w.split('/').pop() === CONFIG_FILE && (!w.startsWith('/') || w === config))
+}
+
+/** A shell command that writes a file `isTarget` picks: a redirection into it, or a writing command (rm, cp,
+ *  sqlite3, sed -i, ...) naming it. */
+function writesTo(command: string, isTarget: (word: string) => boolean): boolean {
   const tokens = shellTokens(command)
   let start = true
   let wrapped = false
@@ -414,7 +447,7 @@ function writesDatabase(command: string, projectDb?: string | null): boolean {
     if ('op' in t) {
       if (t.op === '>' || t.op === '>>') {
         const target = tokens[k + 1]
-        if (target && 'word' in target && isDb(target.word)) return true
+        if (target && 'word' in target && isTarget(target.word)) return true
         k++
       } else if (t.op === '<' || t.op === '<<<') {
         k++
@@ -431,13 +464,74 @@ function writesDatabase(command: string, projectDb?: string | null): boolean {
         wrapped = true
         continue
       }
-      writer = DB_WRITERS.has(t.word.split('/').pop() ?? '')
+      const name = t.word.split('/').pop() ?? ''
+      writer = DB_WRITERS.has(name) || (IN_PLACE.has(name) && inPlace(tokens, k + 1))
       start = false
       continue
     }
-    if (writer && isDb(t.word)) return true
+    if (writer && isTarget(t.word)) return true
   }
   return false
+}
+
+/** Whether the command starting before token `from` has an -i option (an in-place edit). */
+function inPlace(tokens: ShellToken[], from: number): boolean {
+  for (let k = from; k < tokens.length; k++) {
+    const t = tokens[k]!
+    if ('op' in t) {
+      if (!['>', '>>', '<', '<<<', '<<'].includes(t.op)) return false
+      continue
+    }
+    if (/^-i/.test(t.word)) return true
+  }
+  return false
+}
+
+type ToolCall = { script: 'research_db.py' | 'research_tree.py'; actor?: string; method?: string }
+
+/** The research_db.py and research_tree.py calls in a shell command: the actor named, and the method (the
+ *  subcommand for research_tree.py). */
+function researchCalls(command: string): ToolCall[] {
+  const tokens = shellTokens(command)
+  const calls: ToolCall[] = []
+  for (let k = 0; k < tokens.length; k++) {
+    const t = tokens[k]!
+    const script = 'word' in t ? t.word.split('/').pop() : undefined
+    if (script !== 'research_db.py' && script !== 'research_tree.py') continue
+    const call: ToolCall = { script }
+    for (let j = k + 1; j < tokens.length; j++) {
+      const a = tokens[j]!
+      if ('op' in a) break
+      const [flag, inline] = a.word.split(/=(.*)/s, 2) as [string, string | undefined]
+      if (flag === '--actor' || flag === '--db' || flag === '--root') {
+        const value = inline ?? (tokens[j + 1] && 'word' in tokens[j + 1]! ? (tokens[++j] as { word: string }).word : undefined)
+        if (flag === '--actor') call.actor = value
+      } else if (!a.word.startsWith('-') && call.method === undefined) {
+        call.method = a.word
+      }
+    }
+    calls.push(call)
+  }
+  return calls
+}
+
+/** Why a subagent's shell command may not run: a worker acts only as itself, and the RLD's other helpers only
+ *  read; research_tree.py (the mod's and the UI's entry) is not theirs except to query. `worker` is the
+ *  subagent's worker/<id>, if it is a node's worker. */
+function subagentCallBlock(calls: ToolCall[], worker: string | undefined): string | undefined {
+  for (const c of calls) {
+    if (c.script === 'research_tree.py' && c.method !== 'query') {
+      return `子代理不运行 research_tree.py ${c.method ?? ''}：它是 mod 与 UI 的入口；研究数据库用 ${TOOL} 工具读写。`
+    }
+    if (c.script !== 'research_db.py') continue
+    if (worker && c.actor !== worker) {
+      return `${worker} 只能以自己的身份调用 research_db（--actor ${worker}）；用 ${TOOL} 工具时 mod 自动固定身份。`
+    }
+    if (!worker && !READ_ONLY.test(c.method ?? '')) {
+      return `RLD 委派的辅助子代理只读研究数据库（${c.method ?? '未知方法'} 会写入）；写入由 RLD 或节点的 worker 完成。`
+    }
+  }
+  return undefined
 }
 
 /** The node (hypothesis id, or the project for the root) whose assigned worker identity is `workerId`. */
@@ -475,6 +569,7 @@ const UI_ROLE = `你是研究项目的 User Interface（UI）agent，运行在 C
 function uiPrompt(pluginRoot: string, project: ResearchProject, run: string, python: string): string {
   const tool = (script: string) => `${python} ${pluginRoot}/tools/${script}`
   const outbox = `${tool('research_tree.py')} ui`
+  const dir = projectDir(project)
   return `${UI_ROLE}
 
 职责：
@@ -483,8 +578,8 @@ function uiPrompt(pluginRoot: string, project: ResearchProject, run: string, pyt
 3. 不派发、暂停或重分配worker，不替RLD作研究决定，不修改研究数据库、文档库和代码。
 4. 用中文简洁回复，说明哪些是已记录的事实、哪些是你的理解。
 
-在项目目录 ${project.root.replace(/\/research\/[^/]+$/, '')} 运行命令。只读查询研究数据库（get、find、children、history、latest_result、go_candidates、screen_seed_count）：
-  ${tool('research_db.py')} --db ${project.db} --actor ui/ui get '{"entity_id": "H-0001"}'
+在项目目录 ${dir} 运行命令。查询研究数据库只用 query（只读：get、find、edges、children、history、latest_result、go_candidates、screen_seed_count、resume_package、help）：
+  ${tool('research_tree.py')} query get '{"entity_id": "H-0001"}'
 
 处理每条用户消息时按下面的顺序判断，选第一条符合的：
 1. 立即生效的指令（停止、暂停、收回授权、纠正重大约束）：用 instruction 立即登记转交，不先追问。
@@ -526,9 +621,9 @@ function workerPrompt(conf: ResearchConfig | null | undefined): string {
 - 代码改动只在任务指定的仓库分支或worktree中进行并提交；除根节点框架任务外，不改动冻结的实验框架与统计代码。
 - 测试、训练、推理等工作按下面“开发与实验平台”的规定运行；规定没有覆盖、又可能占用大量资源的操作，先问RLD。
 - 实验、运行与判定只通过 research_db 登记（create_experiment、create_run、update_run、record_verdict），不编造数字；工程失败如实记录，不当作科学结论。单次运行上限和累计用量提醒由 research_db 检查，被拒绝时交RLD，不绕过。
-- 每个 seed 的运行：create_run 后用 update_run 把 exec_status 从 planned 推进到 submitted（running）再到 succeeded，在 succeeded 时写入 valid=true 和 metric_value、secondary、nodes_used、walltime_used_s；全部 seed 有效后由实验 owner 调用 record_verdict（基线只记指标，不给判定）。
+- 每个 seed 的运行：create_run 后用 update_run 把 exec_status 从 planned 推进到 submitted（running）再到 succeeded，在 succeeded 时写入 valid=true 和 metric_value、secondary、nodes_used、walltime_used_s 以及 log_path 或 output_path；验收不通过时设 valid=false 并写 invalid_reason。全部 seed 有效后由实验 owner 调用 record_verdict（基线只记指标，不给判定）。
 - 不确定 research_db 的方法或参数时调用 method="help"（kwargs {"method": "<方法名>"} 看完整说明），不要猜；按错误信息改正。
-- 交付：写 tasks/<任务ID>/delivery.v1.md（实际做了什么、产出的文档与实验ID、未完成项和未知项），登记并设为现行，再 update_task(status=delivered, delivery_doc_id)；最终回复只给简短说明和文档引用。
+- 交付：写 tasks/<任务ID>/delivery.v1.md，章节为“实际改动与版本、运行与产物、验证结果、资源观测、未完成与未知项”（各章节内容见规则第4节），登记并设为现行，再 update_task(status=delivered, delivery_doc_id)；最终回复只给简短说明和文档引用。
 - 不自行改变研究目标、选择新的研究分支或接管他人任务；范围变化交RLD。
 
 ## 开发与实验平台（${CONFIG_FILE}）
@@ -558,7 +653,7 @@ ${platformText(view?.effective)}
 1. 读原文。写 docs/project/goal.v1.md（研究目标）和 docs/project/min-setup.v1.md（最小实验设定：模型、数据、训练量、评测、主指标及优劣方向、其他比较指标、${view?.effective.stage1.gate_seeds ?? 3}个统一seed、计划的实验框架与判定规则；单次运行上限、筛选预算与门槛照抄上面的项目配置）；用 research_db 登记（register_document）并设为现行。原文的预算或门槛与项目配置不一致时，在立项计划中指出，请用户改配置文件，不要自行取舍。
 2. create_project：id 为 ${project.project_id}，repo_path 为本项目代码仓库的绝对路径（原文未给出就在 ${project.root}/../.. 下合适的位置新建 git 仓库）；预算与门槛参数取自项目配置（${fields}），其余参数取自最小实验设定。
 3. 为原文中的每个初始假说检索并缓存相关研究（docs/literature/，每个节点至少${view?.effective.stage1.min_related_work ?? 3}篇，原文缓存到 cache/literature/），写假说文档（创建理由、计划的代码改动、实验计划），create_hypothesis 建初始节点（状态为待验证）。所有初始假说都不指定 parent_id：它们都是根节点的直接子节点、彼此平级，即使原文暗示了先后或包含关系也不在初始假说之间建立父子关系（只有验证完成、可拓展的节点才能派生子节点）。
-4. 根节点只存放 baselines：写 docs/tasks/T-0001/request.v1.md，说明要实现的实验骨架与统计代码，以及要运行的SOTA与其他基线方案；create_task(kind=harness, assignee_role=worker)，先不指派。
+4. 根节点只存放 baselines：写 docs/tasks/T-0001/request.v1.md（章节为“任务与节点、问题与预测、干预与对照、范围与权限、资源与预算、验收与停止条件、交付”，内容见规则第4节），说明要实现的实验骨架与统计代码，以及要运行的SOTA与其他基线方案；create_task(kind=harness, assignee_role=worker)，先不指派。
 5. 写 docs/project/reports/init-plan.v1.md 汇总以上（目标、设定、初始节点、基线与根节点方案、预计资源），登记并设为现行，然后调用 post_to_ui(type=confirm_request, docs=["project/reports/init-plan.v1.md"]) 请用户在研究对话窗口确认。
 用户确认之前 mod 会拒绝启动 worker。规则文件：${pluginRoot}/${RULES}。`
 }
@@ -688,6 +783,8 @@ async function startUi($: EngineInterface, cfg: Config, ask: Omit<UiRun, 'run'>)
   }
   await $.state.set(uiAgentRef, spawned.agentId)
   await $.state.set(uiRunRef, { ...ask, run })
+  await logAgentModel($, cfg, spawned.agentId, 'ui/ui', 'requested', spawned.model,
+    (await $.state.get(configRef)).value?.effective.models.ui.effort)
   return true
 }
 
@@ -804,7 +901,8 @@ async function confirmPlan($: EngineInterface, cfg: Config, words: string): Prom
   if (!phased.ok) return `确认已登记，但阶段未能更新：${phased.error}`
   await loadProject($)
   await refresh($, cfg)
-  const logged = await logMessage($, cfg, ['--from', 'ui/ui', '--to', 'rld/main', '--type', 'instruction',
+  // The RLD answers a confirmation by starting the root's worker, not with a receipt.
+  const logged = await logMessage($, cfg, ['--from', 'ui/ui', '--to', 'rld/main', '--type', 'instruction', '--need', 'none',
     '--text', '用户确认立项计划，请启动worker实现根节点。', '--docs', registered.result.path, '--about', project.project_id])
   submitLater($, { text: startPrompt(project, registered.result) + (logged.ok ? `\n消息记录：${logged.line}` : '') })
   return `已确认立项计划（${registered.result.doc_id}）；RLD 将启动 worker 实现根节点。`
@@ -937,6 +1035,8 @@ export const register: Register = (on, options) => {
     if (spawned.agentId) {
       const agentId = spawned.agentId
       await update($, agentsAtom, map => ({ ...(map ?? {}), [agentId]: `worker/${named}` }))
+      await logAgentModel($, cfg, agentId, `worker/${named}`, 'requested', spawned.model,
+        (await $.state.get(configRef)).value?.effective.models.worker.effort)
       const project = (await $.state.get(projectRef)).value
       if (project) {
         await runTool($, cfg, 'research_db.py', ['--db', project.db, '--actor', cfg.actor, 'bind_worker_session',
@@ -949,6 +1049,14 @@ export const register: Register = (on, options) => {
 
   on('turn.complete', async ($, e, next) => {
     const done = await next(e)
+    if (e.agentId && e.usage?.model && observedModels.get(e.agentId) !== e.usage.model) {
+      const actor = e.agentId === (await $.state.get(uiAgentRef)).value ? 'ui/ui'
+        : (await $.state.get(agentsRef)).value?.[e.agentId] ?? workerActor((await $.state.get(summaryRef)).value, e.agentId)
+      if (actor) {
+        observedModels.set(e.agentId, e.usage.model)
+        await logAgentModel($, cfg, e.agentId, actor, 'observed', e.usage.model)
+      }
+    }
     if (e.agentId && e.agentId === (await $.state.get(uiAgentRef)).value) {
       const run = (await $.state.get(uiRunRef)).value
       await $.state.set(uiAgentRef, null)
@@ -1080,8 +1188,16 @@ export const register: Register = (on, options) => {
   on('tool.call', { tool: 'NotebookEdit' }, async ($, e, next) => (await guard($, e.notebook_path)) ?? next(e))
 
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
-    if (writesDatabase(e.command, (await $.state.get(projectRef)).value?.db)) {
+    const project = (await $.state.get(projectRef)).value
+    if (writesDatabase(e.command, project?.db)) {
       return { deny: `${PLUGIN}: 不要直接改动研究项目的数据库文件；通过 research_db 工具或 tools/research_db.py 写入，它会检查规则并记录决定。` }
+    }
+    if (project && writesConfig(e.command, `${projectDir(project)}/${CONFIG_FILE}`)) return { deny: `${PLUGIN}: ${CONFIG_REASON}` }
+    // A subagent is never the RLD: a worker acts as itself, other helpers read. (The UI's run has its own outbox.)
+    if (e.agentId !== undefined && e.agentId !== (await $.state.get(uiAgentRef)).value) {
+      const worker = (await $.state.get(agentsRef)).value?.[e.agentId] ?? workerActor((await $.state.get(summaryRef)).value, e.agentId)
+      const blocked = subagentCallBlock(researchCalls(e.command), worker)
+      if (blocked) return { deny: `${PLUGIN}: ${blocked}` }
     }
     const ran = await next(e)
     if (/\b(research_db|send_message|make_demo|build_site|research_tree)\.py\b/.test(e.command)) await refresh($, cfg)
@@ -1208,7 +1324,7 @@ function registerProgressPane(on: Parameters<Register>[0], cfg: Config): void {
         <Text bold>待处理（{summary.attention.length}）</Text>
         {summary.attention.length === 0 && <Text dimColor>无</Text>}
         {summary.attention.slice(0, 6).map((a, i) => (
-          <Text key={`a${i}`} wrap="truncate">[{a.kind}] {a.text}</Text>
+          <Text key={`a${i}`} wrap="truncate">[{a.label}] {a.text}</Text>
         ))}
         {error && <Text color="red" wrap="truncate">{error}</Text>}
         {buttons}
@@ -1218,6 +1334,6 @@ function registerProgressPane(on: Parameters<Register>[0], cfg: Config): void {
 }
 
 export const internals = {
-  guardReason, writesDatabase, statusText, statusLine, workerBlock, parseInit, workerNode, workerActor, parallelBlock,
+  guardReason, writesDatabase, writesConfig, researchCalls, subagentCallBlock, statusText, statusLine, workerBlock, parseInit, workerNode, workerActor, parallelBlock,
   workerPrompt, platformText, uiPrompt, configCommand, carryOutUi,
 }

@@ -20,11 +20,10 @@ import research_tree as tree
 import send_message as messaging
 from codex_state import actor_key, cache_dir, lock_busy, locked, read_json, write_json
 from project_config import ConfigError
-from research_db import CLI_METHODS, ResearchDB, ResearchDBError, busy_workers, describe, now_utc
+from research_db import CLI_METHODS, READ_METHODS, ResearchDB, ResearchDBError, busy_workers, describe, now_utc
 
 ROOT = Path(__file__).resolve().parents[1]
-READS = {"get", "find", "edges", "children", "history", "go_candidates", "latest_result", "screen_seed_count",
-         "export_snapshot", "verify_document", "resume_package", "help"}
+READS = set(READ_METHODS)
 HELP = {
     "init": {"plan": "path to plan.md", "project_id": "optional", "config": "optional source YAML",
              "python": "3.13", "update_uv": False},
@@ -73,7 +72,7 @@ class Runtime:
         result = build_site.summary_or_empty(Path(self.marker["db"]))
         write_json(self.cache / "summary.json", result)
         threshold = result.get("project") and result["project"].get("alert_node_h")
-        alert = next((a for a in result["attention"] if a["kind"] == "资源提醒"), None)
+        alert = next((a for a in result["attention"] if a["kind"] == "usage_alert"), None)
         previous = read_json(self.cache / "alert.json")
         if alert and previous != threshold:
             self.say("note", alert["text"])
@@ -136,9 +135,9 @@ class Runtime:
             write_json(file, inbox)
         return entry
 
-    def log_message(self, sender, recipient, kind, text, docs=None, about=None, re=None):
+    def log_message(self, sender, recipient, kind, text, docs=None, about=None, re=None, need=None):
         message = {"ts": now_utc(), "project": None, "from": sender, "to": recipient,
-                   "type": kind, "text": text, "need": messaging.DEFAULT_NEED[kind]}
+                   "type": kind, "text": text, "need": need or messaging.DEFAULT_NEED[kind]}
         for key, value in (("docs", docs), ("about", about), ("re", re)):
             if value:
                 message[key] = value
@@ -150,8 +149,8 @@ class Runtime:
         message["project"] = messaging.check_references(self.root, message)
         return json.loads(messaging.append_message(self.root, message, validator))
 
-    def relay(self, kind, text, docs=None, about=None):
-        message = self.log_message("ui/ui", "rld/main", kind, text[:200], docs, about)
+    def relay(self, kind, text, docs=None, about=None, need=None):
+        message = self.log_message("ui/ui", "rld/main", kind, text[:200], docs, about, need=need)
         return {"message": message, "delivery": self.enqueue(json.dumps(message, ensure_ascii=False), message["id"])}
 
     def post(self, args):
@@ -186,8 +185,9 @@ class Runtime:
                                                  "确认（立项计划）", [marker["project_id"]])
             tree.set_phase(self.cwd, "confirmed")
         self.say("note", f"立项确认已登记：{document['doc_id']}。")
+        # The RLD answers a confirmation by starting the root's worker, not with a receipt.
         result = self.relay("instruction", "用户确认立项计划，请指派根节点worker并实现框架与baselines。",
-                            [document["path"]], [marker["project_id"]])
+                            [document["path"]], [marker["project_id"]], need="none")
         return {"document": document, **result}
 
     def start_agent(self, actor, prompt, model, *, node_id=None, resume=None, user_message=None, workdir=None):

@@ -210,6 +210,8 @@ CREATE TABLE run (
                             'succeeded', 'failed', 'cancelled', 'unknown'
                         )),
     valid               BOOLEAN,               -- 该 seed 是否通过工程验收；为 true 时下列实测值必须齐全
+    invalid_reason      TEXT,                  -- valid 为 false 时必填：验收不通过的原因（引用日志）
+    attempts            JSON,                  -- 重新提交前各次 attempt 的记录，键为 attempt 编号；由接口写入
     metric_value        REAL,                  -- 最终主指标
     secondary           JSON,                  -- 其他指标的最终值，键 = project.secondary_metrics
     nodes_used          INTEGER,               -- 实际节点数

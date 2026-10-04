@@ -159,6 +159,24 @@ class ResearchTreeTest(unittest.TestCase):
             {"type": "instruction", "understanding": "停止H-0002", "kind": "指令", "about": ["P-demo"]},
         ])
 
+    def test_the_ui_queries_read_only(self):
+        _, out = self.run_tool("init", str(self.plan), "--project-id", "P-demo")
+        code, read = self.run_tool("query", "find", '{"table": "document"}')
+        self.assertEqual((code, read["result"][0]["doc_type"]), (0, "user_instruction"))
+        self.assertIn("parameters", self.run_tool("query", "help", '{"method": "get"}')[1]["result"])
+        code, err = self.run_tool("query", "create_task", '{"kind": "other", "assignee_role": "worker", "request_doc_id": "D-0001"}')
+        self.assertEqual(code, 2)
+        self.assertIn("query reads only", err["error"])
+
+    def test_agent_models_are_logged(self):
+        _, out = self.run_tool("init", str(self.plan), "--project-id", "P-demo")
+        self.run_tool("agent-log", "--agent", "a1", "--actor", "worker/h0001", "--event", "requested", "--model", "inherit")
+        self.run_tool("agent-log", "--agent", "a1", "--actor", "worker/h0001", "--event", "observed", "--model", "m-1")
+        log = Path(out["result"]["root"]) / "logs" / "agent_models.jsonl"
+        records = [json.loads(line) for line in log.read_text(encoding="utf-8").splitlines()]
+        self.assertEqual([(r["agent"], r["event"], r["model"]) for r in records],
+                         [("a1", "requested", "inherit"), ("a1", "observed", "m-1")])
+
     def test_config_apply_registers_versions_and_writes_the_record(self):
         _, out = self.run_tool("init", str(self.plan), "--project-id", "P-demo")
         root, config = Path(out["result"]["root"]), self.cwd / "research-tree.yaml"

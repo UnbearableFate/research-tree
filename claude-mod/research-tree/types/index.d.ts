@@ -19,8 +19,9 @@ export type ResearchNode = {
 /** A node's worker: identity, the agent session to continue, and the documents a new session resumes from. */
 export type ResearchWorker = { id: string | null; agent_id: string | null; session_at: string | null; resume: string[] }
 
-/** Something waiting on someone: an extension, an RLD decision, a task, a broken document. */
-export type ResearchAttention = { kind: string; id: string | null; text: string }
+/** Something waiting on someone: an extension, an RLD decision, a task, a broken document. `kind` is a code
+ *  (usage_alert, awaiting_reply, ...), `label` its display name. */
+export type ResearchAttention = { kind: string; label: string; id: string | null; text: string }
 
 /** The compact project view the pane, status line, prompt section and guards read. */
 export type ResearchSummary = {

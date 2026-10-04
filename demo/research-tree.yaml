@@ -1,5 +1,6 @@
 # research-tree 项目配置。
-# /research-tree init 在项目目录生成本文件；立项确认时登记为生效版本。之后修改本文件，
+# /research-tree config 可在初始化前复制本文件（无需 Python，不覆盖已有文件）。
+# 编辑后用 init <计划.md> --config research-tree.yaml 初始化；立项确认时登记为生效版本。之后修改本文件，
 # 运行 /research-tree config apply 才会生效（登记为用户指令与新版本配置，并通知 RLD）。
 version: 1
 
@@ -31,9 +32,9 @@ stage1:
   go_margin: 0.05             # 主指标领先 SOTA 的最小幅度：百分比指标为百分点的绝对差，其他指标为相对差
   min_related_work: 3         # 创建节点时至少引用的相关研究文档数
 
-# 子代理使用的模型。model 为 inherit（与主会话相同）、别名（opus、sonnet、haiku）或完整模型 ID；
+# 子代理使用的模型。model 为 inherit（与主会话相同）、当前宿主支持的别名或完整模型 ID；
 # effort 为 low、medium、high、xhigh、max，或 null（使用模型默认）。
-# RLD 就是主会话，它的模型由你启动 Claude Code 时选择，插件不改动。
+# RLD 就是主会话，它的模型由你启动宿主 CLI 时选择，插件不改动。
 models:
   ui:
     model: inherit

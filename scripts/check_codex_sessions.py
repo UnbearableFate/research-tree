@@ -62,6 +62,7 @@ def main():
     sys.path.insert(0, str(plugin / "tools"))
     import research_tree
     from codex_runtime import Runtime
+    from research_db import TASK_SECTIONS
     from codex_state import read_json, write_json, lock_busy
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), ResponsesFixture)
@@ -95,7 +96,7 @@ supports_websockets = false
     def document(rel, kind):
         path = runtime.root / "docs" / rel
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text("# Fixture\n")
+        path.write_text("# Fixture\n" + "".join(f"## {name}\n\n不适用\n" for name in TASK_SECTIONS.get(kind, ())))
         ident = db.register_document(rel, kind, kind)
         db.set_document_current(ident)
         return ident

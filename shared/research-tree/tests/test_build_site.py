@@ -68,9 +68,26 @@ class BuildSiteTest(Fixture):
         run = f"{self.exp}/s42"
         self.assertIsNone(self.rld.get(run).get("curve_path"))
         kinds = {(a["kind"], a["id"]) for a in build_site.build(self.db, self.page)["attention"]}
-        self.assertIn(("待扩展seed", self.h), kinds)
-        self.assertIn(("文档完整性", doc), kinds)
-        self.assertIn(("曲线缺失", run), kinds)
+        self.assertIn(("extend_seeds", self.h), kinds)
+        self.assertIn(("doc_integrity", doc), kinds)
+        self.assertIn(("curve_missing", run), kinds)
+
+    def test_ui_messages_wait_for_an_rld_receipt(self):
+        def line(**m) -> str:
+            return json.dumps({"v": 1, "ts": "2026-10-04T00:00:00Z", "project": "P-test", **m}, ensure_ascii=False)
+        logs = self.root / "messages"
+        logs.mkdir(exist_ok=True)
+        ui = dict(to="rld/main", **{"from": "ui/ui"})
+        (logs / "ui.jsonl").write_text("\n".join([
+            line(id="ui-0001", type="instruction", text="确认立项", need="none", **ui),
+            line(id="ui-0002", type="question", text="为什么？", need="answer", about=[self.h], **ui),
+            line(id="ui-0003", type="instruction", text="停止", need="ack", **ui)]) + "\n", encoding="utf-8")
+        (logs / "main.jsonl").write_text(line(id="main-0001", type="reply", text="已停止", need="none", re="ui-0003",
+                                              to="ui/ui", **{"from": "rld/main"}) + "\n", encoding="utf-8")
+        (logs / "window.jsonl").write_text(json.dumps({"id": "w-0001", "role": "user", "text": "x"}) + "\n")
+        waiting = [a for a in build_site.build(self.db, self.page)["attention"] if a["kind"] == "awaiting_reply"]
+        self.assertEqual([(a["id"], a["label"]) for a in waiting], [(self.h, "待RLD回执")])
+        self.assertIn("ui-0002", waiting[0]["text"])
 
     def test_check_reports_stale_page(self):
         cmd = [sys.executable, str(REPO / "tools" / "build_site.py"), "--db", str(self.db)]
@@ -108,7 +125,7 @@ class SummaryTest(Fixture):
         self.assertIn(str((self.root / "docs" / self.rld.get(node_doc := self.rld.get(h)["doc_id"])["path"]).resolve()),
                       data["guards"]["frozen_docs"], node_doc)
         self.assertEqual(data["guards"]["harness"], [str(Path(self.tmp.name) / "wt" / h / "harness")])
-        self.assertTrue(any(a["kind"] == "结论待更新" for a in data["attention"]))
+        self.assertTrue(any(a["kind"] == "conclusion_outdated" for a in data["attention"]))
 
 
 class MarkdownTest(unittest.TestCase):

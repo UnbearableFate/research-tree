@@ -81,7 +81,8 @@ class Fixture(unittest.TestCase):
         self.n += 1
         file = self.root / "docs" / path
         file.parent.mkdir(parents=True, exist_ok=True)
-        file.write_text(f"doc {self.n}\n", encoding="utf-8")
+        body = "".join(f"## {name}\n\n未知\n\n" for name in rdb.TASK_SECTIONS.get(doc_type, ()))
+        file.write_text(f"doc {self.n}\n\n{body}", encoding="utf-8")
         doc_id = actor.register_document(path, doc_type, f"title {self.n}", about=list(about))
         if current:
             actor.set_document_current(doc_id)
@@ -105,7 +106,7 @@ class Fixture(unittest.TestCase):
             actor.update_run(run, exec_status="submitted")
             actor.update_run(run, exec_status="succeeded", valid=True, metric_value=70.0,
                              secondary={"final_loss": 1.0, "peak_mem_gb": 40.0},
-                             nodes_used=nodes, walltime_used_s=walltime_s)
+                             nodes_used=nodes, walltime_used_s=walltime_s, log_path=f"outputs/{run}.log")
 
     def baseline(self, nodes: int, walltime_s: int) -> str:
         self.n += 1
@@ -327,11 +328,27 @@ class ExperimentTest(Fixture):
                                    walltime_used_s=10)
         with self.assertRaisesRegex(ResearchDBError, "a number for each"):
             self.worker.update_run(run, exec_status="succeeded", valid=True, metric_value=1.0, nodes_used=1,
-                                   walltime_used_s=10, secondary={"final_loss": 1.0})
-        self.worker.update_run(run, exec_status="failed", valid=False)
+                                   walltime_used_s=10, secondary={"final_loss": 1.0}, log_path="outputs/a1.log")
+        with self.assertRaisesRegex(ResearchDBError, "resubmit only a finished attempt"):
+            self.worker.update_run(run, attempt=2, exec_status="submitted")
+        ok = dict(metric_value=1.0, nodes_used=1, walltime_used_s=3600, secondary={"final_loss": 1.0, "peak_mem_gb": 2.0})
+        with self.assertRaisesRegex(ResearchDBError, "log_path or output_path"):
+            self.worker.update_run(run, exec_status="succeeded", valid=True, **ok)
+        self.worker.update_run(run, exec_status="succeeded", **ok)
+        # A succeeded seed is not rerun to replace its result unless it failed acceptance, with a reason.
+        with self.assertRaisesRegex(ResearchDBError, "needs valid=false with invalid_reason"):
+            self.worker.update_run(run, attempt=2, exec_status="submitted")
+        with self.assertRaisesRegex(ResearchDBError, "valid=false needs invalid_reason"):
+            self.worker.update_run(run, valid=False)
+        self.worker.update_run(run, valid=False, invalid_reason="loss NaN at step 120 (outputs/a1.log)")
         self.worker.update_run(run, attempt=2, exec_status="submitted")
-        self.worker.update_run(run, exec_status="succeeded", valid=True, metric_value=1.0, nodes_used=1,
-                               walltime_used_s=10, secondary={"final_loss": 1.0, "peak_mem_gb": 2.0})
+        resubmitted = self.rld.get(run)
+        self.assertEqual(resubmitted["attempts"]["1"]["invalid_reason"], "loss NaN at step 120 (outputs/a1.log)")
+        self.assertEqual(resubmitted["attempts"]["1"]["metric_value"], 1.0)
+        self.assertNotIn("metric_value", resubmitted)
+        self.assertEqual(rdb.node_hours([resubmitted]), 1.0)  # the first attempt's usage still counts
+        self.worker.update_run(run, exec_status="succeeded", valid=True, log_path="outputs/a2.log", **ok)
+        self.assertEqual(rdb.node_hours([self.rld.get(run)]), 2.0)
         with self.assertRaisesRegex(ResearchDBError, "frozen"):
             self.worker.update_run(run, metric_value=2.0)
 
@@ -572,6 +589,23 @@ class DecisionTest(Fixture):
         with self.assertRaisesRegex(ResearchDBError, "user_instruction"):
             self.rld.decide("P-test", {"status": "active"}, "resume", doc_id=self.decision_doc())
 
+    def test_a_closed_project_starts_no_new_work(self):
+        h = self.hypothesis()
+        stop = self.doc(self.rld, "instructions/stop.v1.md", "user_instruction")
+        self.rld.decide("P-test", {"status": "stopped"}, "user stop", doc_id=self.decision_doc(), based_on=[stop])
+        design = self.doc(self.worker, "exp/stopped.v1.md", "experiment_design")
+        req = self.doc(self.rld, "tasks/stopped/request.v1.md", "task_request")
+        for start in (lambda: self.rld.create_hypothesis("h", "s", self.rld.get(h)["doc_id"], self.literature),
+                      lambda: self.worker.create_experiment("baseline", "b", design, self.harness, 1, 60),
+                      lambda: self.worker.create_run(self.sota, SEEDS[0]),
+                      lambda: self.rld.create_task("experiment", "worker", req, target_id=h)):
+            with self.assertRaisesRegex(ResearchDBError, "is stopped: no new research work"):
+                start()
+        self.rld.create_task("web_build", "web_builder", req)  # the page is still kept up to date
+        resume = self.doc(self.rld, "instructions/resume.v1.md", "user_instruction")
+        self.rld.decide("P-test", {"status": "active"}, "user resumes", doc_id=self.decision_doc(), based_on=[resume])
+        self.rld.create_task("experiment", "worker", req, target_id=h)
+
 
 class WorkerTest(Fixture):
     def test_assignment(self):
@@ -703,6 +737,24 @@ class TaskTest(Fixture):
             self.worker.update_task(task, status="accepted")
         self.rld.update_task(task, status="accepted")
         self.assertEqual(self.rld.find("task", target_id=h)[0]["status"], "accepted")
+
+    def test_task_documents_have_their_sections(self):
+        def bare(path: str, doc_type: str, actor: ResearchDB, text: str) -> str:
+            (self.root / "docs" / path).parent.mkdir(parents=True, exist_ok=True)
+            (self.root / "docs" / path).write_text(text, encoding="utf-8")
+            doc_id = actor.register_document(path, doc_type, "t")
+            actor.set_document_current(doc_id)
+            return doc_id
+        partial = bare("tasks/s/request.v1.md", "task_request", self.rld, "## 任务与节点\n\nH-0001\n\n## 交付（位置）\n\nx\n")
+        with self.assertRaisesRegex(ResearchDBError, "lacks the sections 问题与预测, 干预与对照, 范围与权限, 资源与预算, "
+                                                     "验收与停止条件; a task_request"):
+            self.rld.create_task("analysis", "worker", partial, assignee_id="w1")
+        task = self.rld.create_task("analysis", "worker", self.doc(self.rld, "tasks/s/request.v2.md", "task_request"),
+                                    assignee_id="w1")
+        self.worker.update_task(task, status="in_progress")
+        thin = bare("tasks/s/delivery.v1.md", "task_delivery", self.worker, "done\n")
+        with self.assertRaisesRegex(ResearchDBError, "lacks the sections 实际改动与版本"):
+            self.worker.update_task(task, status="delivered", delivery_doc_id=thin)
 
     def test_parallel_workers(self):
         req = self.doc(self.rld, "tasks/t/request.v1.md", "task_request")

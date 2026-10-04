@@ -9,6 +9,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import research_tree as tree
 from codex_runtime import ROOT, Runtime
 from codex_state import read_json, write_json
 from research_db import now_utc
@@ -93,6 +94,9 @@ def run(directory: Path, lock_fd: int) -> int:
                         write_json(state_file, state)
                         if spec.get("node_id"):
                             runtime.db("rld/main").bind_worker_session(spec["node_id"], thread)
+                        tree.log_agent_model(runtime.root, {"agent": thread, "actor": spec["actor"], "event": "requested",
+                                                            "model": argv[argv.index("--model") + 1],
+                                                            "effort": spec["model"].get("effort")})
                     elif event.get("type") == "turn.failed":
                         state["turn_error"] = event.get("error")
             code = child.wait()

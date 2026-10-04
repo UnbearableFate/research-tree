@@ -26,13 +26,18 @@ import build_site  # noqa: E402
 import create_db  # noqa: E402
 import project_config  # noqa: E402
 import send_message  # noqa: E402
-from research_db import ResearchDB  # noqa: E402
+from research_db import TASK_SECTIONS, ResearchDB  # noqa: E402
 
 PROJECT_ID = "P-demo-lora-opt"
 SEEDS = [42, 43, 44]
 SECONDARY = ["final_loss", "loss_auc", "peak_mem_gb", "train_time_s"]
 # Orientation for paired deltas: +1 when higher is better.
 SIGN = {"acc": 1, "final_loss": -1, "loss_auc": -1, "peak_mem_gb": -1, "train_time_s": -1}
+def task_body(*contents: str, kind: str = "task_request") -> str:
+    """A task request's or delivery's text: its required sections, in order, with these contents."""
+    return "".join(f"## {name}\n\n{text}\n\n" for name, text in zip(TASK_SECTIONS[kind], contents, strict=True))
+
+
 FICTION = "> 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。\n\n"
 
 
@@ -183,9 +188,11 @@ class Demo:
             "harness/stats.py": "# 虚构示例：按seed配对比较并给出判定（规则见最小实验设定文档）\n",
             "baselines/sota_opt.py": "# 虚构SOTA优化器 BaseOpt-A\n",
         }, "harness v1 and SOTA baseline")
-        req = self.doc(rld, "tasks/T-0001/request.v1.md", "task_request", "根节点：实现实验框架并运行SOTA",
-                       "实现训练/评测骨架与统计代码，记录过程曲线；在3个seed上运行SOTA基线 BaseOpt-A。\n",
-                       "根节点框架任务")
+        req = self.doc(rld, "tasks/T-0001/request.v1.md", "task_request", "根节点：实现实验框架并运行SOTA", task_body(
+            f"根节点 {PROJECT_ID}，任务类型 harness，owner {w1.role}/{w1.agent}。", "不适用（框架与基线任务）。",
+            "实现训练/评测骨架与统计代码，记录过程曲线；在3个seed上运行SOTA基线 BaseOpt-A。",
+            "本仓库的 harness/ 与 baselines/。", "每个seed 4 nodes × 1h。",
+            "RLD 审核后冻结框架；SOTA 的3个seed均为有效运行。", "tasks/T-0001/delivery.v1.md"), "根节点框架任务")
         t_root = rld.create_task("harness", "worker", req, target_id=PROJECT_ID, assignee_id=w1.agent)
         w1.update_task(t_root, status="in_progress")
         rld.update_project(harness_ref=harness, harness_paths=["harness"])
@@ -199,8 +206,10 @@ class Demo:
                                f"BaseOpt-A 均值 {sum(accs) / 3:.2f}")
         w1.record_verdict(sota, sota_result, round(sum(accs) / 3, 4), 0.04)
         rld.update_project(sota_experiment_id=sota)
-        delivery = self.doc(w1, "tasks/T-0001/delivery.v1.md", "task_delivery", "根节点交付",
-                            f"框架提交 {harness[:10]}；SOTA实验 {sota}。\n", "框架与SOTA完成")
+        delivery = self.doc(w1, "tasks/T-0001/delivery.v1.md", "task_delivery", "根节点交付", task_body(
+            f"框架提交 {harness[:10]}（harness/）。", f"SOTA实验 {sota}，3个seed，输出见 outputs/{sota}/。",
+            "3个seed均有效；结果见 baselines/E-0001/result.v1.md。", "12 node·h。", "无。", kind="task_delivery"),
+            "框架与SOTA完成")
         w1.update_task(t_root, status="delivered", delivery_doc_id=delivery)
         rld.update_task(t_root, status="accepted")
         self.sota, self.harness = sota, harness
@@ -384,8 +393,10 @@ class Demo:
         node("自适应秩分配", "按层的子批次方差分配LoRA秩，可在同等参数量下提升精度。", lit[:3], parent=h3,
              rationale="H-0003 优于SOTA；按层统计可能进一步提升。")
         # Open work: extension task for H-0005, decision pending for H-0007.
-        req = self.doc(rld, "tasks/T-0002/request.v1.md", "task_request", "H-0005 扩展到3个seed",
-                       "判定为差不多，扩展到3个seed后重新判定。\n", "扩展seed")
+        req = self.doc(rld, "tasks/T-0002/request.v1.md", "task_request", "H-0005 扩展到3个seed", task_body(
+            f"节点 {h5}，任务类型 experiment，owner {wk5.role}/{wk5.agent}。", "判定为差不多：补足seed后能否优于父节点。",
+            "同一代码版本，扩展到3个统一seed。", f"{h5} 的分支与 outputs/。", "每个seed 1 node·h 以内。",
+            "3个seed均有效后重新判定。", "tasks/T-0002/delivery.v1.md"), "扩展seed")
         t = rld.create_task("experiment", "worker", req, target_id=h5, assignee_id=wk5.agent)
         wk5.update_task(t, status="in_progress")
 

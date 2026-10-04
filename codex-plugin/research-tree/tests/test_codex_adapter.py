@@ -19,6 +19,7 @@ import codex_hook
 import codex_mcp
 import research_tree
 from codex_runtime import Runtime
+from research_db import READ_METHODS, TASK_SECTIONS
 from codex_state import lock_busy, locked, read_json, write_json
 
 
@@ -79,7 +80,7 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
     def doc(self, path, kind):
         file = self.runtime.root / "docs" / path
         file.parent.mkdir(parents=True, exist_ok=True)
-        file.write_text(f"# {kind}\n")
+        file.write_text(f"# {kind}\n" + "".join(f"## {name}\n\n未知\n" for name in TASK_SECTIONS.get(kind, ())))
         doc = self.db.register_document(path, kind, kind)
         self.db.set_document_current(doc)
         return doc
@@ -259,10 +260,31 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         self.assertEqual(codex_hook.handle(event), {})
         event["tool_input"]["command"] = f"sed -n '1,20p' '{path}'"
         self.assertEqual(codex_hook.handle(event), {})
+        config = self.cwd / "research-tree.yaml"
+        for command in (f"echo x > '{config}'", "sed -i s/a/b/ research-tree.yaml"):
+            event["tool_input"]["command"] = command
+            self.assertEqual(codex_hook.handle(event)["hookSpecificOutput"]["permissionDecision"], "deny", command)
+        event.update(tool_name="apply_patch", tool_input={"command": f"*** Begin Patch\n*** Update File: {config}\n*** End Patch"})
+        self.assertIn("由用户修改", codex_hook.handle(event)["hookSpecificOutput"]["permissionDecisionReason"])
+        # A worker acts only as itself and the UI only reads, also from a shell; the RLD drives the tools.
+        db_call = f"python tools/research_db.py --db '{self.runtime.marker['db']}'"
+        cases = [("worker/root", f"{db_call} --actor rld/main update_run '{{}}'", True),
+                 ("worker/root", f"{db_call} --actor worker/root update_run '{{}}'", False),
+                 ("ui/ui", f"{db_call} --actor ui/ui decide '{{}}'", True),
+                 ("ui/ui", f"{db_call} --actor ui/ui get '{{}}'", False),
+                 ("worker/root", "python tools/research_tree.py phase --set confirmed", True),
+                 ("rld/main", f"{db_call} --actor rld/main decide '{{}}'", False)]
+        for actor, command, denied in cases:
+            event.update(tool_name="Bash", tool_input={"command": command})
+            with patch.dict(os.environ, {"RESEARCH_TREE_ACTOR": actor}):
+                self.assertEqual(bool(codex_hook.handle(event)), denied, (actor, command))
+        self.assertEqual(codex_hook.READ_METHODS, set(READ_METHODS))
         prior = read_json(self.runtime.cache / "leader.json")
         with patch.dict(os.environ, {"RESEARCH_TREE_ACTOR": "worker/root", "RESEARCH_TREE_PROJECT": str(self.cwd)}):
             codex_hook.handle({"hook_event_name": "SessionStart", "cwd": str(self.cwd), "session_id": "worker-thread", "model": "child"})
         self.assertEqual(prior, read_json(self.runtime.cache / "leader.json"))
+        observed = json.loads((self.runtime.root / "logs/agent_models.jsonl").read_text().splitlines()[-1])
+        self.assertEqual((observed["actor"], observed["event"], observed["model"]), ("worker/root", "observed", "child"))
         codex_hook.handle({"hook_event_name": "SessionStart", "cwd": str(self.cwd), "session_id": "other-main", "model": "other"})
         self.assertEqual(prior, read_json(self.runtime.cache / "leader.json"))
 

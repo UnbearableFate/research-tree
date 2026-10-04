@@ -158,6 +158,15 @@ TASK_TRANSITIONS = {  # status -> {to_status: role allowed to make the change}
 GATE_FIELDS = ("primary_metric", "metric_direction", "metric_is_percent", "secondary_metrics", "go_margin",
                "gate_seeds", "seeds")
 RUN_MEASUREMENTS = ("metric_value", "secondary", "nodes_used", "walltime_used_s")
+# The '## ' sections a task's request and delivery documents must have: what a delegation and its result hand over.
+TASK_SECTIONS = {
+    "task_request": ("任务与节点", "问题与预测", "干预与对照", "范围与权限", "资源与预算", "验收与停止条件", "交付"),
+    "task_delivery": ("实际改动与版本", "运行与产物", "验证结果", "资源观测", "未完成与未知项"),
+}
+RESEARCH_TASK_KINDS = ("harness", "literature", "experiment", "analysis")
+# What one attempt of a run records; kept in run.attempts when the run is resubmitted.
+ATTEMPT_FIELDS = ("job_id", "exec_status", "valid", "invalid_reason", "curve_path", "log_path", "output_path",
+                  "started_at", "finished_at") + RUN_MEASUREMENTS
 # Settings from the project configuration (research-tree.yaml) besides the caps and gates above.
 LIMIT_FIELDS = ("max_parallel_workers", "alert_node_h", "config_doc_id")
 
@@ -536,6 +545,12 @@ class ResearchDB:
         if extra:
             raise ResearchDBError(f"this method does not take {', '.join(extra)}; it takes {', '.join(allowed)}")
 
+    def _require_active(self, project: dict) -> None:
+        if project["status"] != "active":
+            raise ResearchDBError(
+                f"project {project['id']} is {project['status']}: no new research work after GO, NOT GO or a stop; "
+                "resuming needs a user instruction (decide project status active, based_on that instruction)")
+
     # -- project ---------------------------------------------------------------
 
     def create_project(self, id: str, title: str, min_setup_doc_id: str, primary_metric: str,
@@ -634,6 +649,7 @@ class ResearchDB:
         self._require_role("rld")
         with self._writer() as tx:
             project = self._project(tx)
+            self._require_active(project)
             if parent_id is not None and parent_id != project["id"]:
                 parent = tx.require(parent_id, ("hypothesis",))
                 if parent["status"] != "expandable":
@@ -836,6 +852,7 @@ class ResearchDB:
             raise PermissionDenied("only rld assigns an experiment to another owner")
         with self._writer() as tx:
             project = self._project(tx)
+            self._require_active(project)
             if not project.get("harness_ref"):
                 raise ResearchDBError("freeze the harness (update_project harness_ref/harness_paths) before experiments")
             if (kind == "baseline") != (hypothesis_id is None):
@@ -900,6 +917,7 @@ class ResearchDB:
             project = self._project(tx)
             exp = tx.require(experiment_id, ("experiment",))
             self._require_owner(exp)
+            self._require_active(project)
             if not len(exp["seeds"]) < n_seeds <= project["gate_seeds"]:
                 raise ResearchDBError(f"{experiment_id} has {len(exp['seeds'])} seeds; extend to at most {project['gate_seeds']}")
             self._check_usage_alert(tx, project)
@@ -918,6 +936,7 @@ class ResearchDB:
         with self._writer() as tx:
             exp = tx.require(experiment_id, ("experiment",))
             self._require_owner(exp)
+            self._require_active(self._project(tx))
             if seed not in exp["seeds"]:
                 raise ResearchDBError(f"seed {seed} is not one of {experiment_id}'s seeds {exp['seeds']}")
             return self._insert(tx, "run", {
@@ -926,17 +945,20 @@ class ResearchDB:
             })
 
     def update_run(self, run_id: str, **changes) -> None:
-        """Report a run as the experiment's owner (or rld). Fields: job_id, attempt, exec_status, valid, curve_path,
-        log_path, output_path, started_at, finished_at, and the measurements metric_value, secondary
-        ({secondary metric: number} for each of the project's secondary_metrics), nodes_used, walltime_used_s.
+        """Report a run as the experiment's owner (or rld). Fields: job_id, attempt, exec_status, valid,
+        invalid_reason, curve_path, log_path, output_path, started_at, finished_at, and the measurements
+        metric_value, secondary ({secondary metric: number} for each of the project's secondary_metrics), nodes_used,
+        walltime_used_s.
 
         exec_status moves planned -> submitted -> running -> succeeded, failed or cancelled (submitted may go straight
         to a final state; unknown when the scheduler cannot tell). metric_value and secondary are a succeeded run's
-        results. valid=true accepts a succeeded run with all four measurements and freezes it; record_verdict needs a
-        valid run for every seed. A finished, invalid run is resubmitted by raising attempt by one together with
-        exec_status planned/submitted, which clears its measurements."""
-        self._only_fields(changes, ("job_id", "attempt", "exec_status", "valid", "curve_path", "log_path",
-                                    "output_path", "started_at", "finished_at") + RUN_MEASUREMENTS)
+        results. valid=true accepts a succeeded run with all four measurements and its log_path or output_path, and
+        freezes it; record_verdict needs a valid run for every seed. valid=false needs invalid_reason.
+
+        A run whose attempt failed or was cancelled, or succeeded but was marked invalid, is resubmitted by raising
+        attempt by one together with exec_status planned/submitted. The finished attempt is kept in attempts (its
+        usage still counts) and the run starts over."""
+        self._only_fields(changes, ATTEMPT_FIELDS[:-len(RUN_MEASUREMENTS)] + ("attempt",) + RUN_MEASUREMENTS)
         with self._writer() as tx:
             project = self._project(tx)
             run = tx.require(run_id, ("run",))
@@ -947,18 +969,31 @@ class ResearchDB:
             retry = changes.get("attempt") == run["attempt"] + 1 and new in ("planned", "submitted")
             if "attempt" in changes and not retry:
                 raise ResearchDBError("attempt only increases by one, together with exec_status planned or submitted")
-            if new != old and not retry and new not in EXEC_TRANSITIONS[old]:
+            if retry:
+                if old not in ("succeeded", "failed", "cancelled"):
+                    raise ResearchDBError(f"{run_id} attempt {run['attempt']} is {old}: resubmit only a finished attempt "
+                                          "(succeeded, failed or cancelled); an unknown state is checked first, never "
+                                          "resubmitted blindly")
+                if old == "succeeded" and run.get("valid") is not False:
+                    raise ResearchDBError(f"{run_id} succeeded: resubmitting it needs valid=false with invalid_reason "
+                                          "first, so no seed is rerun to replace a result")
+                past = dict(run.get("attempts") or {})
+                past[str(run["attempt"])] = {k: run[k] for k in ATTEMPT_FIELDS if run.get(k) is not None}
+                changes = {**{k: None for k in ATTEMPT_FIELDS}, "attempts": past, **changes}
+            elif new != old and new not in EXEC_TRANSITIONS[old]:
                 raise _not_allowed("exec_status", old, new, EXEC_TRANSITIONS[old])
             if new != "succeeded" and any(changes.get(k) is not None for k in ("metric_value", "secondary")):
                 raise ResearchDBError(f"metric_value and secondary are a succeeded run's results; {run_id} is {new}: "
                                       "report exec_status succeeded first or in the same call")
-            if retry:
-                changes = {**{k: None for k in RUN_MEASUREMENTS}, "valid": None, **changes}
             final = {**run, **changes}
+            if final.get("valid") is False and not (final.get("invalid_reason") or "").strip():
+                raise ResearchDBError("valid=false needs invalid_reason: what failed acceptance, citing the log")
             if final.get("valid") is True:
                 missing = [k for k in RUN_MEASUREMENTS if final.get(k) is None]
                 if new != "succeeded" or missing:
                     raise ResearchDBError(f"a valid run must have succeeded and record {', '.join(missing) or 'its measurements'}")
+                if not (final.get("log_path") or final.get("output_path")):
+                    raise ResearchDBError("a valid run needs its evidence: log_path or output_path")
                 if set(final["secondary"]) != set(project["secondary_metrics"]) or not all(
                     _type_ok(v, "REAL") for v in final["secondary"].values()
                 ):
@@ -1227,6 +1262,7 @@ class ResearchDB:
                 raise ResearchDBError(f"assign {hypothesis_id} a worker (assign_worker) or pass owner")
             if self._branch_of(tx, hypothesis_id) is not None:
                 raise ResearchDBError(f"{hypothesis_id} already has a branch")
+            self._require_active(self._project(tx))
             repo = self._project(tx).get("repo_path")
             if not repo or _git_commit(repo, base_commit) is None:
                 raise ResearchDBError(f"base_commit {base_commit} is not a commit in the project repository {repo}")
@@ -1382,9 +1418,15 @@ class ResearchDB:
 
     def create_task(self, kind: str, assignee_role: str, request_doc_id: str, target_id: str | None = None,
                     assignee_id: str | None = None) -> str:
-        """A delegated task (status open), optionally assigned to <assignee_role>/<assignee_id>; rld only."""
+        """A delegated task (status open), optionally assigned to <assignee_role>/<assignee_id>; rld only.
+        The request document has the '## ' sections 任务与节点, 问题与预测, 干预与对照, 范围与权限, 资源与预算,
+        验收与停止条件, 交付. Research tasks (harness, literature, experiment, analysis) start only while the project
+        is active."""
         self._require_role("rld")
         with self._writer() as tx:
+            if kind in RESEARCH_TASK_KINDS:
+                self._require_active(self._project(tx))
+            self._check_sections(tx, request_doc_id)
             if assignee_role == "worker" and assignee_id:
                 self._check_parallel_workers(tx, assignee_id)
             task_id = self._insert(tx, "task", {
@@ -1399,7 +1441,8 @@ class ResearchDB:
                     assignee_id: str | None = None) -> None:
         """Move a task along open -> in_progress -> delivered -> accepted/rejected (rejected -> in_progress again;
         rld may cancel). The assignee starts and delivers; delivered needs delivery_doc_id in the same call; rld
-        accepts, rejects, cancels and (while open) assigns with assignee_id."""
+        accepts, rejects, cancels and (while open) assigns with assignee_id. The delivery document has the '## '
+        sections 实际改动与版本, 运行与产物, 验证结果, 资源观测, 未完成与未知项."""
         with self._writer() as tx:
             task = tx.require(task_id, ("task",))
             changes = {}
@@ -1423,6 +1466,7 @@ class ResearchDB:
             if delivery_doc_id is not None:
                 if status != "delivered":
                     raise ResearchDBError("delivery_doc_id is set together with status delivered")
+                self._check_sections(tx, delivery_doc_id)
                 changes["delivery_doc_id"] = delivery_doc_id
             elif status == "delivered":
                 raise ResearchDBError("delivering a task needs delivery_doc_id")
@@ -1432,6 +1476,18 @@ class ResearchDB:
             target = task.get("target_id")
             if delivery_doc_id is not None and target and table_of(target) in ("hypothesis", "project"):
                 self._append_resume(tx, target, [delivery_doc_id])
+
+    def _check_sections(self, tx: _Tx, doc_id: str) -> None:
+        """A task request or delivery has its required '## ' sections (未知 or 不适用 where nothing applies)."""
+        doc = tx.require(doc_id, ("document",))
+        required = TASK_SECTIONS.get(doc["doc_type"], ())
+        path = self.docs_root / doc["path"]
+        headings = re.findall(r"^#{2,3}[ \t]+(.+?)[ \t]*$", path.read_text(encoding="utf-8"), re.M) if path.is_file() else []
+        missing = [r for r in required if not any(h.startswith(r) for h in headings)]
+        if missing:
+            raise ResearchDBError(f"{doc_id} ({doc['path']}) lacks the sections {', '.join(missing)}; a {doc['doc_type']} "
+                                  f"has the '## ' sections {', '.join(required)} (未知 or 不适用 where nothing applies): "
+                                  "write a new version with them")
 
     def _check_parallel_workers(self, tx: _Tx, worker_id: str, task_id: str | None = None) -> None:
         """A worker with no task in hand may take one only while fewer than max_parallel_workers have one."""
@@ -1553,9 +1609,15 @@ def _node_timestamps(hyp: dict, changes: dict, now: str) -> dict:
 
 
 def node_hours(runs: list[dict]) -> float:
-    """Recorded usage: nodes_used x walltime_used_s over the runs that report both."""
-    return sum(r["nodes_used"] * r["walltime_used_s"] / 3600 for r in runs
-               if r.get("nodes_used") and r.get("walltime_used_s"))
+    """Recorded usage: nodes_used x walltime_used_s over every attempt of the runs that reports both."""
+    return sum(run_node_hours(r) or 0 for r in runs)
+
+
+def run_node_hours(run: dict) -> float | None:
+    """One run's recorded usage, its earlier attempts included; None when no attempt reports it."""
+    used = [a["nodes_used"] * a["walltime_used_s"] / 3600 for a in [run, *(run.get("attempts") or {}).values()]
+            if a.get("nodes_used") and a.get("walltime_used_s")]
+    return sum(used) if used else None
 
 
 def busy_workers(tasks: list[dict]) -> set[str]:
@@ -1576,6 +1638,10 @@ def _is_go_candidate(hyp: dict) -> bool:
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
+
+# The methods that only read: the UI's and any reader's whole interface.
+READ_METHODS = ("help", "get", "find", "edges", "children", "history", "go_candidates", "latest_result",
+                "screen_seed_count", "export_snapshot", "verify_document", "resume_package")
 
 CLI_METHODS = sorted(
     name for name in vars(ResearchDB) if not name.startswith("_") and callable(getattr(ResearchDB, name))
