@@ -13,6 +13,7 @@ REPO = Path(__file__).resolve().parent.parent
 TOOL = REPO / "tools" / "research_tree.py"
 sys.path.insert(0, str(REPO / "tools"))
 
+from latticedb import Database  # noqa: E402
 from research_db import ResearchDB  # noqa: E402
 
 PLAN = """# 低秩优化器研究计划
@@ -115,6 +116,146 @@ class ResearchTreeTest(unittest.TestCase):
         self.assertEqual(data["nodes"], [])
         plan_doc = Path(out["result"]["root"]).resolve() / "docs" / out["result"]["plan_instruction"]["path"]
         self.assertEqual(data["guards"]["frozen_docs"], [str(plan_doc)])
+
+    def test_init_starts_from_the_default_config_or_a_named_one(self):
+        self.run_tool("init", str(self.plan), "--project-id", "P-demo")
+        template = (REPO / "schema" / "config.template.yaml").read_text(encoding="utf-8")
+        self.assertEqual((self.cwd / "research-tree.yaml").read_text(encoding="utf-8"), template)
+
+        other = self.cwd / "other"
+        other.mkdir()
+        init = lambda *args: json.loads(subprocess.run([sys.executable, str(TOOL), "init", str(self.plan), *args],
+                                                       cwd=other, capture_output=True, text=True).stdout)
+        # A file already in the directory is used only when named.
+        (other / "research-tree.yaml").write_text("budget:\n  screen_node_h: 4\n", encoding="utf-8")
+        self.assertIn("--config research-tree.yaml", init()["error"])
+        bad = self.cwd / "bad.yaml"
+        bad.write_text("budget:\n  per_run:\n    nodes: 0\n  typo: 1\n", encoding="utf-8")
+        self.assertIn("already exists", init("--config", str(bad))["error"])
+        (other / "research-tree.yaml").unlink()
+        error = init("--config", str(bad))["error"]
+        self.assertIn("budget.per_run.nodes", error)
+        self.assertIn("'typo' was unexpected", error)
+        self.assertFalse((other / "research").exists())
+        self.assertFalse((other / "research-tree.yaml").exists())
+
+        good = self.cwd / "cluster.yaml"
+        good.write_text("budget:\n  screen_node_h: 4\n", encoding="utf-8")
+        self.assertTrue(init("--config", str(good))["ok"])
+        self.assertEqual((other / "research-tree.yaml").read_text(encoding="utf-8"), good.read_text(encoding="utf-8"))
+
+    def test_ui_outbox(self):
+        _, out = self.run_tool("init", str(self.plan), "--project-id", "P-demo")
+        self.assertEqual(self.run_tool("ui", "reply", "--run", "r1", "--text", "进度如下")[0], 0)
+        self.assertEqual(self.run_tool("ui", "instruction", "--run", "r1", "--understanding", "停止H-0002",
+                                       "--about", "P-demo")[0], 0)
+        code, err = self.run_tool("ui", "question", "--run", "r1")
+        self.assertIn("needs --text", err["error"])
+        code, err = self.run_tool("ui", "confirm", "--run", "../x")
+        self.assertIn("not a UI run id", err["error"])
+        lines = (Path(out["result"]["root"]) / "cache" / "ui" / "r1.jsonl").read_text(encoding="utf-8").splitlines()
+        self.assertEqual([json.loads(line) for line in lines], [
+            {"type": "reply", "text": "进度如下"},
+            {"type": "instruction", "understanding": "停止H-0002", "kind": "指令", "about": ["P-demo"]},
+        ])
+
+    def test_config_apply_registers_versions_and_writes_the_record(self):
+        _, out = self.run_tool("init", str(self.plan), "--project-id", "P-demo")
+        root, config = Path(out["result"]["root"]), self.cwd / "research-tree.yaml"
+        shown = self.run_tool("config")[1]["result"]
+        self.assertEqual((shown["source"], shown["pending"]), ("file", False))
+        self.assertEqual(shown["db_fields"]["max_walltime_s"], 3600)
+
+        # Before the project record exists: the file is registered, nothing else changes.
+        code, out = self.run_tool("config", "apply", "--require-project")
+        self.assertEqual(code, 2)
+        self.assertIn("create_project", out["error"])
+        applied = self.run_tool("config", "apply")[1]["result"]
+        first = applied["config"]
+        self.assertEqual((applied["new_version"], applied["updated_fields"], first["path"]),
+                         (True, {}, "project/config.v1.yaml"))
+        self.assertEqual(self.run_tool("config", "apply")[1]["result"]["new_version"], False)
+
+        rld = ResearchDB(root / "research_tree.db", "rld/main")
+        (root / "docs" / "project" / "min-setup.v1.md").write_text("setup\n", encoding="utf-8")
+        setup = rld.register_document("project/min-setup.v1.md", "min_setup", "setup")
+        rld.set_document_current(setup)
+        rld.create_project("P-demo", "demo", setup, "acc", "higher", True, ["loss"], [7, 8, 9])
+
+        config.write_text(config.read_text(encoding="utf-8")
+                          .replace("walltime: 1h", "walltime: 1h30m")
+                          .replace("max_parallel_workers: null", "max_parallel_workers: 2")
+                          .replace("gate_seeds: 3", "gate_seeds: 2"), encoding="utf-8")
+        self.assertTrue(self.run_tool("config")[1]["result"]["pending"])
+        code, out = self.run_tool("config", "apply", "--words", "/research-tree config apply")
+        self.assertEqual(code, 0, out)
+        result = out["result"]
+        self.assertEqual(result["config"]["path"], "project/config.v2.yaml")
+        self.assertEqual(result["updated_fields"], {"max_walltime_s": 5400, "max_parallel_workers": 2,
+                                                    "gate_seeds": 2, "seeds": [7, 8]})
+        project = rld.get("P-demo")
+        self.assertEqual((project["config_doc_id"], project["seeds"], project["max_walltime_s"]),
+                         (result["config"]["doc_id"], [7, 8], 5400))
+        self.assertEqual(rld.get(first["doc_id"])["status"], "superseded")
+        instruction = rld.get(result["instruction"]["doc_id"])
+        self.assertEqual(instruction["doc_type"], "user_instruction")
+        shown = self.run_tool("config")[1]["result"]
+        self.assertEqual((shown["source"], shown["pending"]), (result["config"]["doc_id"], False))
+
+        # Once an experiment exists the gates are fixed; a refused change registers nothing.
+        with Database(root / "research_tree.db") as db, db.write() as txn:
+            txn.create_node(labels=["Experiment"], properties={"id": "E-0001"})
+            txn.commit()
+        config.write_text(config.read_text(encoding="utf-8").replace("gate_seeds: 2", "gate_seeds: 3"), encoding="utf-8")
+        code, out = self.run_tool("config", "apply")
+        self.assertEqual(code, 2)
+        self.assertIn("gate_seeds, seeds can no longer change", out["error"])
+        self.assertFalse((root / "docs" / "project" / "config.v3.yaml").exists())
+
+        # A broken file is reported; the registered version stays in effect.
+        config.write_text("budget: [", encoding="utf-8")
+        shown = self.run_tool("config")[1]["result"]
+        self.assertIn("not valid YAML", shown["file_error"])
+        self.assertEqual(shown["effective"]["stage1"]["gate_seeds"], 2)
+
+    def test_requirements_are_clarified_in_drafts_and_submitted_with_the_words(self):
+        _, out = self.run_tool("init", str(self.plan), "--project-id", "P-demo")
+        root = Path(out["result"]["root"])
+        window = [{"id": "w-0001", "ts": "2026-10-04T07:00:00Z", "role": "user", "text": "把研究范围缩小一点"},
+                  {"id": "w-0002", "ts": "2026-10-04T07:00:20Z", "role": "ui", "text": "缩小到哪一个假说？"},
+                  {"id": "w-0003", "ts": "2026-10-04T07:01:00Z", "role": "user", "text": "只保留第二个，预算不变"}]
+        (root / "messages" / "window.jsonl").write_text("".join(json.dumps(w, ensure_ascii=False) + "\n" for w in window),
+                                                        encoding="utf-8")
+        code, out = self.run_tool("requirement", "draft", "--title", "缩小范围", "--goal", "集中资源", "--messages", "w-0002")
+        self.assertIn("w-0002 is not a message of the person", out["error"])
+        draft = self.run_tool("requirement", "draft", "--title", "缩小范围", "--goal", "集中资源",
+                              "--messages", "w-0001")[1]["result"]
+        self.assertEqual((draft["id"], draft["status"], draft["version"]), ("REQ-0001", "open", 0))
+        code, out = self.run_tool("requirement", "submit", "--req", "REQ-0001")
+        self.assertIn("范围", out["error"])  # still unclear: the UI keeps asking
+
+        self.run_tool("requirement", "draft", "--req", "REQ-0001", "--scope", "只保留H-0002", "--open", "预算不变（用户明示）",
+                      "--messages", "w-0003", "w-0001")
+        code, out = self.run_tool("requirement", "submit", "--req", "REQ-0001")
+        self.assertEqual(code, 0, out)
+        first = out["result"]
+        self.assertEqual((first["version"], first["path"]), (1, "requirements/REQ-0001.v1.md"))
+        text = (root / "docs" / first["path"]).read_text(encoding="utf-8")
+        for expected in ("## 范围\n\n只保留H-0002", "## 约束\n\n未知", "w-0001", "把研究范围缩小一点", "只保留第二个，预算不变"):
+            self.assertIn(expected, text)
+        rld = ResearchDB(root / "research_tree.db", "rld/main")
+        doc = rld.get(first["doc_id"])
+        self.assertEqual((doc["doc_type"], doc["status"], doc["author_role"]), ("user_instruction", "current", "ui"))
+        self.assertIn("no changes", self.run_tool("requirement", "submit", "--req", "REQ-0001")[1]["error"])
+
+        # A later change is a new version of the same requirement.
+        self.run_tool("requirement", "draft", "--req", "REQ-0001", "--changes", "加上验收标准", "--acceptance", "H-0002完成判定")
+        second = self.run_tool("requirement", "submit", "--req", "REQ-0001")[1]["result"]
+        self.assertEqual(second["version"], 2)
+        self.assertEqual(rld.get(first["doc_id"])["status"], "superseded")
+        listed = self.run_tool("requirement", "list")[1]["result"]
+        self.assertEqual([(d["id"], d["status"], d["version"]) for d in listed], [("REQ-0001", "submitted", 2)])
+        self.assertIn("--req REQ-<n>", self.run_tool("ui", "submit", "--run", "r1")[1]["error"])
 
     def test_status_without_a_project(self):
         code, out = self.run_tool("status")

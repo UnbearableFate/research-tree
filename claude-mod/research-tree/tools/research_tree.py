@@ -10,11 +10,29 @@ The project is marked by `.research-tree.json` in the working directory, which r
 The project id defaults to the uv project's name (pyproject.toml [project].name, which `uv init .` takes
 from the directory), else the directory's name, so research/<id>/ matches the uv project.
 
+The project configuration is research-tree.yaml beside the marker (tools/project_config.py). Until it is first
+applied the file itself is in effect; `config apply` registers it as docs/project/config.v<N>.yaml (the version
+in effect from then on, recorded in the marker) and writes its budget and gates into the project record.
+
 Usage (run with the project's own interpreter, ./.venv/bin/python, after `uv init .`):
-    research_tree.py init PLAN.md [--project-id NAME]     # directories, database, registry, plan as instruction
+    research_tree.py init PLAN.md [--project-id NAME] [--config FILE]   # directories, database, registry, plan, config
     research_tree.py instruction --text "..." [--understanding "..."] [--about ID ...]
     research_tree.py phase [--set awaiting_confirmation|confirmed]
+    research_tree.py config [show]                        # the configuration in effect and the file's state
+    research_tree.py config apply [--words "..."] [--require-project]
+    research_tree.py ui reply|confirm|instruction|question|submit --run RUN ...  # the UI agent's outbox
+    research_tree.py requirement draft|list|submit ...    # the UI's requirement drafts and their documents
     research_tree.py status                               # the marker as JSON
+
+init starts from the default configuration (schema/config.template.yaml) unless --config names a file to start
+from; it refuses to pick up a research-tree.yaml that is already in the directory without being named.
+
+The UI agent of the research window acts only through its outbox: each run appends its reply and actions to
+research/<id>/cache/ui/<run>.jsonl, and the research-tree mod carries them out when the run ends (it records
+the person's message verbatim; the agent only adds its reading). A requirement the person and the UI clarify
+over several messages lives as a draft in cache/ui/requirements/; submitting it (an outbox action) registers
+docs/requirements/REQ-<n>.v<k>.md with the fields of the rules' requirement record and the person's cited
+messages verbatim, taken from the window log messages/window.jsonl that the mod keeps.
 """
 
 from __future__ import annotations
@@ -31,11 +49,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 
 import create_db  # noqa: E402
-from research_db import ResearchDB, ResearchDBError, table_of  # noqa: E402
+import project_config  # noqa: E402
+from project_config import CONFIG_NAME, ConfigError  # noqa: E402
+from research_db import GATE_FIELDS, ResearchDB, ResearchDBError, table_of  # noqa: E402
 
 MARKER = Path(".research-tree.json")
 PHASES = ("planning", "awaiting_confirmation", "confirmed")
-SUBDIRS = ("docs/project/reports", "docs/instructions", "docs/literature", "docs/hypotheses", "docs/tasks",
+SUBDIRS = ("docs/project/reports", "docs/instructions", "docs/requirements", "docs/literature", "docs/hypotheses", "docs/tasks",
            "docs/baselines", "docs/workflow", "messages", "snapshots", "cache/literature", "outputs", "site")
 # Node workers are named after their node (worker/h0007) and only send; the root's worker also receives.
 AGENTS = ["ui/ui", "rld/main", "worker/root", "assistant/a1", "web_builder/site"]
@@ -93,7 +113,7 @@ def register_instruction(root: Path, verbatim: str, understanding: str, kind: st
     return {"doc_id": doc_id, "path": rel}
 
 
-def init(cwd: Path, plan: Path, project_id: str | None) -> dict:
+def init(cwd: Path, plan: Path, project_id: str | None, config: Path | None = None) -> dict:
     if (cwd / MARKER).exists():
         raise TreeError(f"{cwd / MARKER} already exists; this directory already holds a research project")
     if not plan.is_file():
@@ -109,19 +129,33 @@ def init(cwd: Path, plan: Path, project_id: str | None) -> dict:
     root = cwd / "research" / project_id
     if root.exists():
         raise TreeError(f"{root} already exists")
+    config_file = cwd / CONFIG_NAME
+    if config is None:
+        if config_file.exists():
+            raise TreeError(f"{config_file} already exists: delete it to start from the default configuration, "
+                            f"or start from it with --config {CONFIG_NAME}")
+        config_text = project_config.template_text()
+    else:
+        if not config.is_file():
+            raise TreeError(f"config file not found: {config}")
+        if config.resolve() != config_file.resolve() and config_file.exists():
+            raise TreeError(f"{config_file} already exists; delete it or pass it as --config")
+        config_text = config.read_text(encoding="utf-8")
+        project_config.db_fields(project_config.parse(config_text, str(config)))
+    if config is None or config.resolve() != config_file.resolve():
+        config_file.write_text(config_text, encoding="utf-8")
     for sub in SUBDIRS:
         (root / sub).mkdir(parents=True)
     db = root / "research_tree.db"
     create_db.create_db(db)
-    (root / "agents.json").write_text(json.dumps(
-        {agent: {"channel": "native", "thread": f"claude-code:{agent}"} for agent in AGENTS}, indent=1),
-        encoding="utf-8")
+    (root / "agents.json").write_text(json.dumps(AGENTS, indent=1), encoding="utf-8")
     plan_text = plan.read_text(encoding="utf-8")
     instruction = register_instruction(
         root, plan_text, f"立项：研究目标与初始假说、实验设计见原文（{plan}）。由RLD整理为目标、最小实验设定、初始节点和根节点任务，请用户确认后再启动worker。",
         "指令（立项）", [])
     marker = {"project_id": project_id, "root": str(root), "db": str(db), "plan": str(plan.resolve()),
-              "plan_instruction": instruction, "phase": "planning", "created_at": now_utc(), "confirmed_at": None}
+              "plan_instruction": instruction, "phase": "planning", "created_at": now_utc(), "confirmed_at": None,
+              "config": None}
     write_marker(cwd, marker)
     return marker
 
@@ -140,12 +174,199 @@ def set_phase(cwd: Path, phase: str) -> dict:
     return marker
 
 
+def show_config(cwd: Path) -> dict:
+    """The configuration in effect (the registered version, else the file, else the template), whether the file
+    has changes not yet applied, and why the file cannot be used if it cannot."""
+    marker = read_marker(cwd) if (cwd / MARKER).is_file() else {}
+    file = cwd / CONFIG_NAME
+    text = file.read_text(encoding="utf-8") if file.is_file() else None
+    file_config, file_error = None, None
+    if text is not None:
+        try:
+            file_config = project_config.parse(text)
+            project_config.db_fields(file_config)
+        except ConfigError as exc:
+            file_error = str(exc)
+    registered = marker.get("config")
+    if registered:
+        registered_text = (Path(marker["root"]) / "docs" / registered["path"]).read_text(encoding="utf-8")
+        effective, source = project_config.parse(registered_text, registered["path"]), registered["doc_id"]
+        pending = text != registered_text
+    elif file_config is not None:
+        effective, source, pending = file_config, "file", False
+    else:
+        effective, source, pending = project_config.defaults(), "template", False
+    return {"file": str(file), "exists": text is not None, "source": source, "registered": registered,
+            "pending": pending, "file_error": file_error, "effective": effective,
+            "db_fields": project_config.db_fields(effective)}
+
+
+def apply_config(cwd: Path, actor: str, words: str | None = None, require_project: bool = False) -> dict:
+    """Put research-tree.yaml in effect: register it as a new config version when it changed, write the budget
+    and gates into the project record, and register the user's words as an instruction when anything changed."""
+    marker = read_marker(cwd)
+    root, file = Path(marker["root"]), cwd / CONFIG_NAME
+    if not file.is_file():
+        raise TreeError(f"{file} not found")
+    text = file.read_text(encoding="utf-8")
+    config = project_config.parse(text)
+    fields = project_config.db_fields(config)
+    rld = ResearchDB(root / "research_tree.db", actor)
+    projects = rld.find("project")
+    project = projects[0] if projects else None
+    if require_project and project is None:
+        raise TreeError("the RLD has not created the project record yet (create_project)")
+    changes = {k: v for k, v in fields.items() if project is not None and project.get(k) != v}
+    if "gate_seeds" in changes:
+        seeds = list(project["seeds"])
+        while len(seeds) < changes["gate_seeds"]:
+            seeds.append(max(seeds, default=-1) + 1)
+        changes["seeds"] = seeds[:changes["gate_seeds"]]
+    locked = sorted(set(changes) & set(GATE_FIELDS))
+    if locked and rld.find("experiment"):
+        raise TreeError(f"experiments exist, so {', '.join(locked)} can no longer change; set them back in "
+                        f"{CONFIG_NAME} to {', '.join(f'{k}={project[k]!r}' for k in locked)}")
+
+    registered = marker.get("config")
+    new_version = registered is None or (root / "docs" / registered["path"]).read_text(encoding="utf-8") != text
+    if new_version:
+        numbers = [int(m.group(1)) for p in (root / "docs" / "project").glob("config.v*.yaml")
+                   if (m := re.match(r"config\.v(\d+)\.yaml$", p.name))]
+        rel = f"project/config.v{max(numbers, default=0) + 1}.yaml"
+        (root / "docs" / rel).write_text(text, encoding="utf-8")
+        doc_id = rld.register_document(rel, "config", "项目配置", summary=f"{CONFIG_NAME}：开发与实验平台、资源预算、阶段1门槛、子代理模型",
+                                       about=[project["id"]] if project else [])
+        rld.set_document_current(doc_id)
+        if registered:
+            rld.supersede_document(registered["doc_id"], doc_id)
+        registered = marker["config"] = {"doc_id": doc_id, "path": rel}
+        write_marker(cwd, marker)
+    if project is not None and (changes or project.get("config_doc_id") != registered["doc_id"]):
+        rld.update_project(**changes, config_doc_id=registered["doc_id"])
+    instruction = None
+    if words and (new_version or changes):
+        updated = f"；项目记录中的 {', '.join(sorted(changes))} 随之更新" if changes else ""
+        instruction = register_instruction(root, words, f"项目配置改为 {registered['path']}"
+                                           f"（{registered['doc_id']}）{updated}。", "配置变更",
+                                           [project["id"]] if project else [])
+    return {"config": registered, "new_version": new_version, "updated_fields": changes,
+            "instruction": instruction, "effective": config}
+
+
+REQ_RE = re.compile(r"^REQ-[0-9]{4}$")
+# The fields of a requirement record (rules, section 3), in the order the document shows them.
+REQ_FIELDS = {
+    "goal": "目标与理由", "scope": "范围", "constraints": "约束", "acceptance": "验收", "priority": "优先级",
+    "open": "授权与待决定项", "changes": "版本与变更",
+}
+
+
+def window_messages(root: Path) -> dict[str, dict]:
+    """The research window's log (messages/window.jsonl, written by the mod): id -> entry."""
+    log = root / "messages" / "window.jsonl"
+    if not log.is_file():
+        return {}
+    entries = (json.loads(line) for line in log.read_text(encoding="utf-8").splitlines() if line.strip())
+    return {e["id"]: e for e in entries if e.get("id")}
+
+
+def requirement_dir(cwd: Path) -> tuple[Path, Path]:
+    root = Path(read_marker(cwd)["root"])
+    return root, root / "cache" / "ui" / "requirements"
+
+
+def draft_requirement(cwd: Path, req: str | None, title: str | None, fields: dict, messages: list[str],
+                      about: list[str]) -> dict:
+    """Create or update the UI's working draft of one requirement; given fields replace, messages and about add.
+    A draft that was submitted opens again for its next version."""
+    root, drafts = requirement_dir(cwd)
+    window = window_messages(root)
+    for mid in messages:
+        if window.get(mid, {}).get("role") != "user":
+            raise TreeError(f"{mid} is not a message of the person in the research window")
+    drafts.mkdir(parents=True, exist_ok=True)
+    if req is None:
+        numbers = [int(p.stem[4:]) for p in drafts.glob("REQ-*.json")]
+        req = f"REQ-{max(numbers, default=0) + 1:04d}"
+        draft = {"id": req, "title": "", **{k: "" for k in REQ_FIELDS}, "messages": [], "about": [],
+                 "status": "open", "version": 0, "doc_id": None, "created_at": now_utc()}
+    else:
+        if not REQ_RE.match(req) or not (drafts / f"{req}.json").is_file():
+            raise TreeError(f"no requirement draft {req}")
+        draft = json.loads((drafts / f"{req}.json").read_text(encoding="utf-8"))
+    if title is not None:
+        draft["title"] = title
+    draft.update({k: v for k, v in fields.items() if v is not None})
+    draft["messages"] += [m for m in messages if m not in draft["messages"]]
+    draft["about"] += [a for a in about if a not in draft["about"]]
+    draft["status"], draft["updated_at"] = "open", now_utc()
+    (drafts / f"{req}.json").write_text(json.dumps(draft, ensure_ascii=False, indent=1), encoding="utf-8")
+    return draft
+
+
+def list_requirements(cwd: Path) -> list[dict]:
+    _, drafts = requirement_dir(cwd)
+    return [json.loads(p.read_text(encoding="utf-8")) for p in sorted(drafts.glob("REQ-*.json"))]
+
+
+def submit_requirement(cwd: Path, req: str) -> dict:
+    """Register the draft as the next version of its requirement document: the fields, then every cited message
+    of the person verbatim. The previous version is superseded."""
+    root, drafts = requirement_dir(cwd)
+    if not REQ_RE.match(req) or not (drafts / f"{req}.json").is_file():
+        raise TreeError(f"no requirement draft {req}")
+    draft = json.loads((drafts / f"{req}.json").read_text(encoding="utf-8"))
+    if draft["status"] != "open":
+        raise TreeError(f"{req} has no changes since version {draft['version']}")
+    missing = [REQ_FIELDS[k] for k in ("goal", "scope") if not draft[k].strip()]
+    if not draft["title"].strip() or missing or not draft["messages"]:
+        raise TreeError(f"{req} needs a title, {', '.join(missing) or 'its fields'} and the person's messages it rests on")
+    window = window_messages(root)
+    version = draft["version"] + 1
+    rel = f"requirements/{req}.v{version}.md"
+    parts = [f"# {req} {draft['title']}（v{version}）\n"]
+    parts += [f"## {label}\n\n{draft[key].strip() or '未知'}\n" for key, label in REQ_FIELDS.items()]
+    parts.append("## 用户原话\n")
+    for mid in draft["messages"]:
+        text = window[mid]["text"]
+        fence = "~~~~" if "```" in text else "```"
+        parts.append(f"{mid}（{window[mid].get('ts', '')}）\n\n{fence}\n{text.rstrip()}\n{fence}\n")
+    (root / "docs" / "requirements").mkdir(parents=True, exist_ok=True)
+    (root / "docs" / rel).write_text("\n".join(parts), encoding="utf-8")
+    ui = ResearchDB(root / "research_tree.db", "ui/ui")
+    doc_id = ui.register_document(rel, "user_instruction", f"{req} {draft['title']}"[:80],
+                                  summary=draft["goal"].strip()[:300], about=draft["about"])
+    ui.set_document_current(doc_id)
+    if draft["doc_id"]:
+        ui.supersede_document(draft["doc_id"], doc_id)
+    draft.update(status="submitted", version=version, doc_id=doc_id, submitted_at=now_utc())
+    (drafts / f"{req}.json").write_text(json.dumps(draft, ensure_ascii=False, indent=1), encoding="utf-8")
+    return {"req": req, "version": version, "doc_id": doc_id, "path": rel, "title": draft["title"]}
+
+
+UI_RUN_RE = re.compile(r"^[A-Za-z0-9_-]{1,64}$")
+
+
+def ui_outbox(cwd: Path, run: str, entry: dict) -> dict:
+    """Append one reply or action of the UI agent's run to its outbox, for the mod to carry out."""
+    if not UI_RUN_RE.match(run):
+        raise TreeError(f"--run {run!r} is not a UI run id")
+    if entry["type"] in ("reply", "question") and not entry.get("text", "").strip():
+        raise TreeError(f"{entry['type']} needs --text")
+    outbox = Path(read_marker(cwd)["root"]) / "cache" / "ui" / f"{run}.jsonl"
+    outbox.parent.mkdir(parents=True, exist_ok=True)
+    with outbox.open("a", encoding="utf-8") as f:
+        f.write(json.dumps(entry, ensure_ascii=False) + "\n")
+    return {"outbox": str(outbox), **entry}
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Set up and steer a research project in the current directory.")
     sub = p.add_subparsers(dest="cmd", required=True)
     i = sub.add_parser("init")
     i.add_argument("plan", type=Path)
     i.add_argument("--project-id")
+    i.add_argument("--config", type=Path, help="start from this configuration instead of the default")
     ins = sub.add_parser("instruction")
     ins.add_argument("--text", required=True, help="the user's words, verbatim")
     ins.add_argument("--understanding", default="", help="the UI's reading of them")
@@ -153,21 +374,62 @@ def main(argv: list[str] | None = None) -> int:
     ins.add_argument("--about", nargs="*", default=[])
     ph = sub.add_parser("phase")
     ph.add_argument("--set", choices=PHASES)
+    cf = sub.add_parser("config")
+    cf.add_argument("action", nargs="?", choices=("show", "apply"), default="show")
+    cf.add_argument("--actor", default="rld/main", help="the RLD identity that registers the configuration")
+    cf.add_argument("--words", help="the user's words, registered as an instruction when the configuration changed")
+    cf.add_argument("--require-project", action="store_true", help="fail unless the project record exists")
+    ui = sub.add_parser("ui", help="the UI agent's outbox")
+    ui.add_argument("action", choices=("reply", "confirm", "instruction", "question", "submit"))
+    ui.add_argument("--run", required=True)
+    ui.add_argument("--text", default="", help="reply: the answer to the person; question: the note to the RLD")
+    ui.add_argument("--understanding", default="", help="instruction: the UI's reading of the person's words")
+    ui.add_argument("--kind", default="指令", help="instruction: 指令, 偏好, 约束, 授权, ...")
+    ui.add_argument("--about", nargs="*", default=[])
+    ui.add_argument("--docs", nargs="*", default=[], help="question: registered document paths relative to docs/")
+    ui.add_argument("--req", help="submit: the requirement draft, REQ-<n>")
+    rq = sub.add_parser("requirement", help="the UI's requirement drafts")
+    rq.add_argument("action", choices=("draft", "list", "submit"))
+    rq.add_argument("--req", help="REQ-<n>; draft without it starts a new requirement")
+    rq.add_argument("--title")
+    for key, label in REQ_FIELDS.items():
+        rq.add_argument(f"--{key}", help=label)
+    rq.add_argument("--messages", nargs="*", default=[], help="ids of the person's messages it rests on (w-<n>)")
+    rq.add_argument("--about", nargs="*", default=[])
     sub.add_parser("status")
     args = p.parse_args(argv)
     cwd = Path.cwd()
     try:
         if args.cmd == "init":
-            result = init(cwd, args.plan, args.project_id)
+            result = init(cwd, args.plan, args.project_id, args.config)
         elif args.cmd == "instruction":
             marker = read_marker(cwd)
             result = register_instruction(Path(marker["root"]), args.text, args.understanding or args.text,
                                           args.kind, args.about)
         elif args.cmd == "phase":
             result = set_phase(cwd, args.set) if args.set else read_marker(cwd)
+        elif args.cmd == "config":
+            result = (apply_config(cwd, args.actor, args.words, args.require_project) if args.action == "apply"
+                      else show_config(cwd))
+        elif args.cmd == "ui":
+            fields = {"reply": ("text",), "confirm": (), "instruction": ("understanding", "kind", "about"),
+                      "question": ("text", "about", "docs"), "submit": ("req",)}[args.action]
+            if args.action == "submit" and not (args.req and REQ_RE.match(args.req)):
+                raise TreeError("submit needs --req REQ-<n>")
+            result = ui_outbox(cwd, args.run, {"type": args.action, **{k: getattr(args, k) for k in fields}})
+        elif args.cmd == "requirement":
+            if args.action == "draft":
+                result = draft_requirement(cwd, args.req, args.title, {k: getattr(args, k) for k in REQ_FIELDS},
+                                           args.messages, args.about)
+            elif args.action == "submit":
+                if not args.req:
+                    raise TreeError("submit needs --req")
+                result = submit_requirement(cwd, args.req)
+            else:
+                result = list_requirements(cwd)
         else:
             result = read_marker(cwd)
-    except (TreeError, ResearchDBError) as exc:
+    except (TreeError, ResearchDBError, ConfigError) as exc:
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False))
         return 2
     print(json.dumps({"ok": True, "result": result}, ensure_ascii=False))

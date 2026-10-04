@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import inspect
 import json
 import re
 import sqlite3
@@ -63,7 +64,7 @@ ENTITY_ID_RE = re.compile(r"^(P|H|E|BR|D|DEC|T)-[A-Za-z0-9_.-]+$")
 # another record's id.
 PROJECT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
 RUN_ID_RE = re.compile(r"^(E-[A-Za-z0-9_.-]+)/s(-?[0-9]+)$")
-DOC_PATH_RE = re.compile(r"^(?!/)(?!.*\.\.)[A-Za-z0-9_./-]+\.v([0-9]+)\.(md|json)$")
+DOC_PATH_RE = re.compile(r"^(?!/)(?!.*\.\.)[A-Za-z0-9_./-]+\.v([0-9]+)\.(md|json|yaml)$")
 
 # Edge-backed columns: (table, column) -> tables the edge may point to.
 # The edge type is read from the spec's "-- edge: TYPE" comment.
@@ -92,6 +93,7 @@ REL_ENDPOINTS = {
 DOC_REF_TYPES = {
     ("project", "goal_doc_id"): ("goal",),
     ("project", "min_setup_doc_id"): ("min_setup",),
+    ("project", "config_doc_id"): ("config",),
     ("hypothesis", "doc_id"): ("hypothesis",),
     ("experiment", "design_doc_id"): ("experiment_design",),
     ("experiment", "result_doc_id"): ("experiment_result",),
@@ -110,6 +112,7 @@ DOC_AUTHORS = {
     "decision": ("rld",),
     "workflow": ("rld",),
     "report": ("rld",),
+    "config": ("rld",),
     "task_request": ("rld",),
     "user_instruction": ("ui", "rld"),
     "literature": ("worker", "assistant", "rld"),
@@ -155,6 +158,8 @@ TASK_TRANSITIONS = {  # status -> {to_status: role allowed to make the change}
 GATE_FIELDS = ("primary_metric", "metric_direction", "metric_is_percent", "secondary_metrics", "go_margin",
                "gate_seeds", "seeds")
 RUN_MEASUREMENTS = ("metric_value", "secondary", "nodes_used", "walltime_used_s")
+# Settings from the project configuration (research-tree.yaml) besides the caps and gates above.
+LIMIT_FIELDS = ("max_parallel_workers", "alert_node_h", "config_doc_id")
 
 class ResearchDBError(Exception):
     pass
@@ -536,9 +541,10 @@ class ResearchDB:
     def create_project(self, id: str, title: str, min_setup_doc_id: str, primary_metric: str,
                        metric_direction: str, metric_is_percent: bool, secondary_metrics: list[str],
                        seeds: list[int], **optional) -> str:
+        """The project record (the tree's root): comparison setup and caps; rld only, once per database."""
         self._require_role("rld")
         self._only_fields(optional, ("goal_doc_id", "go_margin", "gate_seeds", "screen_budget_node_h",
-                                     "min_related_work", "max_nodes", "max_walltime_s", "repo_path"))
+                                     "min_related_work", "max_nodes", "max_walltime_s", "repo_path") + LIMIT_FIELDS)
         if table_of(id) != "project":
             raise ResearchDBError(f"project id {id!r} must be letters, digits, _ . - and must not look like another "
                                   "record's id (H-, E-, BR-, D-, DEC-, T-)")
@@ -557,6 +563,10 @@ class ResearchDB:
 
     def _check_comparison_setup(self, project: dict) -> None:
         self._check_values("project", {k: project[k] for k in ("seeds", "secondary_metrics", "gate_seeds")})
+        for name in ("max_parallel_workers", "alert_node_h"):
+            if project.get(name) is not None and not (_type_ok(project[name], SPEC["project"].columns[name].type)
+                                                      and project[name] > 0):
+                raise ResearchDBError(f"{name} must be positive or null")
         if len(project["seeds"]) != project["gate_seeds"] or len(set(project["seeds"])) != project["gate_seeds"]:
             raise ResearchDBError(f"seeds must be {project['gate_seeds']} distinct values")
         names = project["secondary_metrics"]
@@ -570,7 +580,7 @@ class ResearchDB:
         self._require_role("rld")
         self._only_fields(changes, ("title", "goal_doc_id", "min_setup_doc_id", "stage", "min_related_work",
                                     "screen_budget_node_h", "max_nodes", "max_walltime_s", "repo_path",
-                                    "harness_ref", "harness_paths", "sota_experiment_id") + GATE_FIELDS)
+                                    "harness_ref", "harness_paths", "sota_experiment_id") + GATE_FIELDS + LIMIT_FIELDS)
         with self._writer() as tx:
             project = self._project(tx)
             if set(changes) & set(GATE_FIELDS):
@@ -578,6 +588,8 @@ class ResearchDB:
                     raise ResearchDBError(f"{GATE_FIELDS} are fixed once experiments exist")
                 self._check_comparison_setup({**project, **changes})
             final = {**project, **changes}
+            if {"max_parallel_workers", "alert_node_h"} & set(changes):
+                self._check_comparison_setup(final)
             if {"repo_path", "harness_ref", "harness_paths"} & set(changes):
                 if not (final.get("repo_path") and final.get("harness_ref") and final.get("harness_paths")):
                     raise ResearchDBError("freezing the harness needs repo_path, harness_ref and harness_paths")
@@ -595,8 +607,14 @@ class ResearchDB:
                 exp = tx.require(sota, ("experiment",))
                 if exp["kind"] != "baseline" or exp["seeds"] != final["seeds"]:
                     raise ResearchDBError(f"the SOTA baseline must be a baseline experiment on seeds {final['seeds']}")
-                if exp.get("harness_ref") != final.get("harness_ref") or not exp.get("evaluated_at"):
-                    raise ResearchDBError(f"{sota} must be evaluated with the current frozen harness")
+                if not exp.get("evaluated_at"):
+                    raise ResearchDBError(f"{sota} has no verdict yet: its owner records one (record_verdict) once "
+                                          "every run is valid")
+                if exp.get("harness_ref") != final.get("harness_ref"):
+                    raise ResearchDBError(
+                        f"{sota} was evaluated with harness {str(exp.get('harness_ref'))[:10]}, but the frozen harness is "
+                        f"{str(final.get('harness_ref'))[:10]}: run the baseline again with the frozen harness "
+                        "(create_experiment kind=baseline, then its runs and record_verdict) and set that experiment")
             self._update(tx, project["id"], changes)
 
     # -- hypotheses -------------------------------------------------------------
@@ -824,6 +842,7 @@ class ResearchDB:
                     f"a run exceeds the per-run cap ({project['max_nodes']} nodes, {project['max_walltime_s']} s); "
                     "report the budget need to the user"
                 )
+            self._check_usage_alert(tx, project)
             limit = project["gate_seeds"] if kind == "baseline" else self._screen_seeds(tx, project)
             n = limit if n_seeds is None else n_seeds
             if not 1 <= n <= limit:
@@ -843,7 +862,19 @@ class ResearchDB:
                 "owner": optional.pop("owner", None) or self.agent, **optional,
             })
 
+    def _check_usage_alert(self, tx: _Tx, project: dict) -> None:
+        """At alert_node_h of recorded usage, new experiments and seed extensions wait for the user's decision."""
+        alert = project.get("alert_node_h")
+        if alert is None:
+            return
+        used = node_hours([tx.get(i) for i in tx.ids("run")])
+        if used >= alert:
+            raise ResearchDBError(f"recorded usage {used:.2f} node-h has reached alert_node_h {alert}; report it to the "
+                                  "user, who decides whether to continue (raise or clear alert_node_h in "
+                                  "research-tree.yaml, then /research-tree config apply)")
+
     def screen_seed_count(self) -> int:
+        """Seeds a node experiment starts with: from the SOTA baseline's first-seed cost and screen_budget_node_h."""
         with self.reader() as tx:
             return self._screen_seeds(tx, self._project(tx))
 
@@ -868,6 +899,7 @@ class ResearchDB:
             self._require_owner(exp)
             if not len(exp["seeds"]) < n_seeds <= project["gate_seeds"]:
                 raise ResearchDBError(f"{experiment_id} has {len(exp['seeds'])} seeds; extend to at most {project['gate_seeds']}")
+            self._check_usage_alert(tx, project)
             if exp["kind"] != "baseline" and self.role != "rld" and n_seeds > self._screen_seeds(tx, project) \
                     and exp.get("verdict") not in ("close", "beats_parent"):
                 raise ResearchDBError("seeds beyond the screening budget need verdict close or beats_parent, or rld")
@@ -878,6 +910,8 @@ class ResearchDB:
             tx.unlink_all("rel_compared_with", experiment_id)
 
     def create_run(self, experiment_id: str, seed: int, job_id: str | None = None) -> str:
+        """One seed's run of an experiment (id <experiment>/s<seed>); the experiment's owner. Then update_run reports
+        exec_status (planned/submitted/running/succeeded/failed/...), valid and the measurements."""
         with self._writer() as tx:
             exp = tx.require(experiment_id, ("experiment",))
             self._require_owner(exp)
@@ -1052,6 +1086,7 @@ class ResearchDB:
         return max(exps, key=lambda e: int(e["id"].split("-")[1]), default=None)
 
     def latest_result(self, hypothesis_id: str) -> dict | None:
+        """The hypothesis's latest evaluated experiment under the current harness, or None."""
         with self.reader() as tx:
             return self._latest_evaluated(tx, hypothesis_id)
 
@@ -1089,9 +1124,11 @@ class ResearchDB:
 
     def register_document(self, path: str, doc_type: str, title: str, summary: str | None = None,
                           about: list[str] | tuple[str, ...] = ()) -> str:
+        """Register a written file under docs/ (path <name>.v<N>.md/.json/.yaml) as a draft; set_document_current
+        then freezes it. Who may author which doc_type is fixed (doc_library.md)."""
         m = DOC_PATH_RE.match(path)
         if not m:
-            raise ResearchDBError(f"document path must be relative, without '..', and end in .v<N>.md or .v<N>.json: {path}")
+            raise ResearchDBError(f"document path must be relative, without '..', and end in .v<N>.md, .v<N>.json or .v<N>.yaml: {path}")
         if doc_type not in DOC_AUTHORS:
             raise ResearchDBError(f"unknown doc_type {doc_type!r}")
         if self.role not in DOC_AUTHORS[doc_type]:
@@ -1115,6 +1152,7 @@ class ResearchDB:
             return doc_id
 
     def update_document(self, doc_id: str, **changes) -> None:
+        """Change a draft document's title or summary; its author only."""
         self._only_fields(changes, ("title", "summary"))
         with self._writer() as tx:
             doc = tx.require(doc_id, ("document",))
@@ -1137,6 +1175,7 @@ class ResearchDB:
             return digest
 
     def supersede_document(self, old_id: str, new_id: str) -> None:
+        """Mark a current document superseded by a newer current one of the same doc_type."""
         with self._writer() as tx:
             old = tx.require(old_id, ("document",))
             new = tx.require(new_id, ("document",))
@@ -1329,8 +1368,11 @@ class ResearchDB:
 
     def create_task(self, kind: str, assignee_role: str, request_doc_id: str, target_id: str | None = None,
                     assignee_id: str | None = None) -> str:
+        """A delegated task (status open), optionally assigned to <assignee_role>/<assignee_id>; rld only."""
         self._require_role("rld")
         with self._writer() as tx:
+            if assignee_role == "worker" and assignee_id:
+                self._check_parallel_workers(tx, assignee_id)
             task_id = self._insert(tx, "task", {
                 "id": tx.next_id("task"), "kind": kind, "target_id": target_id, "status": "open",
                 "assignee_role": assignee_role, "assignee_id": assignee_id, "request_doc_id": request_doc_id,
@@ -1341,6 +1383,9 @@ class ResearchDB:
 
     def update_task(self, task_id: str, status: str | None = None, delivery_doc_id: str | None = None,
                     assignee_id: str | None = None) -> None:
+        """Move a task along open -> in_progress -> delivered -> accepted/rejected (rejected -> in_progress again;
+        rld may cancel). The assignee starts and delivers; delivered needs delivery_doc_id in the same call; rld
+        accepts, rejects, cancels and (while open) assigns with assignee_id."""
         with self._writer() as tx:
             task = tx.require(task_id, ("task",))
             changes = {}
@@ -1348,6 +1393,8 @@ class ResearchDB:
                 self._require_role("rld")
                 if task["status"] != "open":
                     raise ResearchDBError("a task is (re)assigned only while open")
+                if task["assignee_role"] == "worker":
+                    self._check_parallel_workers(tx, assignee_id, task_id)
                 changes["assignee_id"] = assignee_id
             if status is not None:
                 who = TASK_TRANSITIONS[task["status"]].get(status)
@@ -1371,9 +1418,20 @@ class ResearchDB:
             if delivery_doc_id is not None and target and table_of(target) in ("hypothesis", "project"):
                 self._append_resume(tx, target, [delivery_doc_id])
 
+    def _check_parallel_workers(self, tx: _Tx, worker_id: str, task_id: str | None = None) -> None:
+        """A worker with no task in hand may take one only while fewer than max_parallel_workers have one."""
+        limit = self._project(tx).get("max_parallel_workers")
+        if limit is None:
+            return
+        busy = busy_workers([tx.get(i) for i in tx.ids("task") if i != task_id])
+        if worker_id not in busy and len(busy) >= limit:
+            raise ResearchDBError(f"max_parallel_workers is {limit} and worker/{', worker/'.join(sorted(busy))} "
+                                  "already have tasks in hand; wait for a delivery or raise the limit in research-tree.yaml")
+
     # -- reads ------------------------------------------------------------------------------
 
     def get(self, entity_id: str) -> dict | None:
+        """One record by id (H-0001, E-0002, D-0003, T-0004, the project id, ...) with its properties, or None."""
         with self.reader() as tx:
             return tx.get(entity_id)
 
@@ -1390,12 +1448,14 @@ class ResearchDB:
         return [r for r in records if all(r.get(k) == v for k, v in equals.items())]
 
     def edges(self, rel: str, source_id: str | None = None, target_id: str | None = None) -> list[dict]:
+        """Relations of type rel (e.g. rel_compared_with), optionally from source_id and/or to target_id."""
         if rel not in REL_ENDPOINTS:
             raise ResearchDBError(f"unknown relation {rel!r}")
         with self.reader() as tx:
             return tx.edges(rel, source_id, target_id)
 
     def children(self, parent_id: str) -> list[str]:
+        """Ids of the hypotheses whose parent is parent_id (the project id for the top level)."""
         with self.reader() as tx:
             return sorted(r["id"] for r in tx.query(
                 "MATCH (h:Hypothesis)-[:CHILD_OF]->(p {id: $id}) RETURN h.id AS id", id=parent_id))
@@ -1411,6 +1471,7 @@ class ResearchDB:
         return sorted(records, key=lambda d: (d["decided_at"], int(d["id"].split("-")[1])))
 
     def go_candidates(self) -> list[str]:
+        """Hypotheses that beat SOTA and passed both rechecks."""
         with self.reader() as tx:
             return [i for i in tx.ids("hypothesis") if _is_go_candidate(tx.get(i))]
 
@@ -1455,6 +1516,18 @@ def _node_timestamps(hyp: dict, changes: dict, now: str) -> dict:
     return stamps
 
 
+def node_hours(runs: list[dict]) -> float:
+    """Recorded usage: nodes_used x walltime_used_s over the runs that report both."""
+    return sum(r["nodes_used"] * r["walltime_used_s"] / 3600 for r in runs
+               if r.get("nodes_used") and r.get("walltime_used_s"))
+
+
+def busy_workers(tasks: list[dict]) -> set[str]:
+    """Workers with a task in hand: assigned and not yet delivered, or sent back for rework."""
+    return {t["assignee_id"] for t in tasks if t["assignee_role"] == "worker" and t.get("assignee_id")
+            and t["status"] in ("open", "in_progress", "rejected")}
+
+
 def default_worker_id(node_id: str, table: str) -> str:
     """The worker identity a node gets by default: `root` for the project, `h0007` for H-0007."""
     return "root" if table == "project" else re.sub(r"[^A-Za-z0-9_.]", "", node_id).lower()
@@ -1474,18 +1547,36 @@ CLI_METHODS = sorted(
 )
 
 
+def describe(method: str | None = None) -> dict | list:
+    """The CLI's own `help`: every method with its parameters and the first line of its description, or one
+    method's whole description."""
+    if method is not None:
+        if method not in CLI_METHODS:
+            raise ResearchDBError(f"no method {method!r}; call help without a method for the list")
+        fn = getattr(ResearchDB, method)
+        return {"method": method, "parameters": _parameters(fn), "description": inspect.getdoc(fn) or ""}
+    return [{"method": name, "parameters": _parameters(getattr(ResearchDB, name)),
+             "summary": (inspect.getdoc(getattr(ResearchDB, name)) or "").split("\n")[0]}
+            for name in CLI_METHODS]
+
+
+def _parameters(fn) -> str:
+    return str(inspect.signature(fn)).replace("'", "").replace("(self, ", "(").replace("(self)", "()")
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Call one ResearchDB method; prints the result as JSON.")
     parser.add_argument("--db", required=True, type=Path)
     parser.add_argument("--actor", required=True, help="<role>/<agent-id>")
-    parser.add_argument("method", choices=CLI_METHODS)
+    parser.add_argument("method", choices=CLI_METHODS + ["help"])
     parser.add_argument("kwargs", nargs="?", default="{}", help="JSON object of keyword arguments")
     args = parser.parse_args(argv)
     try:
         kwargs = json.loads(args.kwargs)
         if not isinstance(kwargs, dict):
             raise ResearchDBError("kwargs must be a JSON object")
-        result = getattr(ResearchDB(args.db, args.actor), args.method)(**kwargs)
+        result = (describe(**kwargs) if args.method == "help"
+                  else getattr(ResearchDB(args.db, args.actor), args.method)(**kwargs))
     except (ResearchDBError, json.JSONDecodeError, TypeError) as exc:
         print(json.dumps({"ok": False, "error": f"{type(exc).__name__}: {exc}"}, ensure_ascii=False))
         return 2

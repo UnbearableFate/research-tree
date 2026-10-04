@@ -36,6 +36,9 @@ export type ResearchSummary = {
     go_margin: number
     harness_ref: string | null
     repo_path: string | null
+    max_parallel_workers: number | null
+    alert_node_h: number | null
+    config_doc_id: string | null
     worker: ResearchWorker
   }
   counts: {
@@ -47,6 +50,8 @@ export type ResearchSummary = {
   }
   nodes: ResearchNode[]
   attention: ResearchAttention[]
+  /** Worker ids with a task in hand (assigned and not delivered, or sent back). */
+  busy_workers: string[]
   guards: { frozen_docs: string[]; harness: string[] }
 }
 
@@ -60,10 +65,44 @@ export type ResearchProject = {
   phase: 'planning' | 'awaiting_confirmation' | 'confirmed'
   created_at: string
   confirmed_at: string | null
+  /** The registered version of research-tree.yaml in effect; null until it is first applied. */
+  config: { doc_id: string; path: string } | null
+}
+
+/** One subagent's model choice in research-tree.yaml. */
+export type ResearchModel = { model: string; effort: 'low' | 'medium' | 'high' | 'xhigh' | 'max' | number | null }
+
+/** research-tree.yaml, completed from the template (tools/project_config.py). */
+export type ResearchConfig = {
+  version: 1
+  platform: { dev: string; experiment: string; skills: string[] }
+  budget: {
+    per_run: { nodes: number; walltime: number | string }
+    screen_node_h: number
+    max_parallel_workers: number | null
+    alert_node_h: number | null
+  }
+  stage1: { gate_seeds: number; go_margin: number; min_related_work: number }
+  models: { ui: ResearchModel; worker: ResearchModel }
+}
+
+/** `research_tree.py config`: the configuration in effect and the state of the file. */
+export type ResearchConfigView = {
+  file: string
+  exists: boolean
+  /** A config document id, "file" before the first apply, or "template" when there is no usable file. */
+  source: string
+  registered: { doc_id: string; path: string } | null
+  /** The file differs from the registered version (changes not applied yet). */
+  pending: boolean
+  file_error: string | null
+  effective: ResearchConfig
+  /** The project record's fields the configuration sets. */
+  db_fields: Record<string, number | null>
 }
 
 /** One line of the UI window: the person, the UI agent, or the RLD (this main session). */
-export type ResearchChatEntry = { role: 'user' | 'ui' | 'rld' | 'note'; text: string; at: string }
+export type ResearchChatEntry = { role: 'user' | 'ui' | 'rld' | 'note'; text: string; at: string; id?: string }
 
 declare module 'claude-code' {
   interface PluginState {
@@ -74,10 +113,16 @@ declare module 'claude-code' {
       chat: ResearchChatEntry[]
       /** The UI subagent run answering the person's last message, while it runs. */
       uiAgentId: string | null
+      /** That run's outbox id and the person's message it answers, verbatim. */
+      uiRun: { run: string; message: string } | null
       /** The project of the session's directory; null when there is none. */
       project: ResearchProject | null
       /** Subagent runs the mod started as workers: agentId -> worker/<id>. */
       agents: Record<string, string>
+      /** The project configuration in effect; null without a project environment. */
+      config: ResearchConfigView | null
+      /** The alert_node_h the person was last alerted at, so each threshold alerts once. */
+      alertedAt: number | null
     }
   }
 }

@@ -1,4 +1,4 @@
-"""Validate, log and send one agent-to-agent message.
+"""Validate, log and print one agent-to-agent message.
 
 A research root (research/<project-id>/) holds research_tree.db, docs/,
 messages/ and agents.json. This tool:
@@ -9,22 +9,15 @@ messages/ and agents.json. This tool:
      database, every `docs` path is registered, not superseded and present on
      disk, and `re` names a logged message,
   4. appends the exact line to messages/<sender-id>.jsonl,
-  5. delivers it through the recipient's channel from agents.json and appends
-     the outcome to messages/<sender-id>.delivery.jsonl.
+  5. prints the line; the sender passes it on with its host's own means (in
+     Claude Code: SendMessage to a worker; the research-tree mod calls this
+     tool itself for the research window's messages and post_to_ui).
 
-Channels:
-  native       print only; the sending agent passes the printed line to its
-               Codex send_message_to_thread tool (thread id from agents.json)
-  codex-queue  `codex queue --thread <thread> --message <line>`
-  herdr        `herdr agent prompt <herdr_agent> <line>`
-
-A delivery failure exits non-zero and leaves the message logged; after
-checking the recipient, resend the same message with --resend <id> rather than
+To pass on a logged message again, print it with --resend <id> rather than
 composing a new one.
 
-agents.json maps "<role>/<agent-id>" to
-  {"channel": "native" | "codex-queue" | "herdr",
-   "thread": "<codex thread id>", "herdr_agent": "<name>", "remote": "<app-server addr>"}
+agents.json lists the registered "<role>/<agent-id>" addresses. Node workers
+(worker/h0007) are named after their node and need not be listed to send.
 """
 
 from __future__ import annotations
@@ -34,9 +27,7 @@ import fcntl
 import json
 import os
 import re
-import subprocess
 import sys
-import time
 from pathlib import Path
 
 from jsonschema import Draft202012Validator
@@ -69,11 +60,11 @@ def agent_id(address: str) -> str:
     return address.split("/", 1)[1]
 
 
-def load_registry(root: Path) -> dict:
+def load_registry(root: Path) -> set[str]:
     path = root / "agents.json"
     if not path.exists():
         raise MessageError(f"agent registry not found: {path}")
-    return json.loads(path.read_text(encoding="utf-8"))
+    return set(json.loads(path.read_text(encoding="utf-8")))
 
 
 def logged_message(root: Path, message_id: str) -> str | None:
@@ -146,67 +137,11 @@ def append_message(root: Path, message: dict, validator: Draft202012Validator) -
         return line
 
 
-CHANNEL_KEYS = {"native": (), "codex-queue": ("thread",), "herdr": ("herdr_agent",)}
 MESSAGE_ID_RE = re.compile(r"^[A-Za-z0-9_.]+-[0-9]{4,}$")
 
 
-def recipient_config(registry: dict, to: str, channel_override: str | None) -> dict:
-    if to not in registry:
-        raise MessageError(f"recipient {to} is not in agents.json")
-    recipient = dict(registry[to])
-    if channel_override:
-        recipient["channel"] = channel_override
-    channel = recipient.get("channel")
-    if channel not in CHANNEL_KEYS:
-        raise MessageError(f"agents.json: {to} has unknown channel {channel!r}")
-    missing = [key for key in CHANNEL_KEYS[channel] if not recipient.get(key)]
-    if missing:
-        raise MessageError(f"agents.json: {to} needs {', '.join(missing)} for channel {channel}")
-    return recipient
-
-
-def deliver(line: str, recipient: dict) -> tuple[str, str]:
-    """Send through the recipient's channel. Returns (status, detail)."""
-    channel = recipient["channel"]
-    if channel == "native":
-        return "printed", f"send with Codex send_message_to_thread to thread {recipient.get('thread')}"
-    if channel == "codex-queue":
-        cmd = ["codex", "queue", "--thread", recipient["thread"], "--message", line]
-        if recipient.get("remote"):
-            cmd[2:2] = ["--remote", recipient["remote"]]
-        accepted = "queued"
-    else:
-        cmd = ["herdr", "agent", "prompt", recipient["herdr_agent"], line]
-        accepted = "submitted"
-    # Argument list, no shell: the message text is never interpreted as a command.
-    try:
-        result = subprocess.run(cmd, capture_output=True, text=True, timeout=60)
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        return "failed", f"{type(exc).__name__}: {exc}"
-    if result.returncode != 0:
-        return "failed", f"exit {result.returncode}: {(result.stderr or result.stdout).strip()[:300]}"
-    return accepted, (result.stdout.strip() or "ok")[:300]
-
-
-def record_delivery(root: Path, sender: str, message_id: str, to: str, channel: str, status: str, detail: str) -> None:
-    record = {"id": message_id, "ts": now_utc(), "to": to, "channel": channel, "status": status, "detail": detail}
-    with open(root / "messages" / f"{sender}.delivery.jsonl", "a", encoding="utf-8") as f:
-        fcntl.flock(f, fcntl.LOCK_EX)
-        f.write(serialize(record) + "\n")
-
-
-def send(root: Path, line: str, registry: dict, channel_override: str | None) -> int:
-    message = json.loads(line)
-    recipient = recipient_config(registry, message["to"], channel_override)
-    status, detail = deliver(line, recipient)
-    record_delivery(root, agent_id(message["from"]), message["id"], message["to"], recipient["channel"], status, detail)
-    print(line)
-    print(f"{status}: {detail}", file=sys.stderr)
-    return 1 if status == "failed" else 0
-
-
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description="Validate, log and send one agent message.")
+    p = argparse.ArgumentParser(description="Validate, log and print one agent message.")
     p.add_argument("--root", type=Path, required=True, help="research/<project-id> directory")
     p.add_argument("--from", dest="sender", help="<role>/<agent-id> of the sender")
     p.add_argument("--to", help="<role>/<agent-id> of the recipient")
@@ -216,8 +151,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--about", nargs="*", default=[], help="database entity ids")
     p.add_argument("--re", help="id of the message being answered")
     p.add_argument("--need", choices=["none", "ack", "answer", "decision"], help="default depends on --type")
-    p.add_argument("--channel", choices=["native", "codex-queue", "herdr"], help="override agents.json")
-    p.add_argument("--resend", metavar="ID", help="resend a logged message unchanged")
+    p.add_argument("--resend", metavar="ID", help="print a logged message again, unchanged")
     args = p.parse_args(argv)
 
     root = args.root
@@ -229,7 +163,8 @@ def main(argv: list[str] | None = None) -> int:
             line = logged_message(root, args.resend)
             if line is None:
                 raise MessageError(f"message {args.resend} is not in the message logs")
-            return send(root, line, registry, args.channel)
+            print(line)
+            return 0
 
         missing = [name for name in ("sender", "to", "type", "text") if getattr(args, name) is None]
         if missing:
@@ -237,7 +172,8 @@ def main(argv: list[str] | None = None) -> int:
         # Node workers are named after their node (worker/h0007) and only send; every other sender is registered.
         if args.sender not in registry and not args.sender.startswith("worker/"):
             raise MessageError(f"{args.sender} is not in agents.json")
-        recipient_config(registry, args.to, args.channel)
+        if args.to not in registry:
+            raise MessageError(f"recipient {args.to} is not in agents.json")
 
         message = {
             "ts": now_utc(),
@@ -262,8 +198,8 @@ def main(argv: list[str] | None = None) -> int:
             raise MessageError(errors)
         message["project"] = check_references(root, message)
 
-        line = append_message(root, message, validator)
-        return send(root, line, registry, args.channel)
+        print(append_message(root, message, validator))
+        return 0
     except MessageError as exc:
         print(f"error: {exc}", file=sys.stderr)
         return 2

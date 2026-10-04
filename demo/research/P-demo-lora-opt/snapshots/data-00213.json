@@ -1,8 +1,8 @@
 {
  "meta": {
-  "schema_version": 5,
-  "data_version": 211,
-  "updated_at": "2026-10-03T16:30:05Z"
+  "schema_version": 6,
+  "data_version": 213,
+  "updated_at": "2026-10-04T06:05:15Z"
  },
  "tables": {
   "project": [
@@ -28,23 +28,24 @@
     "status": "active",
     "owner": "main",
     "goal_doc_id": "D-0002",
-    "repo_path": "/work/xg24i002/x10041/research-agent/demo/code",
+    "repo_path": "code",
+    "config_doc_id": "D-0004",
+    "max_nodes": 8,
+    "max_walltime_s": 3600,
+    "screen_budget_node_h": 10,
+    "gate_seeds": 3,
+    "go_margin": 0.05,
+    "min_related_work": 3,
     "resume_doc_ids": [
      "D-0003",
      "D-0002",
-     "D-0004",
-     "D-0007"
+     "D-0005",
+     "D-0008"
     ],
-    "go_margin": 0.05,
-    "gate_seeds": 3,
-    "screen_budget_node_h": 10.0,
-    "min_related_work": 3,
-    "max_nodes": 8,
-    "max_walltime_s": 3600,
-    "created_at": "2026-10-03T16:30:00Z",
-    "updated_at": "2026-10-03T16:30:00Z",
+    "created_at": "2026-10-04T06:05:10Z",
+    "updated_at": "2026-10-04T06:05:10Z",
     "worker_id": "root",
-    "harness_ref": "46e9243540c52fce0ce084876cda1982e1523310",
+    "harness_ref": "fcc32f0345edb4013bfa568df768449e3d338ebc",
     "harness_paths": [
      "harness"
     ],
@@ -57,7 +58,7 @@
     "project_id": "P-demo-lora-opt",
     "title": "子批次二阶矩预条件",
     "statement": "用未裁剪的微批次梯度平方替代全批次二阶矩，可改善LoRA更新方向。",
-    "doc_id": "D-0013",
+    "doc_id": "D-0014",
     "status": "expandable",
     "experiment_status": "beats_parent",
     "novelty_recheck": "pending",
@@ -65,16 +66,16 @@
     "priority": 0,
     "owner": "main",
     "resume_doc_ids": [
-     "D-0013"
+     "D-0014"
     ],
-    "created_at": "2026-10-03T16:30:00Z",
-    "updated_at": "2026-10-03T16:30:01Z",
+    "created_at": "2026-10-04T06:05:11Z",
+    "updated_at": "2026-10-04T06:05:11Z",
     "worker_id": "h0001",
-    "concluded_at": "2026-10-03T16:30:01Z",
-    "started_at": "2026-10-03T16:30:00Z",
+    "concluded_at": "2026-10-04T06:05:11Z",
+    "started_at": "2026-10-04T06:05:11Z",
     "status_reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
-    "first_experiment_at": "2026-10-03T16:30:01Z",
-    "first_result_at": "2026-10-03T16:30:01Z",
+    "first_experiment_at": "2026-10-04T06:05:11Z",
+    "first_result_at": "2026-10-04T06:05:11Z",
     "parent_id": "P-demo-lora-opt"
    },
    {
@@ -82,7 +83,7 @@
     "project_id": "P-demo-lora-opt",
     "title": "正交化LoRA更新",
     "statement": "对LoRA因子更新做正交化可改善条件数，提高精度。",
-    "doc_id": "D-0018",
+    "doc_id": "D-0019",
     "status": "prunable",
     "experiment_status": "no_gain",
     "novelty_recheck": "pending",
@@ -90,16 +91,16 @@
     "priority": 0,
     "owner": "main",
     "resume_doc_ids": [
-     "D-0018"
+     "D-0019"
     ],
-    "created_at": "2026-10-03T16:30:01Z",
-    "updated_at": "2026-10-03T16:30:02Z",
+    "created_at": "2026-10-04T06:05:11Z",
+    "updated_at": "2026-10-04T06:05:12Z",
     "worker_id": "h0002",
-    "concluded_at": "2026-10-03T16:30:02Z",
-    "started_at": "2026-10-03T16:30:01Z",
+    "concluded_at": "2026-10-04T06:05:12Z",
+    "started_at": "2026-10-04T06:05:11Z",
     "status_reason": "所有指标都不优于SOTA，按规则消灭。",
-    "first_experiment_at": "2026-10-03T16:30:01Z",
-    "first_result_at": "2026-10-03T16:30:02Z",
+    "first_experiment_at": "2026-10-04T06:05:12Z",
+    "first_result_at": "2026-10-04T06:05:12Z",
     "parent_id": "P-demo-lora-opt"
    },
    {
@@ -107,7 +108,7 @@
     "project_id": "P-demo-lora-opt",
     "title": "子批次二阶矩 + 因子尺度平衡",
     "statement": "在子批次二阶矩基础上平衡A、B因子尺度，可进一步提升精度。",
-    "doc_id": "D-0024",
+    "doc_id": "D-0025",
     "status": "expandable",
     "experiment_status": "beats_sota",
     "novelty_recheck": "pass",
@@ -115,17 +116,17 @@
     "priority": 0,
     "owner": "main",
     "resume_doc_ids": [
-     "D-0024"
+     "D-0025"
     ],
-    "created_at": "2026-10-03T16:30:02Z",
-    "updated_at": "2026-10-03T16:30:03Z",
+    "created_at": "2026-10-04T06:05:12Z",
+    "updated_at": "2026-10-04T06:05:13Z",
     "worker_id": "h0003",
-    "concluded_at": "2026-10-03T16:30:03Z",
-    "started_at": "2026-10-03T16:30:02Z",
+    "concluded_at": "2026-10-04T06:05:13Z",
+    "started_at": "2026-10-04T06:05:12Z",
     "status_reason": "优于SOTA且复核通过，可拓展",
-    "first_experiment_at": "2026-10-03T16:30:02Z",
-    "first_result_at": "2026-10-03T16:30:02Z",
-    "beats_sota_at": "2026-10-03T16:30:03Z",
+    "first_experiment_at": "2026-10-04T06:05:12Z",
+    "first_result_at": "2026-10-04T06:05:12Z",
+    "beats_sota_at": "2026-10-04T06:05:13Z",
     "parent_id": "H-0001"
    },
    {
@@ -133,7 +134,7 @@
     "project_id": "P-demo-lora-opt",
     "title": "子批次二阶矩 + 动量重标度",
     "statement": "按子批次方差重标度动量可减少噪声。",
-    "doc_id": "D-0032",
+    "doc_id": "D-0033",
     "status": "prunable",
     "experiment_status": "no_gain",
     "novelty_recheck": "pending",
@@ -141,16 +142,16 @@
     "priority": 0,
     "owner": "main",
     "resume_doc_ids": [
-     "D-0032"
+     "D-0033"
     ],
-    "created_at": "2026-10-03T16:30:03Z",
-    "updated_at": "2026-10-03T16:30:04Z",
+    "created_at": "2026-10-04T06:05:13Z",
+    "updated_at": "2026-10-04T06:05:14Z",
     "worker_id": "h0004",
-    "concluded_at": "2026-10-03T16:30:04Z",
-    "started_at": "2026-10-03T16:30:03Z",
+    "concluded_at": "2026-10-04T06:05:14Z",
+    "started_at": "2026-10-04T06:05:13Z",
     "status_reason": "相对父节点各项指标都不更好，按规则消灭。",
-    "first_experiment_at": "2026-10-03T16:30:03Z",
-    "first_result_at": "2026-10-03T16:30:03Z",
+    "first_experiment_at": "2026-10-04T06:05:13Z",
+    "first_result_at": "2026-10-04T06:05:14Z",
     "parent_id": "H-0001"
    },
    {
@@ -158,7 +159,7 @@
     "project_id": "P-demo-lora-opt",
     "title": "Kronecker因子对角近似",
     "statement": "对Kronecker预条件取对角近似，在低秩上以低成本获得二阶信息。",
-    "doc_id": "D-0038",
+    "doc_id": "D-0039",
     "status": "verifying",
     "experiment_status": "running",
     "novelty_recheck": "pending",
@@ -166,16 +167,16 @@
     "priority": 0,
     "owner": "main",
     "resume_doc_ids": [
-     "D-0038",
-     "D-0050"
+     "D-0039",
+     "D-0051"
     ],
-    "created_at": "2026-10-03T16:30:04Z",
-    "updated_at": "2026-10-03T16:30:04Z",
+    "created_at": "2026-10-04T06:05:14Z",
+    "updated_at": "2026-10-04T06:05:14Z",
     "worker_id": "h0005",
-    "started_at": "2026-10-03T16:30:04Z",
+    "started_at": "2026-10-04T06:05:14Z",
     "status_reason": "开始代码改进与实验",
-    "first_experiment_at": "2026-10-03T16:30:04Z",
-    "first_result_at": "2026-10-03T16:30:04Z",
+    "first_experiment_at": "2026-10-04T06:05:14Z",
+    "first_result_at": "2026-10-04T06:05:14Z",
     "parent_id": "P-demo-lora-opt"
    },
    {
@@ -183,7 +184,7 @@
     "project_id": "P-demo-lora-opt",
     "title": "完整Kronecker二阶预条件",
     "statement": "对每层使用完整Kronecker因子预条件。",
-    "doc_id": "D-0042",
+    "doc_id": "D-0043",
     "status": "prunable",
     "experiment_status": "todo",
     "novelty_recheck": "pending",
@@ -191,11 +192,11 @@
     "priority": 0,
     "owner": "main",
     "resume_doc_ids": [
-     "D-0042"
+     "D-0043"
     ],
-    "created_at": "2026-10-03T16:30:04Z",
-    "updated_at": "2026-10-03T16:30:04Z",
-    "concluded_at": "2026-10-03T16:30:04Z",
+    "created_at": "2026-10-04T06:05:15Z",
+    "updated_at": "2026-10-04T06:05:15Z",
+    "concluded_at": "2026-10-04T06:05:15Z",
     "status_reason": "用户决定放弃（超出单次运行上限）",
     "parent_id": "P-demo-lora-opt"
    },
@@ -204,7 +205,7 @@
     "project_id": "P-demo-lora-opt",
     "title": "8-bit优化器状态",
     "statement": "以8-bit存储优化器状态，在精度不变时显著降低显存。",
-    "doc_id": "D-0045",
+    "doc_id": "D-0046",
     "status": "verifying",
     "experiment_status": "running",
     "novelty_recheck": "pending",
@@ -212,15 +213,15 @@
     "priority": 0,
     "owner": "main",
     "resume_doc_ids": [
-     "D-0045"
+     "D-0046"
     ],
-    "created_at": "2026-10-03T16:30:05Z",
-    "updated_at": "2026-10-03T16:30:05Z",
+    "created_at": "2026-10-04T06:05:15Z",
+    "updated_at": "2026-10-04T06:05:15Z",
     "worker_id": "h0007",
-    "started_at": "2026-10-03T16:30:05Z",
+    "started_at": "2026-10-04T06:05:15Z",
     "status_reason": "开始代码改进与实验",
-    "first_experiment_at": "2026-10-03T16:30:05Z",
-    "first_result_at": "2026-10-03T16:30:05Z",
+    "first_experiment_at": "2026-10-04T06:05:15Z",
+    "first_result_at": "2026-10-04T06:05:15Z",
     "parent_id": "P-demo-lora-opt"
    },
    {
@@ -228,7 +229,7 @@
     "project_id": "P-demo-lora-opt",
     "title": "自适应秩分配",
     "statement": "按层的子批次方差分配LoRA秩，可在同等参数量下提升精度。",
-    "doc_id": "D-0049",
+    "doc_id": "D-0050",
     "status": "pending",
     "experiment_status": "todo",
     "novelty_recheck": "pending",
@@ -236,10 +237,10 @@
     "priority": 0,
     "owner": "main",
     "resume_doc_ids": [
-     "D-0049"
+     "D-0050"
     ],
-    "created_at": "2026-10-03T16:30:05Z",
-    "updated_at": "2026-10-03T16:30:05Z",
+    "created_at": "2026-10-04T06:05:15Z",
+    "updated_at": "2026-10-04T06:05:15Z",
     "parent_id": "H-0003"
    }
   ],
@@ -249,8 +250,8 @@
     "project_id": "P-demo-lora-opt",
     "kind": "baseline",
     "method_name": "BaseOpt-A（虚构SOTA）",
-    "design_doc_id": "D-0005",
-    "code_ref": "46e9243540c52fce0ce084876cda1982e1523310",
+    "design_doc_id": "D-0006",
+    "code_ref": "fcc32f0345edb4013bfa568df768449e3d338ebc",
     "seeds": [
      42,
      43,
@@ -259,20 +260,20 @@
     "nodes": 4,
     "walltime_s": 3600,
     "owner": "root",
-    "created_at": "2026-10-03T16:30:00Z",
+    "created_at": "2026-10-04T06:05:10Z",
     "metric_mean": 71.4002,
     "metric_sd": 0.04,
-    "result_doc_id": "D-0006",
-    "harness_ref": "46e9243540c52fce0ce084876cda1982e1523310",
-    "evaluated_at": "2026-10-03T16:30:00Z"
+    "result_doc_id": "D-0007",
+    "harness_ref": "fcc32f0345edb4013bfa568df768449e3d338ebc",
+    "evaluated_at": "2026-10-04T06:05:10Z"
    },
    {
     "id": "E-0002",
     "project_id": "P-demo-lora-opt",
     "kind": "method",
     "method_name": "subbatch-moment",
-    "design_doc_id": "D-0015",
-    "code_ref": "4cc72eb9110e0b3a0acac1de9fc631e682ae195d",
+    "design_doc_id": "D-0016",
+    "code_ref": "2bf88c8b4e4637421bdabc32beccf13d726bf45e",
     "seeds": [
      42,
      43
@@ -280,12 +281,12 @@
     "nodes": 4,
     "walltime_s": 3600,
     "owner": "h0001",
-    "created_at": "2026-10-03T16:30:01Z",
+    "created_at": "2026-10-04T06:05:11Z",
     "verdict": "beats_parent",
     "metric_mean": 71.5819,
-    "result_doc_id": "D-0016",
-    "harness_ref": "46e9243540c52fce0ce084876cda1982e1523310",
-    "evaluated_at": "2026-10-03T16:30:01Z",
+    "result_doc_id": "D-0017",
+    "harness_ref": "fcc32f0345edb4013bfa568df768449e3d338ebc",
+    "evaluated_at": "2026-10-04T06:05:11Z",
     "hypothesis_id": "H-0001"
    },
    {
@@ -293,8 +294,8 @@
     "project_id": "P-demo-lora-opt",
     "kind": "method",
     "method_name": "orthogonal-update",
-    "design_doc_id": "D-0020",
-    "code_ref": "e62d5eb144a03f6d753c1d4eedfdeab41b2d9739",
+    "design_doc_id": "D-0021",
+    "code_ref": "ef674758567d7b3f125d5b92e486477dc6b87deb",
     "seeds": [
      42,
      43
@@ -302,12 +303,12 @@
     "nodes": 4,
     "walltime_s": 3600,
     "owner": "h0002",
-    "created_at": "2026-10-03T16:30:01Z",
+    "created_at": "2026-10-04T06:05:11Z",
     "verdict": "no_gain",
     "metric_mean": 71.1753,
-    "result_doc_id": "D-0021",
-    "harness_ref": "46e9243540c52fce0ce084876cda1982e1523310",
-    "evaluated_at": "2026-10-03T16:30:02Z",
+    "result_doc_id": "D-0022",
+    "harness_ref": "fcc32f0345edb4013bfa568df768449e3d338ebc",
+    "evaluated_at": "2026-10-04T06:05:12Z",
     "hypothesis_id": "H-0002"
    },
    {
@@ -315,8 +316,8 @@
     "project_id": "P-demo-lora-opt",
     "kind": "method",
     "method_name": "moment-balance",
-    "design_doc_id": "D-0026",
-    "code_ref": "499cc3c387d77eabd5f88b95f12e47155564e6d6",
+    "design_doc_id": "D-0027",
+    "code_ref": "33a759f79f271235bb553cb9bcf4ee74d1c6b2c4",
     "seeds": [
      42,
      43,
@@ -325,12 +326,12 @@
     "nodes": 4,
     "walltime_s": 3600,
     "owner": "h0003",
-    "created_at": "2026-10-03T16:30:02Z",
+    "created_at": "2026-10-04T06:05:12Z",
     "verdict": "beats_sota",
     "metric_mean": 71.6414,
-    "result_doc_id": "D-0028",
-    "harness_ref": "46e9243540c52fce0ce084876cda1982e1523310",
-    "evaluated_at": "2026-10-03T16:30:03Z",
+    "result_doc_id": "D-0029",
+    "harness_ref": "fcc32f0345edb4013bfa568df768449e3d338ebc",
+    "evaluated_at": "2026-10-04T06:05:13Z",
     "hypothesis_id": "H-0003"
    },
    {
@@ -338,8 +339,8 @@
     "project_id": "P-demo-lora-opt",
     "kind": "method",
     "method_name": "momentum-rescale",
-    "design_doc_id": "D-0034",
-    "code_ref": "f034288e92a592bb8f60fca55c2c7a588bb46013",
+    "design_doc_id": "D-0035",
+    "code_ref": "71309f3096ef89c57cd84d02e9a5c7578b408bfe",
     "seeds": [
      42,
      43
@@ -347,12 +348,12 @@
     "nodes": 4,
     "walltime_s": 3600,
     "owner": "h0004",
-    "created_at": "2026-10-03T16:30:03Z",
+    "created_at": "2026-10-04T06:05:13Z",
     "verdict": "no_gain",
     "metric_mean": 71.437,
-    "result_doc_id": "D-0035",
-    "harness_ref": "46e9243540c52fce0ce084876cda1982e1523310",
-    "evaluated_at": "2026-10-03T16:30:03Z",
+    "result_doc_id": "D-0036",
+    "harness_ref": "fcc32f0345edb4013bfa568df768449e3d338ebc",
+    "evaluated_at": "2026-10-04T06:05:14Z",
     "hypothesis_id": "H-0004"
    },
    {
@@ -360,8 +361,8 @@
     "project_id": "P-demo-lora-opt",
     "kind": "method",
     "method_name": "kron-diag",
-    "design_doc_id": "D-0040",
-    "code_ref": "fdbddb1b768b4195e591a2b8d05c39296205e434",
+    "design_doc_id": "D-0041",
+    "code_ref": "b791def8ba0b9982d3e51c225b98096acd4812ce",
     "seeds": [
      42,
      43
@@ -369,12 +370,12 @@
     "nodes": 4,
     "walltime_s": 3600,
     "owner": "h0005",
-    "created_at": "2026-10-03T16:30:04Z",
+    "created_at": "2026-10-04T06:05:14Z",
     "verdict": "close",
     "metric_mean": 71.4858,
-    "result_doc_id": "D-0041",
-    "harness_ref": "46e9243540c52fce0ce084876cda1982e1523310",
-    "evaluated_at": "2026-10-03T16:30:04Z",
+    "result_doc_id": "D-0042",
+    "harness_ref": "fcc32f0345edb4013bfa568df768449e3d338ebc",
+    "evaluated_at": "2026-10-04T06:05:14Z",
     "hypothesis_id": "H-0005"
    },
    {
@@ -382,8 +383,8 @@
     "project_id": "P-demo-lora-opt",
     "kind": "method",
     "method_name": "state-8bit",
-    "design_doc_id": "D-0047",
-    "code_ref": "4d56fd9b0248c1f429b56abceeb8d20b02a713ac",
+    "design_doc_id": "D-0048",
+    "code_ref": "3eeb339a875176de8974914fe7818bd529c1cebe",
     "seeds": [
      42,
      43
@@ -391,90 +392,90 @@
     "nodes": 4,
     "walltime_s": 3600,
     "owner": "h0007",
-    "created_at": "2026-10-03T16:30:05Z",
+    "created_at": "2026-10-04T06:05:15Z",
     "verdict": "needs_rld",
     "metric_mean": 71.4312,
-    "result_doc_id": "D-0048",
-    "harness_ref": "46e9243540c52fce0ce084876cda1982e1523310",
-    "evaluated_at": "2026-10-03T16:30:05Z",
+    "result_doc_id": "D-0049",
+    "harness_ref": "fcc32f0345edb4013bfa568df768449e3d338ebc",
+    "evaluated_at": "2026-10-04T06:05:15Z",
     "hypothesis_id": "H-0007"
    }
   ],
   "branch": [
    {
     "id": "BR-0001",
-    "repo_path": "/work/xg24i002/x10041/research-agent/demo/code",
+    "repo_path": "code",
     "name": "node/H-0001",
     "base_ref": "main",
-    "base_commit": "46e9243540c52fce0ce084876cda1982e1523310",
-    "worktree_path": "/work/xg24i002/x10041/research-agent/demo/worktrees/H-0001",
+    "base_commit": "fcc32f0345edb4013bfa568df768449e3d338ebc",
+    "worktree_path": "worktrees/H-0001",
     "owner": "h0001",
     "status": "active",
-    "created_at": "2026-10-03T16:30:00Z",
+    "created_at": "2026-10-04T06:05:11Z",
     "hypothesis_id": "H-0001"
    },
    {
     "id": "BR-0002",
-    "repo_path": "/work/xg24i002/x10041/research-agent/demo/code",
+    "repo_path": "code",
     "name": "node/H-0002",
     "base_ref": "main",
-    "base_commit": "46e9243540c52fce0ce084876cda1982e1523310",
+    "base_commit": "fcc32f0345edb4013bfa568df768449e3d338ebc",
     "owner": "main",
     "status": "deleted",
-    "created_at": "2026-10-03T16:30:01Z",
-    "head_commit": "e62d5eb144a03f6d753c1d4eedfdeab41b2d9739",
-    "returned_at": "2026-10-03T16:30:02Z",
-    "closed_at": "2026-10-03T16:30:02Z",
+    "created_at": "2026-10-04T06:05:11Z",
+    "head_commit": "ef674758567d7b3f125d5b92e486477dc6b87deb",
+    "returned_at": "2026-10-04T06:05:12Z",
+    "closed_at": "2026-10-04T06:05:12Z",
     "hypothesis_id": "H-0002"
    },
    {
     "id": "BR-0003",
-    "repo_path": "/work/xg24i002/x10041/research-agent/demo/code",
+    "repo_path": "code",
     "name": "node/H-0003",
     "base_ref": "node/H-0001",
-    "base_commit": "4cc72eb9110e0b3a0acac1de9fc631e682ae195d",
-    "worktree_path": "/work/xg24i002/x10041/research-agent/demo/worktrees/H-0003",
+    "base_commit": "2bf88c8b4e4637421bdabc32beccf13d726bf45e",
+    "worktree_path": "worktrees/H-0003",
     "owner": "h0003",
     "status": "active",
-    "created_at": "2026-10-03T16:30:02Z",
+    "created_at": "2026-10-04T06:05:12Z",
     "hypothesis_id": "H-0003"
    },
    {
     "id": "BR-0004",
-    "repo_path": "/work/xg24i002/x10041/research-agent/demo/code",
+    "repo_path": "code",
     "name": "node/H-0004",
     "base_ref": "node/H-0001",
-    "base_commit": "4cc72eb9110e0b3a0acac1de9fc631e682ae195d",
+    "base_commit": "2bf88c8b4e4637421bdabc32beccf13d726bf45e",
     "owner": "main",
     "status": "deleted",
-    "created_at": "2026-10-03T16:30:03Z",
-    "head_commit": "f034288e92a592bb8f60fca55c2c7a588bb46013",
-    "returned_at": "2026-10-03T16:30:04Z",
-    "closed_at": "2026-10-03T16:30:04Z",
+    "created_at": "2026-10-04T06:05:13Z",
+    "head_commit": "71309f3096ef89c57cd84d02e9a5c7578b408bfe",
+    "returned_at": "2026-10-04T06:05:14Z",
+    "closed_at": "2026-10-04T06:05:14Z",
     "hypothesis_id": "H-0004"
    },
    {
     "id": "BR-0005",
-    "repo_path": "/work/xg24i002/x10041/research-agent/demo/code",
+    "repo_path": "code",
     "name": "node/H-0005",
     "base_ref": "main",
-    "base_commit": "46e9243540c52fce0ce084876cda1982e1523310",
-    "worktree_path": "/work/xg24i002/x10041/research-agent/demo/worktrees/H-0005",
+    "base_commit": "fcc32f0345edb4013bfa568df768449e3d338ebc",
+    "worktree_path": "worktrees/H-0005",
     "owner": "h0005",
     "status": "active",
-    "created_at": "2026-10-03T16:30:04Z",
+    "created_at": "2026-10-04T06:05:14Z",
     "hypothesis_id": "H-0005"
    },
    {
     "id": "BR-0006",
-    "repo_path": "/work/xg24i002/x10041/research-agent/demo/code",
+    "repo_path": "code",
     "name": "node/H-0007",
     "base_ref": "main",
-    "base_commit": "46e9243540c52fce0ce084876cda1982e1523310",
-    "worktree_path": "/work/xg24i002/x10041/research-agent/demo/worktrees/H-0007",
+    "base_commit": "fcc32f0345edb4013bfa568df768449e3d338ebc",
+    "worktree_path": "worktrees/H-0007",
     "owner": "h0007",
     "status": "active",
-    "created_at": "2026-10-03T16:30:05Z",
+    "created_at": "2026-10-04T06:05:15Z",
     "hypothesis_id": "H-0007"
    }
   ],
@@ -489,8 +490,8 @@
     "status": "current",
     "author_role": "ui",
     "author_id": "ui",
-    "created_at": "2026-10-03T16:29:59Z",
-    "sha256": "ef6e4f37e24b856172b7e2fccab027411c762547cc0e19603d2c583f9f7aacbc"
+    "created_at": "2026-10-04T06:05:10Z",
+    "sha256": "7dc7423063d318959921a5e324dd24fa22b62c911adea006ddf5c81e9985111f"
    },
    {
     "id": "D-0002",
@@ -502,8 +503,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:29:59Z",
-    "sha256": "068c9a18dc2cd0a7f1697d1b50139ff767bab0cdca31ed81f6bc538ad18c2f3b"
+    "created_at": "2026-10-04T06:05:10Z",
+    "sha256": "b0b8cfba97fe24b75b36d0b5f76b65075babe6de42f618b4fe860633ed3998ed"
    },
    {
     "id": "D-0003",
@@ -515,11 +516,24 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:29:59Z",
-    "sha256": "b50ce329ce0a9efd2412b190d2c2c3f8fea31d2256b3d9c459be1b4ee85e1b85"
+    "created_at": "2026-10-04T06:05:10Z",
+    "sha256": "0fbbf352922ddee542f77bbda9be99493b4cbc5ac18cc944cccc3e4543c70537"
    },
    {
     "id": "D-0004",
+    "path": "project/config.v1.yaml",
+    "version": 1,
+    "doc_type": "config",
+    "title": "项目配置",
+    "summary": "research-tree.yaml：开发与实验平台、资源预算、阶段1门槛、子代理模型",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-04T06:05:10Z",
+    "sha256": "a4f42cc319cd5b82a3088d28167efca4a6429e3a7c38dfa8f55d67c4c5de3013"
+   },
+   {
+    "id": "D-0005",
     "path": "tasks/T-0001/request.v1.md",
     "version": 1,
     "doc_type": "task_request",
@@ -528,11 +542,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:00Z",
-    "sha256": "f0a754f6683f10d3a7cac827ef75f85f93447d4992022db0e750ac54bef4d8e4"
+    "created_at": "2026-10-04T06:05:10Z",
+    "sha256": "426a8dbb3ee7636265fca2fa546a2332e1e19ef78e9c1796fa1a09660b5d7bad"
    },
    {
-    "id": "D-0005",
+    "id": "D-0006",
     "path": "baselines/E-0001/design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
@@ -541,11 +555,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-03T16:30:00Z",
-    "sha256": "5e0403b599b97525b64e1b884a05dd081fe3f51dce638a0159ecf8556747a58e"
+    "created_at": "2026-10-04T06:05:10Z",
+    "sha256": "f04e264ccaf5c5f5b50f1ed9f44178837565b15af7844a6cc91c4f3cc860c11e"
    },
    {
-    "id": "D-0006",
+    "id": "D-0007",
     "path": "baselines/E-0001/result.v1.md",
     "version": 1,
     "doc_type": "experiment_result",
@@ -554,11 +568,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-03T16:30:00Z",
-    "sha256": "ff02cb49543d9d33057658c800151290892030eaf27662492e1c3083553737da"
+    "created_at": "2026-10-04T06:05:10Z",
+    "sha256": "a5f94001de01686f475ce8c200c366df9fb97b5e9f43c64942ef01cdd4407bf5"
    },
    {
-    "id": "D-0007",
+    "id": "D-0008",
     "path": "tasks/T-0001/delivery.v1.md",
     "version": 1,
     "doc_type": "task_delivery",
@@ -567,11 +581,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-03T16:30:00Z",
-    "sha256": "3f56edc2e147bc600f23b23e0a63cda9da7351e72712516e3260941935a377d9"
+    "created_at": "2026-10-04T06:05:10Z",
+    "sha256": "6a11a2130520ca984751adfd6382ba6f61ab1ff3acbba075a9350d47963fb700"
    },
    {
-    "id": "D-0008",
+    "id": "D-0009",
     "path": "literature/LIT-0001.v1.md",
     "version": 1,
     "doc_type": "literature",
@@ -580,11 +594,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-03T16:30:00Z",
-    "sha256": "3d14228aee3de5d9b4362e952d264f4e0f26f417994258e74fe560ccf97a3aa7"
+    "created_at": "2026-10-04T06:05:10Z",
+    "sha256": "b6fe29a253c93a3f4ebe1a8072d0acc2cc51f3175e07c77568329c80f498d387"
    },
    {
-    "id": "D-0009",
+    "id": "D-0010",
     "path": "literature/LIT-0002.v1.md",
     "version": 1,
     "doc_type": "literature",
@@ -593,11 +607,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-03T16:30:00Z",
-    "sha256": "93cd86f50edb2f792c73adb600d96a86d26d97abd015af5ee2842c7b03497eb6"
+    "created_at": "2026-10-04T06:05:10Z",
+    "sha256": "f8dd34245c7a52b802b7753f8d017c8672c29e9b08a05a3c1324f2e38485e395"
    },
    {
-    "id": "D-0010",
+    "id": "D-0011",
     "path": "literature/LIT-0003.v1.md",
     "version": 1,
     "doc_type": "literature",
@@ -606,11 +620,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-03T16:30:00Z",
-    "sha256": "c0be4781c73acd83103da24bae87cda3b7a5a3b3178befbefabb4507ab1ad872"
+    "created_at": "2026-10-04T06:05:10Z",
+    "sha256": "e5d79f8cf0e84f9e60e0e6b7b910a9fbc9bea0768ce2ec8e99748a5afc622423"
    },
    {
-    "id": "D-0011",
+    "id": "D-0012",
     "path": "literature/LIT-0004.v1.md",
     "version": 1,
     "doc_type": "literature",
@@ -619,11 +633,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-03T16:30:00Z",
-    "sha256": "1648f90fd74d3345f7432d3d4a593996f4ef2a485bfe2848a7ac626fe04aced5"
+    "created_at": "2026-10-04T06:05:10Z",
+    "sha256": "22a3efa35f7ca117e49d210993b637ae63d30037b2be00495fed2a9fb2c73684"
    },
    {
-    "id": "D-0012",
+    "id": "D-0013",
     "path": "literature/LIT-0005.v1.md",
     "version": 1,
     "doc_type": "literature",
@@ -632,11 +646,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-03T16:30:00Z",
-    "sha256": "d86ca64a5ba03b5c0ab911703786acd09d4ff51a125387e6ba426ffa8a949d86"
+    "created_at": "2026-10-04T06:05:10Z",
+    "sha256": "d453d6815ab9ba780901b78de8133dfdf720137e81879c36829cb755681661d7"
    },
    {
-    "id": "D-0013",
+    "id": "D-0014",
     "path": "hypotheses/H-0001/hypothesis.v1.md",
     "version": 1,
     "doc_type": "hypothesis",
@@ -645,11 +659,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:00Z",
-    "sha256": "6a4196891aae38a39bc589282578719e1906d97a6d71182115d5a5645a20f585"
+    "created_at": "2026-10-04T06:05:11Z",
+    "sha256": "5845ee7749f4e183745bdc9cad1ff942db78c1dffdd9af92080a839aeb7ea1c4"
    },
    {
-    "id": "D-0014",
+    "id": "D-0015",
     "path": "hypotheses/H-0001/decisions/start.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -658,11 +672,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:00Z",
-    "sha256": "68e2cd5ebd19732b7fb34a1300b6e3637b5d3d10a1f83c9f0c83e54335cc607b"
+    "created_at": "2026-10-04T06:05:11Z",
+    "sha256": "e2b2f871cd218ae4d7d067898804565b125fc61027d47081d8e4620377c6424a"
    },
    {
-    "id": "D-0015",
+    "id": "D-0016",
     "path": "hypotheses/H-0001/experiments/subbatch-246/design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
@@ -671,11 +685,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0001",
-    "created_at": "2026-10-03T16:30:01Z",
-    "sha256": "c86c170685fd8004fb346504522ee8507adff7d9c4847ae5396da74237980769"
+    "created_at": "2026-10-04T06:05:11Z",
+    "sha256": "4ea5afae887734ac0ed1c93366c706172c83eec46650ba8067c369461a299b9d"
    },
    {
-    "id": "D-0016",
+    "id": "D-0017",
     "path": "hypotheses/H-0001/experiments/E-0002/result.v2.md",
     "version": 2,
     "doc_type": "experiment_result",
@@ -684,11 +698,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0001",
-    "created_at": "2026-10-03T16:30:01Z",
-    "sha256": "07ba7592e38d19cae8c8dbd958ba3f482b775ead7f87e25d26b9317ed6cc74e2"
+    "created_at": "2026-10-04T06:05:11Z",
+    "sha256": "589ae882e54e506da016755c7789e1d9f497004572e62d3200f8ddafadec10cb"
    },
    {
-    "id": "D-0017",
+    "id": "D-0018",
     "path": "hypotheses/H-0001/decisions/expandable.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -697,11 +711,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:01Z",
-    "sha256": "a60e73331fa71efe8f2aa4dba85d51564c7e7e23ea51decb6db520de553a8602"
+    "created_at": "2026-10-04T06:05:11Z",
+    "sha256": "b0481a791d771a8f5584804878667cfe29e5b300b3b0671555a10683088b8965"
    },
    {
-    "id": "D-0018",
+    "id": "D-0019",
     "path": "hypotheses/H-0002/hypothesis.v1.md",
     "version": 1,
     "doc_type": "hypothesis",
@@ -710,11 +724,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:01Z",
-    "sha256": "38f3e4757d2852023e14bf59dfd6ea57a204f7542d49e803643b075caeb0391d"
+    "created_at": "2026-10-04T06:05:11Z",
+    "sha256": "71a6ad4ecd726472d25ff22003ffa346d890bd8f70cf51dc04ae45d6f013a308"
    },
    {
-    "id": "D-0019",
+    "id": "D-0020",
     "path": "hypotheses/H-0002/decisions/start.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -723,11 +737,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:01Z",
-    "sha256": "976fa1652fe3cee763c0f1ae78015ea10d1cbc45095c4ec9a823a372dea01f3e"
+    "created_at": "2026-10-04T06:05:11Z",
+    "sha256": "fdc4a5f273bd2a08dfa6a8bdb78a6de2fa3524f79ed8e350a745bbcc58c4a753"
    },
    {
-    "id": "D-0020",
+    "id": "D-0021",
     "path": "hypotheses/H-0002/experiments/orthogon-735/design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
@@ -736,11 +750,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0002",
-    "created_at": "2026-10-03T16:30:01Z",
-    "sha256": "8c1ff4b97b6bc0fe033bd3468ebe34fee38ea394a7bbe3c15f94aa9e19dfe8a5"
+    "created_at": "2026-10-04T06:05:11Z",
+    "sha256": "bd0e95d375c16d4565f864827814b68433cb35dacf0087d80d2d5e5cb403bf6b"
    },
    {
-    "id": "D-0021",
+    "id": "D-0022",
     "path": "hypotheses/H-0002/experiments/E-0003/result.v2.md",
     "version": 2,
     "doc_type": "experiment_result",
@@ -749,11 +763,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0002",
-    "created_at": "2026-10-03T16:30:01Z",
-    "sha256": "11cbacf2fe2164974d445e7d2f47a5f833d13423cddd77f442b6fbf231192a49"
+    "created_at": "2026-10-04T06:05:12Z",
+    "sha256": "4ad76ef0ab46b45a162e101f51c49bb5952e4e25af4aae0f9ace272a1fcd6084"
    },
    {
-    "id": "D-0022",
+    "id": "D-0023",
     "path": "hypotheses/H-0002/decisions/prunable.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -762,11 +776,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:02Z",
-    "sha256": "3231a2581d9cd6579d2b42090d6c8c0061499ffb019e58be5eaa34a5d13e7694"
+    "created_at": "2026-10-04T06:05:12Z",
+    "sha256": "4e33c6e5f8c9242b7cb4629d909629f99c9a6f04e36e89c8f1fd41280a462465"
    },
    {
-    "id": "D-0023",
+    "id": "D-0024",
     "path": "hypotheses/H-0002/decisions/branch-deleted.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -775,11 +789,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:02Z",
-    "sha256": "54d718a864c930fcbf9e03a779500758aa9bbcdaae287b6e144b75445b3baf4a"
+    "created_at": "2026-10-04T06:05:12Z",
+    "sha256": "ef6fc9925542dad54249aadc1066c5a1b13b9950c37203e9c0e721168de00111"
    },
    {
-    "id": "D-0024",
+    "id": "D-0025",
     "path": "hypotheses/H-0003/hypothesis.v1.md",
     "version": 1,
     "doc_type": "hypothesis",
@@ -788,11 +802,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:02Z",
-    "sha256": "3625b61d45ef73a01f228c954306323eb5c3817f0b2d9fbbbb097613e477f101"
+    "created_at": "2026-10-04T06:05:12Z",
+    "sha256": "0ae9accdce0d4f9ad492473e4806549f0be15c9ecfc496916c4d585dc677557e"
    },
    {
-    "id": "D-0025",
+    "id": "D-0026",
     "path": "hypotheses/H-0003/decisions/start.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -801,11 +815,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:02Z",
-    "sha256": "71cde849a6f68d79068caf082c141b5c19a96e0d469c522969ff3f02a8847371"
+    "created_at": "2026-10-04T06:05:12Z",
+    "sha256": "4bb3fbdf0bc10a1f9883d8edcad1bdca33b19a1ff878f2e825d364ca089dfd21"
    },
    {
-    "id": "D-0026",
+    "id": "D-0027",
     "path": "hypotheses/H-0003/experiments/moment-b-118/design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
@@ -814,11 +828,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-03T16:30:02Z",
-    "sha256": "11bc440d8f4d42e8f9fa27393a2ebbda830b0556949a199da937c557df9044a2"
+    "created_at": "2026-10-04T06:05:12Z",
+    "sha256": "42ce8c133497677121f099a1ffc72e2b49ad3a64403a3b474add8779ef33fc28"
    },
    {
-    "id": "D-0027",
+    "id": "D-0028",
     "path": "hypotheses/H-0003/experiments/E-0004/result.v2.md",
     "version": 2,
     "doc_type": "experiment_result",
@@ -827,11 +841,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-03T16:30:02Z",
-    "sha256": "39e070135efe28d528e365574e2e686611c68c2dd2cc1179ec4f377f1e5975e1"
+    "created_at": "2026-10-04T06:05:12Z",
+    "sha256": "76a9051169ad831ef94007f7b4a2b8ffe161085c28c0ab059697d9aef102c334"
    },
    {
-    "id": "D-0028",
+    "id": "D-0029",
     "path": "hypotheses/H-0003/experiments/E-0004/result.v3.md",
     "version": 3,
     "doc_type": "experiment_result",
@@ -840,11 +854,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-03T16:30:03Z",
-    "sha256": "4ceabbb1b76aa206430a1fd6a11682df7f65acc253c2f05f635f6489a9d48d69"
+    "created_at": "2026-10-04T06:05:13Z",
+    "sha256": "cecbb764d34add69ba7f89c0e05d4db58a2867e19adaa50ba3d22cb25b2f63a0"
    },
    {
-    "id": "D-0029",
+    "id": "D-0030",
     "path": "hypotheses/H-0003/novelty.v1.md",
     "version": 1,
     "doc_type": "novelty",
@@ -853,11 +867,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:03Z",
-    "sha256": "ad9a6f9f488bd52c021ff568e4b354f8cc5c0b04874c3a7968f5796f63d11516"
+    "created_at": "2026-10-04T06:05:13Z",
+    "sha256": "2e5c82d2015427ff5feca510f068409188097ff55f8284521dcc3f7efd577372"
    },
    {
-    "id": "D-0030",
+    "id": "D-0031",
     "path": "hypotheses/H-0003/theory.v1.md",
     "version": 1,
     "doc_type": "theory",
@@ -866,11 +880,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:03Z",
-    "sha256": "27c15369f367b4d0eafc513c77883b6606cc51076e4b2290691bd9f063cd1e2a"
+    "created_at": "2026-10-04T06:05:13Z",
+    "sha256": "8ba974ac53b19f56c3b546bfcaaf6f0bf8b83db26765990280f1979943e5d915"
    },
    {
-    "id": "D-0031",
+    "id": "D-0032",
     "path": "hypotheses/H-0003/decisions/expandable.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -879,11 +893,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:03Z",
-    "sha256": "b790645436c3d2dae224d9cd3605644cf015f4e4f5d6c7cec31b3989fd10e90d"
+    "created_at": "2026-10-04T06:05:13Z",
+    "sha256": "aca2c3d93151495f38c5cb33b633756c1e0e541ef57f8ec00536fda618fd9ee9"
    },
    {
-    "id": "D-0032",
+    "id": "D-0033",
     "path": "hypotheses/H-0004/hypothesis.v1.md",
     "version": 1,
     "doc_type": "hypothesis",
@@ -892,11 +906,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:03Z",
-    "sha256": "3d1be7d83d27c093fa01ff6a76b513af78e074e10af5245db708e52f2c4c499c"
+    "created_at": "2026-10-04T06:05:13Z",
+    "sha256": "64e7a9a25a31702a0875141f07302f1e9fe3d3cf290e1bf69ae365999d6ab449"
    },
    {
-    "id": "D-0033",
+    "id": "D-0034",
     "path": "hypotheses/H-0004/decisions/start.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -905,11 +919,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:03Z",
-    "sha256": "37053b390ce0101ca15ffd8c3fb01151b42006187a117ebf5c10dd20cd61f768"
+    "created_at": "2026-10-04T06:05:13Z",
+    "sha256": "fd0b03a9b61ef2423c2c2cd0fa8f2e62fc7914572985c89ee239b967431b82ae"
    },
    {
-    "id": "D-0034",
+    "id": "D-0035",
     "path": "hypotheses/H-0004/experiments/momentum-874/design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
@@ -918,11 +932,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0004",
-    "created_at": "2026-10-03T16:30:03Z",
-    "sha256": "690f3bed5d541c42a47212cc3bc8234fbd53f7b959598fce207459ef9f3b2823"
+    "created_at": "2026-10-04T06:05:13Z",
+    "sha256": "cd45f8fea66c44bf5312cbac495c9607448bbc3a348612e5bbbfa64ebce438b6"
    },
    {
-    "id": "D-0035",
+    "id": "D-0036",
     "path": "hypotheses/H-0004/experiments/E-0005/result.v2.md",
     "version": 2,
     "doc_type": "experiment_result",
@@ -931,11 +945,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0004",
-    "created_at": "2026-10-03T16:30:03Z",
-    "sha256": "ba3056143a6cbe63f153b0510a3197d03330cbc430991576260ec5cd87ce2d0f"
+    "created_at": "2026-10-04T06:05:14Z",
+    "sha256": "ecd06a29d5f837eeeefeebef141b9612a169aaee6c44e87d5dce1dcac3052e71"
    },
    {
-    "id": "D-0036",
+    "id": "D-0037",
     "path": "hypotheses/H-0004/decisions/prunable.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -944,11 +958,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:03Z",
-    "sha256": "d0bdfde357133dec9503e1c5d03a28599d5064934d770d2324c13609d265cbd5"
+    "created_at": "2026-10-04T06:05:14Z",
+    "sha256": "21198c03e2e0f2ba641050861f167163c93f151bec410a776c3f354e7d2a15f5"
    },
    {
-    "id": "D-0037",
+    "id": "D-0038",
     "path": "hypotheses/H-0004/decisions/branch-deleted.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -957,11 +971,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:04Z",
-    "sha256": "3ad617b32428dac0b5ee5748a2fdf3d0faf1de99e83b02b7bf90c2407db0d6ec"
+    "created_at": "2026-10-04T06:05:14Z",
+    "sha256": "b4d2a184c413d7b7583f7e6844d590f72a51ac76ac21c85a2f7ff14fd89d8d45"
    },
    {
-    "id": "D-0038",
+    "id": "D-0039",
     "path": "hypotheses/H-0005/hypothesis.v1.md",
     "version": 1,
     "doc_type": "hypothesis",
@@ -970,11 +984,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:04Z",
-    "sha256": "7fe9b3db02c48bde01615b1ff80c99767243b6733139a762bd8b1d80aa25d443"
+    "created_at": "2026-10-04T06:05:14Z",
+    "sha256": "6e37569d27ba8af3153f4243bdac1635e36863a9f3b13d4f30651324176ca0b0"
    },
    {
-    "id": "D-0039",
+    "id": "D-0040",
     "path": "hypotheses/H-0005/decisions/start.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -983,11 +997,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:04Z",
-    "sha256": "e95893e21e99a7639769d20f31e3747bd835f7d66abd6a5b25e879ae9ba7f00d"
+    "created_at": "2026-10-04T06:05:14Z",
+    "sha256": "65565961e9ffa708efb50786cfa6d3674dac5982d1b6f3687ecd68c8c1061776"
    },
    {
-    "id": "D-0040",
+    "id": "D-0041",
     "path": "hypotheses/H-0005/experiments/kron-dia-330/design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
@@ -996,11 +1010,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0005",
-    "created_at": "2026-10-03T16:30:04Z",
-    "sha256": "87d091ebb57d5c744a7ff0a87de7763026fcbb2da4029455f3d7a370fc71f39b"
+    "created_at": "2026-10-04T06:05:14Z",
+    "sha256": "8c2e11539c9bc37c14a872f5f5508fd9041a45e2517c83ca32ee0830675bbcd1"
    },
    {
-    "id": "D-0041",
+    "id": "D-0042",
     "path": "hypotheses/H-0005/experiments/E-0006/result.v2.md",
     "version": 2,
     "doc_type": "experiment_result",
@@ -1009,11 +1023,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0005",
-    "created_at": "2026-10-03T16:30:04Z",
-    "sha256": "779d08b6b415c6dca693e5ecc6b638f9f983fdd436e34d5905dbc8e93430f3cc"
+    "created_at": "2026-10-04T06:05:14Z",
+    "sha256": "ace0e1f455e5005ba316208a8397375a00b202c703c1c671e394e6a825b66875"
    },
    {
-    "id": "D-0042",
+    "id": "D-0043",
     "path": "hypotheses/H-0006/hypothesis.v1.md",
     "version": 1,
     "doc_type": "hypothesis",
@@ -1022,11 +1036,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:04Z",
-    "sha256": "652a83c1fece9797c9bd9e126e551efe5e07c3e14f91accf5e3921f9e604e9ba"
+    "created_at": "2026-10-04T06:05:14Z",
+    "sha256": "25ac807ef3443d7345ddcccb2e8ba42b77e8ad7c513882791ce019c7955b961d"
    },
    {
-    "id": "D-0043",
+    "id": "D-0044",
     "path": "instructions/UI-0002.v1.md",
     "version": 1,
     "doc_type": "user_instruction",
@@ -1035,11 +1049,11 @@
     "status": "current",
     "author_role": "ui",
     "author_id": "ui",
-    "created_at": "2026-10-03T16:30:04Z",
-    "sha256": "c5bcf169caf975e78f6be343ff8b38da7513bb12afd5c92fe723248ca544c10a"
+    "created_at": "2026-10-04T06:05:15Z",
+    "sha256": "5ffac1853d6a2dd3e2270ecf5ae35368e1fd3223a9aefd84f3a2926277b1a50a"
    },
    {
-    "id": "D-0044",
+    "id": "D-0045",
     "path": "hypotheses/H-0006/decisions/infeasible.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -1048,11 +1062,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:04Z",
-    "sha256": "1dc3a19c9f360c1573354abfa62798d2f6c3118468c9ca5e2abcb6c7ea7ff145"
+    "created_at": "2026-10-04T06:05:15Z",
+    "sha256": "fb189eb6e0b6298af31696d7ac0bafe3ff52bf2e1f6249c19dad2952a7923ded"
    },
    {
-    "id": "D-0045",
+    "id": "D-0046",
     "path": "hypotheses/H-0007/hypothesis.v1.md",
     "version": 1,
     "doc_type": "hypothesis",
@@ -1061,11 +1075,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:05Z",
-    "sha256": "fca67da0a494a66688dcd158bad9cf6badaff3324e63a866c2584119509c7dae"
+    "created_at": "2026-10-04T06:05:15Z",
+    "sha256": "26c026b8eff1aa95d5fb1b4c4396032a35b1d3d8bff0dba2a25f43ddd41abd23"
    },
    {
-    "id": "D-0046",
+    "id": "D-0047",
     "path": "hypotheses/H-0007/decisions/start.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -1074,11 +1088,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:05Z",
-    "sha256": "52d51c04efd7eb276425cdc19e2a2969cc20575fa71eb27bee6bd5738f1e1e5b"
+    "created_at": "2026-10-04T06:05:15Z",
+    "sha256": "84debd14e9089f37e76dc754a0a00226b8a184045516a123450cf89db4eec938"
    },
    {
-    "id": "D-0047",
+    "id": "D-0048",
     "path": "hypotheses/H-0007/experiments/state-8b-411/design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
@@ -1087,11 +1101,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0007",
-    "created_at": "2026-10-03T16:30:05Z",
-    "sha256": "fc3afba930a73a5c32ba492a5433a764d665404d26b3e3dfc9af0880d0422505"
+    "created_at": "2026-10-04T06:05:15Z",
+    "sha256": "f6fad6a54e2cbf316ab9c66f2b4b302a52e6d7718600faeb5fe3efd687e21727"
    },
    {
-    "id": "D-0048",
+    "id": "D-0049",
     "path": "hypotheses/H-0007/experiments/E-0007/result.v2.md",
     "version": 2,
     "doc_type": "experiment_result",
@@ -1100,11 +1114,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0007",
-    "created_at": "2026-10-03T16:30:05Z",
-    "sha256": "24b8833a19fdce808bd51f2f47317686823f8083ba3d5a565590646226b56960"
+    "created_at": "2026-10-04T06:05:15Z",
+    "sha256": "a7327f4de7fb5768065b16a8729aa6eadcdc7619d3b421221d336cef333f183a"
    },
    {
-    "id": "D-0049",
+    "id": "D-0050",
     "path": "hypotheses/H-0008/hypothesis.v1.md",
     "version": 1,
     "doc_type": "hypothesis",
@@ -1113,11 +1127,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:05Z",
-    "sha256": "81dbbf9ae023e62d69934aebcf6dadc6da2dc0d00d67aba72de7d9196160b0e9"
+    "created_at": "2026-10-04T06:05:15Z",
+    "sha256": "8f695fb9b58fea1dae2a117cabf46fcfae00d113a88f95637cb96a0fadcd6063"
    },
    {
-    "id": "D-0050",
+    "id": "D-0051",
     "path": "tasks/T-0002/request.v1.md",
     "version": 1,
     "doc_type": "task_request",
@@ -1126,8 +1140,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-03T16:30:05Z",
-    "sha256": "2a5e72998effc775e780dd3eb40c1ed5f89c047414625e34a3f9aa1e7498444c"
+    "created_at": "2026-10-04T06:05:15Z",
+    "sha256": "035171c3f8860eabf35c553732a0c8e20de26f35f41176df6c4eb6738a48a005"
    }
   ],
   "decision": [
@@ -1137,9 +1151,9 @@
     "from_value": "todo",
     "to_value": "running",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0014",
+    "doc_id": "D-0015",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:00Z",
+    "decided_at": "2026-10-04T06:05:11Z",
     "target_id": "H-0001"
    },
    {
@@ -1148,9 +1162,9 @@
     "from_value": "pending",
     "to_value": "verifying",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0014",
+    "doc_id": "D-0015",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:00Z",
+    "decided_at": "2026-10-04T06:05:11Z",
     "target_id": "H-0001"
    },
    {
@@ -1159,9 +1173,9 @@
     "from_value": "running",
     "to_value": "beats_parent",
     "reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
-    "doc_id": "D-0017",
+    "doc_id": "D-0018",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:01Z",
+    "decided_at": "2026-10-04T06:05:11Z",
     "target_id": "H-0001"
    },
    {
@@ -1170,9 +1184,9 @@
     "from_value": "verifying",
     "to_value": "expandable",
     "reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
-    "doc_id": "D-0017",
+    "doc_id": "D-0018",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:01Z",
+    "decided_at": "2026-10-04T06:05:11Z",
     "target_id": "H-0001"
    },
    {
@@ -1181,9 +1195,9 @@
     "from_value": "todo",
     "to_value": "running",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0019",
+    "doc_id": "D-0020",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:01Z",
+    "decided_at": "2026-10-04T06:05:11Z",
     "target_id": "H-0002"
    },
    {
@@ -1192,9 +1206,9 @@
     "from_value": "pending",
     "to_value": "verifying",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0019",
+    "doc_id": "D-0020",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:01Z",
+    "decided_at": "2026-10-04T06:05:11Z",
     "target_id": "H-0002"
    },
    {
@@ -1203,9 +1217,9 @@
     "from_value": "running",
     "to_value": "no_gain",
     "reason": "所有指标都不优于SOTA，按规则消灭。",
-    "doc_id": "D-0022",
+    "doc_id": "D-0023",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:02Z",
+    "decided_at": "2026-10-04T06:05:12Z",
     "target_id": "H-0002"
    },
    {
@@ -1214,9 +1228,9 @@
     "from_value": "verifying",
     "to_value": "prunable",
     "reason": "所有指标都不优于SOTA，按规则消灭。",
-    "doc_id": "D-0022",
+    "doc_id": "D-0023",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:02Z",
+    "decided_at": "2026-10-04T06:05:12Z",
     "target_id": "H-0002"
    },
    {
@@ -1225,9 +1239,9 @@
     "from_value": "returned",
     "to_value": "deleted",
     "reason": "无提升，删除分支（实验提交已打标签）。",
-    "doc_id": "D-0023",
+    "doc_id": "D-0024",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:02Z",
+    "decided_at": "2026-10-04T06:05:12Z",
     "target_id": "BR-0002"
    },
    {
@@ -1236,9 +1250,9 @@
     "from_value": "todo",
     "to_value": "running",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0025",
+    "doc_id": "D-0026",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:02Z",
+    "decided_at": "2026-10-04T06:05:12Z",
     "target_id": "H-0003"
    },
    {
@@ -1247,9 +1261,9 @@
     "from_value": "pending",
     "to_value": "verifying",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0025",
+    "doc_id": "D-0026",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:02Z",
+    "decided_at": "2026-10-04T06:05:12Z",
     "target_id": "H-0003"
    },
    {
@@ -1259,7 +1273,7 @@
     "to_value": "beats_sota",
     "reason": "3个seed判定",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:03Z",
+    "decided_at": "2026-10-04T06:05:13Z",
     "target_id": "H-0003"
    },
    {
@@ -1269,7 +1283,7 @@
     "to_value": "pass",
     "reason": "复核通过",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:03Z",
+    "decided_at": "2026-10-04T06:05:13Z",
     "target_id": "H-0003"
    },
    {
@@ -1279,7 +1293,7 @@
     "to_value": "pass",
     "reason": "复核通过",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:03Z",
+    "decided_at": "2026-10-04T06:05:13Z",
     "target_id": "H-0003"
    },
    {
@@ -1288,9 +1302,9 @@
     "from_value": "verifying",
     "to_value": "expandable",
     "reason": "优于SOTA且复核通过，可拓展",
-    "doc_id": "D-0031",
+    "doc_id": "D-0032",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:03Z",
+    "decided_at": "2026-10-04T06:05:13Z",
     "target_id": "H-0003"
    },
    {
@@ -1299,9 +1313,9 @@
     "from_value": "todo",
     "to_value": "running",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0033",
+    "doc_id": "D-0034",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:03Z",
+    "decided_at": "2026-10-04T06:05:13Z",
     "target_id": "H-0004"
    },
    {
@@ -1310,9 +1324,9 @@
     "from_value": "pending",
     "to_value": "verifying",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0033",
+    "doc_id": "D-0034",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:03Z",
+    "decided_at": "2026-10-04T06:05:13Z",
     "target_id": "H-0004"
    },
    {
@@ -1321,9 +1335,9 @@
     "from_value": "running",
     "to_value": "no_gain",
     "reason": "相对父节点各项指标都不更好，按规则消灭。",
-    "doc_id": "D-0036",
+    "doc_id": "D-0037",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:04Z",
+    "decided_at": "2026-10-04T06:05:14Z",
     "target_id": "H-0004"
    },
    {
@@ -1332,9 +1346,9 @@
     "from_value": "verifying",
     "to_value": "prunable",
     "reason": "相对父节点各项指标都不更好，按规则消灭。",
-    "doc_id": "D-0036",
+    "doc_id": "D-0037",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:04Z",
+    "decided_at": "2026-10-04T06:05:14Z",
     "target_id": "H-0004"
    },
    {
@@ -1343,9 +1357,9 @@
     "from_value": "returned",
     "to_value": "deleted",
     "reason": "无提升，删除分支。",
-    "doc_id": "D-0037",
+    "doc_id": "D-0038",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:04Z",
+    "decided_at": "2026-10-04T06:05:14Z",
     "target_id": "BR-0004"
    },
    {
@@ -1354,9 +1368,9 @@
     "from_value": "todo",
     "to_value": "running",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0039",
+    "doc_id": "D-0040",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:04Z",
+    "decided_at": "2026-10-04T06:05:14Z",
     "target_id": "H-0005"
    },
    {
@@ -1365,9 +1379,9 @@
     "from_value": "pending",
     "to_value": "verifying",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0039",
+    "doc_id": "D-0040",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:04Z",
+    "decided_at": "2026-10-04T06:05:14Z",
     "target_id": "H-0005"
    },
    {
@@ -1376,9 +1390,9 @@
     "from_value": "pending",
     "to_value": "prunable",
     "reason": "用户决定放弃（超出单次运行上限）",
-    "doc_id": "D-0044",
+    "doc_id": "D-0045",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:04Z",
+    "decided_at": "2026-10-04T06:05:15Z",
     "target_id": "H-0006"
    },
    {
@@ -1387,9 +1401,9 @@
     "from_value": "todo",
     "to_value": "running",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0046",
+    "doc_id": "D-0047",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:05Z",
+    "decided_at": "2026-10-04T06:05:15Z",
     "target_id": "H-0007"
    },
    {
@@ -1398,9 +1412,9 @@
     "from_value": "pending",
     "to_value": "verifying",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0046",
+    "doc_id": "D-0047",
     "decided_by": "main",
-    "decided_at": "2026-10-03T16:30:05Z",
+    "decided_at": "2026-10-04T06:05:15Z",
     "target_id": "H-0007"
    }
   ],
@@ -1411,10 +1425,10 @@
     "status": "accepted",
     "assignee_role": "worker",
     "assignee_id": "root",
-    "request_doc_id": "D-0004",
-    "created_at": "2026-10-03T16:30:00Z",
-    "updated_at": "2026-10-03T16:30:00Z",
-    "delivery_doc_id": "D-0007",
+    "request_doc_id": "D-0005",
+    "created_at": "2026-10-04T06:05:10Z",
+    "updated_at": "2026-10-04T06:05:10Z",
+    "delivery_doc_id": "D-0008",
     "target_id": "P-demo-lora-opt"
    },
    {
@@ -1423,9 +1437,9 @@
     "status": "in_progress",
     "assignee_role": "worker",
     "assignee_id": "h0005",
-    "request_doc_id": "D-0050",
-    "created_at": "2026-10-03T16:30:05Z",
-    "updated_at": "2026-10-03T16:30:05Z",
+    "request_doc_id": "D-0051",
+    "created_at": "2026-10-04T06:05:15Z",
+    "updated_at": "2026-10-04T06:05:15Z",
     "target_id": "H-0005"
    }
   ],
@@ -1433,7 +1447,7 @@
    {
     "id": "E-0001/s42",
     "seed": 42,
-    "job_id": "3480462.opbs",
+    "job_id": "demo-3480462",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -1455,7 +1469,7 @@
    {
     "id": "E-0001/s43",
     "seed": 43,
-    "job_id": "3489991.opbs",
+    "job_id": "demo-3489991",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -1477,7 +1491,7 @@
    {
     "id": "E-0001/s44",
     "seed": 44,
-    "job_id": "3480081.opbs",
+    "job_id": "demo-3480081",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -1499,7 +1513,7 @@
    {
     "id": "E-0002/s42",
     "seed": 42,
-    "job_id": "3488156.opbs",
+    "job_id": "demo-3488156",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -1521,7 +1535,7 @@
    {
     "id": "E-0002/s43",
     "seed": 43,
-    "job_id": "3484726.opbs",
+    "job_id": "demo-3484726",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -1543,7 +1557,7 @@
    {
     "id": "E-0003/s42",
     "seed": 42,
-    "job_id": "3486345.opbs",
+    "job_id": "demo-3486345",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -1565,7 +1579,7 @@
    {
     "id": "E-0003/s43",
     "seed": 43,
-    "job_id": "3488456.opbs",
+    "job_id": "demo-3488456",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -1587,7 +1601,7 @@
    {
     "id": "E-0004/s42",
     "seed": 42,
-    "job_id": "3487801.opbs",
+    "job_id": "demo-3487801",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -1609,7 +1623,7 @@
    {
     "id": "E-0004/s43",
     "seed": 43,
-    "job_id": "3486173.opbs",
+    "job_id": "demo-3486173",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -1631,7 +1645,7 @@
    {
     "id": "E-0004/s44",
     "seed": 44,
-    "job_id": "3482035.opbs",
+    "job_id": "demo-3482035",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -1653,7 +1667,7 @@
    {
     "id": "E-0005/s42",
     "seed": 42,
-    "job_id": "3482083.opbs",
+    "job_id": "demo-3482083",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -1675,7 +1689,7 @@
    {
     "id": "E-0005/s43",
     "seed": 43,
-    "job_id": "3488383.opbs",
+    "job_id": "demo-3488383",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -1697,7 +1711,7 @@
    {
     "id": "E-0006/s42",
     "seed": 42,
-    "job_id": "3489195.opbs",
+    "job_id": "demo-3489195",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -1719,7 +1733,7 @@
    {
     "id": "E-0006/s43",
     "seed": 43,
-    "job_id": "3488045.opbs",
+    "job_id": "demo-3488045",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -1741,7 +1755,7 @@
    {
     "id": "E-0007/s42",
     "seed": 42,
-    "job_id": "3485582.opbs",
+    "job_id": "demo-3485582",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -1763,7 +1777,7 @@
    {
     "id": "E-0007/s43",
     "seed": 43,
-    "job_id": "3485454.opbs",
+    "job_id": "demo-3485454",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -1909,10 +1923,6 @@
   "rel_references": [
    {
     "source_id": "H-0001",
-    "target_id": "D-0008"
-   },
-   {
-    "source_id": "H-0001",
     "target_id": "D-0009"
    },
    {
@@ -1920,44 +1930,44 @@
     "target_id": "D-0010"
    },
    {
-    "source_id": "H-0002",
-    "target_id": "D-0008"
+    "source_id": "H-0001",
+    "target_id": "D-0011"
    },
    {
     "source_id": "H-0002",
-    "target_id": "D-0010"
+    "target_id": "D-0009"
    },
    {
     "source_id": "H-0002",
     "target_id": "D-0011"
    },
    {
-    "source_id": "H-0003",
-    "target_id": "D-0008"
-   },
-   {
-    "source_id": "H-0003",
-    "target_id": "D-0009"
-   },
-   {
-    "source_id": "H-0003",
-    "target_id": "D-0010"
-   },
-   {
-    "source_id": "H-0004",
-    "target_id": "D-0008"
-   },
-   {
-    "source_id": "H-0004",
-    "target_id": "D-0009"
-   },
-   {
-    "source_id": "H-0004",
+    "source_id": "H-0002",
     "target_id": "D-0012"
    },
    {
-    "source_id": "H-0005",
+    "source_id": "H-0003",
+    "target_id": "D-0009"
+   },
+   {
+    "source_id": "H-0003",
     "target_id": "D-0010"
+   },
+   {
+    "source_id": "H-0003",
+    "target_id": "D-0011"
+   },
+   {
+    "source_id": "H-0004",
+    "target_id": "D-0009"
+   },
+   {
+    "source_id": "H-0004",
+    "target_id": "D-0010"
+   },
+   {
+    "source_id": "H-0004",
+    "target_id": "D-0013"
    },
    {
     "source_id": "H-0005",
@@ -1968,20 +1978,20 @@
     "target_id": "D-0012"
    },
    {
-    "source_id": "H-0006",
-    "target_id": "D-0008"
+    "source_id": "H-0005",
+    "target_id": "D-0013"
    },
    {
     "source_id": "H-0006",
-    "target_id": "D-0010"
+    "target_id": "D-0009"
    },
    {
     "source_id": "H-0006",
     "target_id": "D-0011"
    },
    {
-    "source_id": "H-0007",
-    "target_id": "D-0008"
+    "source_id": "H-0006",
+    "target_id": "D-0012"
    },
    {
     "source_id": "H-0007",
@@ -1989,11 +1999,11 @@
    },
    {
     "source_id": "H-0007",
-    "target_id": "D-0012"
+    "target_id": "D-0010"
    },
    {
-    "source_id": "H-0008",
-    "target_id": "D-0008"
+    "source_id": "H-0007",
+    "target_id": "D-0013"
    },
    {
     "source_id": "H-0008",
@@ -2002,24 +2012,24 @@
    {
     "source_id": "H-0008",
     "target_id": "D-0010"
+   },
+   {
+    "source_id": "H-0008",
+    "target_id": "D-0011"
    }
   ],
   "rel_related": [],
   "rel_describes": [
    {
-    "source_id": "D-0014",
+    "source_id": "D-0015",
     "target_id": "H-0001"
    },
    {
-    "source_id": "D-0017",
+    "source_id": "D-0018",
     "target_id": "H-0001"
    },
    {
-    "source_id": "D-0019",
-    "target_id": "H-0002"
-   },
-   {
-    "source_id": "D-0022",
+    "source_id": "D-0020",
     "target_id": "H-0002"
    },
    {
@@ -2027,11 +2037,11 @@
     "target_id": "H-0002"
    },
    {
-    "source_id": "D-0025",
-    "target_id": "H-0003"
+    "source_id": "D-0024",
+    "target_id": "H-0002"
    },
    {
-    "source_id": "D-0029",
+    "source_id": "D-0026",
     "target_id": "H-0003"
    },
    {
@@ -2043,11 +2053,11 @@
     "target_id": "H-0003"
    },
    {
-    "source_id": "D-0033",
-    "target_id": "H-0004"
+    "source_id": "D-0032",
+    "target_id": "H-0003"
    },
    {
-    "source_id": "D-0036",
+    "source_id": "D-0034",
     "target_id": "H-0004"
    },
    {
@@ -2055,19 +2065,23 @@
     "target_id": "H-0004"
    },
    {
-    "source_id": "D-0039",
-    "target_id": "H-0005"
+    "source_id": "D-0038",
+    "target_id": "H-0004"
    },
    {
-    "source_id": "D-0043",
-    "target_id": "H-0006"
+    "source_id": "D-0040",
+    "target_id": "H-0005"
    },
    {
     "source_id": "D-0044",
     "target_id": "H-0006"
    },
    {
-    "source_id": "D-0046",
+    "source_id": "D-0045",
+    "target_id": "H-0006"
+   },
+   {
+    "source_id": "D-0047",
     "target_id": "H-0007"
    }
   ],
@@ -2095,19 +2109,19 @@
    },
    {
     "source_id": "DEC-0013",
-    "target_id": "D-0029"
+    "target_id": "D-0030"
    },
    {
     "source_id": "DEC-0013",
-    "target_id": "D-0030"
-   },
-   {
-    "source_id": "DEC-0014",
-    "target_id": "D-0029"
+    "target_id": "D-0031"
    },
    {
     "source_id": "DEC-0014",
     "target_id": "D-0030"
+   },
+   {
+    "source_id": "DEC-0014",
+    "target_id": "D-0031"
    },
    {
     "source_id": "DEC-0018",
@@ -2119,7 +2133,7 @@
    },
    {
     "source_id": "DEC-0023",
-    "target_id": "D-0043"
+    "target_id": "D-0044"
    }
   ]
  }

@@ -1,0 +1,43 @@
+# research-tree 项目配置。
+# /research-tree init 在项目目录生成本文件；立项确认时登记为生效版本。之后修改本文件，
+# 运行 /research-tree config apply 才会生效（登记为用户指令与新版本配置，并通知 RLD）。
+version: 1
+
+# 开发与实验在哪里、怎么运行。文字原样交给 RLD 和每个 worker，写清楚要遵守的规则即可，
+# 例如集群的登录节点与计算节点分工、作业提交与查询命令、账户组、模块加载、数据位置。
+platform:
+  # 写代码、单元测试、小规模检查
+  dev: |
+    （虚构示例）在登录节点编辑代码；单元测试在交互式计算节点上运行。
+  # 训练、评测等计算类工作
+  experiment: |
+    （虚构示例）训练与评测以批处理作业提交到集群的GPU节点。
+  # worker 启动时预加载的技能名（例如集群调度系统的技能）；没有就留空
+  skills: []
+
+# 资源预算。用量按 node·h 计（节点数 × 墙钟小时）；单机实验把整台机器算作 1 个节点。
+budget:
+  per_run:                    # 单次运行（一个 seed）的上限
+    nodes: 8
+    walltime: 1h              # 秒数，或 90m、1h、1h30m 这样的写法
+  screen_node_h: 10           # 筛选预算：按 SOTA 第一个 seed 的成本决定筛选实验的 seed 数
+  max_parallel_workers: null  # 同时有任务在手的 worker 数上限；null 为不限
+  alert_node_h: null          # 累计用量达到此值后在研究对话窗口提醒你，并暂停登记新实验和扩展seed，
+                              # 直到你调高或取消它（改后 config apply）；null 为不限
+
+# 阶段1的判定门槛。第一个实验登记之后不能再改。
+stage1:
+  gate_seeds: 3               # 判定“优于SOTA”所需的 seed 数，也是每个实验的 seed 上限
+  go_margin: 0.05             # 主指标领先 SOTA 的最小幅度：百分比指标为百分点的绝对差，其他指标为相对差
+  min_related_work: 3         # 创建节点时至少引用的相关研究文档数
+
+# 子代理使用的模型。model 为 inherit（与主会话相同）、别名（opus、sonnet、haiku）或完整模型 ID；
+# effort 为 low、medium、high、xhigh、max，或 null（使用模型默认）。
+# RLD 就是主会话，它的模型由你启动 Claude Code 时选择，插件不改动。
+models:
+  ui:
+    model: inherit
+    effort: null
+  worker:
+    model: inherit
+    effort: null

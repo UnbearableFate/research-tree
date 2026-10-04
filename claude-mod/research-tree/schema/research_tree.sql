@@ -1,4 +1,4 @@
--- 研究假说树 LatticeDB 数据模型（schema_version 5，2026-10-04）
+-- 研究假说树 LatticeDB 数据模型（schema_version 6，2026-10-04）
 --
 -- 说明
 -- * LatticeDB 是属性图数据库（Cypher 查询），不执行 SQL。本文件用 SQL DDL 作为可读的
@@ -51,6 +51,9 @@ CREATE TABLE project (
     min_related_work    INTEGER NOT NULL DEFAULT 3,     -- 创建节点时至少引用的相关研究文档数
     max_nodes           INTEGER NOT NULL DEFAULT 8,     -- 单次运行上限
     max_walltime_s      INTEGER NOT NULL DEFAULT 3600,
+    max_parallel_workers INTEGER,              -- 同时有任务在手的 worker 数上限；null 为不限
+    alert_node_h        REAL,                  -- 累计用量提醒阈值（node·h）；超过时提醒用户，null 为不提醒
+    config_doc_id       TEXT,                  -- 生效中的项目配置（research-tree.yaml 的登记版本）；以上预算与门槛取自它
     -- 冻结的实验框架与统计代码（根节点 worker 实现，RLD 审核）
     repo_path           TEXT,                  -- 代码仓库根；节点分支与框架核对都在这里
     harness_ref         TEXT,                  -- 冻结版本的 git commit；更换后须重跑 SOTA
@@ -229,7 +232,7 @@ CREATE TABLE document (
                             'experiment_design', 'experiment_result',
                             'decision',
                             'user_instruction', 'task_request', 'task_delivery',
-                            'workflow', 'report', 'other'
+                            'workflow', 'report', 'config', 'other'
                         )),
     title               TEXT NOT NULL,
     summary             TEXT,                  -- ≤ 300 字的摘要，供消息引用和 HTML 预览

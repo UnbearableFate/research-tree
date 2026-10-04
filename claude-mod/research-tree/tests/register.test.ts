@@ -38,6 +38,19 @@ test('only direct writes to a project database count as database writes', () => 
   expect(internals.writesDatabase('rm -rf build/')).toBe(false)
 })
 
+test('redirections and wrapped commands into a project database count; quoted and heredoc text does not', () => {
+  const db = 'research/my-study/research_tree.db'
+  expect(internals.writesDatabase(`echo x > ${db}`)).toBe(true)
+  expect(internals.writesDatabase(`cat dump >>"${db}-wal"`)).toBe(true)
+  expect(internals.writesDatabase(`cd /tmp && sudo -n rm -f '${db}'`)).toBe(true)
+  expect(internals.writesDatabase(`ls; FOO=1 timeout 10 /bin/rm ${db}`)).toBe(true)
+  expect(internals.writesDatabase(`git commit -F - <<'EOF'\nNever rm ${db} or write > ${db}\nEOF\ngit log -1`)).toBe(false)
+  expect(internals.writesDatabase(`git commit -m "guard: rm ${db} > x is refused"`)).toBe(false)
+  expect(internals.writesDatabase(`grep -c rm ${db}.md > counts.txt  # rm ${db}`)).toBe(false)
+  // A heredoc body ends at its delimiter; commands after it are checked again.
+  expect(internals.writesDatabase(`cat <<EOF > notes.txt\nrm ${db}\nEOF\nrm ${db}`)).toBe(true)
+})
+
 test('a shell command writing the database file is refused', async ($, on) => {
   on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: 'ran', stderr: '', interrupted: false } } as never))
   const denied = await $.tool.call({ tool: 'Bash', command: 'rm demo/research/P-x/research_tree.db' })
@@ -58,6 +71,8 @@ test('init reads the plan, the Python version and the project id', () => {
   expect(internals.parseInit(['plans/goal.md', '--python', '3.12', '--id', 'my-study']))
     .toEqual({ plan: 'plans/goal.md', python: '3.12', id: 'my-study' })
   expect(internals.parseInit(['--python=3.11', 'goal.md'])).toEqual({ plan: 'goal.md', python: '3.11' })
+  expect(internals.parseInit(['goal.md', '--update-uv'])).toEqual({ plan: 'goal.md', python: '3.13', updateUv: true })
+  expect(internals.parseInit(['goal.md', '--config', 'cluster.yaml'])).toEqual({ plan: 'goal.md', python: '3.13', config: 'cluster.yaml' })
   for (const bad of [[], ['--python'], ['a.md', 'b.md'], ['a.md', '--python', '--id'], ['a.md', '--venv']]) {
     expect('usage' in internals.parseInit(bad)).toBe(true)
   }
@@ -107,38 +122,56 @@ test('worker identities resolve to their node, and bound sessions to their ident
   expect(internals.workerActor(s, 'agent-x')).toBeUndefined()
 })
 
-test('only the UI agent records a confirmation', async $ => {
-  const ran = await $.tool.call({ tool: 'mcp__research-tree__confirm_plan', words: '同意' } as never)
-  expect(ran.isError).toBe(true)
-  expect(String(ran.result)).toContain('只能由研究对话窗口的 UI agent')
+test('a worker without a task in hand waits while max_parallel_workers others have one', () => {
+  const s = (limit: number | null, busy: string[]) =>
+    ({ project: { max_parallel_workers: limit }, busy_workers: busy }) as unknown as ResearchSummary
+  expect(internals.parallelBlock(s(null, ['h0001', 'h0002']), 'h0003')).toBeUndefined()
+  expect(internals.parallelBlock(s(2, ['h0001']), 'h0003')).toBeUndefined()
+  expect(internals.parallelBlock(s(2, ['h0001', 'h0002']), 'h0002')).toBeUndefined()  // continues its own task
+  expect(internals.parallelBlock(s(2, ['h0001', 'h0002']), 'h0003')).toContain('max_parallel_workers')
 })
 
-test('the UI window hands the message to a UI agent run with the conversation', async ($, on) => {
-  const spawns: { type?: string; prompt: string }[] = []
-  on('agent.spawn', ($, e) => {
-    // Beneath the plugins the spawn arrives as the Agent tool's input (subagent_type). Only the real
-    // engine starts a run and sets agentId, so the answer path (turn.complete) needs a live session.
-    spawns.push({ type: (e as unknown as { subagent_type?: string }).subagent_type ?? e.subagentType, prompt: e.prompt })
+test('workers get the platform of research-tree.yaml, not a built-in site', () => {
+  const conf = {
+    platform: { dev: '在登录节点编辑。', experiment: '用 sbatch 提交到 gpu 分区。', skills: ['slurm'] },
+  } as unknown as Parameters<typeof internals.workerPrompt>[0]
+  const prompt = internals.workerPrompt(conf)
+  expect(prompt).toContain('用 sbatch 提交到 gpu 分区。')
+  expect(prompt).toContain('预加载的技能：slurm')
+  expect(internals.workerPrompt(null)).toContain('research-tree.yaml')
+  expect(prompt).not.toMatch(/miyabi|pbs/i)
+})
+
+test('without a project the UI window says so and starts no UI agent', async ($, on) => {
+  let spawns = 0
+  on('agent.spawn', () => {
+    spawns += 1
     return { model: 'test-model' }
   })
-
   for (const surface of ['terminal', 'desktop'] as const) {
     const ui = await $.ui.mount({ ...UI, surface })
     expect(await ui.find({ type: 'Text', text: /还没有消息/ })).toBeDefined()
     await ui.unmount()
   }
-
   const ui = await $.ui.mount({ ...UI, surface: 'terminal' })
   await ui.input({ key: 'ask', text: '现在进度如何？' })
-  await ui.input({ key: 'ask', text: '只看GO候选' })
-  expect(spawns.map(s => s.type)).toEqual(['research-tree:ui', 'research-tree:ui'])
-  expect(spawns[0]?.prompt).toContain('## 用户的新消息\n现在进度如何？')
-  expect(spawns[0]?.prompt).toContain('User Interface（UI）agent')
-  expect(spawns[0]?.prompt).toContain('当前目录没有研究项目')
-  // The second run sees the first message in the recent conversation.
-  expect(spawns[1]?.prompt).toContain('[user] 现在进度如何？')
-  expect(await ui.find({ type: 'Text', text: /只看GO候选/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /现在进度如何/ })).toBeDefined()
+  expect(await ui.find({ type: 'Text', text: /当前目录没有研究项目/ })).toBeDefined()
+  expect(spawns).toBe(0)
   await ui.unmount()
+})
+
+test('a UI run reads with the CLI and acts only through its own outbox', () => {
+  const project = { project_id: 'p', root: '/w/study/research/p', db: '/w/study/research/p/research_tree.db' } as
+    Parameters<typeof internals.uiPrompt>[1]
+  const prompt = internals.uiPrompt('/plug', project, 'r123', '/w/study/.venv/bin/python')
+  expect(prompt).toContain('在项目目录 /w/study 运行命令')
+  expect(prompt).toContain("/w/study/.venv/bin/python /plug/tools/research_db.py --db /w/study/research/p/research_tree.db --actor ui/ui get")
+  expect(prompt).toContain('/plug/tools/research_tree.py requirement draft')
+  for (const action of ['reply', 'confirm', 'instruction', 'question', 'submit']) {
+    expect(prompt).toContain(`/plug/tools/research_tree.py ui ${action} --run r123`)
+  }
+  expect(prompt).not.toMatch(/relay_to_rld|confirm_plan|mcp__/)
 })
 
 test('the main model is never offered the UI agent', async $ => {

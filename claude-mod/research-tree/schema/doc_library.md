@@ -18,14 +18,17 @@
 ├── research_tree.db, research_tree.db-wal   # LatticeDB（不进git，定期导出快照）
 ├── snapshots/                               # 数据库JSON导出，进git
 ├── messages/<agent-id>.jsonl                # 每个发送者的消息日志，进git
+├── messages/window.jsonl                    # 研究对话窗口的全部对话（w-<编号>），由mod写入，进git
 ├── cache/literature/                        # 相关研究原文缓存（PDF/HTML），不进git；由literature笔记引用
 └── docs/                                    # 文档库根，进git
     ├── project/
     │   ├── goal.v1.md                       # 研究目标
     │   ├── min-setup.v1.md                  # 最小实验设定、主指标、SOTA基线
+    │   ├── config.v1.yaml                   # 生效的项目配置（research-tree.yaml 的登记版本）
     │   ├── decisions/go-or-not-go.v1.md     # 项目级决定的理由
     │   └── reports/                         # 阶段报告、GO/NOT GO报告
     ├── instructions/UI-0001.v1.md           # 用户指令，每条指令一个文件
+    ├── requirements/REQ-0001.v1.md          # 经UI澄清的需求（需求记录各项与用户原话），每次提交一个新版本
     ├── workflow/                            # 本项目采用的规则版本、模板、约定
     ├── literature/LIT-0004.v1.md            # 相关研究笔记（创建节点时的缓存），可被多个节点引用
     ├── baselines/E-0002/                    # 不属于任何假说的基线实验
@@ -108,6 +111,7 @@ created_at: 2026-10-03T10:21:00Z
 | `task_delivery` | worker/助手/web builder | 实际做了什么；产出的文档ID；未完成项和未知项 |
 | `workflow` | RLD | 规则版本、模板、项目约定 |
 | `report` | RLD | 阶段总结、GO/NOT GO报告（第6、7节要求的内容） |
+| `config` | RLD（mod 代用户登记） | 项目目录 `research-tree.yaml` 的原文：开发与实验平台、资源预算、阶段1门槛、子代理模型；立项确认与每次 `/research-tree config apply` 时登记新版本 |
 
 ## 5. 写入权限
 
@@ -144,7 +148,7 @@ created_at: 2026-10-03T10:21:00Z
 - **节点关键时间戳**由接口自动记录，调用者不能设置：创建（`created_at`）、首次开始验证（`started_at`）、首次实验即第一个运行提交（`first_experiment_at`）、首次统计判定（`first_result_at`）、首次判定优于SOTA（`beats_sota_at`）、完成即最近一次转为可拓展或可消灭（`concluded_at`，重新验证时清空）。首次类时间戳写入后不再改写。
 - **GO**要求有节点优于SOTA且两项复核都通过；**NOT GO**要求所有节点都可消灭；项目停止或恢复必须引用用户指令文档。
 
-LatticeDB的锁在登录节点与计算节点之间同样生效（2026-10-03在miyabi-g1与mg0110之间实测：一方以写模式打开时，另一方读写都会被拒绝；双方只读可以同时打开）。即便如此，计算节点上的作业仍不直接打开数据库：长时间运行的作业一旦持有写锁会阻塞所有agent，而且作业并不是任何记录的owner。作业只把结果写到输出目录，由worker登记。
+数据库放在共享文件系统上时，LatticeDB的文件锁能否跨主机生效取决于文件系统的挂载方式（例如Lustre需要flock挂载选项）；生效时，一方以写模式打开会拒绝其他读写，只读可以同时打开。无论能否跨主机加锁，计算节点上的作业都不直接打开数据库：长时间运行的作业一旦持有写锁会阻塞所有agent，而且作业并不是任何记录的owner。作业只把结果写到输出目录，由worker登记。
 
 git提交的分工见第6节。
 
@@ -191,15 +195,15 @@ agent之间的消息是一行紧凑的JSON，只包含简短说明和引用，�
 
 规则：
 
-- **序列化与大小。** 用UTF-8紧凑格式（`ensure_ascii=False`、无空格），整行不超过1000字节，以适配Codex原生跨session发送工具的上限。JSON Schema无法检查字节数，由发送工具检查。上例为358字节。
-- **先记录后发送。** 发送者先把完全相同的一行追加到 `messages/<发送者ID>.jsonl`（位于文档仓库，每个发送者一个文件，避免并发追加冲突），再通过所选通道发送。消息丢失或通道故障时，以日志为准对账。
+- **序列化与大小。** 用UTF-8紧凑格式（`ensure_ascii=False`、无空格），整行不超过1000字节：消息只是短说明加引用，细节一律写进文档。JSON Schema无法检查字节数，由发送工具检查。上例为358字节。
+- **先记录后发送。** 发送者先把完全相同的一行追加到 `messages/<发送者ID>.jsonl`（位于文档仓库，每个发送者一个文件，避免并发追加冲突），再交给收件方。消息丢失时以日志为准对账。
 - **内容在文档里。** 凡是会影响决定的信息都必须在被引用的文档里；不带 `docs` 的消息只用于确认、提问、催办和告警。接收方据此行动前，必须读取被引用的文档。
 - **用户指令先登记。** 用户的话由UI先登记为 `user_instruction` 文档，再发送引用该文档的instruction消息；不得在消息里转述后直接执行。
 - **不回确认的确认。** 收到ack不再回复，避免两个session相互唤醒。
 
 ### 发送工具
 
-`tools/send_message.py` 依次完成：补全 `v`、`id`、`ts`、`project` → 按schema校验 → 检查引用（`about` 中的实体在库中存在；`docs` 已登记、未被取代且文件存在；`re` 在消息日志中）→ 在发送者日志锁内分配序号、检查1000字节上限并追加日志 → 按收件人通道发送并把结果写入 `messages/<发送者ID>.delivery.jsonl`。任何检查失败都不写日志（退出码2）；发送失败时消息保留在日志中（退出码1），核对收件方后用 `--resend <id>` 重发同一行，不另编新消息。
+`tools/send_message.py` 依次完成：补全 `v`、`id`、`ts`、`project` → 按schema校验 → 检查引用（`about` 中的实体在库中存在；`docs` 已登记、未被取代且文件存在；`re` 在消息日志中）→ 在发送者日志锁内分配序号、检查1000字节上限并追加日志 → 打印这一行。任何检查失败都不写日志（退出码2）。打印出的一行由发送者用宿主的手段交给收件方：Claude Code中，RLD给worker的消息用SendMessage发送；UI与RLD之间的消息由插件调用本工具并直接投递（UI的发件箱动作，以及RLD的 `post_to_ui`）。需要再次交付同一条消息时用 `--resend <id>` 打印日志中的原行，不另编新消息。
 
 ```bash
 .venv/bin/python tools/send_message.py --root research/P-xxx \
@@ -208,18 +212,13 @@ agent之间的消息是一行紧凑的JSON，只包含简短说明和引用，�
   --docs tasks/T-0088/delivery.v1.md
 ```
 
-收件人通道在 `research/<project-id>/agents.json` 中登记，由Leader在建立绑定时核验后写入：
+可收发消息的身份登记在 `research/<project-id>/agents.json`（地址列表，由 `/research-tree init` 写入）：
 
 ```json
-{"rld/main": {"channel": "native", "thread": "<codex thread id>"},
- "worker/w3": {"channel": "codex-queue", "thread": "<codex thread id>", "remote": "unix://..."},
- "ui/ui": {"channel": "herdr", "herdr_agent": "ui-agent"}}
+["ui/ui", "rld/main", "worker/root", "assistant/a1", "web_builder/site"]
 ```
 
-- `native`：工具只校验、记录并打印这一行，由发送agent把它交给Codex的 `send_message_to_thread`；投递记录为 `printed`，不代表已送达。
-- `codex-queue`：调用 `codex queue --thread <thread> --message <line>`；`queued` 只表示CLI已接受。
-- `herdr`：调用 `herdr agent prompt <herdr_agent> <line>`；`submitted` 只表示已提交到pane。
-- 两个CLI都以参数列表调用、不经过shell，消息内容不会被当作命令执行。
+节点worker以节点命名（`worker/h0007`），无需登记即可发送；收件人必须已登记。
 
 ## 8. 需同步修改的地方
 

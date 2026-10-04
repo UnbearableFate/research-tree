@@ -19,11 +19,12 @@ import shutil
 import sys
 from pathlib import Path
 
-from research_db import ResearchDB, ResearchDBError, now_utc, sha256_file
+from research_db import ResearchDB, ResearchDBError, busy_workers, now_utc, sha256_file
 
 MAX_DOC_CHARS = 20000
 NODE_TIMES = ("created_at", "started_at", "first_experiment_at", "first_result_at", "beats_sota_at", "concluded_at")
 CURVE_POINTS = 200
+ALERT_KIND = "资源提醒"
 VERSION_RE = re.compile(r'<meta name="data-version" content="(\d+)">')
 
 
@@ -143,7 +144,8 @@ def collect(db_path: Path) -> dict:
             "id": d["id"], "path": d["path"], "title": d["title"], "type": d["doc_type"], "status": d["status"],
             "summary": d.get("summary", ""), "author": f"{d['author_role']}/{d['author_id']}",
             "created": d["created_at"], "exists": exists, "hash_ok": hash_ok,
-            "html": render_markdown(path.read_text(encoding="utf-8")) if exists else "",
+            "html": (render_markdown(path.read_text(encoding="utf-8")) if d["path"].endswith(".md")
+                     else f"<pre>{html.escape(path.read_text(encoding='utf-8')[:MAX_DOC_CHARS])}</pre>") if exists else "",
         }
 
     describes = {}
@@ -238,6 +240,11 @@ def collect(db_path: Path) -> dict:
             attention.append({"kind": "文档完整性", "id": d["id"], "text": f"{d['id']} {d['path']} 与登记的哈希不一致或文件缺失"})
 
     node_hours = sum(r["node_h"] or 0 for e in experiments.values() for r in e["runs"])
+    alert = project.get("alert_node_h")
+    if alert is not None and node_hours >= alert:
+        attention.insert(0, {"kind": ALERT_KIND, "id": project["id"],
+                             "text": f"累计用量 {node_hours:.2f} node·h 已达到提醒阈值 {alert} node·h：新实验和扩展seed已暂停，"
+                                     "由用户决定是否继续（调高或取消 research-tree.yaml 的 alert_node_h 后 /research-tree config apply）"})
     return {
         "meta": {**snap["meta"], "generated_at": now_utc()},
         "project": {k: v for k, v in project.items() if k != "_table"},
@@ -247,6 +254,7 @@ def collect(db_path: Path) -> dict:
         "active_worktrees": sorted(b["worktree_path"] for b in tables["branch"]
                                    if b["status"] == "active" and b.get("worktree_path")),
         "screen_seeds": _screen_seeds(experiments, project),
+        "busy_workers": sorted(busy_workers(tables["task"])),
     }
 
 
@@ -274,10 +282,12 @@ def summary(data: dict, db_path: Path) -> dict:
     return {
         "meta": data["meta"], "db_path": str(db_path.resolve()),
         "project": {k: project.get(k) for k in ("id", "title", "status", "stage", "sota_experiment_id", "go_margin",
-                                                 "harness_ref", "repo_path")} | {"worker": data["project_worker"]},
+                                                 "harness_ref", "repo_path", "max_parallel_workers", "alert_node_h",
+                                                 "config_doc_id")} | {"worker": data["project_worker"]},
         "counts": {"status": count("status"), "exp_status": count("exp_status"),
                    "go": sum(n["go"] for n in nodes), "node_hours": data["node_hours"],
                    "screen_seeds": data["screen_seeds"]},
+        "busy_workers": data["busy_workers"],
         "nodes": nodes, "attention": data["attention"],
         "guards": {
             "frozen_docs": sorted(str(root / "docs" / d["path"]) for d in data["docs"].values() if d["status"] != "draft"),
@@ -296,7 +306,7 @@ def summary_or_empty(db_path: Path) -> dict:
     return {
         "meta": {**snap["meta"], "generated_at": now_utc()}, "db_path": str(db_path.resolve()), "project": None,
         "counts": {"status": {}, "exp_status": {}, "go": 0, "node_hours": 0, "screen_seeds": None},
-        "nodes": [], "attention": [],
+        "nodes": [], "attention": [], "busy_workers": [],
         "guards": {"frozen_docs": sorted(str(root / "docs" / d["path"]) for d in snap["tables"]["document"]
                                          if d["status"] != "draft"), "harness": []},
     }
@@ -315,6 +325,24 @@ def _screen_seeds(experiments: dict, project: dict) -> int | None:
 # ---------------------------------------------------------------------------
 # Page
 # ---------------------------------------------------------------------------
+
+
+def portable(value, base: Path):
+    """`value` with every path string under `base` (the project directory) made relative to it, so a page or
+    snapshot that is shared does not carry the author's directory layout."""
+    prefix = str(base).rstrip("/") + "/"
+    if isinstance(value, dict):
+        return {k: portable(v, base) for k, v in value.items()}
+    if isinstance(value, list):
+        return [portable(v, base) for v in value]
+    if isinstance(value, str) and value.startswith(prefix):
+        return value[len(prefix):]
+    return value
+
+
+def project_dir(db_path: Path) -> Path:
+    """The directory holding research/<project-id>/research_tree.db."""
+    return db_path.resolve().parent.parent.parent
 
 
 def render_page(data: dict) -> str:
@@ -339,7 +367,7 @@ def build(db_path: Path, out: Path) -> dict:
     if out.is_file():
         shutil.copyfile(out, out.with_name("previous.html"))
     tmp = out.with_suffix(".tmp")
-    tmp.write_text(render_page(data), encoding="utf-8")
+    tmp.write_text(render_page(portable(data, project_dir(db_path))), encoding="utf-8")
     tmp.replace(out)
     return data
 
@@ -489,6 +517,8 @@ function overview() {
       <tr><th>SOTA基线</th><td>${sota ? `${esc(sota.id)} ${esc(sota.method)}，均值 ${fmt(sota.mean)} ± ${fmt(sota.sd)}（seeds ${esc(sota.seeds.join(", "))}）` : '<span class="warn">未设置</span>'}</td></tr>
       <tr><th>优于SOTA门槛</th><td>${P.gate_seeds} 个seed，主指标领先 &gt; ${P.go_margin}</td></tr>
       <tr><th>筛选预算</th><td>${P.screen_budget_node_h} node·h；单次运行上限 ${P.max_nodes} nodes × ${P.max_walltime_s / 3600} h</td></tr>
+      <tr><th>并行与提醒</th><td>同时有任务的worker ${P.max_parallel_workers ?? "不限"}（当前 ${D.busy_workers.length}）；用量提醒阈值 ${P.alert_node_h == null ? "无" : P.alert_node_h + " node·h"}</td></tr>
+      <tr><th>项目配置</th><td>${P.config_doc_id ? docLink(P.config_doc_id) : '<span class="warn">未登记</span>'}</td></tr>
       <tr><th>冻结框架</th><td>${P.harness_ref ? esc(P.harness_ref.slice(0, 10)) + "：" + esc((P.harness_paths || []).join("、")) : '<span class="warn">未冻结</span>'}</td></tr>
     </table></div>
     <div class="panel"><h2>最近的决定</h2>${decisionTable(recent)}</div>`;

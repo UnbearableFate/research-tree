@@ -20,7 +20,7 @@ from pathlib import Path
 
 from latticedb import Database
 
-SCHEMA_VERSION = 5
+SCHEMA_VERSION = 6
 SPEC_PATH = Path(__file__).with_name("research_tree.sql")
 DEFAULT_DB_PATH = Path("research_tree.db")
 

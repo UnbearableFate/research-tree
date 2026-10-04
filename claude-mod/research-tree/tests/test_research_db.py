@@ -176,11 +176,13 @@ class ProjectTest(Fixture):
             self.rld.update_project(harness_paths=["../outside"])
         design = self.doc(self.worker, "exp/x/design.v1.md", "experiment_design")
         unevaluated = self.worker.create_experiment("baseline", "other", design, self.harness, 1, 60)
-        with self.assertRaisesRegex(ResearchDBError, "evaluated with the current frozen harness"):
+        with self.assertRaisesRegex(ResearchDBError, "no verdict yet"):
             self.rld.update_project(sota_experiment_id=unevaluated)
         v2 = self.commit({"harness/stats.py": "stats v2\n"})
         self.rld.update_project(harness_ref=v2)
         self.assertNotIn("sota_experiment_id", self.rld.get("P-test"))  # new harness: SOTA must be re-run
+        with self.assertRaisesRegex(ResearchDBError, "run the baseline again with the frozen harness"):
+            self.rld.update_project(sota_experiment_id=self.sota)
         with self.assertRaisesRegex(ResearchDBError, "SOTA baseline before node experiments"):
             self.rld.screen_seed_count()
 
@@ -286,6 +288,20 @@ class ExperimentTest(Fixture):
                 self.worker.create_experiment(method_name="m", design_doc_id=design, **kwargs)
         exp = self.worker.create_experiment("method", "m", design, code, 1, 60, hypothesis_id=h)
         self.assertEqual(self.rld.get(exp)["seeds"], SEEDS)  # 0.5 node-hours per seed: 3 seeds fit the budget
+
+    def test_usage_alert_pauses_new_experiments(self):
+        h = self.hypothesis()
+        self.branch(h)
+        design = self.doc(self.worker, "exp/d.v1.md", "experiment_design")
+        exp = self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h, n_seeds=1)
+        self.rld.update_project(alert_node_h=1.5)  # the SOTA baseline used 3 x 0.5 node-hours
+        with self.assertRaisesRegex(ResearchDBError, "reached alert_node_h 1.5"):
+            self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h)
+        with self.assertRaisesRegex(ResearchDBError, "reached alert_node_h"):
+            self.worker.extend_seeds(exp, 2)
+        self.worker.create_run(exp, SEEDS[0])  # runs of an experiment already registered go on
+        self.rld.update_project(alert_node_h=None)
+        self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h)
 
     def test_runs(self):
         h = self.hypothesis()
@@ -678,6 +694,30 @@ class TaskTest(Fixture):
         self.rld.update_task(task, status="accepted")
         self.assertEqual(self.rld.find("task", target_id=h)[0]["status"], "accepted")
 
+    def test_parallel_workers(self):
+        req = self.doc(self.rld, "tasks/t/request.v1.md", "task_request")
+        with self.assertRaisesRegex(ResearchDBError, "positive or null"):
+            self.rld.update_project(max_parallel_workers=0)
+        self.rld.update_project(max_parallel_workers=2)
+        self.rld.create_task("experiment", "worker", req, assignee_id="w1")
+        self.rld.create_task("experiment", "worker", req, assignee_id="w2")
+        self.rld.create_task("analysis", "worker", req, assignee_id="w1")  # w1 already has a task in hand
+        self.rld.create_task("web_build", "web_builder", req, assignee_id="site")  # only workers count
+        with self.assertRaisesRegex(ResearchDBError, "max_parallel_workers is 2"):
+            self.rld.create_task("experiment", "worker", req, assignee_id="w3")
+        waiting = self.rld.create_task("experiment", "worker", req)
+        with self.assertRaisesRegex(ResearchDBError, "max_parallel_workers is 2"):
+            self.rld.update_task(waiting, assignee_id="w3")
+        # A delivery frees w1 only once it has nothing else in hand; clearing the limit lifts it.
+        for task in self.rld.find("task", assignee_id="w1"):
+            self.worker.update_task(task["id"], status="in_progress")
+            self.worker.update_task(task["id"], status="delivered",
+                                    delivery_doc_id=self.doc(self.worker, f"tasks/{task['id']}/delivery.v1.md", "task_delivery"))
+        self.rld.update_task(waiting, assignee_id="w3")
+        self.rld.update_project(max_parallel_workers=None)
+        self.assertIsNone(self.rld.get("P-test").get("max_parallel_workers"))
+        self.rld.create_task("experiment", "worker", req, assignee_id="w4")
+
 
 class BranchTest(Fixture):
     def test_return_and_delete(self):
@@ -737,6 +777,14 @@ class SessionTest(Fixture):
         out = subprocess.run(cmd[:-1] + ["worker/w1", "create_hypothesis", args], capture_output=True, text=True)
         self.assertEqual(out.returncode, 2)
         self.assertIn("PermissionDenied", json.loads(out.stdout)["error"])
+        listed = json.loads(subprocess.run(cmd + ["help"], capture_output=True, text=True).stdout)["result"]
+        update_task = next(m for m in listed if m["method"] == "update_task")
+        self.assertEqual(update_task["parameters"], "(task_id: str, status: str | None = None, "
+                         "delivery_doc_id: str | None = None, assignee_id: str | None = None) -> None")
+        self.assertEqual([m["method"] for m in listed if not m["summary"]], [])  # every method says what it does
+        one = json.loads(subprocess.run(cmd + ["help", '{"method": "create_experiment"}'], capture_output=True,
+                                        text=True).stdout)["result"]
+        self.assertIn("screening count", one["description"])
 
     def test_snapshot(self):
         h = self.hypothesis()

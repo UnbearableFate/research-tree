@@ -1,14 +1,5 @@
-{
- "ui/ui": {
-  "channel": "native",
-  "thread": "demo-ui-thread"
- },
- "rld/main": {
-  "channel": "native",
-  "thread": "demo-rld-thread"
- },
- "worker/root": {
-  "channel": "native",
-  "thread": "demo-root-worker-thread"
- }
-}
+[
+ "ui/ui",
+ "rld/main",
+ "worker/root"
+]

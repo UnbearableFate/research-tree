@@ -24,6 +24,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 
 import build_site  # noqa: E402
 import create_db  # noqa: E402
+import project_config  # noqa: E402
 import send_message  # noqa: E402
 from research_db import ResearchDB  # noqa: E402
 
@@ -103,7 +104,7 @@ class Demo:
         for seed in record["seeds"]:
             run = f"{exp}/s{seed}"
             if self.rld.get(run) is None:
-                actor.create_run(exp, seed, job_id=f"{3480000 + self.rng.randint(1, 9999)}.opbs")
+                actor.create_run(exp, seed, job_id=f"demo-{3480000 + self.rng.randint(1, 9999)}")
             if self.rld.get(run).get("valid"):
                 values[seed] = {"acc": self.rld.get(run)["metric_value"], **self.rld.get(run)["secondary"]}
                 continue
@@ -142,11 +143,8 @@ class Demo:
         self.rld = rld
 
         # User instruction, goal and minimal setup.
-        (self.root / "agents.json").write_text(json.dumps({
-            "ui/ui": {"channel": "native", "thread": "demo-ui-thread"},
-            "rld/main": {"channel": "native", "thread": "demo-rld-thread"},
-            "worker/root": {"channel": "native", "thread": "demo-root-worker-thread"},
-        }, indent=1), encoding="utf-8")
+        (self.root / "agents.json").write_text(json.dumps(["ui/ui", "rld/main", "worker/root"], indent=1),
+                                               encoding="utf-8")
         instr = self.doc(ui, "instructions/UI-0001.v1.md", "user_instruction", "立项：寻找可发表的LoRA优化器改进",
                          "## 用户原话\n\n“在最小设定下寻找能超过当前最强LoRA优化器的新方法，目标是AI顶会论文。”\n\n"
                          "## UI的理解\n\n- 类型：指令\n- 范围：阶段1快速验证；阶段2另行授权\n", "立项指令（虚构）")
@@ -164,8 +162,17 @@ class Demo:
             "- 需要RLD复核：主指标持平（|Δ|≤0.02）但其他指标有明显取舍\n- 差不多：seed不足3个且主指标领先在0.02–0.10之间\n")
         setup = self.doc(rld, "project/min-setup.v1.md", "min_setup", "最小实验设定与判定规则", setup_body,
                          "0.5B模型、1000步、8任务均值；冻结框架与判定规则")
+        config_text = project_config.template_text().replace(
+            "  dev: |\n    在当前机器上运行。", "  dev: |\n    （虚构示例）在登录节点编辑代码；单元测试在交互式计算节点上运行。").replace(
+            "  experiment: |\n    在当前机器上运行。", "  experiment: |\n    （虚构示例）训练与评测以批处理作业提交到集群的GPU节点。")
+        (self.dest / project_config.CONFIG_NAME).write_text(config_text, encoding="utf-8")
+        (self.docs / "project" / "config.v1.yaml").write_text(config_text, encoding="utf-8")
+        config = rld.register_document("project/config.v1.yaml", "config", "项目配置",
+                                       summary="research-tree.yaml：开发与实验平台、资源预算、阶段1门槛、子代理模型")
+        rld.set_document_current(config)
         rld.create_project(PROJECT_ID, "虚构示例：LoRA优化器方法发现", setup, "acc", "higher", True, SECONDARY,
-                           SEEDS, goal_doc_id=goal, repo_path=str(self.code))
+                           SEEDS, goal_doc_id=goal, repo_path=str(self.code), config_doc_id=config,
+                           **project_config.db_fields(project_config.parse(config_text)))
 
         # Root node (baselines): harness and SOTA baseline by the root's worker, reviewed and frozen by RLD.
         w1 = ResearchDB(db, f"worker/{rld.assign_worker(PROJECT_ID)}")
@@ -244,7 +251,7 @@ class Demo:
         self.lit, self.node = lit, node
         self.story(rld, ui, instr)
 
-        # Messages through the send tool (native channel: logged and printed).
+        # Messages through the send tool (logged and printed).
         for args in (
             ["--from", "ui/ui", "--to", "rld/main", "--type", "instruction", "--text", "立项指令已登记，请开始阶段1。",
              "--docs", "instructions/UI-0001.v1.md", "--about", PROJECT_ID],
@@ -260,7 +267,7 @@ class Demo:
         snapshot = rld.export_snapshot()
         (self.root / "snapshots").mkdir(exist_ok=True)
         (self.root / "snapshots" / f"data-{snapshot['meta']['data_version']:05d}.json").write_text(
-            json.dumps(snapshot, ensure_ascii=False, indent=1), encoding="utf-8")
+            json.dumps(build_site.portable(snapshot, self.dest), ensure_ascii=False, indent=1), encoding="utf-8")
         build_site.build(self.root / "research_tree.db", self.root / "site" / "index.html")
 
     def decision(self, path: str, title: str, body: str, about: str) -> str:

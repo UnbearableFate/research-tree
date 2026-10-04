@@ -6,7 +6,6 @@ import contextlib
 import importlib.util
 import io
 import json
-import os
 import subprocess
 import sys
 import tempfile
@@ -41,17 +40,6 @@ DOCS = {
     **{f"{LONG_DIR}/result-part-{i}.v1.md": "current" for i in range(5)},
 }
 
-FAKE_CLI = textwrap.dedent(
-    """\
-    #!{python}
-    import json, os, sys
-    with open(os.environ["FAKE_CLI_LOG"], "a") as f:
-        f.write(json.dumps([os.path.basename(sys.argv[0])] + sys.argv[1:]) + "\\n")
-    sys.exit(int(os.environ.get("FAKE_CLI_EXIT", "0")))
-    """
-)
-
-
 class SendMessageTest(unittest.TestCase):
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -69,34 +57,9 @@ class SendMessageTest(unittest.TestCase):
             if "missing" not in path:
                 (self.root / "docs" / path).parent.mkdir(parents=True, exist_ok=True)
                 (self.root / "docs" / path).write_text("x\n", encoding="utf-8")
-        (self.root / "agents.json").write_text(
-            json.dumps(
-                {
-                    "rld/main": {"channel": "native", "thread": "thread-rld"},
-                    "worker/w1": {"channel": "codex-queue", "thread": "thread-w1"},
-                    "ui/ui": {"channel": "herdr", "herdr_agent": "ui-agent"},
-                }
-            ),
-            encoding="utf-8",
-        )
-
-        bin_dir = Path(self.tmp.name) / "bin"
-        bin_dir.mkdir()
-        for name in ("codex", "herdr"):
-            exe = bin_dir / name
-            exe.write_text(FAKE_CLI.format(python=sys.executable), encoding="utf-8")
-            exe.chmod(0o755)
-        self.cli_log = Path(self.tmp.name) / "cli.log"
-        self.env = {"PATH": f"{bin_dir}:{os.environ['PATH']}", "FAKE_CLI_LOG": str(self.cli_log)}
-        self.saved_env = {k: os.environ.get(k) for k in (*self.env, "FAKE_CLI_EXIT")}
-        os.environ.update(self.env)
+        (self.root / "agents.json").write_text(json.dumps(["rld/main", "worker/w1", "ui/ui"]), encoding="utf-8")
 
     def tearDown(self):
-        for k, v in self.saved_env.items():
-            if v is None:
-                os.environ.pop(k, None)
-            else:
-                os.environ[k] = v
         self.tmp.cleanup()
 
     def run_tool(self, *args: str) -> tuple[int, str, str]:
@@ -105,8 +68,8 @@ class SendMessageTest(unittest.TestCase):
             code = send_message.main(["--root", str(self.root), *args])
         return code, out.getvalue(), err.getvalue()
 
-    def log_lines(self, sender: str, suffix: str = "jsonl") -> list[dict]:
-        path = self.root / "messages" / f"{sender}.{suffix}"
+    def log_lines(self, sender: str) -> list[dict]:
+        path = self.root / "messages" / f"{sender}.jsonl"
         return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines()] if path.exists() else []
 
     def task(self, *extra: str) -> tuple[int, str, str]:
@@ -127,28 +90,16 @@ class SendMessageTest(unittest.TestCase):
         self.assertEqual((first["project"], first["need"]), ("P-test", "ack"))
         self.assertIn("请完成", logged[0])  # UTF-8, not \\u escapes
 
-    def test_codex_queue_receives_line_verbatim(self):
+    def test_text_is_logged_verbatim_and_unregistered_recipients_are_refused(self):
         text = 'run $(rm -rf ~); echo "x" `id` \'q\''
         code, out, _ = self.task("--text", text)
         self.assertEqual(code, 0)
-        argv = json.loads(self.cli_log.read_text().splitlines()[0])
-        self.assertEqual(argv, ["codex", "queue", "--thread", "thread-w1", "--message", out.strip()])
-        self.assertEqual(json.loads(argv[-1])["text"], text)
-        self.assertEqual(self.log_lines("main", "delivery.jsonl")[0]["status"], "queued")
-
-    def test_native_and_herdr_channels(self):
-        code, _, err = self.run_tool(
-            "--from", "worker/w1", "--to", "rld/main", "--type", "question", "--text", "问题"
-        )
+        self.assertEqual(json.loads(out)["text"], text)
+        code, _, err = self.run_tool("--from", "rld/main", "--to", "worker/h0007", "--type", "question", "--text", "问题")
+        self.assertEqual(code, 2)
+        self.assertIn("not in agents.json", err)
+        code, _, _ = self.run_tool("--from", "worker/h0007", "--to", "rld/main", "--type", "question", "--text", "问题")
         self.assertEqual(code, 0)
-        self.assertIn("thread-rld", err)
-        self.assertEqual(self.log_lines("w1", "delivery.jsonl")[0]["status"], "printed")
-        self.assertFalse(self.cli_log.exists())
-
-        code, out, _ = self.run_tool("--from", "rld/main", "--to", "ui/ui", "--type", "reply", "--re", "w1-0001", "--text", "答复")
-        self.assertEqual(code, 0)
-        argv = json.loads(self.cli_log.read_text().splitlines()[0])
-        self.assertEqual(argv, ["herdr", "agent", "prompt", "ui-agent", out.strip()])
 
     def test_rejected_messages_are_not_logged(self):
         cases = {
@@ -170,15 +121,6 @@ class SendMessageTest(unittest.TestCase):
         code, _, _ = self.task("--docs", "hypotheses/H-0001/hypothesis.v2.md")
         self.assertEqual(code, 0)
 
-    def test_bad_recipient_config_is_rejected_before_logging(self):
-        registry = json.loads((self.root / "agents.json").read_text(encoding="utf-8"))
-        registry["worker/w1"] = {"channel": "codex-queue"}  # thread missing
-        (self.root / "agents.json").write_text(json.dumps(registry), encoding="utf-8")
-        code, _, err = self.task()
-        self.assertEqual(code, 2)
-        self.assertIn("needs thread", err)
-        self.assertEqual(self.log_lines("main"), [])
-
     def test_byte_limit_counts_utf8_of_full_line(self):
         docs = [f"{LONG_DIR}/result-part-{i}.v1.md" for i in range(5)]
         code, _, err = self.task("--text", "长" * 200, "--docs", *docs)
@@ -186,17 +128,15 @@ class SendMessageTest(unittest.TestCase):
         self.assertIn("bytes", err)
         self.assertEqual(self.log_lines("main"), [])
 
-    def test_failed_delivery_stays_logged_and_resend_reuses_line(self):
-        os.environ["FAKE_CLI_EXIT"] = "3"
+    def test_resend_prints_the_logged_line_unchanged(self):
         code, out, _ = self.task()
-        self.assertEqual(code, 1)
-        self.assertEqual(len(self.log_lines("main")), 1)
-        os.environ["FAKE_CLI_EXIT"] = "0"
-        code, out2, _ = self.run_tool("--resend", "main-0001")
         self.assertEqual(code, 0)
-        self.assertEqual(out, out2)
+        code, out2, _ = self.run_tool("--resend", "main-0001")
+        self.assertEqual((code, out2), (0, out))
         self.assertEqual(len(self.log_lines("main")), 1)
-        self.assertEqual([d["status"] for d in self.log_lines("main", "delivery.jsonl")], ["failed", "queued"])
+        code, _, err = self.run_tool("--resend", "main-0009")
+        self.assertEqual(code, 2)
+        self.assertIn("not in the message logs", err)
 
     def test_gives_up_when_a_writer_holds_the_database(self):
         holder = subprocess.Popen(
