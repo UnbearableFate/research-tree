@@ -14,8 +14,11 @@ The project configuration is research-tree.yaml beside the marker (tools/project
 applied the file itself is in effect; `config apply` registers it as docs/project/config.v<N>.yaml (the version
 in effect from then on, recorded in the marker) and writes its budget and gates into the project record.
 
-Usage (run with the project's own interpreter, ./.venv/bin/python, after `uv init .`):
-    research_tree.py init PLAN.md [--project-id NAME] [--config FILE]   # directories, database, registry, plan, config
+Before init, tools/prepare.sh makes the directory a uv project with the tools' dependencies and copies the plan
+template (plan.md) and the default configuration (research-tree.yaml) for the user to fill in.
+
+Usage (run with the project's own interpreter, ./.venv/bin/python, after prepare):
+    research_tree.py init [PLAN.md] [--project-id NAME] [--config FILE]   # directories, database, registry, plan, config
     research_tree.py instruction --text "..." [--understanding "..."] [--about ID ...]
     research_tree.py phase [--set awaiting_confirmation|confirmed]
     research_tree.py config [show]                        # the configuration in effect and the file's state
@@ -26,8 +29,9 @@ Usage (run with the project's own interpreter, ./.venv/bin/python, after `uv ini
     research_tree.py agent-log --agent ID --actor ROLE/ID --event requested|observed --model M
     research_tree.py status                               # the marker as JSON
 
-init starts from the default configuration (schema/config.template.yaml) unless --config names a file to start
-from; it refuses to pick up a research-tree.yaml that is already in the directory without being named.
+init takes plan.md unless given another plan; a plan made from the template must have its research goal and
+initial hypotheses filled in. It uses the directory's research-tree.yaml (from prepare), --config FILE to start
+from another file, or the default configuration when there is none.
 It also copies the cleanup template to research-tree-cleanup.py beside it, unless the project has one: the
 project's own script that says which run outputs are disposable (research_db.run_cleanup runs it).
 
@@ -119,11 +123,27 @@ def register_instruction(root: Path, verbatim: str, understanding: str, kind: st
     return {"doc_id": doc_id, "path": rel}
 
 
+PLAN_MARKER = "<!-- research-tree:plan -->"
+PLAN_REQUIRED = ("研究目标", "初始假说")
+
+
+def check_plan(text: str, plan: Path) -> None:
+    """A plan made from the template (prepare) has its required sections filled; comments do not count. A plan
+    written without the template is taken as it is."""
+    if PLAN_MARKER not in text:
+        return
+    sections = dict(re.findall(r"^## +(.+?)[ \t]*\n(.*?)(?=^## |\Z)", text, re.M | re.S))
+    empty = [name for name in PLAN_REQUIRED if not re.sub(r"<!--.*?-->", "", sections.get(name, ""), flags=re.S).strip()]
+    if empty:
+        raise TreeError(f"{plan}: fill in {', '.join(empty)} first (the template's comments are only hints)")
+
+
 def init(cwd: Path, plan: Path, project_id: str | None, config: Path | None = None) -> dict:
     if (cwd / MARKER).exists():
         raise TreeError(f"{cwd / MARKER} already exists; this directory already holds a research project")
     if not plan.is_file():
         raise TreeError(f"plan file not found: {plan}")
+    check_plan(plan.read_text(encoding="utf-8"), plan)
     project_id = project_id or default_project_id(cwd)
     try:
         valid = table_of(project_id) == "project"
@@ -136,10 +156,9 @@ def init(cwd: Path, plan: Path, project_id: str | None, config: Path | None = No
     if root.exists():
         raise TreeError(f"{root} already exists")
     config_file = cwd / CONFIG_NAME
+    if config is None and config_file.is_file():
+        config = config_file  # the one prepare copied and the user edited
     if config is None:
-        if config_file.exists():
-            raise TreeError(f"{config_file} already exists: delete it to start from the default configuration, "
-                            f"or start from it with --config {CONFIG_NAME}")
         config_text = project_config.template_text()
     else:
         if not config.is_file():
@@ -396,7 +415,7 @@ def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Set up and steer a research project in the current directory.")
     sub = p.add_subparsers(dest="cmd", required=True)
     i = sub.add_parser("init")
-    i.add_argument("plan", type=Path)
+    i.add_argument("plan", type=Path, nargs="?", default=Path("plan.md"))
     i.add_argument("--project-id")
     i.add_argument("--config", type=Path, help="start from this configuration instead of the default")
     ins = sub.add_parser("instruction")

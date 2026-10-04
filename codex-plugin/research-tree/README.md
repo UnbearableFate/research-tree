@@ -15,14 +15,13 @@ codex plugin marketplace add /absolute/path/to/research-tree-codex
 codex plugin add research-tree@research-tree
 ```
 
-在研究项目目录启动 Codex，可先输入 `$research-tree config`，将默认模板原样复制为当前目录的
-`research-tree.yaml`。这一步直接调用共享 shell 脚本，不需要 Python、uv、MCP 或项目初始化，已有文件不会覆盖。
-也可在终端运行 `sh <安装后的插件目录>/tools/copy_config.sh`。
+在研究项目目录启动 Codex，先输入 `$research-tree prepare`（可加 `--python 3.13`、`--update-uv`）：它用 uv 把
+当前目录建成项目环境并安装共享工具所需依赖，再生成研究计划模板 `plan.md` 和默认配置 `research-tree.yaml`，
+已有文件不会覆盖。这一步直接调用共享 shell 脚本，不需要 Python、MCP 或项目初始化；也可在终端运行
+`sh <安装后的插件目录>/tools/prepare.sh`。
 
-编辑配置后，审阅并信任插件 hooks，再输入 `$research-tree init plan.md --config research-tree.yaml`；
-无需预配置时可直接 `$research-tree init plan.md`。
-MCP 启动不需要项目依赖；init 用 uv 为项目建立 `.venv` 并安装共享工具所需依赖。依赖安装时间较长时，
-可以从终端运行 `python3 <安装后的插件目录>/tools/codex_cli.py init plan.md`，然后让主会话继续规划。
+填写 `plan.md`（研究目标与初始假说必填，其余各节可留给 Leader 决定）、按需修改 `research-tree.yaml` 后，
+审阅并信任插件 hooks，再输入 `$research-tree init`（计划默认 `plan.md`，配置默认本目录的 `research-tree.yaml`）。
 
 主会话为 Research Leader。插件记录计划原文，Leader写目标、最小设定、相关研究、初始假说与根节点
 框架任务，再请用户确认。确认之前不能启动研究worker。

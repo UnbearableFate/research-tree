@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Human-facing control/UI console. Use the project's .venv Python.
 
-Examples: codex_cli.py init plan.md; codex_cli.py ui; codex_cli.py status
+Examples: codex_cli.py prepare; codex_cli.py init; codex_cli.py ui; codex_cli.py status
 """
 from __future__ import annotations
 
@@ -16,8 +16,10 @@ from pathlib import Path
 from codex_mcp import run_request
 
 
-def copy_config(project):
-    return subprocess.run(["sh", str(Path(__file__).resolve().parent / "copy_config.sh"), str(project)], check=False).returncode
+def prepare(project, python, update_uv):
+    """A uv project with the tools' packages, plus plan.md and research-tree.yaml to fill in (tools/prepare.sh)."""
+    command = ["sh", str(Path(__file__).resolve().parent / "prepare.sh"), f"--python={python}", str(project)]
+    return subprocess.run(command[:3] + (["--update-uv"] if update_uv else []) + command[3:], check=False).returncode
 
 
 def console(runtime):
@@ -41,8 +43,6 @@ def console(runtime):
             try:
                 if text == "/confirm":
                     print(json.dumps(runtime.confirm(text), ensure_ascii=False), flush=True)
-                elif text == "/config":
-                    copy_config(runtime.cwd)
                 elif text == "/config show":
                     print(json.dumps(runtime.control("config", {}), ensure_ascii=False, indent=2), flush=True)
                 elif text in {"/status", "/pane"}:
@@ -60,7 +60,7 @@ def console(runtime):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project", type=Path, default=Path.cwd())
-    parser.add_argument("action", choices=["init", "ui", "status", "refresh", "build", "pane", "check", "confirm", "config", "agents", "inbox"])
+    parser.add_argument("action", choices=["prepare", "init", "ui", "status", "refresh", "build", "pane", "check", "confirm", "config", "agents", "inbox"])
     parser.add_argument("value", nargs="?")
     parser.add_argument("--id", dest="project_id")
     parser.add_argument("--config", dest="config_file")
@@ -68,11 +68,10 @@ def main():
     parser.add_argument("--update-uv", action="store_true")
     args = parser.parse_args()
     try:
-        if args.action == "config" and args.value is None:
-            return copy_config(args.project)
+        if args.action == "prepare":
+            return prepare(args.project, args.python, args.update_uv)
         if args.action == "init":
-            params = {"plan": args.value, "project_id": args.project_id, "config": args.config_file,
-                      "python": args.python, "update_uv": args.update_uv}
+            params = {"plan": args.value or "plan.md", "project_id": args.project_id, "config": args.config_file}
             result = run_request(args.project.resolve(), "rld/main", "research_control", {"action": "init", "params": params})
             print(json.dumps(result, ensure_ascii=False, indent=2))
             return 0 if result["ok"] else 2

@@ -13,8 +13,8 @@
 ### 环境要求
 
 - 对应的宿主 CLI。Codex 版已在 **CLI 0.160.0** 上验证，运行研究前需完成登录。
-- [uv](https://docs.astral.sh/uv/)；初始化研究项目时，用它建立 Python 环境并安装依赖。
-- Codex 适配层使用 POSIX 环境和 Python 3。**仅复制默认配置的 `config` 命令不依赖 Python、uv 或项目初始化。**
+- [uv](https://docs.astral.sh/uv/)；`prepare` 用它建立项目的 Python 环境并安装依赖。
+- Codex 适配层使用 POSIX 环境和 Python 3。`prepare` 只需要 POSIX shell 和 uv，不依赖 Python 或已有项目。
 
 安装包包含完整插件代码、规则、模板和依赖声明；不包含宿主 CLI、虚拟环境或离线依赖包。
 
@@ -68,27 +68,42 @@ claude --plugin-dir /absolute/path/to/research-agent/dist/claude/plugins/researc
 
 以下命令在**研究项目目录的宿主会话中**输入，作用于该目录。Claude Code 使用 `/research-tree`，Codex 使用 `$research-tree`。
 
-### 1. 准备配置
+### 1. 准备项目目录
 
 | Claude Code | Codex CLI |
 |---|---|
-| `/research-tree config` | `$research-tree config` |
+| `/research-tree prepare` | `$research-tree prepare` |
 
-命令将默认模板原样复制到当前目录的 `research-tree.yaml`，已有文件不会覆盖。先编辑开发与实验平台、资源预算、模型等设置；配置项见[项目配置](#项目配置)。
+`prepare` 依次完成三件事，已有文件不会覆盖：
 
-### 2. 编写研究计划
+1. 用 uv 把当前目录建成项目环境（`uv init . --python 3.13`，已有 `pyproject.toml` 时跳过），并安装共享工具所需依赖；
+2. 生成研究计划模板 `plan.md`；
+3. 生成带注释的默认配置 `research-tree.yaml`。
 
-在当前目录准备 `plan.md`，说明研究目标、初始假说、可用模型与数据、实验范围及验收要求。插件会保留计划原文，Leader 再将其整理为可执行的立项计划。
+| 选项 | 用途 |
+|---|---|
+| `--python 3.13` | 建立新环境时使用的 Python 版本，默认 `3.13` |
+| `--update-uv` | 先运行 `uv self update` |
+
+### 2. 填写计划与配置
+
+`plan.md` 按章节填写：**研究目标**和**初始假说**必填；期望使用的模型、训练与评测数据集（写 Hugging Face Hub 上的正式 ID，数据集加 config 与 split）、基线，评测与指标，实验范围，验收要求等各节默认写着“由 RLD 决定。”，保留时由 Leader 在立项计划中提出方案，经你确认后执行。插件会保留计划原文，Leader 再将其整理为可执行的立项计划。
+
+在 `research-tree.yaml` 中设置开发与实验平台、资源预算、阶段1门槛和子代理模型；配置项见[项目配置](#项目配置)。
 
 ### 3. 初始化项目
 
 | Claude Code | Codex CLI |
 |---|---|
-| `/research-tree init plan.md --config research-tree.yaml` | `$research-tree init plan.md --config research-tree.yaml` |
+| `/research-tree init` | `$research-tree init` |
 
-初始化会建立项目环境、数据库和文档目录，并进入立项规划。**此时还不会启动研究 worker。**
+初始化读取 `plan.md` 和本目录的 `research-tree.yaml`，建立数据库和文档目录，并进入立项规划。**此时还不会启动研究 worker。**
 
-如果跳过了第 1 步且当前目录没有配置文件，可以直接使用 `init plan.md`，由初始化生成默认配置。已有配置文件时，必须通过 `--config` 明确选用。
+| 选项 | 用途 |
+|---|---|
+| `计划.md` | 使用 `plan.md` 以外的计划文件 |
+| `--config 配置.yaml` | 使用本目录 `research-tree.yaml` 以外的配置文件（复制为 `research-tree.yaml`） |
+| `--id 项目ID` | 指定项目 ID；默认从项目名称推导 |
 
 Codex 的研究运行需要审阅并信任插件 hooks。其安装、会话恢复和权限说明见 [Codex 插件说明](codex-plugin/research-tree/README.md)。
 
@@ -101,17 +116,6 @@ Leader 会整理研究目标、最小实验设定、初始假说、基线任务�
 | `/research-tree confirm` | `$research-tree confirm` |
 
 确认后，插件登记当时的配置版本，Leader 才能指派 worker，先实现根节点的实验框架与基线。
-
-### 初始化选项
-
-两端 `init` 支持以下选项：
-
-| 选项 | 用途 |
-|---|---|
-| `--config 配置.yaml` | 从指定配置开始；可复用已有集群设置 |
-| `--id 项目ID` | 指定项目 ID；默认从项目名称推导 |
-| `--python 3.13` | 建立新环境时使用的 Python 版本，默认 `3.13` |
-| `--update-uv` | 初始化前运行 `uv self update` |
 
 ## 研究工作流
 
@@ -183,7 +187,7 @@ flowchart TD
 
 | 命令 | 用途 |
 |---|---|
-| `config` | 复制默认 YAML 到当前目录；无需 Python，不覆盖已有文件 |
+| `prepare` | 建立项目环境，生成 `plan.md` 与 `research-tree.yaml`；不覆盖已有文件 |
 | `config show` | 查看生效配置及尚未应用的修改 |
 | `config apply` | 将用户修改后的配置登记为新版本并应用 |
 | `status` | 查看研究摘要；也是不带子命令时的默认操作 |
@@ -205,7 +209,7 @@ Claude 版提供内嵌窗口、面板和状态栏；Codex 版使用独立终端�
 
 ## 项目配置
 
-配置文件为研究项目目录中的 `research-tree.yaml`。可用 `config` 复制[带注释的默认模板](shared/research-tree/schema/config.template.yaml)，省略的键取默认值。
+配置文件为研究项目目录中的 `research-tree.yaml`。由 `prepare` 从[带注释的默认模板](shared/research-tree/schema/config.template.yaml)生成，省略的键取默认值。
 
 | 配置项 | 含义 | 默认值 |
 |---|---|---|
@@ -259,7 +263,7 @@ python3 scripts/build_plugins.py --target all
 | [工作规则](shared/research-tree/rules/research-tree-rules.md) | 角色、工作流、科学判定、预算、生命周期与清理 |
 | [research_db.py](shared/research-tree/tools/research_db.py) | 数据库接口、字段校验、角色权限与状态规则 |
 | [research_tree.py](shared/research-tree/tools/research_tree.py) | 初始化、用户指令、需求文档、配置登记与立项阶段 |
-| [copy_config.sh](shared/research-tree/tools/copy_config.sh) | 不依赖 Python 的默认配置复制入口 |
+| [prepare.sh](shared/research-tree/tools/prepare.sh) | 不依赖 Python 的项目准备入口：uv 环境、计划模板、默认配置 |
 | [project_config.py](shared/research-tree/tools/project_config.py) | 配置读取、默认值与校验 |
 | [send_message.py](shared/research-tree/tools/send_message.py) | 消息校验与持久化 |
 | [build_site.py](shared/research-tree/tools/build_site.py) | 离线进度页面生成器 |

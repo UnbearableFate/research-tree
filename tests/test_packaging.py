@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -39,12 +40,18 @@ class PackagingTest(unittest.TestCase):
             project = Path(tmp) / "user project"
             project.mkdir()
             (project / "plan.md").write_text("# 独立安装包验证\n")
-            copied = subprocess.run(["sh", str(plugin / "tools/copy_config.sh")],
-                                    cwd=project, capture_output=True, text=True)
-            self.assertEqual(copied.returncode, 0, copied.stderr)
+            # prepare with a stand-in uv (no network): the plan stays, the configuration is copied.
+            fake = Path(tmp) / "bin"
+            fake.mkdir()
+            (fake / "uv").write_text("#!/bin/sh\n[ \"$1\" = init ] && echo '[project]' > pyproject.toml\nexit 0\n")
+            (fake / "uv").chmod(0o755)
+            env = {**os.environ, "PATH": f"{fake}{os.pathsep}{os.environ['PATH']}"}
+            prepared = subprocess.run(["sh", str(plugin / "tools/prepare.sh")], cwd=project, env=env,
+                                      capture_output=True, text=True)
+            self.assertEqual(prepared.returncode, 0, prepared.stderr)
+            self.assertEqual((project / "plan.md").read_text(), "# 独立安装包验证\n")
             cmd = [sys.executable, str(plugin / "tools/research_tree.py")]
-            initialized = subprocess.run(cmd + ["init", "plan.md", "--project-id", "standalone",
-                                                 "--config", "research-tree.yaml"],
+            initialized = subprocess.run(cmd + ["init", "--project-id", "standalone"],
                                          cwd=project, capture_output=True, text=True)
             self.assertEqual(initialized.returncode, 0, initialized.stderr + initialized.stdout)
             marker = json.loads(initialized.stdout)["result"]

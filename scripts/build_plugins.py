@@ -42,9 +42,9 @@ def assemble(target: str, destination: Path, repo: Path = REPO) -> dict:
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
     if manifest.get("name") != "research-tree" or not manifest.get("version"):
         raise ValueError(f"invalid plugin identity: {manifest_path}")
-    for required in ("tools/copy_config.sh", "tools/research_db.py", "tools/research_tree.py", "tools/project_config.py",
+    for required in ("tools/prepare.sh", "tools/research_db.py", "tools/research_tree.py", "tools/project_config.py",
                      "tools/send_message.py", "tools/build_site.py", "schema/research_tree.sql",
-                     "schema/create_db.py", "schema/config.schema.json", "schema/config.template.yaml", "schema/cleanup.template.py",
+                     "schema/create_db.py", "schema/config.schema.json", "schema/config.template.yaml", "schema/cleanup.template.py", "schema/plan.template.md",
                      "schema/message.schema.json", "rules/research-tree-rules.md"):
         if not (repo / "shared/research-tree" / required).is_file():
             raise ValueError(f"shared core is incomplete: missing {required}")

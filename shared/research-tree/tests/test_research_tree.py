@@ -120,32 +120,48 @@ class ResearchTreeTest(unittest.TestCase):
         plan_doc = Path(out["result"]["root"]).resolve() / "docs" / out["result"]["plan_instruction"]["path"]
         self.assertEqual(data["guards"]["frozen_docs"], [str(plan_doc)])
 
-    def test_init_starts_from_the_default_config_or_a_named_one(self):
+    def test_init_takes_the_prepared_config_a_named_one_or_the_default(self):
         self.run_tool("init", str(self.plan), "--project-id", "P-demo")
         template = (REPO / "schema" / "config.template.yaml").read_text(encoding="utf-8")
         self.assertEqual((self.cwd / "research-tree.yaml").read_text(encoding="utf-8"), template)
 
-        other = self.cwd / "other"
-        other.mkdir()
-        init = lambda *args: json.loads(subprocess.run([sys.executable, str(TOOL), "init", str(self.plan), *args],
-                                                       cwd=other, capture_output=True, text=True).stdout)
-        # A file already in the directory is used only when named.
-        (other / "research-tree.yaml").write_text("budget:\n  screen_node_h: 4\n", encoding="utf-8")
-        self.assertIn("--config research-tree.yaml", init()["error"])
-        bad = self.cwd / "bad.yaml"
-        bad.write_text("budget:\n  per_run:\n    nodes: 0\n  typo: 1\n", encoding="utf-8")
-        self.assertIn("already exists", init("--config", str(bad))["error"])
-        (other / "research-tree.yaml").unlink()
-        error = init("--config", str(bad))["error"]
+        def init(where: str, *args: str) -> dict:
+            (self.cwd / where).mkdir(exist_ok=True)
+            return json.loads(subprocess.run([sys.executable, str(TOOL), "init", str(self.plan), *args],
+                                             cwd=self.cwd / where, capture_output=True, text=True).stdout)
+        # The file prepare copied and the user edited is the one used; it is checked first.
+        prepared = self.cwd / "prepared"
+        prepared.mkdir()
+        (prepared / "research-tree.yaml").write_text("budget:\n  per_run:\n    nodes: 0\n  typo: 1\n", encoding="utf-8")
+        error = init("prepared")["error"]
         self.assertIn("budget.per_run.nodes", error)
         self.assertIn("'typo' was unexpected", error)
-        self.assertFalse((other / "research").exists())
-        self.assertFalse((other / "research-tree.yaml").exists())
+        self.assertFalse((prepared / "research").exists())
+        (prepared / "research-tree.yaml").write_text("budget:\n  screen_node_h: 4\n", encoding="utf-8")
+        self.assertTrue(init("prepared")["ok"])
+        self.assertEqual((prepared / "research-tree.yaml").read_text(encoding="utf-8"), "budget:\n  screen_node_h: 4\n")
 
+        # Another file is named with --config; it does not replace a different one already there.
         good = self.cwd / "cluster.yaml"
         good.write_text("budget:\n  screen_node_h: 4\n", encoding="utf-8")
-        self.assertTrue(init("--config", str(good))["ok"])
-        self.assertEqual((other / "research-tree.yaml").read_text(encoding="utf-8"), good.read_text(encoding="utf-8"))
+        (self.cwd / "named").mkdir()
+        (self.cwd / "named" / "research-tree.yaml").write_text("budget:\n  screen_node_h: 5\n", encoding="utf-8")
+        self.assertIn("already exists", init("named", "--config", str(good))["error"])
+        self.assertTrue(init("copied", "--config", str(good))["ok"])
+        self.assertEqual((self.cwd / "copied" / "research-tree.yaml").read_text(encoding="utf-8"), good.read_text(encoding="utf-8"))
+
+    def test_a_plan_from_the_template_needs_its_goal_and_hypotheses(self):
+        template = (REPO / "schema" / "plan.template.md").read_text(encoding="utf-8")
+        (self.cwd / "plan.md").write_text(template, encoding="utf-8")
+        code, out = self.run_tool("init")  # plan.md by default
+        self.assertEqual(code, 2)
+        self.assertIn("fill in 研究目标, 初始假说", out["error"])
+        filled = template.replace("## 研究目标\n", "## 研究目标\n\n找到更好的LoRA优化器。\n").replace(
+            "## 初始假说\n", "## 初始假说\n\n### 假说 1：子批次二阶矩\n预期准确率更高。\n")
+        (self.cwd / "plan.md").write_text(filled, encoding="utf-8")
+        code, out = self.run_tool("init", "--project-id", "P-plan")
+        self.assertEqual(code, 0, out)
+        self.assertTrue(out["result"]["plan"].endswith("plan.md"))
 
     def test_ui_outbox(self):
         _, out = self.run_tool("init", str(self.plan), "--project-id", "P-demo")

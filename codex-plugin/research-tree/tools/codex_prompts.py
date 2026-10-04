@@ -58,6 +58,8 @@ def ui(project, conf, summary, message, history, drafts):
 def planning(project, conf):
     return f"""你是唯一 Research Leader（当前主会话）。用户计划：{project['plan_instruction']}，文档根目录 {project['root']}/docs。
 先读计划原文与 {ROOT / 'rules/research-tree-rules.md'}。规划期间不启动worker、不提交作业。
+计划中写着“由 RLD 决定。”的部分（如模型、训练与评测数据集、基线、评测、实验范围、验收要求）由你提出具体方案，在立项计划中写明，经用户确认后执行。
+模型和数据集一律写 Hugging Face Hub 上的正式 ID（数据集加 config 与 split，需要时加 revision）；不在 Hub 上的写明路径与来源。
 1. 写并登记 goal 与 min_setup 文档；模型、数据、训练量、主指标方向、其他指标、统一seed与框架规则明确。
 2. create_project 使用本项目ID {project['project_id']}、真实git仓库路径、配置中的预算与门槛；接口参数先查 help。
 3. 为每个初始假说检索相关研究，缓存原文并登记引用与假说文档，create_hypothesis 不指定parent_id，全部直属根节点。

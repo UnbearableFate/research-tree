@@ -25,8 +25,7 @@ from research_db import CLI_METHODS, READ_METHODS, ResearchDB, ResearchDBError, 
 ROOT = Path(__file__).resolve().parents[1]
 READS = set(READ_METHODS)
 HELP = {
-    "init": {"plan": "path to plan.md", "project_id": "optional", "config": "optional source YAML",
-             "python": "3.13", "update_uv": False},
+    "init": {"plan": "plan.md (default)", "project_id": "optional", "config": "optional YAML other than research-tree.yaml"},
     "status": {}, "refresh": {}, "build": {}, "pane": {}, "check": {},
     "config": {"apply": False, "words": "user's request when applying"},
     "confirm": {"words": "verbatim user confirmation"},
@@ -346,7 +345,7 @@ class Runtime:
             return HELP
         if action == "init":
             self.require_rld()
-            marker = tree.init(self.cwd, self.cwd / params["plan"], params.get("project_id"),
+            marker = tree.init(self.cwd, self.cwd / (params.get("plan") or "plan.md"), params.get("project_id"),
                                self.cwd / params["config"] if params.get("config") else None)
             self.summary()
             return {"project": marker, "next": codex_prompts.planning(marker, tree.show_config(self.cwd)["effective"])}

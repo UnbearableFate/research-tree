@@ -1,16 +1,17 @@
 ---
 name: research-tree
-description: Run a multi-agent ML research project with a hypothesis tree, versioned evidence, experiment gates, a separate research UI, and one persistent worker per node. Use for research-tree config, init, planning, confirmation, research progress, worker dispatch and resumption; not for ordinary coding outside a research project.
+description: Run a multi-agent ML research project with a hypothesis tree, versioned evidence, experiment gates, a separate research UI, and one persistent worker per node. Use for research-tree prepare, init, planning, confirmation, configuration, research progress, worker dispatch and resumption; not for ordinary coding outside a research project.
 ---
 
-For `$research-tree config` with no subcommand, run the shared shell helper directly:
-`sh <plugin-root>/tools/copy_config.sh <absolute user workspace>`.
+For `$research-tree prepare [--python 3.13] [--update-uv]`, run the shared shell helper directly:
+`sh <plugin-root>/tools/prepare.sh [--python=3.13] [--update-uv] <absolute user workspace>`.
 Resolve `<plugin-root>` as two directories above this SKILL.md's directory; quote both paths.
-This copies the packaged default YAML verbatim to `research-tree.yaml` in the user's current directory,
-without Python, uv, MCP or project initialization. Existing files are preserved. Report the result and
-stop; do not load research state or install dependencies. After editing, initialize with
-`$research-tree init plan.md --config research-tree.yaml` (pass `config` in the init parameters).
-`config show` and `config apply` remain project operations described below.
+It makes the workspace a uv project with the tools' dependencies (`uv init`, `uv add`), then copies the plan
+template to `plan.md` and the default configuration to `research-tree.yaml`; existing files are preserved. It
+needs uv but no Python, MCP or project. Dependency installation can take a while: run it through a persistent
+shell. Report its output and stop; the user fills in `plan.md` (research goal and initial hypotheses are
+required) and edits `research-tree.yaml`, then asks for `init`. `config show` and `config apply` are project
+operations described below.
 
 For research operations, act as the single Research Leader (RLD) in the current Codex session. Read
 [shared research rules](../../rules/research-tree-rules.md) before planning or managing research.
@@ -27,11 +28,10 @@ Do not invent arguments, directly edit the database, rewrite current documents, 
 
 ## Entry and planning
 
-- `$research-tree init plan.md`: call `research_control(action="init", params={"plan":"plan.md"})`.
-  Optional `project_id`, `config`, `python` (default 3.13), `update_uv` mirror the Claude init options.
-  This creates a project environment with uv. On a cluster, follow the site's execution rules before
-  initialization, validation or experiment work. For a long dependency installation, use the CLI entry
-  `python3 <plugin-root>/tools/codex_cli.py init plan.md` through a persistent shell instead of an MCP timeout.
+- `$research-tree init [plan.md]`: call `research_control(action="init", params={"plan":"plan.md"})` after prepare.
+  Optional `project_id` and `config` (a YAML other than the workspace's `research-tree.yaml`) mirror the Claude
+  init options. A plan made from the template must have its goal and initial hypotheses filled in. On a cluster,
+  follow the site's execution rules before initialization, validation or experiment work.
 - Read the returned plan document and planning instructions. Create goal/min_setup documents and the
   project record, retrieve and cache related work, and create all initial hypotheses as direct children
   of the root. The root contains only baselines. Create the unassigned root harness task.

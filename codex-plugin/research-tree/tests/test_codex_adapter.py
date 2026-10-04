@@ -306,15 +306,24 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         self.assertEqual(responses[3]["result"], {})
 
 
-class ConfigEntryTest(unittest.TestCase):
-    def test_cli_config_does_not_load_project_python_or_dependencies(self):
+class PrepareEntryTest(unittest.TestCase):
+    def test_cli_prepare_needs_neither_project_python_nor_dependencies(self):
         with tempfile.TemporaryDirectory() as temp:
-            command = [sys.executable, "-S", str(ROOT / "tools/codex_cli.py"), "config"]
-            result = subprocess.run(command, cwd=temp, capture_output=True, text=True)
+            bin_dir = Path(temp) / "bin"
+            bin_dir.mkdir()
+            (bin_dir / "uv").write_text('#!/bin/sh\nprintf "%s\\n" "$*" >> uv.log\n'
+                                        '[ "$1" = init ] && echo "[project]" > pyproject.toml\nexit 0\n')
+            (bin_dir / "uv").chmod(0o755)
+            project = Path(temp) / "project"
+            project.mkdir()
+            command = [sys.executable, "-S", str(ROOT / "tools/codex_cli.py"), "--project", str(project),
+                       "prepare", "--python", "3.12"]
+            env = {**os.environ, "PATH": f"{bin_dir}{os.pathsep}{os.environ['PATH']}"}
+            result = subprocess.run(command, cwd=project, env=env, capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            config = Path(temp) / "research-tree.yaml"
-            self.assertEqual(config.read_bytes(), (ROOT / "schema/config.template.yaml").read_bytes())
-            self.assertFalse((Path(temp) / ".venv").exists())
+            self.assertIn("init . --no-workspace --python=3.12", (project / "uv.log").read_text())
+            self.assertEqual((project / "research-tree.yaml").read_bytes(), (ROOT / "schema/config.template.yaml").read_bytes())
+            self.assertEqual((project / "plan.md").read_bytes(), (ROOT / "schema/plan.template.md").read_bytes())
 
 
 if __name__ == "__main__":

@@ -88,42 +88,42 @@ test('a shell command writing the database file is refused', async ($, on) => {
 
 const RUN = { origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 160 } }
 
-test('bare config copies through the shared shell helper without a project or Python', async () => {
+test('prepare runs the shared shell helper in the session directory, without a project or Python', async () => {
   const calls: string[][] = []
   const host = {
     plugin: { root: '/plugin root' },
     session: { cwd: async () => '/user project' },
-    process: { run: async (argv: string[]) => {
+    process: { run: async (argv: string[], init: { timeoutMs: number }) => {
       calls.push(argv)
-      return { exitCode: 0, stdout: 'copied\n', stderr: '' }
+      expect(init.timeoutMs).toBeLessThanOrEqual(600_000)  // the host refuses a longer wait
+      return { exitCode: 0, stdout: '已生成研究计划：plan.md\n', stderr: '' }
     } },
   }
-  expect(await internals.configCommand(host as never, { actor: 'rld/main' })).toBe('copied')
-  expect(calls).toEqual([['sh', '/plugin root/tools/copy_config.sh', '/user project']])
+  expect(await internals.prepareCommand(host as never, ['--python=3.12'])).toBe('已生成研究计划：plan.md')
+  expect(calls).toEqual([['sh', '/plugin root/tools/prepare.sh', '--python=3.12', '/user project']])
+  expect(await internals.configCommand(host as never, { actor: 'rld/main' })).toContain('prepare')  // config only shows or applies
 })
 
-test('without a project here the command points to init', async $ => {
+test('without a project here the command points to prepare and init', async $ => {
   const ran = await $.command.run({ command: 'research-tree', args: '', ...RUN })
+  expect(ran.text).toContain('/research-tree prepare')
   expect(ran.text).toContain('/research-tree init')
 })
 
-test('init reads the plan, the Python version and the project id', () => {
-  expect(internals.parseInit(['plans/goal.md'])).toEqual({ plan: 'plans/goal.md', python: '3.13' })
-  expect(internals.parseInit(['plans/goal.md', '--python', '3.12', '--id', 'my-study']))
-    .toEqual({ plan: 'plans/goal.md', python: '3.12', id: 'my-study' })
-  expect(internals.parseInit(['--python=3.11', 'goal.md'])).toEqual({ plan: 'goal.md', python: '3.11' })
-  expect(internals.parseInit(['goal.md', '--update-uv'])).toEqual({ plan: 'goal.md', python: '3.13', updateUv: true })
-  expect(internals.parseInit(['goal.md', '--config', 'cluster.yaml'])).toEqual({ plan: 'goal.md', python: '3.13', config: 'cluster.yaml' })
-  for (const bad of [[], ['--python'], ['a.md', 'b.md'], ['a.md', '--python', '--id'], ['a.md', '--venv']]) {
+test('init reads the plan (plan.md by default), the project id and a configuration file', () => {
+  expect(internals.parseInit([])).toEqual({ plan: 'plan.md' })
+  expect(internals.parseInit(['plans/goal.md', '--id', 'my-study'])).toEqual({ plan: 'plans/goal.md', id: 'my-study' })
+  expect(internals.parseInit(['--config=cluster.yaml'])).toEqual({ plan: 'plan.md', config: 'cluster.yaml' })
+  for (const bad of [['a.md', 'b.md'], ['--id'], ['a.md', '--python', '3.12'], ['--update-uv']]) {
     expect('usage' in internals.parseInit(bad)).toBe(true)
   }
 })
 
-test('init needs uv before it touches the directory', async $ => {
-  const usage = await $.command.run({ command: 'research-tree', args: 'init', ...RUN })
+test('init needs the environment prepare makes', async $ => {
+  const usage = await $.command.run({ command: 'research-tree', args: 'init a.md b.md', ...RUN })
   expect(usage.text).toContain('用法')
-  const ran = await $.command.run({ command: 'research-tree', args: 'init plans/goal.md --python 3.12', ...RUN })
-  expect(ran.text).toContain('需要 uv')
+  const ran = await $.command.run({ command: 'research-tree', args: 'init', ...RUN })
+  expect(ran.text).toContain('/research-tree prepare')
 })
 
 test('no worker starts before the user confirmed the plan', async ($, on) => {

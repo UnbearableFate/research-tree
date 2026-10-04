@@ -108,7 +108,13 @@ def check(marketplace: Path, work: Path):
                     raise AssertionError(f"{tool}: {body}")
                 return body["result"]
 
-            initialized = call("research_control", action="init", params={"plan": "plan.md", "project_id": "P-native"})
+            # prepare, as the skill runs it: the shared shell helper builds the uv environment (the plan stays).
+            prepared = subprocess.run(["sh", str(marketplace / "plugins/research-tree/tools/prepare.sh"), str(project)],
+                                      env=env, capture_output=True, text=True, timeout=900)
+            (work / "prepare.log").write_text(prepared.stdout + prepared.stderr)
+            if prepared.returncode:
+                raise RuntimeError(prepared.stderr + prepared.stdout)
+            initialized = call("research_control", action="init", params={"project_id": "P-native"})
             root = Path(initialized["project"]["root"])
 
             def doc(rel, kind):

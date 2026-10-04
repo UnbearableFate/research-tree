@@ -13,10 +13,10 @@ const TOOL = 'mcp__research-tree__research_db'
 const POST_TOOL = 'mcp__research-tree__post_to_ui'
 const VENV_PYTHON = '.venv/bin/python'
 const MARKER = '.research-tree.json'
-const DEFAULT_PYTHON = '3.13'
-const DEPENDENCIES = ['latticedb==0.15.0', 'jsonschema>=4.26', 'pyyaml>=6.0']
 const CONFIG_FILE = 'research-tree.yaml'
 const ALERT_KIND = 'usage_alert'
+// The host's longest wait for one process (process.run accepts 1..600000 ms).
+const MAX_PROCESS_MS = 600_000
 const READ_ONLY = /^(help|get|find|edges|children|history|go_candidates|latest_result|screen_seed_count|export_snapshot|verify_document|resume_package|cleanup_due)$/
 
 const summaryRef = { plugin: 'research-tree', key: 'summary' } as const
@@ -86,7 +86,7 @@ async function venv($: EngineInterface): Promise<{ python: string } | { problem:
     // no file system here: treated as missing
   }
   return {
-    problem: `${cwd} 下还没有 ${VENV_PYTHON}：先运行 /${COMMAND} init <计划.md>，它会用 uv 建立本目录的项目环境。`,
+    problem: `${cwd} 下还没有 ${VENV_PYTHON}：先运行 /${COMMAND} prepare，它会用 uv 建立本目录的项目环境。`,
   }
 }
 
@@ -100,7 +100,7 @@ async function runTool($: EngineInterface, cfg: Config, script: string, args: st
 async function refresh($: EngineInterface, cfg: Config): Promise<ResearchSummary | null> {
   const project = (await $.state.get(projectRef)).value ?? (await loadProject($))
   if (!project) {
-    await $.state.set(errorRef, `当前目录没有研究项目：运行 /${COMMAND} init <计划.md>`)
+    await $.state.set(errorRef, `当前目录没有研究项目：先运行 /${COMMAND} prepare，填写 plan.md 后运行 /${COMMAND} init`)
     $.ui.status(undefined)
     return null
   }
@@ -224,27 +224,22 @@ function statusText(s: ResearchSummary, p?: ResearchProject | null): string {
   return lines.join('\n')
 }
 
-type InitArgs = { plan: string; python: string; id?: string; config?: string; updateUv?: true }
+type InitArgs = { plan: string; id?: string; config?: string }
 
-/** `init <plan.md> [--python 3.13] [--id NAME] [--update-uv]`: the plan path, the uv Python request, the project
- *  id, and whether to run `uv self update` first. */
+/** `init [plan.md] [--id NAME] [--config FILE]`: the plan (plan.md by default), the project id, and a
+ *  configuration file other than the directory's research-tree.yaml. */
 function parseInit(args: string[]): InitArgs | { usage: string } {
-  const usage = `用法：/${COMMAND} init path/to/计划.md [--python ${DEFAULT_PYTHON}] [--id 项目ID] [--config 配置.yaml] [--update-uv]` +
-    `（项目ID默认为 uv 项目名，即当前目录名；不给 --config 时从默认配置开始；--update-uv 先运行 uv self update）`
+  const usage = `用法：/${COMMAND} init [计划.md] [--id 项目ID] [--config 配置.yaml]` +
+    `（计划默认为 plan.md；项目ID默认为 uv 项目名，即当前目录名；配置默认为本目录的 ${CONFIG_FILE}）`
   let plan: string | undefined
-  let python = DEFAULT_PYTHON
   let id: string | undefined
   let configFile: string | undefined
-  let updateUv = false
   for (let i = 0; i < args.length; i++) {
     const [flag, inline] = args[i]!.split(/=(.*)/s, 2) as [string, string | undefined]
-    if (args[i] === '--update-uv') {
-      updateUv = true
-    } else if (flag === '--python' || flag === '--id' || flag === '--config') {
+    if (flag === '--id' || flag === '--config') {
       const value = inline ?? args[++i]
       if (!value || value.startsWith('-')) return { usage }
-      if (flag === '--python') python = value
-      else if (flag === '--config') configFile = value
+      if (flag === '--config') configFile = value
       else id = value
     } else if (args[i]!.startsWith('-') || plan) {
       return { usage }
@@ -252,52 +247,15 @@ function parseInit(args: string[]): InitArgs | { usage: string } {
       plan = args[i]
     }
   }
-  return plan
-    ? { plan, python, ...(id ? { id } : {}), ...(configFile ? { config: configFile } : {}), ...(updateUv ? { updateUv: true as const } : {}) }
-    : { usage }
+  return { plan: plan ?? 'plan.md', ...(id ? { id } : {}), ...(configFile ? { config: configFile } : {}) }
 }
 
-/** uv must exist; update it when asked, make this directory a uv project for the requested Python, add the
- *  tools' dependencies. Returns what was done, line by line. */
-async function setUpEnvironment($: EngineInterface, python: string, updateUv: boolean): Promise<{ ok: boolean; log: string[] }> {
-  const log: string[] = []
-  const run = async (argv: string[], timeoutMs: number) => {
-    try {
-      return await $.process.run(argv, { timeoutMs })
-    } catch (err) {
-      return { exitCode: 127, stdout: '', stderr: err instanceof Error ? err.message : String(err) }
-    }
-  }
-  const tail = (r: { stdout: string; stderr: string }) => (r.stderr || r.stdout).trim().split('\n').slice(-3).join(' ')
-  const version = await run(['uv', '--version'], 20_000)
-  if (version.exitCode !== 0) {
-    log.push('需要 uv，但当前环境找不到它。安装：curl -LsSf https://astral.sh/uv/install.sh | sh，然后重开会话。')
-    return { ok: false, log }
-  }
-  log.push(`uv：${version.stdout.trim()}`)
-  if (updateUv) {
-    const updated = await run(['uv', 'self', 'update'], 120_000)
-    log.push(updated.exitCode === 0 ? `uv self update：${tail(updated) || '完成'}` : `uv self update 未成功（继续）：${tail(updated)}`)
-  }
-  const cwd = await $.session.cwd()
-  if (await $.fs.exists(`${cwd}/pyproject.toml`)) {
-    log.push('已有 pyproject.toml：沿用现有 uv 项目，跳过 uv init。')
-  } else {
-    // Standalone even inside another uv project, so this directory gets its own .venv.
-    const made = await run(['uv', 'init', '.', '--no-workspace', `--python=${python}`], 600_000)
-    if (made.exitCode !== 0) {
-      log.push(`uv init . --no-workspace --python=${python} 失败：${tail(made)}`)
-      return { ok: false, log }
-    }
-    log.push(`uv init . --no-workspace --python=${python}：完成`)
-  }
-  const added = await run(['uv', 'add', '--project', '.', ...DEPENDENCIES], 600_000)
-  if (added.exitCode !== 0) {
-    log.push(`uv add ${DEPENDENCIES.join(' ')} 失败：${tail(added)}`)
-    return { ok: false, log }
-  }
-  log.push(`uv add ${DEPENDENCIES.join(' ')}：完成`)
-  return { ok: true, log }
+/** `/research-tree prepare [--python 3.13] [--update-uv]`: tools/prepare.sh makes this directory a uv project
+ *  with the tools' dependencies and copies plan.md and research-tree.yaml to fill in; files already there stay. */
+async function prepareCommand($: EngineInterface, args: string[]): Promise<string> {
+  const out = await $.process.run(['sh', `${$.plugin.root}/tools/prepare.sh`, ...args, await $.session.cwd()],
+    { timeoutMs: MAX_PROCESS_MS })
+  return [out.stdout, out.stderr].map(t => t.trim()).filter(Boolean).join('\n') || `prepare 失败：exit ${out.exitCode}`
 }
 
 // ---------------------------------------------------------------------------
@@ -550,7 +508,7 @@ function workerActor(s: ResearchSummary | null | undefined, agentId: string): st
 
 /** Why a worker may not start yet, or undefined once the user confirmed the plan. */
 function workerBlock(project: ResearchProject | null | undefined): string | undefined {
-  if (!project) return `当前目录没有研究项目；先运行 /${COMMAND} init <计划.md>。`
+  if (!project) return `当前目录没有研究项目；先运行 /${COMMAND} prepare，填写 plan.md 后运行 /${COMMAND} init。`
   if (project.phase !== 'confirmed') {
     return `立项计划尚未经用户确认（当前：${L(project.phase)}）。请用 post_to_ui(type=confirm_request) 请用户确认，确认后再启动 worker。`
   }
@@ -644,7 +602,7 @@ function budgetText(view: ResearchConfigView | null | undefined): string {
 function planningPrompt(project: ResearchProject, pluginRoot: string, view: ResearchConfigView | null): string {
   const instr = project.plan_instruction
   const fields = view ? Object.entries(view.db_fields).map(([k, v]) => `${k}=${v === null ? 'null' : v}`).join('，') : ''
-  return `研究项目已由 /${COMMAND} init 在 ${project.root} 建立：项目 ${project.project_id}（数据库 ${project.db}）。用户的研究目标与初始方案已逐字登记为用户指令 ${instr.doc_id}（docs/${instr.path}，原文件 ${project.plan}）。
+  return `研究项目已由 /${COMMAND} init 在 ${project.root} 建立：项目 ${project.project_id}（数据库 ${project.db}）。用户的研究目标与初始方案已逐字登记为用户指令 ${instr.doc_id}（docs/${instr.path}，原文件 ${project.plan}）。计划中写着“由 RLD 决定。”的部分（如模型、训练与评测数据集、基线、评测、实验范围、验收要求），由你提出具体方案并在立项计划中写明，经用户确认后执行。模型和数据集一律写 Hugging Face Hub 上的正式 ID（数据集加 config 与 split，需要时加 revision）；不在 Hub 上的写明路径与来源。
 
 项目配置 ${view?.file ?? CONFIG_FILE}（用户可在确认前修改；确认时 mod 把它登记为生效版本，并把预算与门槛写入项目记录）：
 ${budgetText(view)}
@@ -749,7 +707,7 @@ async function askUi($: EngineInterface, cfg: Config, text: string): Promise<voi
   const project = (await $.state.get(projectRef)).value ?? (await loadProject($))
   const env = await venv($)
   if (!project || 'problem' in env) {
-    await say($, 'note', project ? (env as { problem: string }).problem : `当前目录没有研究项目：先运行 /${COMMAND} init <计划.md>。`)
+    await say($, 'note', project ? (env as { problem: string }).problem : `当前目录没有研究项目：先运行 /${COMMAND} prepare，填写 plan.md 后运行 /${COMMAND} init。`)
     return
   }
   await startUi($, cfg, { message, messageId, attempt: 1 })
@@ -888,7 +846,7 @@ async function logMessage($: EngineInterface, cfg: Config, args: string[]) {
 /** The user's confirmation of the plan: registered verbatim, phase confirmed, the RLD told to start. */
 async function confirmPlan($: EngineInterface, cfg: Config, words: string): Promise<string> {
   const project = (await $.state.get(projectRef)).value ?? (await loadProject($))
-  if (!project) return `当前目录没有研究项目；先运行 /${COMMAND} init <计划.md>。`
+  if (!project) return `当前目录没有研究项目；先运行 /${COMMAND} prepare，填写 plan.md 后运行 /${COMMAND} init。`
   if (project.phase === 'confirmed') return '立项计划已经确认过。'
   if (project.phase !== 'awaiting_confirmation') return 'RLD 还没有提交立项计划，暂时无需确认。'
   // The configuration the plan was made with goes into effect with it: registered, and written into the record.
@@ -917,14 +875,12 @@ function parallelBlock(s: ResearchSummary | null | undefined, named: string): st
     `等其中一个交付，或请用户在 ${CONFIG_FILE} 调高 max_parallel_workers 后 /${COMMAND} config apply。`
 }
 
-/** `/research-tree config [show|apply]`. Applying registers the file as the configuration in effect, writes its
+/** `/research-tree config show|apply`. Applying registers the file as the configuration in effect, writes its
  *  budget and gates into the project record, re-registers the agents and tells the RLD. */
 async function configCommand($: EngineInterface, cfg: Config, action = ''): Promise<string> {
-  if (!action) {
-    const out = await $.process.run(['sh', `${$.plugin.root}/tools/copy_config.sh`, await $.session.cwd()], { timeoutMs: 10_000 })
-    return (out.stdout || out.stderr).trim() || `复制配置失败：exit ${out.exitCode}`
+  if (action !== 'show' && action !== 'apply') {
+    return `用法：/${COMMAND} config show|apply（还没有 ${CONFIG_FILE} 时，/${COMMAND} prepare 会生成它）`
   }
-  if (action !== 'show' && action !== 'apply') return `用法：/${COMMAND} config [show|apply]`
   const env = await venv($)
   if ('problem' in env) return env.problem
   if (action === 'show') {
@@ -932,7 +888,7 @@ async function configCommand($: EngineInterface, cfg: Config, action = ''): Prom
     return view ? configText(view) : `读取不到项目配置 ${CONFIG_FILE}。`
   }
   const project = await loadProject($)
-  if (!project) return `当前目录没有研究项目：运行 /${COMMAND} init <计划.md>`
+  if (!project) return `当前目录没有研究项目：先运行 /${COMMAND} prepare，填写 plan.md 后运行 /${COMMAND} init`
   const applied = await tree($, cfg, ['config', 'apply', '--actor', cfg.actor, '--words', `/${COMMAND} config apply`])
   if (!applied.ok) return `配置未生效：${applied.error}`
   await loadProject($)
@@ -966,7 +922,7 @@ export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: COMMAND,
-      description: '研究树：config（复制默认YAML）、config show/apply、init <计划.md> [--python 3.13] [--id 项目ID] [--config 配置.yaml] [--update-uv]、confirm、status（默认）、ui、pane、refresh、build、check',
+      description: '研究树：prepare [--python 3.13] [--update-uv]（建立环境，生成 plan.md 与 research-tree.yaml）、init [计划.md] [--id 项目ID] [--config 配置.yaml]、confirm、config show/apply、status（默认）、ui、pane、refresh、build、check',
     })
     await $.tool.register({
       name: 'research_db',
@@ -1075,13 +1031,13 @@ export const register: Register = (on, options) => {
       if ('usage' in parsed) return { text: parsed.usage }
       const existing = await loadProject($)
       if (existing) return { text: `当前目录已经有研究项目 ${existing.project_id}（${existing.root}）。` }
-      const env = await setUpEnvironment($, parsed.python, !!parsed.updateUv)
-      if (!env.ok) return { text: env.log.join('\n') }
+      const env = await venv($)
+      if ('problem' in env) return { text: env.problem }
       const made = await tree($, cfg, ['init', parsed.plan, ...(parsed.id ? ['--project-id', parsed.id] : []),
         ...(parsed.config ? ['--config', parsed.config] : [])])
-      if (!made.ok) return { text: [...env.log, `初始化失败：${made.error}`].join('\n') }
+      if (!made.ok) return { text: `初始化失败：${made.error}` }
       const project = await loadProject($)
-      if (!project) return { text: [...env.log, '初始化完成，但读取不到 .research-tree.json。'].join('\n') }
+      if (!project) return { text: '初始化完成，但读取不到 .research-tree.json。' }
       const view = await readConfig($, cfg)
       await registerAgents($, view?.effective)
       await refresh($, cfg)
@@ -1090,10 +1046,13 @@ export const register: Register = (on, options) => {
         `开发与实验平台、预算和模型见 ${CONFIG_FILE}，确认前可以修改。`)
       submitLater($, { text: planningPrompt(project, $.plugin.root, view) })
       return {
-        text: [...env.log, `已在 ${project.root} 建立研究项目 ${project.project_id}：目录、数据库、通信登记表已就绪，` +
+        text: [`已在 ${project.root} 建立研究项目 ${project.project_id}：目录、数据库、通信登记表已就绪，` +
           `计划原文登记为 ${project.plan_instruction.doc_id}。研究对话窗口已打开；RLD 将据计划建立目标、初始节点和根节点方案，并请你确认。`,
-          `项目配置：${view?.file ?? CONFIG_FILE}（${parsed.config ? `取自 ${parsed.config}` : '默认配置'}；开发与实验平台、资源预算、阶段1门槛、子代理模型）。确认立项前改动直接生效，之后改动用 /${COMMAND} config apply 生效。`].join('\n'),
+          `项目配置：${view?.file ?? CONFIG_FILE}（${parsed.config ? `取自 ${parsed.config}` : `本目录的 ${CONFIG_FILE}`}；开发与实验平台、资源预算、阶段1门槛、子代理模型）。确认立项前改动直接生效，之后改动用 /${COMMAND} config apply 生效。`].join('\n'),
       }
+    }
+    if (sub === 'prepare') {
+      return { text: await prepareCommand($, words.slice(1)) }
     }
     if (sub === 'confirm') {
       const confirmed = await confirmPlan($, cfg, words.slice(1).join(' ') || `/${COMMAND} confirm`)
@@ -1114,13 +1073,13 @@ export const register: Register = (on, options) => {
     }
     if (sub === 'build' || sub === 'check') {
       const project = await loadProject($)
-      if (!project) return { text: `当前目录没有研究项目：运行 /${COMMAND} init <计划.md>` }
+      if (!project) return { text: `当前目录没有研究项目：先运行 /${COMMAND} prepare，填写 plan.md 后运行 /${COMMAND} init` }
       const out = await runTool($, cfg, 'build_site.py', ['--db', project.db, ...(sub === 'check' ? ['--check'] : [])])
       await refresh($, cfg)
       return { text: (out.stdout || out.stderr).trim() || `exit ${out.exitCode}` }
     }
     if (sub !== 'status' && sub !== 'refresh') {
-      return { text: `未知子命令 ${sub}；可用：init、confirm、config、status、ui、pane、refresh、build、check` }
+      return { text: `未知子命令 ${sub}；可用：prepare、init、confirm、config、status、ui、pane、refresh、build、check` }
     }
     await loadProject($)
     const summary = await refresh($, cfg)
@@ -1135,7 +1094,7 @@ export const register: Register = (on, options) => {
         return { result: 'research_db: method must be a ResearchDB method name', isError: true as const }
       }
       const project = (await $.state.get(projectRef)).value ?? (await loadProject($))
-      if (!project) return { result: `当前目录没有研究项目：运行 /${COMMAND} init <计划.md>`, isError: true as const }
+      if (!project) return { result: `当前目录没有研究项目：先运行 /${COMMAND} prepare，填写 plan.md 后运行 /${COMMAND} init`, isError: true as const }
       // Worker runs act as themselves whatever they pass.
       const fixed = e.agentId === undefined ? undefined
         : (await $.state.get(agentsRef)).value?.[e.agentId] ?? workerActor((await $.state.get(summaryRef)).value, e.agentId)
@@ -1143,7 +1102,7 @@ export const register: Register = (on, options) => {
       // A cleanup deletes run outputs: it may take a while on shared storage.
       const out = await runTool($, cfg, 'research_db.py', [
         '--db', project.db, '--actor', actor, input.method, JSON.stringify(input.kwargs ?? {}),
-      ], input.method === 'run_cleanup' ? 1_800_000 : 60_000)
+      ], input.method === 'run_cleanup' ? MAX_PROCESS_MS : 60_000)
       if (!READ_ONLY.test(input.method)) await refresh($, cfg)
       const text = (out.stdout || out.stderr).trim()
       return out.exitCode === 0 ? { result: text } : { result: text || `exit ${out.exitCode}`, isError: true as const }
@@ -1214,7 +1173,7 @@ export const register: Register = (on, options) => {
     const status = project
       ? `\n\n当前项目：${project.project_id}（${L(project.phase)}，${project.root}）` + (summary ? `\n${statusText(summary, project)}` : '') +
         `\n\n### 开发与实验平台（${CONFIG_FILE}）\n${platformText(conf?.effective)}`
-      : `\n\n当前目录没有研究项目（/${COMMAND} init <计划.md> 可新建）。`
+      : `\n\n当前目录没有研究项目（/${COMMAND} prepare 后 /${COMMAND} init 可新建）。`
     return { sections: [...composed.sections, { id: `${PLUGIN}:workflow`, text: WORKFLOW + status, scope: 'session' as const }] }
   })
 }
@@ -1337,5 +1296,5 @@ function registerProgressPane(on: Parameters<Register>[0], cfg: Config): void {
 
 export const internals = {
   guardReason, writesDatabase, writesConfig, researchCalls, subagentCallBlock, statusText, statusLine, workerBlock, parseInit, workerNode, workerActor, parallelBlock,
-  workerPrompt, platformText, uiPrompt, configCommand, carryOutUi,
+  workerPrompt, platformText, uiPrompt, configCommand, prepareCommand, carryOutUi,
 }

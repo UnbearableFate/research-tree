@@ -84,21 +84,14 @@ def run_request(cwd: Path, actor: str, name: str, arguments: dict) -> dict:
 
 
 def bootstrap(cwd: Path, params: dict) -> None:
+    """init runs in the environment prepare made (tools/prepare.sh): a uv project with the tools' packages."""
     if (cwd / ".research-tree.json").exists():
         raise ValueError("this directory already contains a research project")
-    plan = cwd / (params.get("plan") or "")
+    plan = cwd / (params.get("plan") or "plan.md")
     if not plan.is_file():
-        raise ValueError("init requires an existing plan file")
-    commands = [["uv", "--version"]]
-    if params.get("update_uv"):
-        commands.append(["uv", "self", "update"])
-    if not (cwd / "pyproject.toml").exists():
-        commands.append(["uv", "init", ".", "--no-workspace", "--python", params.get("python", "3.13")])
-    commands.append(["uv", "add", "--project", ".", "latticedb==0.15.0", "jsonschema>=4.26", "pyyaml>=6.0"])
-    for command in commands:
-        result = subprocess.run(command, cwd=cwd, capture_output=True, text=True, timeout=600)
-        if result.returncode:
-            raise RuntimeError(f"{command[0:2]} failed: {result.stderr[-2000:]}")
+        raise ValueError(f"init needs the plan {plan}: run prepare first, which copies plan.md to fill in")
+    if not (cwd / ".venv/bin/python").is_file():
+        raise ValueError(f"missing {cwd / '.venv/bin/python'}: run prepare first (sh <plugin-root>/tools/prepare.sh)")
 
 
 def serve(cwd: Path, actor: str) -> None:
