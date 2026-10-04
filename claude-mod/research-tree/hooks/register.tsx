@@ -17,7 +17,7 @@ const DEFAULT_PYTHON = '3.13'
 const DEPENDENCIES = ['latticedb==0.15.0', 'jsonschema>=4.26', 'pyyaml>=6.0']
 const CONFIG_FILE = 'research-tree.yaml'
 const ALERT_KIND = 'usage_alert'
-const READ_ONLY = /^(help|get|find|edges|children|history|go_candidates|latest_result|screen_seed_count|export_snapshot|verify_document|resume_package)$/
+const READ_ONLY = /^(help|get|find|edges|children|history|go_candidates|latest_result|screen_seed_count|export_snapshot|verify_document|resume_package|cleanup_due)$/
 
 const summaryRef = { plugin: 'research-tree', key: 'summary' } as const
 const errorRef = { plugin: 'research-tree', key: 'error' } as const
@@ -621,7 +621,8 @@ function workerPrompt(conf: ResearchConfig | null | undefined): string {
 - 代码改动只在任务指定的仓库分支或worktree中进行并提交；除根节点框架任务外，不改动冻结的实验框架与统计代码。
 - 测试、训练、推理等工作按下面“开发与实验平台”的规定运行；规定没有覆盖、又可能占用大量资源的操作，先问RLD。
 - 实验、运行与判定只通过 research_db 登记（create_experiment、create_run、update_run、record_verdict），不编造数字；工程失败如实记录，不当作科学结论。单次运行上限和累计用量提醒由 research_db 检查，被拒绝时交RLD，不绕过。
-- 每个 seed 的运行：create_run 后用 update_run 把 exec_status 从 planned 推进到 submitted（running）再到 succeeded，在 succeeded 时写入 valid=true 和 metric_value、secondary、nodes_used、walltime_used_s 以及 log_path 或 output_path；验收不通过时设 valid=false 并写 invalid_reason。全部 seed 有效后由实验 owner 调用 record_verdict（基线只记指标，不给判定）。
+- 每个 seed 的运行：create_run 后用 update_run 把 exec_status 从 planned 推进到 submitted（running）再到 succeeded，在 succeeded 时写入 valid=true 和 metric_value、secondary、nodes_used、walltime_used_s 以及 output_path（运行的输出目录）和 log_path；验收不通过时设 valid=false 并写 invalid_reason。全部 seed 有效后由实验 owner 调用 record_verdict（基线只记指标，不给判定）。
+- record_verdict 之后立即调用 run_cleanup(experiment_id) 清理该实验的产物（权重、checkpoint 等，证据保留），不必请示；交付前必须完成。后续实验要用这些产物（例如在其权重上继续训练）时，在 create_experiment 时用 keep 与 keep_reason 声明，事后无法恢复。清理什么由项目目录的 research-tree-cleanup.py 决定，可按项目的输出调整它。
 - 不确定 research_db 的方法或参数时调用 method="help"（kwargs {"method": "<方法名>"} 看完整说明），不要猜；按错误信息改正。
 - 交付：写 tasks/<任务ID>/delivery.v1.md，章节为“实际改动与版本、运行与产物、验证结果、资源观测、未完成与未知项”（各章节内容见规则第4节），登记并设为现行，再 update_task(status=delivered, delivery_doc_id)；最终回复只给简短说明和文档引用。
 - 不自行改变研究目标、选择新的研究分支或接管他人任务；范围变化交RLD。
@@ -653,7 +654,7 @@ ${platformText(view?.effective)}
 1. 读原文。写 docs/project/goal.v1.md（研究目标）和 docs/project/min-setup.v1.md（最小实验设定：模型、数据、训练量、评测、主指标及优劣方向、其他比较指标、${view?.effective.stage1.gate_seeds ?? 3}个统一seed、计划的实验框架与判定规则；单次运行上限、筛选预算与门槛照抄上面的项目配置）；用 research_db 登记（register_document）并设为现行。原文的预算或门槛与项目配置不一致时，在立项计划中指出，请用户改配置文件，不要自行取舍。
 2. create_project：id 为 ${project.project_id}，repo_path 为本项目代码仓库的绝对路径（原文未给出就在 ${project.root}/../.. 下合适的位置新建 git 仓库）；预算与门槛参数取自项目配置（${fields}），其余参数取自最小实验设定。
 3. 为原文中的每个初始假说检索并缓存相关研究（docs/literature/，每个节点至少${view?.effective.stage1.min_related_work ?? 3}篇，原文缓存到 cache/literature/），写假说文档（创建理由、计划的代码改动、实验计划），create_hypothesis 建初始节点（状态为待验证）。所有初始假说都不指定 parent_id：它们都是根节点的直接子节点、彼此平级，即使原文暗示了先后或包含关系也不在初始假说之间建立父子关系（只有验证完成、可拓展的节点才能派生子节点）。
-4. 根节点只存放 baselines：写 docs/tasks/T-0001/request.v1.md（章节为“任务与节点、问题与预测、干预与对照、范围与权限、资源与预算、验收与停止条件、交付”，内容见规则第4节），说明要实现的实验骨架与统计代码，以及要运行的SOTA与其他基线方案；create_task(kind=harness, assignee_role=worker)，先不指派。
+4. 根节点只存放 baselines：写 docs/tasks/T-0001/request.v1.md（章节为“任务与节点、问题与预测、干预与对照、范围与权限、资源与预算、验收与停止条件、交付”，内容见规则第4节），说明要实现的实验骨架与统计代码、按框架的输出调整项目目录的清理脚本 research-tree-cleanup.py（哪些文件是可删的权重、checkpoint 等），以及要运行的SOTA与其他基线方案；create_task(kind=harness, assignee_role=worker)，先不指派。
 5. 写 docs/project/reports/init-plan.v1.md 汇总以上（目标、设定、初始节点、基线与根节点方案、预计资源），登记并设为现行，然后调用 post_to_ui(type=confirm_request, docs=["project/reports/init-plan.v1.md"]) 请用户在研究对话窗口确认。
 用户确认之前 mod 会拒绝启动 worker。规则文件：${pluginRoot}/${RULES}。`
 }
@@ -1139,9 +1140,10 @@ export const register: Register = (on, options) => {
       const fixed = e.agentId === undefined ? undefined
         : (await $.state.get(agentsRef)).value?.[e.agentId] ?? workerActor((await $.state.get(summaryRef)).value, e.agentId)
       const actor = fixed ?? (typeof input.actor === 'string' && input.actor ? input.actor : cfg.actor)
+      // A cleanup deletes run outputs: it may take a while on shared storage.
       const out = await runTool($, cfg, 'research_db.py', [
         '--db', project.db, '--actor', actor, input.method, JSON.stringify(input.kwargs ?? {}),
-      ])
+      ], input.method === 'run_cleanup' ? 1_800_000 : 60_000)
       if (!READ_ONLY.test(input.method)) await refresh($, cfg)
       const text = (out.stdout || out.stderr).trim()
       return out.exitCode === 0 ? { result: text } : { result: text || `exit ${out.exitCode}`, isError: true as const }

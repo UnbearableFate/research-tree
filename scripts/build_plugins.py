@@ -44,7 +44,7 @@ def assemble(target: str, destination: Path, repo: Path = REPO) -> dict:
         raise ValueError(f"invalid plugin identity: {manifest_path}")
     for required in ("tools/copy_config.sh", "tools/research_db.py", "tools/research_tree.py", "tools/project_config.py",
                      "tools/send_message.py", "tools/build_site.py", "schema/research_tree.sql",
-                     "schema/create_db.py", "schema/config.schema.json", "schema/config.template.yaml",
+                     "schema/create_db.py", "schema/config.schema.json", "schema/config.template.yaml", "schema/cleanup.template.py",
                      "schema/message.schema.json", "rules/research-tree-rules.md"):
         if not (repo / "shared/research-tree" / required).is_file():
             raise ValueError(f"shared core is incomplete: missing {required}")

@@ -28,7 +28,8 @@ CURVE_POINTS = 200
 ATTENTION_LABELS = {
     "usage_alert": "资源提醒", "awaiting_reply": "待RLD回执", "extend_seeds": "待扩展seed", "needs_rld": "需要RLD复核",
     "stale_harness": "框架已更换", "run_unknown": "作业状态未知", "curve_missing": "曲线缺失",
-    "conclusion_outdated": "结论待更新", "task": "任务", "doc_integrity": "文档完整性",
+    "conclusion_outdated": "结论待更新", "task": "任务", "doc_integrity": "文档完整性", "cleanup_due": "待清理",
+    "cleanup_failed": "清理未完成",
 }
 VERSION_RE = re.compile(r'<meta name="data-version" content="(\d+)">')
 
@@ -185,6 +186,7 @@ def collect(db_path: Path) -> dict:
             "design": x["design_doc_id"], "result": x.get("result_doc_id"), "owner": x["owner"],
             "runs": sorted(runs_by_exp.get(x["id"], []), key=lambda r: r["seed"]),
             "comparisons": sorted(comparisons.get(x["id"], []), key=lambda c: c["role"]),
+            "keep": x.get("keep") or [], "cleaned": _cleaned(x.get("cleanup")),
         }
 
     branches = {b["hypothesis_id"]: b for b in tables["branch"]}
@@ -241,6 +243,13 @@ def collect(db_path: Path) -> dict:
             attention.append({"kind": "task", "id": t["id"],
                               "text": f"{t['id']}（{t['kind']}，{t['assignee_role']}/{t.get('assignee_id') or '未指派'}）：{t['status']}"})
     attention += unanswered(root)
+    for d in ResearchDB(db_path, "web_builder/site").cleanup_due():
+        attention.append({"kind": "cleanup_due", "id": d["node"] if d["node"] in {h["id"] for h in tables["hypothesis"]} else None,
+                          "text": f"{d['experiment_id']}（{d['reason']}）由 {d['owner']} 运行 run_cleanup"})
+    for e in experiments.values():
+        if e["cleaned"] and e["cleaned"]["failed"]:
+            attention.append({"kind": "cleanup_failed", "id": e["hyp"],
+                              "text": f"{e['id']} 最近一次清理有 {e['cleaned']['failed']} 项未删除，见实验的清理账本"})
     for d in docs.values():
         if d["hash_ok"] is False:
             attention.append({"kind": "doc_integrity", "id": d["id"], "text": f"{d['id']} {d['path']} 与登记的哈希不一致或文件缺失"})
@@ -264,6 +273,15 @@ def collect(db_path: Path) -> dict:
         "screen_seeds": _screen_seeds(experiments, project),
         "busy_workers": sorted(busy_workers(tables["task"])),
     }
+
+
+def _cleaned(passes: dict | None) -> dict | None:
+    """An experiment's cleanup ledger in brief: the last pass, and what all passes freed."""
+    if not passes:
+        return None
+    last = passes[max(passes, key=int)]
+    return {"at": last["at"], "by": last["by"], "kept": last.get("kept", []), "failed": last.get("failed", 0),
+            "freed_bytes": sum(p.get("freed_bytes", 0) for p in passes.values()), "passes": len(passes)}
 
 
 def unanswered(root: Path) -> list[dict]:
@@ -658,7 +676,7 @@ function expBlock(e) {
     <td class="num">${fmt(r.metric)}</td>${(P.secondary_metrics || []).map(k => `<td class="num">${fmt(r.secondary?.[k])}</td>`).join("")}<td class="num">${fmt(r.node_h, 2)}</td>
     <td>${r.curve_problem ? `<span class="warn">${esc(r.curve_problem)}</span>` : "有"}</td></tr>`).join("");
   return `<div class="panel"><b>${esc(e.id)}</b> ${esc(e.method)} · ${esc(e.kind)} · seeds ${esc(e.seeds.join(", "))} · 代码 ${esc(e.code)}
-    ${e.verdict ? badge(e.verdict, "v-" + e.verdict) : e.kind === "baseline" ? `<span class="muted">${e.evaluated ? "基线结果已记录" : "基线结果未记录"}</span>` : '<span class="muted">未判定</span>'}${e.stale_harness ? '<span class="warn">框架已更换，结果不可比</span>' : ""}
+    ${e.verdict ? badge(e.verdict, "v-" + e.verdict) : e.kind === "baseline" ? `<span class="muted">${e.evaluated ? "基线结果已记录" : "基线结果未记录"}</span>` : '<span class="muted">未判定</span>'}${e.stale_harness ? '<span class="warn">框架已更换，结果不可比</span>' : ""}${e.cleaned ? `<span class="muted"> · 产物已清理（${esc(e.cleaned.at)}，释放 ${(e.cleaned.freed_bytes / 2 ** 30).toFixed(2)} GiB${e.cleaned.kept.length ? "，保留 " + esc(e.cleaned.kept.join("、")) : ""}）</span>` : ""}
     <div>设计：${docLink(e.design)}；结果：${docLink(e.result)}</div>
     <table class="heat"><thead><tr><th>seed</th><th>执行</th><th>验收</th><th>${esc(P.primary_metric)}</th>${(P.secondary_metrics || []).map(k => `<th>${esc(k)}</th>`).join("")}<th>node·h</th><th>曲线</th></tr></thead><tbody>${runs}</tbody></table>
     ${e.comparisons.length ? `<table class="heat"><thead><tr><th>比较</th><th>配对seed</th><th>Δ${esc(P.primary_metric)}</th>${(P.secondary_metrics || []).map(k => `<th>Δ${esc(k)}</th>`).join("")}<th>过SOTA门槛</th></tr></thead><tbody>

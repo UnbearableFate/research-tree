@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -106,7 +107,8 @@ class Fixture(unittest.TestCase):
             actor.update_run(run, exec_status="submitted")
             actor.update_run(run, exec_status="succeeded", valid=True, metric_value=70.0,
                              secondary={"final_loss": 1.0, "peak_mem_gb": 40.0},
-                             nodes_used=nodes, walltime_used_s=walltime_s, log_path=f"outputs/{run}.log")
+                             nodes_used=nodes, walltime_used_s=walltime_s, output_path=f"outputs/{run}",
+                             log_path=f"outputs/{run}/train.log")
 
     def baseline(self, nodes: int, walltime_s: int) -> str:
         self.n += 1
@@ -152,6 +154,22 @@ class Fixture(unittest.TestCase):
 
     def evaluate(self, exp: str, verdict: str, sota=(0.3, 0.1, 0.1), parent=None) -> None:
         self.worker.record_verdict(exp, self.result_doc(), 70.3, 0.05, verdict, self.comparisons(exp, sota, parent))
+
+    def clean_all(self) -> None:
+        """Every due cleanup, as its owner; the first call copies the project's cleanup script."""
+        if not (Path(self.tmp.name) / rdb.CLEANUP_SCRIPT).exists():
+            shutil.copyfile(rdb.CLEANUP_TEMPLATE, Path(self.tmp.name) / rdb.CLEANUP_SCRIPT)
+        for due in self.rld.cleanup_due():
+            ResearchDB(self.db, f"worker/{due['owner']}").run_cleanup(due["experiment_id"])
+
+    def outputs(self, exp: str) -> None:
+        """What a run writes: a log and metrics (evidence), final weights, optimizer state and a checkpoint."""
+        for seed in self.rld.get(exp)["seeds"]:
+            run_dir = self.root / "outputs" / exp / f"s{seed}"
+            (run_dir / "ckpt-100").mkdir(parents=True)
+            for name, text in {"train.log": "log", "metrics.json": "{}", "model.safetensors": "w" * 100,
+                               "optimizer.pt": "o" * 50, "ckpt-100/model.pt": "c" * 10}.items():
+                (run_dir / name).write_text(text)
 
 
 class SpecTest(unittest.TestCase):
@@ -585,6 +603,10 @@ class DecisionTest(Fixture):
         _, exp2 = self.concluded("no_gain", sota=(-0.1, -0.1, -0.1), hyp=h2)
         self.rld.decide(h2, {"experiment_status": "no_gain", "status": "prunable"}, "no gain",
                         doc_id=self.decision_doc(), based_on=[exp2])
+        # The workers clean up first; NOT GO comes after.
+        with self.assertRaisesRegex(ResearchDBError, "NOT GO comes after the cleanup"):
+            self.rld.decide("P-test", {"status": "not_go"}, "NOT GO", doc_id=self.decision_doc())
+        self.clean_all()
         self.rld.decide("P-test", {"status": "not_go"}, "NOT GO", doc_id=self.decision_doc())
         with self.assertRaisesRegex(ResearchDBError, "user_instruction"):
             self.rld.decide("P-test", {"status": "active"}, "resume", doc_id=self.decision_doc())
@@ -605,6 +627,101 @@ class DecisionTest(Fixture):
         resume = self.doc(self.rld, "instructions/resume.v1.md", "user_instruction")
         self.rld.decide("P-test", {"status": "active"}, "user resumes", doc_id=self.decision_doc(), based_on=[resume])
         self.rld.create_task("experiment", "worker", req, target_id=h)
+
+
+class CleanupTest(Fixture):
+    def setUp(self):
+        super().setUp()
+        self.h = self.hypothesis()
+        self.start(self.h)
+        self.script = Path(self.tmp.name) / rdb.CLEANUP_SCRIPT
+
+    def test_outputs_go_once_the_statistics_are_recorded(self):
+        exp = self.method(self.h)
+        self.outputs(exp)
+        with self.assertRaisesRegex(ResearchDBError, "no cleanup due"):
+            self.worker.run_cleanup(exp)
+        task = self.rld.create_task("experiment", "worker", self.doc(self.rld, "tasks/c/request.v1.md", "task_request"),
+                                    target_id=self.h, assignee_id="w1")
+        self.worker.update_task(task, status="in_progress")
+        self.evaluate(exp, "beats_parent", sota=(0.01, 0.0, 0.0))
+        self.assertEqual([d["experiment_id"] for d in self.rld.cleanup_due(self.h)], [exp])
+        delivery = self.doc(self.worker, "tasks/c/delivery.v1.md", "task_delivery")
+        with self.assertRaisesRegex(ResearchDBError, f"clean up first: {exp}"):
+            self.worker.update_task(task, status="delivered", delivery_doc_id=delivery)
+        with self.assertRaisesRegex(ResearchDBError, "copied the cleanup template"):
+            self.worker.run_cleanup(exp)
+        self.assertEqual(self.script.read_text(), rdb.CLEANUP_TEMPLATE.read_text())  # the project's copy from now on
+        with self.assertRaises(PermissionDenied):
+            ResearchDB(self.db, "worker/w2").run_cleanup(exp)
+        run_dir = self.root / "outputs" / exp / "s42"
+        preview = self.worker.run_cleanup(exp, dry_run=True)
+        self.assertEqual(sorted({i["class"] for i in preview["items"]}), ["final_weights", "optimizer_state", "periodic_ckpt"])
+        self.assertTrue((run_dir / "model.safetensors").exists())  # a preview deletes nothing
+        done = self.worker.run_cleanup(exp)
+        self.assertEqual(sorted(p.name for p in run_dir.iterdir()), ["metrics.json", "train.log"])
+        self.assertEqual(done["freed_bytes"], 3 * 160)
+        ledger = self.rld.get(exp)["cleanup"]
+        self.assertEqual((list(ledger), ledger["1"]["by"], ledger["1"]["failed"]), (["1"], "worker/w1", 0))
+        self.assertEqual(self.rld.cleanup_due(self.h), [])
+        self.worker.update_task(task, status="delivered", delivery_doc_id=delivery)
+
+    def test_new_seeds_are_due_again_however_soon_they_are_evaluated(self):
+        exp = self.method(self.h, n_seeds=1)
+        self.evaluate(exp, "close", sota=(0.01, 0.0, 0.0))
+        self.clean_all()
+        self.assertEqual(self.rld.cleanup_due(self.h), [])
+        self.worker.extend_seeds(exp, 3)
+        self.finish_runs(self.worker, exp)
+        self.evaluate(exp, "beats_parent", sota=(0.01, 0.0, 0.0))  # within the same second as the first cleanup
+        self.assertEqual([d["experiment_id"] for d in self.rld.cleanup_due(self.h)], [exp])
+        self.clean_all()
+        self.assertEqual(self.rld.get(exp)["cleanup"]["2"]["covered"], [f"{exp}/s{s}@1" for s in SEEDS])
+        self.assertEqual(self.rld.cleanup_due(self.h), [])
+
+    def test_the_project_script_may_not_touch_evidence_or_leave_the_run(self):
+        exp = self.method(self.h, n_seeds=1)
+        self.outputs(exp)
+        self.evaluate(exp, "beats_parent", sota=(0.01, 0.0, 0.0))
+        # The project may rewrite its script; whatever it plans is checked before anything is deleted.
+        for planned, problem in (("{d}/train.log", "holds evidence"), ("{d}", "outside the run's output directory"),
+                                 ("/etc/passwd", "outside the run's output directory")):
+            self.script.write_text(textwrap.dedent(f"""\
+                import json, sys
+                request = json.load(sys.stdin)
+                run = request["runs"][0]
+                path = {planned!r}.format(d=run["output_dir"])
+                items = [{{"run": run["run"], "path": path, "class": "scratch", "bytes": 1}}]
+                print(json.dumps({{"items": items if sys.argv[1] == "plan" else []}}))
+                """))
+            with self.subTest(planned=planned), self.assertRaisesRegex(ResearchDBError, f"which is {problem}"):
+                self.worker.run_cleanup(exp)
+        self.assertTrue((self.root / "outputs" / exp / "s42" / "train.log").exists())
+
+    def test_kept_outputs_wait_until_the_node_is_pruned_and_their_users_are_evaluated(self):
+        design = self.doc(self.worker, "exp/keep.v1.md", "experiment_design")
+        with self.assertRaisesRegex(ResearchDBError, "keep needs keep_reason"):
+            self.worker.create_experiment("method", "m", design, self.commit(), 1, 1800, hypothesis_id=self.h,
+                                          keep=["final_weights"])
+        exp = self.worker.create_experiment("method", "m", design, self.commit(), 1, 1800, hypothesis_id=self.h,
+                                            keep=["final_weights"], keep_reason="the next experiment trains on from them")
+        self.finish_runs(self.worker, exp)
+        self.outputs(exp)
+        self.evaluate(exp, "no_gain", sota=(-0.1, -0.1, -0.1))
+        self.clean_all()
+        weights = self.root / "outputs" / exp / "s42" / "model.safetensors"
+        self.assertTrue(weights.exists())
+        self.assertFalse((self.root / "outputs" / exp / "s42" / "optimizer.pt").exists())
+        user = self.method(self.h)
+        self.worker.link("rel_depends_on", user, exp, artifact="final_weights")
+        self.evaluate(user, "no_gain", sota=(-0.1, -0.1, -0.1))
+        self.rld.decide(self.h, {"experiment_status": "no_gain", "status": "prunable"}, "no gain",
+                        doc_id=self.decision_doc(), based_on=[user])
+        due = {d["experiment_id"]: d["reason"] for d in self.rld.cleanup_due(self.h)}
+        self.assertEqual(due, {exp: "kept outputs released", user: "statistics recorded"})
+        self.clean_all()
+        self.assertFalse(weights.exists())
+        self.assertEqual(self.rld.get(exp)["cleanup"]["2"]["kept"], [])
 
 
 class WorkerTest(Fixture):

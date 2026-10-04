@@ -73,7 +73,9 @@ def run_request(cwd: Path, actor: str, name: str, arguments: dict) -> dict:
         raise ValueError(f"missing {python}; run research_control init first")
     result = subprocess.run([str(python), str(ROOT / "tools/codex_runtime.py"), "--project", str(cwd),
                              "--actor", actor], input=json.dumps({"tool": name, "arguments": arguments}),
-                            text=True, capture_output=True, cwd=cwd, timeout=90)
+                            text=True, capture_output=True, cwd=cwd,
+                            # a cleanup deletes run outputs and may take a while on shared storage
+                            timeout=1800 if arguments.get("method") == "run_cleanup" else 90)
     try:
         response = json.loads(result.stdout)
     except ValueError:

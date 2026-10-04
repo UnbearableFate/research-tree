@@ -141,6 +141,9 @@ CREATE TABLE experiment (
     code_ref            TEXT NOT NULL,         -- 运行的 git commit；打标签 exp/<实验ID>，分支删除后仍可追溯
     harness_ref         TEXT,                  -- 判定时核对通过的冻结框架版本
     config_path         TEXT,
+    keep                TEXT_LIST,             -- 判定后仍保留的产物类别（例：final_weights），登记实验时声明
+    keep_reason         TEXT,                  -- 声明保留的理由（哪个后续实验要用这些产物）
+    cleanup             JSON,                  -- 清理账本：键为第几次清理，值为时间、执行者、保留类别、逐项结果与释放字节数
     seeds               INTEGER_LIST NOT NULL, -- project.seeds 的前缀；首个实验 1 个 seed，按预算或判定扩展
     nodes               INTEGER NOT NULL,      -- 每个 seed 申请的节点数，≤ project.max_nodes
     walltime_s          INTEGER NOT NULL,      -- 每个 seed 申请的时长，≤ project.max_walltime_s

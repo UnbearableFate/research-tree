@@ -1,1 +1,1 @@
-{"v":1,"id":"main-0001","ts":"2026-10-04T12:36:10Z","project":"P-demo-lora-opt","from":"rld/main","to":"worker/root","type":"task","text":"T-0001：实现框架并运行SOTA。","need":"ack","about":["T-0001"],"docs":["tasks/T-0001/request.v1.md"]}
+{"v":1,"id":"main-0001","ts":"2026-10-04T13:37:13Z","project":"P-demo-lora-opt","from":"rld/main","to":"worker/root","type":"task","text":"T-0001：实现框架并运行SOTA。","need":"ack","about":["T-0001"],"docs":["tasks/T-0001/request.v1.md"]}

@@ -15,6 +15,7 @@ import argparse
 import json
 import math
 import random
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -26,7 +27,7 @@ import build_site  # noqa: E402
 import create_db  # noqa: E402
 import project_config  # noqa: E402
 import send_message  # noqa: E402
-from research_db import TASK_SECTIONS, ResearchDB  # noqa: E402
+from research_db import CLEANUP_SCRIPT, CLEANUP_TEMPLATE, TASK_SECTIONS, ResearchDB  # noqa: E402
 
 PROJECT_ID = "P-demo-lora-opt"
 SEEDS = [42, 43, 44]
@@ -121,7 +122,8 @@ class Demo:
             actor.update_run(run, exec_status="succeeded", valid=True, metric_value=v["acc"],
                              secondary={k: v[k] for k in SECONDARY}, nodes_used=nodes,
                              walltime_used_s=int(v["train_time_s"]) + 60, curve_path=curve_rel,
-                             log_path=f"outputs/{exp}/s{seed}/train.log", finished_at="2026-10-03T13:00:00Z")
+                             log_path=f"outputs/{exp}/s{seed}/train.log", output_path=f"outputs/{exp}/s{seed}",
+                             finished_at="2026-10-03T13:00:00Z")
             values[seed] = v
         return values
 
@@ -141,6 +143,7 @@ class Demo:
         if self.dest.exists():
             raise SystemExit(f"refusing to overwrite {self.dest}; remove it or choose another --dest")
         self.docs.mkdir(parents=True)
+        shutil.copyfile(CLEANUP_TEMPLATE, self.dest / CLEANUP_SCRIPT)  # what init gives a project
         create_db.create_db(self.root / "research_tree.db")
         db = self.root / "research_tree.db"
         rld, ui = ResearchDB(db, "rld/main"), ResearchDB(db, "ui/ui")
@@ -205,6 +208,7 @@ class Demo:
                                "| seed | acc |\n|---|---|\n" + "".join(f"| {s} | {v['acc']} |\n" for s, v in self.values[sota].items()),
                                f"BaseOpt-A 均值 {sum(accs) / 3:.2f}")
         w1.record_verdict(sota, sota_result, round(sum(accs) / 3, 4), 0.04)
+        w1.run_cleanup(sota)
         rld.update_project(sota_experiment_id=sota)
         delivery = self.doc(w1, "tasks/T-0001/delivery.v1.md", "task_delivery", "根节点交付", task_body(
             f"框架提交 {harness[:10]}（harness/）。", f"SOTA实验 {sota}，3个seed，输出见 outputs/{sota}/。",
@@ -301,6 +305,7 @@ class Demo:
                           f"## 判定：{verdict}\n\n均值 acc {mean:.3f}，seeds {sorted(self.values[exp])}\n\n{table}",
                           f"{exp} 判定 {verdict}")
         worker.record_verdict(exp, result, round(mean, 4), None, verdict, cmps)
+        worker.run_cleanup(exp)
         return exp, verdict
 
     def story(self, rld: ResearchDB, ui: ResearchDB, instr: str) -> None:

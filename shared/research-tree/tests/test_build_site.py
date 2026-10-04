@@ -89,6 +89,15 @@ class BuildSiteTest(Fixture):
         self.assertEqual([(a["id"], a["label"]) for a in waiting], [(self.h, "待RLD回执")])
         self.assertIn("ui-0002", waiting[0]["text"])
 
+    def test_due_cleanup_and_the_ledger_show(self):
+        self.evaluate(self.exp, "beats_parent", sota=(0.01, 0.0, 0.0))
+        due = [a for a in build_site.build(self.db, self.page)["attention"] if a["kind"] == "cleanup_due"]
+        self.assertEqual([(a["id"], a["label"]) for a in due], [(None, "待清理"), (self.h, "待清理")])  # SOTA, node
+        self.clean_all()
+        data = build_site.build(self.db, self.page)
+        self.assertFalse([a for a in data["attention"] if a["kind"] == "cleanup_due"])
+        self.assertEqual(data["experiments"][self.exp]["cleaned"]["by"], "worker/w1")
+
     def test_check_reports_stale_page(self):
         cmd = [sys.executable, str(REPO / "tools" / "build_site.py"), "--db", str(self.db)]
         self.assertEqual(subprocess.run(cmd + ["--check"], capture_output=True).returncode, 1)  # no page yet

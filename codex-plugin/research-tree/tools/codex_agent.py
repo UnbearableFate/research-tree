@@ -37,7 +37,7 @@ def command(spec, directory):
     configs = {
         "mcp_servers.research_tree.command": sys.executable,
         "mcp_servers.research_tree.args": [str(ROOT / "tools/codex_mcp.py"), "--project", spec["project"], "--actor", actor],
-        "mcp_servers.research_tree.tool_timeout_sec": 90,
+        "mcp_servers.research_tree.tool_timeout_sec": 1800,  # run_cleanup may take a while
         "sandbox_mode": "read-only" if actor == "ui/ui" else "workspace-write",
         "approval_policy": "never",
     }

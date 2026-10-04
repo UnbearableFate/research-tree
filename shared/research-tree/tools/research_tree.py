@@ -28,6 +28,8 @@ Usage (run with the project's own interpreter, ./.venv/bin/python, after `uv ini
 
 init starts from the default configuration (schema/config.template.yaml) unless --config names a file to start
 from; it refuses to pick up a research-tree.yaml that is already in the directory without being named.
+It also copies the cleanup template to research-tree-cleanup.py beside it, unless the project has one: the
+project's own script that says which run outputs are disposable (research_db.run_cleanup runs it).
 
 The UI agent of the research window acts only through its outbox: each run appends its reply and actions to
 research/<id>/cache/ui/<run>.jsonl, and the research-tree mod carries them out when the run ends (it records
@@ -42,6 +44,7 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import shutil
 import sys
 import tomllib
 from datetime import datetime, timezone
@@ -53,7 +56,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 import create_db  # noqa: E402
 import project_config  # noqa: E402
 from project_config import CONFIG_NAME, ConfigError  # noqa: E402
-from research_db import GATE_FIELDS, READ_METHODS, ResearchDB, ResearchDBError, describe, table_of  # noqa: E402
+from research_db import (CLEANUP_SCRIPT, CLEANUP_TEMPLATE, GATE_FIELDS, READ_METHODS, ResearchDB,  # noqa: E402
+                         ResearchDBError, describe, table_of)
 
 MARKER = Path(".research-tree.json")
 PHASES = ("planning", "awaiting_confirmation", "confirmed")
@@ -146,6 +150,9 @@ def init(cwd: Path, plan: Path, project_id: str | None, config: Path | None = No
         project_config.db_fields(project_config.parse(config_text, str(config)))
     if config is None or config.resolve() != config_file.resolve():
         config_file.write_text(config_text, encoding="utf-8")
+    # The project's own cleanup script, from the plugin's template; an existing one is the project's and stays.
+    if not (cwd / CLEANUP_SCRIPT).exists():
+        shutil.copyfile(CLEANUP_TEMPLATE, cwd / CLEANUP_SCRIPT)
     for sub in SUBDIRS:
         (root / sub).mkdir(parents=True)
     db = root / "research_tree.db"

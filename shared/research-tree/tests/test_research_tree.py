@@ -55,6 +55,9 @@ class ResearchTreeTest(unittest.TestCase):
         for sub in ("docs/instructions", "docs/literature", "messages", "cache/literature", "site"):
             self.assertTrue((root / sub).is_dir(), sub)
         self.assertEqual(json.loads((self.cwd / ".research-tree.json").read_text())["db"], marker["db"])
+        # The project's own cleanup script, from the plugin's template.
+        self.assertEqual((self.cwd / "research-tree-cleanup.py").read_text(encoding="utf-8"),
+                         (REPO / "schema" / "cleanup.template.py").read_text(encoding="utf-8"))
         registry = json.loads((root / "agents.json").read_text())
         self.assertIn("ui/ui", registry)
         self.assertIn("worker/root", registry)

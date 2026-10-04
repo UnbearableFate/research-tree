@@ -30,7 +30,9 @@ import argparse
 import hashlib
 import inspect
 import json
+import os
 import re
+import shutil
 import sqlite3
 import subprocess
 import sys
@@ -44,6 +46,9 @@ from typing import Any, Iterator
 from latticedb import Database, LatticeDatabaseLockedError
 
 SPEC_PATH = Path(__file__).resolve().parent.parent / "schema" / "research_tree.sql"
+# The project's own cleanup script (in the project directory, beside research-tree.yaml), copied from this template.
+CLEANUP_SCRIPT = "research-tree-cleanup.py"
+CLEANUP_TEMPLATE = Path(__file__).resolve().parent.parent / "schema" / "cleanup.template.py"
 OPEN_ATTEMPTS = 40
 OPEN_RETRY_DELAY_S = 0.25
 
@@ -164,6 +169,7 @@ TASK_SECTIONS = {
     "task_delivery": ("实际改动与版本", "运行与产物", "验证结果", "资源观测", "未完成与未知项"),
 }
 RESEARCH_TASK_KINDS = ("harness", "literature", "experiment", "analysis")
+FINAL_EXEC = ("succeeded", "failed", "cancelled")
 # What one attempt of a run records; kept in run.attempts when the run is resubmitted.
 ATTEMPT_FIELDS = ("job_id", "exec_status", "valid", "invalid_reason", "curve_path", "log_path", "output_path",
                   "started_at", "finished_at") + RUN_MEASUREMENTS
@@ -429,6 +435,8 @@ class ResearchDB:
     def __init__(self, db_path: str | Path, actor: str):
         self.db_path = Path(db_path)
         self.docs_root = self.db_path.parent / "docs"
+        # research/<project-id>/research_tree.db lives in the project directory.
+        self.project_dir = self.db_path.resolve().parent.parent.parent
         role, _, agent = actor.partition("/")
         if role not in ROLES or not re.fullmatch(r"[A-Za-z0-9_.]+", agent):
             raise ResearchDBError(f"actor must be <role>/<agent-id> with role in {ROLES}, got {actor!r}")
@@ -834,6 +842,10 @@ class ResearchDB:
             open_nodes = [h["id"] for h in hypotheses if h["status"] != "prunable"]
             if open_nodes:
                 raise ResearchDBError(f"NOT GO needs every hypothesis prunable; still open: {open_nodes}")
+            waiting = [d["experiment_id"] for d in self._cleanup_due(tx)]
+            if waiting:
+                raise ResearchDBError(f"NOT GO comes after the cleanup; still due: {', '.join(waiting)} (their owners "
+                                      "run run_cleanup)")
         if new in ("stopped", "active") and not any(
             e["_table"] == "document" and e["doc_type"] == "user_instruction" for e in evidence
         ):
@@ -845,11 +857,18 @@ class ResearchDB:
                           walltime_s: int, hypothesis_id: str | None = None, n_seeds: int | None = None,
                           **optional) -> str:
         """Seeds are the first n of project.seeds: baselines default to gate_seeds; node experiments default to
-        (and may not exceed) the screening count from the SOTA cost."""
+        (and may not exceed) the screening count from the SOTA cost.
+
+        Once its statistics are recorded an experiment's outputs are cleaned (run_cleanup), all but its evidence.
+        keep (output classes, e.g. ["final_weights"]) with keep_reason (which later experiment uses them) holds
+        those classes back until its node is pruned (for a baseline: every node is) and every experiment that
+        depends on it (link rel_depends_on) is evaluated. Declare it here: later the outputs are gone."""
         self._require_role("rld", "worker")
-        self._only_fields(optional, ("config_path", "owner"))
+        self._only_fields(optional, ("config_path", "owner", "keep", "keep_reason"))
         if optional.get("owner") and self.role != "rld":
             raise PermissionDenied("only rld assigns an experiment to another owner")
+        if optional.get("keep") and not (optional.get("keep_reason") or "").strip():
+            raise ResearchDBError("keep needs keep_reason: which later experiment uses these outputs")
         with self._writer() as tx:
             project = self._project(tx)
             self._require_active(project)
@@ -1414,6 +1433,123 @@ class ResearchDB:
                                         for e in (tx.get(i) for i in tx.ids("experiment")) if e["kind"] == "baseline"]
             return package
 
+    # -- cleanup --------------------------------------------------------------------------
+    # The project's script (research-tree-cleanup.py) says which files of a run are disposable and deletes them;
+    # this interface decides when an experiment is due, checks the script's plan and keeps the ledger.
+
+    def cleanup_due(self, node_id: str | None = None) -> list[dict]:
+        """Experiments whose outputs are due for cleanup (optionally of one node): evaluated since their last
+        cleanup, of a concluded node without a verdict, or with kept outputs now released. Each lists its
+        runs (earlier attempts too) with their output directories and evidence, and the classes still kept."""
+        with self.reader() as tx:
+            return [d for d in self._cleanup_due(tx) if node_id in (None, d["node"])]
+
+    def _cleanup_due(self, tx: _Tx) -> list[dict]:
+        project = self._project(tx)
+        hyps = {h["id"]: h for h in (tx.get(i) for i in tx.ids("hypothesis"))}
+        all_pruned = bool(hyps) and all(h["status"] == "prunable" for h in hyps.values())
+        users = tx.edges("rel_depends_on")
+        runs_of: dict[str, list[dict]] = {}
+        for run in (tx.get(i) for i in tx.ids("run")):
+            runs_of.setdefault(run["experiment_id"], []).append(run)
+        due = []
+        for exp in (tx.get(i) for i in tx.ids("experiment")):
+            runs = runs_of.get(exp["id"], [])
+            if not runs or any(r["exec_status"] not in FINAL_EXEC for r in runs):
+                continue
+            hyp = hyps.get(exp.get("hypothesis_id"))
+            passes = exp.get("cleanup") or {}
+            last = passes[max(passes, key=int)] if passes else None
+            covered = {name for p in passes.values() for name in p.get("covered", [])}
+            released = (hyp["status"] == "prunable" if hyp else all_pruned) and all(
+                tx.get(u["source_id"]).get("evaluated_at") for u in users if u["target_id"] == exp["id"])
+            keep = [] if released else list(exp.get("keep") or [])
+            # Every attempt of every run, named <run>@<attempt>; a pass covers the ones it cleaned.
+            entries = []
+            for run in sorted(runs, key=lambda r: r["seed"]):
+                attempts = [(run["attempt"], run)] + [(int(n), a) for n, a in (run.get("attempts") or {}).items()]
+                for n, a in sorted(attempts, key=lambda x: x[0]):
+                    entries.append({"run": f"{run['id']}@{n}", "output_dir": self._research_path(a.get("output_path")),
+                                    "evidence": [p for p in (self._research_path(a.get(k)) for k in ("log_path", "curve_path")) if p]})
+            uncovered = any(e["run"] not in covered for e in entries)
+            if exp.get("evaluated_at") and uncovered:
+                reason = "statistics recorded"
+            elif not exp.get("evaluated_at") and hyp and hyp.get("concluded_at") and uncovered:
+                reason = "node concluded without a verdict for it"
+            elif last is not None and last.get("kept") and not keep:
+                reason = "kept outputs released"
+            else:
+                continue
+            due.append({"experiment_id": exp["id"], "node": exp.get("hypothesis_id") or project["id"], "owner": exp["owner"],
+                        "reason": reason, "keep": keep, "runs": entries})
+        return due
+
+    def _research_path(self, path: str | None) -> str | None:
+        """A recorded path as an absolute one: relative paths are relative to the research root (research/<id>/)."""
+        if not path:
+            return None
+        return os.path.realpath(path if os.path.isabs(path) else self.db_path.parent / path)
+
+    def run_cleanup(self, experiment_id: str, dry_run: bool = False) -> dict:
+        """Clean a due experiment's outputs with the project's research-tree-cleanup.py: its owner (or rld), right
+        after record_verdict and before delivering. The script plans what to delete; every item must lie inside
+        its run's output directory, hold no evidence (log, curve) and be of a class the experiment does not keep.
+        Then the script deletes them and the result is recorded in the experiment's cleanup ledger. dry_run
+        returns the checked plan only. A missing script is first copied from the plugin's template."""
+        with self.reader() as tx:
+            exp = tx.require(experiment_id, ("experiment",))
+            self._require_owner(exp)
+            entry = next((d for d in self._cleanup_due(tx) if d["experiment_id"] == experiment_id), None)
+        if entry is None:
+            raise ResearchDBError(f"{experiment_id} has no cleanup due: it is due once its statistics are recorded "
+                                  "(record_verdict) and all its runs are finished")
+        script = self.project_dir / CLEANUP_SCRIPT
+        if not script.is_file():
+            shutil.copyfile(CLEANUP_TEMPLATE, script)
+            raise ResearchDBError(f"copied the cleanup template to {script}: adapt its CLASSES to what this project's "
+                                  "runs write, preview with dry_run=true, then run run_cleanup again")
+        located = [r for r in entry["runs"] if r["output_dir"] and os.path.isdir(r["output_dir"])]
+        unlocated = [r["run"] for r in entry["runs"] if r not in located]
+        items = self._checked_plan(entry, located, _cleanup_script(script, "plan", {"runs": located, "keep": entry["keep"]}))
+        result = {"experiment_id": experiment_id, "reason": entry["reason"], "kept": entry["keep"],
+                  "unlocated": unlocated, "items": items}
+        if dry_run:
+            return {**result, "planned_bytes": sum(i["bytes"] for i in items)}
+        done = _cleanup_script(script, "delete", {"items": items}).get("items")
+        if not isinstance(done, list) or sorted(i.get("path", "") for i in done) != sorted(i["path"] for i in items):
+            raise ResearchDBError(f"{CLEANUP_SCRIPT} delete must answer each approved item once; check the files and "
+                                  "the script, then run run_cleanup again")
+        freed = sum(i["bytes"] for i in done if i.get("action") == "deleted")
+        with self._writer() as tx:
+            passes = dict(tx.require(experiment_id, ("experiment",)).get("cleanup") or {})
+            passes[str(len(passes) + 1)] = {
+                "at": now_utc(), "by": f"{self.role}/{self.agent}", "reason": entry["reason"], "kept": entry["keep"],
+                "freed_bytes": freed, "unlocated": unlocated, "items": done, "covered": [r["run"] for r in entry["runs"]],
+                "failed": sum(i.get("action") != "deleted" for i in done)}
+            self._update(tx, experiment_id, {"cleanup": passes})
+        return {**result, "items": done, "freed_bytes": freed}
+
+    def _checked_plan(self, entry: dict, located: list[dict], plan: dict) -> list[dict]:
+        runs = {r["run"]: r for r in located}
+        items, seen = [], set()
+        for item in plan.get("items", []) if isinstance(plan, dict) else [None]:
+            if not isinstance(item, dict) or set(item) != {"run", "path", "class", "bytes"} or not isinstance(item["bytes"], int):
+                raise ResearchDBError(f"{CLEANUP_SCRIPT} plan items are {{run, path, class, bytes}}; got {item!r}")
+            run = runs.get(item["run"])
+            path = os.path.realpath(item["path"])
+            problem = (
+                "not one of the runs given" if run is None
+                else "outside the run's output directory" if not Path(path).is_relative_to(run["output_dir"]) or path == run["output_dir"]
+                else "holds evidence (log or curve)" if any(e == path or Path(e).is_relative_to(path) for e in run["evidence"])
+                else f"of the kept class {item['class']}" if item["class"] in entry["keep"] or item["class"] == "evidence"
+                else "listed twice" if path in seen else None)
+            if problem:
+                raise ResearchDBError(f"{CLEANUP_SCRIPT} planned {item['path']}, which is {problem}; fix the script, "
+                                      "preview with dry_run=true, then run run_cleanup again")
+            seen.add(path)
+            items.append({**item, "path": path})
+        return items
+
     # -- tasks ----------------------------------------------------------------------------
 
     def create_task(self, kind: str, assignee_role: str, request_doc_id: str, target_id: str | None = None,
@@ -1442,7 +1578,8 @@ class ResearchDB:
         """Move a task along open -> in_progress -> delivered -> accepted/rejected (rejected -> in_progress again;
         rld may cancel). The assignee starts and delivers; delivered needs delivery_doc_id in the same call; rld
         accepts, rejects, cancels and (while open) assigns with assignee_id. The delivery document has the '## '
-        sections 实际改动与版本, 运行与产物, 验证结果, 资源观测, 未完成与未知项."""
+        sections 实际改动与版本, 运行与产物, 验证结果, 资源观测, 未完成与未知项, and the node's due cleanups
+        are done first (run_cleanup)."""
         with self._writer() as tx:
             task = tx.require(task_id, ("task",))
             changes = {}
@@ -1467,6 +1604,9 @@ class ResearchDB:
                 if status != "delivered":
                     raise ResearchDBError("delivery_doc_id is set together with status delivered")
                 self._check_sections(tx, delivery_doc_id)
+                waiting = [d["experiment_id"] for d in self._cleanup_due(tx) if d["node"] == task.get("target_id")]
+                if waiting:
+                    raise ResearchDBError(f"clean up first: {', '.join(waiting)} (run_cleanup), then deliver")
                 changes["delivery_doc_id"] = delivery_doc_id
             elif status == "delivered":
                 raise ResearchDBError("delivering a task needs delivery_doc_id")
@@ -1587,6 +1727,18 @@ def _invalid_runs(tx: _Tx, exp: dict) -> str:
     return ", ".join(states)
 
 
+def _cleanup_script(script: Path, step: str, request: dict) -> dict:
+    """One step (plan or delete) of the project's cleanup script: JSON in on stdin, JSON out on stdout."""
+    out = subprocess.run([sys.executable, str(script), step], input=json.dumps(request, ensure_ascii=False),
+                         capture_output=True, text=True, cwd=script.parent)
+    if out.returncode != 0:
+        raise ResearchDBError(f"{script.name} {step} failed (exit {out.returncode}): {out.stderr.strip()[-800:]}")
+    try:
+        return json.loads(out.stdout)
+    except json.JSONDecodeError:
+        raise ResearchDBError(f"{script.name} {step} must print one JSON object; got {out.stdout[:200]!r}") from None
+
+
 def _not_allowed(what: str, old: str, new: str, allowed) -> ResearchDBError:
     """A refused state change, naming the changes that are possible from the current state."""
     return ResearchDBError(f"{what} {old} -> {new} is not allowed; from {old}: {', '.join(allowed) or 'none (final)'}")
@@ -1641,7 +1793,7 @@ def _is_go_candidate(hyp: dict) -> bool:
 
 # The methods that only read: the UI's and any reader's whole interface.
 READ_METHODS = ("help", "get", "find", "edges", "children", "history", "go_candidates", "latest_result",
-                "screen_seed_count", "export_snapshot", "verify_document", "resume_package")
+                "screen_seed_count", "export_snapshot", "verify_document", "resume_package", "cleanup_due")
 
 CLI_METHODS = sorted(
     name for name in vars(ResearchDB) if not name.startswith("_") and callable(getattr(ResearchDB, name))
