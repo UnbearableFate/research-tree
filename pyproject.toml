@@ -1,5 +1,5 @@
 [project]
-name = "research-agent"
+name = "research-tree"
 version = "0.1.0"
 description = "Rules, database, document library, messaging and progress page for multi-agent ML method discovery"
 requires-python = ">=3.11"

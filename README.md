@@ -1,12 +1,12 @@
-# research-agent
+# research-tree
 
-多角色研究 agent 的规则与工具：面向 ML 预训练/后训练方法发现，阶段1用最小实验快速验证假说并作出 GO/NOT GO 判断。全部内容打包为一个 Claude Code 插件 `research-tree`（`claude-mod/research-tree/`），本仓库同时是它的 marketplace（名为 `research-agent`）。
+多角色研究 agent 的规则与工具：面向 ML 预训练/后训练方法发现，阶段1用最小实验快速验证假说并作出 GO/NOT GO 判断。全部内容打包为一个 Claude Code 插件 `research-tree`（`claude-mod/research-tree/`），本仓库同时是它的 marketplace（同名 `research-tree`）。
 
 ## 安装
 
 ```bash
 claude plugin marketplace add <本仓库的 git 地址或本地路径>
-claude plugin install research-tree@research-agent
+claude plugin install research-tree@research-tree
 ```
 
 只在一次会话中试用而不安装：`claude --plugin-dir <本仓库>/claude-mod/research-tree`。

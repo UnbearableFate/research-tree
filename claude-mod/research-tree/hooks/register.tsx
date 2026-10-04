@@ -233,11 +233,16 @@ async function guard($: EngineInterface, path: string): Promise<{ deny: string }
 
 const DB_WRITE = /\b(rm|mv|cp|dd|truncate|sqlite3|shred|tee)\b|>/
 
-/** A shell command that writes the database file directly instead of going through the tools. */
-function writesDatabase(command: string): boolean {
-  if (!/research_tree\.db/.test(command)) return false
+// A project database lives at research/<project-id>/research_tree.db (its write-ahead log beside it).
+const PROJECT_DB = /(^|[\s'"=/])research\/[^\s'"/]+\/research_tree\.db/
+
+/** A shell command that writes a project database directly instead of going through the tools: the current
+ *  project's database, or any research/<id>/research_tree.db. Other files that happen to be named
+ *  research_tree.db (a scratch or test database) are not protected. */
+function writesDatabase(command: string, projectDb?: string | null): boolean {
   if (/\b(research_db|create_db|build_site|send_message|make_demo|research_tree)\.py\b/.test(command)) return false
-  return DB_WRITE.test(command)
+  if (!DB_WRITE.test(command)) return false
+  return PROJECT_DB.test(command) || (!!projectDb && command.includes(projectDb))
 }
 
 /** The node (hypothesis id, or the project for the root) whose assigned worker identity is `workerId`. */
@@ -633,8 +638,8 @@ export const register: Register = (on, options) => {
   on('tool.call', { tool: 'NotebookEdit' }, async ($, e, next) => (await guard($, e.notebook_path)) ?? next(e))
 
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
-    if (writesDatabase(e.command)) {
-      return { deny: `${PLUGIN}: 不要直接改动研究数据库文件；通过 research_db 工具或 tools/research_db.py 写入，它会检查规则并记录决定。` }
+    if (writesDatabase(e.command, (await $.state.get(projectRef)).value?.db)) {
+      return { deny: `${PLUGIN}: 不要直接改动研究项目的数据库文件；通过 research_db 工具或 tools/research_db.py 写入，它会检查规则并记录决定。` }
     }
     const ran = await next(e)
     if (/\b(research_db|send_message|make_demo|build_site|research_tree)\.py\b/.test(e.command)) await refresh($, cfg)

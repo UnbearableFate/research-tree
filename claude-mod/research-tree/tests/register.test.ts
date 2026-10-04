@@ -24,12 +24,17 @@ test('frozen documents and the frozen harness are guarded, other paths are not',
   expect(internals.guardReason(null, '/anything')).toBeUndefined()
 })
 
-test('only direct writes to the database file count as database writes', () => {
+test('only direct writes to a project database count as database writes', () => {
+  const db = '/work/study/research/my-study/research_tree.db'
   expect(internals.writesDatabase('rm demo/research/P-x/research_tree.db')).toBe(true)
-  expect(internals.writesDatabase('sqlite3 research_tree.db "delete from x"')).toBe(true)
-  expect(internals.writesDatabase('cp backup.db research_tree.db')).toBe(true)
-  expect(internals.writesDatabase('ls -l research_tree.db')).toBe(false)
-  expect(internals.writesDatabase('.venv/bin/python tools/research_db.py --db research_tree.db decide "{}" > out.json')).toBe(false)
+  expect(internals.writesDatabase('rm research/my-study/research_tree.db-wal')).toBe(true)
+  expect(internals.writesDatabase(`sqlite3 ${db} "delete from x"`)).toBe(true)
+  expect(internals.writesDatabase(`cp backup.db ${db}`, db)).toBe(true)
+  // A database file outside research/<id>/ is not a project database.
+  expect(internals.writesDatabase('rm research_tree.db research_tree.db-wal')).toBe(false)
+  expect(internals.writesDatabase('rm /tmp/scratch/research_tree.db')).toBe(false)
+  expect(internals.writesDatabase(`ls -l ${db}`, db)).toBe(false)
+  expect(internals.writesDatabase(`.venv/bin/python tools/research_db.py --db ${db} decide "{}" > out.json`, db)).toBe(false)
   expect(internals.writesDatabase('rm -rf build/')).toBe(false)
 })
 
