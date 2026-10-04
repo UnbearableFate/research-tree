@@ -5,6 +5,7 @@ __pycache__/
 .venv/
 # Scratch output used to fetch results from interactive compute sessions.
 .pane-out/
+dist/
 # Generated demo: nested git repo, worktrees, run outputs and literature cache.
 demo/code/
 demo/worktrees/

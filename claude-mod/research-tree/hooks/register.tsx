@@ -176,7 +176,7 @@ async function registerAgents($: EngineInterface, conf: ResearchConfig | null | 
   })
 }
 
-/** /research-tree config: the configuration in effect, and whether the file has changes not applied yet. */
+/** /research-tree config show: the effective configuration and pending changes. */
 function configText(view: ResearchConfigView): string {
   const m = view.effective.models
   const model = (x: typeof m.ui) => `${x.model}${x.effort != null ? ` / ${x.effort}` : ''}`
@@ -791,7 +791,11 @@ function parallelBlock(s: ResearchSummary | null | undefined, named: string): st
 
 /** `/research-tree config [show|apply]`. Applying registers the file as the configuration in effect, writes its
  *  budget and gates into the project record, re-registers the agents and tells the RLD. */
-async function configCommand($: EngineInterface, cfg: Config, action: string): Promise<string> {
+async function configCommand($: EngineInterface, cfg: Config, action = ''): Promise<string> {
+  if (!action) {
+    const out = await $.process.run(['sh', `${$.plugin.root}/tools/copy_config.sh`, await $.session.cwd()], { timeoutMs: 10_000 })
+    return (out.stdout || out.stderr).trim() || `复制配置失败：exit ${out.exitCode}`
+  }
   if (action !== 'show' && action !== 'apply') return `用法：/${COMMAND} config [show|apply]`
   const env = await venv($)
   if ('problem' in env) return env.problem
@@ -834,7 +838,7 @@ export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: COMMAND,
-      description: '研究树：init <计划.md> [--python 3.13] [--id 项目ID] [--config 配置.yaml] [--update-uv]、confirm、config [apply]、status（默认）、ui、pane、refresh、build、check',
+      description: '研究树：config（复制默认YAML）、config show/apply、init <计划.md> [--python 3.13] [--id 项目ID] [--config 配置.yaml] [--update-uv]、confirm、status（默认）、ui、pane、refresh、build、check',
     })
     await $.tool.register({
       name: 'research_db',
@@ -959,7 +963,7 @@ export const register: Register = (on, options) => {
       return { text: confirmed }
     }
     if (sub === 'config') {
-      return { text: await configCommand($, cfg, words[1] ?? 'show') }
+      return { text: await configCommand($, cfg, words[1]) }
     }
     if (sub === 'ui') {
       await $.ui.open({ id: UI_PANE, title: '研究对话（UI）', focus: true })
@@ -1186,5 +1190,5 @@ function registerProgressPane(on: Parameters<Register>[0], cfg: Config): void {
 
 export const internals = {
   guardReason, writesDatabase, statusText, statusLine, workerBlock, parseInit, workerNode, workerActor, parallelBlock,
-  workerPrompt, platformText, uiPrompt,
+  workerPrompt, platformText, uiPrompt, configCommand,
 }

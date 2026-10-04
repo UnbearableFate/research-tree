@@ -9,7 +9,7 @@
   "plugins": [
     {
       "name": "research-tree",
-      "source": "./claude-mod/research-tree",
+      "source": "./dist/claude/plugins/research-tree",
       "description": "/research-tree init <plan.md> sets up a research project in the current directory; RLD planning, a UI window, one worker per node, a research database with workflow rules, a progress pane and an offline page."
     }
   ]

@@ -1,0 +1,8 @@
+{
+  "hooks": {
+    "SessionStart": [{"hooks": [{"type": "command", "command": "python3 \"${PLUGIN_ROOT}/tools/codex_hook.py\"", "timeout": 30}]}],
+    "PreToolUse": [{"hooks": [{"type": "command", "command": "python3 \"${PLUGIN_ROOT}/tools/codex_hook.py\"", "timeout": 30}]}],
+    "PostToolUse": [{"hooks": [{"type": "command", "command": "python3 \"${PLUGIN_ROOT}/tools/codex_hook.py\"", "timeout": 30}]}],
+    "Stop": [{"hooks": [{"type": "command", "command": "python3 \"${PLUGIN_ROOT}/tools/codex_hook.py\"", "timeout": 30}]}]
+  }
+}

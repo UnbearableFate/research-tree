@@ -1,73 +1,304 @@
 # research-tree
 
-多角色研究 agent 的规则与工具：面向 ML 预训练/后训练方法发现，阶段1用最小实验快速验证假说并作出 GO/NOT GO 判断。全部内容打包为一个 Claude Code 插件 `research-tree`（`claude-mod/research-tree/`），本仓库同时是它的 marketplace（同名 `research-tree`）。
+在 **Claude Code** 或 **Codex CLI** 中运行多角色 ML 研究：从研究计划出发，建立假说树，用最小实验筛选方法，并保留可追溯的结果、文档与决策。
+
+当前工作流聚焦**阶段 1：低成本验证与 GO / NOT GO 判断**。进入阶段 2 的大规模实验前，由用户确定范围与预算。
+
+两端共用研究规则、数据库、配置和页面生成器；分别提供适合各自宿主的命令、代理会话与界面。
+
+[安装](#安装) · [快速开始](#快速开始) · [研究工作流](#研究工作流) · [日常使用](#日常使用) · [项目配置](#项目配置) · [源码与发布](#源码与发布) · [开发与验证](#开发与验证)
 
 ## 安装
 
+### 环境要求
+
+- 对应的宿主 CLI。Codex 版已在 **CLI 0.160.0** 上验证，运行研究前需完成登录。
+- [uv](https://docs.astral.sh/uv/)；初始化研究项目时，用它建立 Python 环境并安装依赖。
+- Codex 适配层使用 POSIX 环境和 Python 3。**仅复制默认配置的 `config` 命令不依赖 Python、uv 或项目初始化。**
+
+安装包包含完整插件代码、规则、模板和依赖声明；不包含宿主 CLI、虚拟环境或离线依赖包。
+
+### 使用发布包
+
+选择对应 ZIP 并解压，然后在终端执行：
+
+| 宿主 | 发布包 | 解压后的 marketplace 根目录 |
+|---|---|---|
+| Claude Code | `research-tree-claude-<版本>.zip` | `research-tree-claude/` |
+| Codex CLI | `research-tree-codex-<版本>.zip` | `research-tree-codex/` |
+
+**Claude Code**
+
 ```bash
-claude plugin marketplace add <本仓库的 git 地址或本地路径>
+claude plugin marketplace add /absolute/path/to/research-tree-claude
 claude plugin install research-tree@research-tree
 ```
 
-只在一次会话中试用而不安装：`claude --plugin-dir <本仓库>/claude-mod/research-tree`。
+**Codex CLI**
 
-前提：机器上有 [uv](https://docs.astral.sh/uv/)。插件自带 Python 工具、数据库结构与规则；每个研究项目的 Python 环境由 `/research-tree init` 用 uv 在项目目录建立。
+```bash
+codex plugin marketplace add /absolute/path/to/research-tree-codex
+codex plugin add research-tree@research-tree
+```
 
-## 使用
+### 使用本地源码构建的版本
 
-主命令是 `/research-tree`，作用于会话所在目录。
+在仓库根目录构建两端安装包。共享集群上应在计算节点执行构建。
 
-1. `/research-tree init path/to/计划.md [--python 3.13] [--id 项目ID] [--config 配置.yaml] [--update-uv]`：确认有 uv（`--update-uv` 时先运行 `uv self update`）；当前目录还不是 uv 项目时运行 `uv init . --no-workspace --python=<版本>`（默认 3.13，即使位于另一个 uv 项目之内也建成独立项目）；再 `uv add latticedb==0.15.0 "jsonschema>=4.26" "pyyaml>=6.0"` 装好依赖。项目ID默认取 uv 项目名（即目录名）。然后在当前目录展开 `research/<项目ID>/`（docs、messages、snapshots、cache、site 等子目录），新建数据库与通信登记表，把计划原文逐字登记为用户指令，生成项目配置 `research-tree.yaml`（默认配置；`--config` 时从指定文件开始，校验后复制过来；目录里已有 `research-tree.yaml` 而没有用 `--config` 指明时拒绝，避免误用旧文件），写 `.research-tree.json` 标记项目，打开“研究对话”窗口，并让主会话（RLD）开始立项规划。
-2. RLD 读计划，写研究目标与最小实验设定，建项目、检索相关研究并建立初始假说节点（都是根节点的子节点；根节点只存放 baselines），为根节点写实现实验框架与基线的任务，然后在研究对话窗口请你确认。
-3. 在窗口里回复同意（UI agent 判断你的意思，插件把你的原话登记为确认），或运行 `/research-tree confirm`。确认时项目配置登记为生效版本，预算与门槛写入项目记录。确认之前插件拒绝启动 `research-tree:worker` 子代理；确认后 RLD 为根节点指派 worker 并实现它。每个节点一个 worker，身份、当前会话与恢复文档记录在节点上。
+```bash
+python3 scripts/build_plugins.py --target all
+```
 
-其他子命令：`config`（显示生效的项目配置；`config apply` 让 `research-tree.yaml` 的改动生效）、`status`（默认）、`ui`（研究对话窗口）、`pane`（进度面板）、`refresh`、`build`（生成离线页面）、`check`。
+生成的目录已经包含完整插件，**无需解压**：
 
-## 项目配置 `research-tree.yaml`
-
-`init` 默认生成带注释的模板（`schema/config.template.yaml`），也可以用 `--config` 从自己的文件开始（例如复用集群设置）。省略的键取默认值，各项含义如下：
-
-| 键 | 含义 | 默认 |
+| 用途 | Claude Code | Codex CLI |
 |---|---|---|
-| `platform.dev`、`platform.experiment` | 开发（写代码、单元测试）与实验（训练、评测）在哪里、怎么运行；原样交给 RLD 和每个 worker，例如集群的登录节点与计算节点分工、作业提交命令、账户组 | 在当前机器上运行 |
-| `platform.skills` | worker 启动时预加载的技能（例如集群调度系统的技能） | 无 |
-| `budget.per_run.nodes`、`budget.per_run.walltime` | 单次运行（一个 seed）的节点数与墙钟上限 | 8、1h |
-| `budget.screen_node_h` | 筛选预算，按 SOTA 第一个 seed 的成本决定筛选 seed 数 | 10 |
-| `budget.max_parallel_workers` | 同时有任务在手的 worker 数上限 | null（不限） |
-| `budget.alert_node_h` | 累计用量达到此值后提醒你，新实验和扩展 seed 暂停，直到你调高或取消它 | null（不限） |
-| `stage1.gate_seeds`、`stage1.go_margin` | 判定“优于SOTA”的 seed 数与主指标领先幅度；第一个实验登记后不能再改 | 3、0.05 |
-| `stage1.min_related_work` | 创建节点时至少引用的相关研究数 | 3 |
-| `models.ui`、`models.worker` | 子代理的 `model`（inherit、别名或完整 ID）与 `effort` | inherit、模型默认 |
+| 添加 marketplace 时使用 | `dist/claude/` | `dist/codex/` |
+| 完整插件所在目录 | `dist/claude/plugins/research-tree/` | `dist/codex/plugins/research-tree/` |
 
-确认立项之前，文件的改动直接生效；之后改动要运行 `/research-tree config apply`：它把文件登记为新版本（`docs/project/config.vN.yaml`）和一条用户指令，更新项目记录，重新注册 UI 与 worker 子代理，并通知 RLD。RLD 就是主会话，它的模型由你启动 Claude Code 时选择。
+安装命令与发布包相同，将路径换成 `dist/claude` 或 `dist/codex` 的绝对路径即可。Claude 也可仅在一次会话中试用：
 
-## 插件内容（`claude-mod/research-tree/`）
+```bash
+claude --plugin-dir /absolute/path/to/research-agent/dist/claude/plugins/research-tree
+```
 
-| 路径 | 内容 |
+`claude-mod/` 和 `codex-plugin/` 只存放适配层源码，不能直接作为完整插件安装。修改源码后重新构建，再更新已安装的插件。
+
+## 快速开始
+
+以下命令在**研究项目目录的宿主会话中**输入，作用于该目录。Claude Code 使用 `/research-tree`，Codex 使用 `$research-tree`。
+
+### 1. 准备配置
+
+| Claude Code | Codex CLI |
 |---|---|
-| `.claude-plugin/plugin.json`、`hooks/`、`types/` | Claude Code 插件：`/research-tree`、研究对话窗口（UI agent）、worker 子代理类型、进度面板与状态栏、`research_db` 等工具、工作流系统提示、写入保护 |
-| `rules/research-tree-rules.md` | 工作规则（角色、沟通、项目配置、阶段1、生命周期、产物清理） |
-| `schema/research_tree.sql`、`schema/create_db.py` | 数据库结构规格（LatticeDB 属性图）与建库 |
-| `schema/config.template.yaml`、`schema/config.schema.json` | 项目配置的模板（即默认值）与校验规则 |
-| `schema/doc_library.md`、`schema/web_builder.md`、`schema/message.schema.json` | 文档库、页面与消息格式设计 |
-| `tools/research_db.py` | 数据库读写接口（Python 与 CLI），执行全部字段、权限与状态规则 |
-| `tools/research_tree.py` | `/research-tree` 的确定性部分：初始化项目、登记用户指令、推进立项阶段、显示与应用项目配置 |
-| `tools/project_config.py` | 读取、补全与校验 `research-tree.yaml` |
-| `tools/send_message.py` | 校验、记录并打印一条消息 |
-| `tools/build_site.py` | 生成离线单文件进度页面 |
-| `tools/make_demo.py` | 生成虚构示例项目 |
-| `tests/` | Python 测试（`test_*.py`）与插件测试（`register.test.ts`） |
+| `/research-tree config` | `$research-tree config` |
 
-仓库根目录另有 `demo/`（`make_demo.py` 生成的虚构示例项目，页面 `demo/research/P-demo-lora-opt/site/index.html`）与开发用的 `pyproject.toml`。
+命令将默认模板原样复制到当前目录的 `research-tree.yaml`，已有文件不会覆盖。先编辑开发与实验平台、资源预算、模型等设置；配置项见[项目配置](#项目配置)。
+
+### 2. 编写研究计划
+
+在当前目录准备 `plan.md`，说明研究目标、初始假说、可用模型与数据、实验范围及验收要求。插件会保留计划原文，Leader 再将其整理为可执行的立项计划。
+
+### 3. 初始化项目
+
+| Claude Code | Codex CLI |
+|---|---|
+| `/research-tree init plan.md --config research-tree.yaml` | `$research-tree init plan.md --config research-tree.yaml` |
+
+初始化会建立项目环境、数据库和文档目录，并进入立项规划。**此时还不会启动研究 worker。**
+
+如果跳过了第 1 步且当前目录没有配置文件，可以直接使用 `init plan.md`，由初始化生成默认配置。已有配置文件时，必须通过 `--config` 明确选用。
+
+Codex 的研究运行需要审阅并信任插件 hooks。其安装、会话恢复和权限说明见 [Codex 插件说明](codex-plugin/research-tree/README.md)。
+
+### 4. 审阅并确认立项计划
+
+Leader 会整理研究目标、最小实验设定、初始假说、基线任务和预算，并向你请求确认。审阅后可以在研究对话窗口或主会话中明确同意，也可以输入：
+
+| Claude Code | Codex CLI |
+|---|---|
+| `/research-tree confirm` | `$research-tree confirm` |
+
+确认后，插件登记当时的配置版本，Leader 才能指派 worker，先实现根节点的实验框架与基线。
+
+### 初始化选项
+
+两端 `init` 支持以下选项：
+
+| 选项 | 用途 |
+|---|---|
+| `--config 配置.yaml` | 从指定配置开始；可复用已有集群设置 |
+| `--id 项目ID` | 指定项目 ID；默认从项目名称推导 |
+| `--python 3.13` | 建立新环境时使用的 Python 版本，默认 `3.13` |
+| `--update-uv` | 初始化前运行 `uv self update` |
+
+## 研究工作流
+
+### 角色如何协作
+
+| 角色 | 主要职责 |
+|---|---|
+| **用户** | 提供目标和约束，确认立项计划，决定预算、权限与范围变更 |
+| **UI：研究对话窗口** | 澄清需求、记录用户原话、解释已有结果，将问题和指令转交 Leader |
+| **RLD：Research Leader** | 当前主会话中的唯一 Leader；规划研究、分配任务、评审证据、拓展或剪枝假说树 |
+| **worker** | 每个节点绑定一个固定身份；负责该节点的代码、实验、验证和证据交付 |
+
+用户也可以直接在主会话下达指令，无需到 UI 重复授权。UI 负责沟通，实验调度与研究决策由 Leader 执行。
+
+### 从计划到结论
+
+```mermaid
+flowchart TD
+    A["用户准备计划与配置"] --> B["初始化：Leader 整理立项计划"]
+    B --> C["用户确认目标、实验设定与预算"]
+    C --> D["根节点 worker 实现框架并运行基线"]
+    D --> E["Leader 审核并冻结框架与统计代码"]
+    E --> F["节点 worker 改代码、运行最小实验"]
+    F --> G["统计判定与 Leader 决策"]
+    G -->|"补充实验或拓展假说"| F
+    G -->|"优于 SOTA"| H["复核实验公平性、新颖性与理论正确性"]
+    H -->|"满足全部条件"| I["阶段 1 GO：报告证据与局限"]
+    H -->|"需修正或继续探索"| G
+    G -->|"全部候选已排除，且无值得验证的新节点"| J["项目 NOT GO：报告依据与未探索范围"]
+```
+
+| 阶段 | 发生什么 | 留下什么证据 |
+|---|---|---|
+| **立项规划** | Leader 阅读计划、检索相关研究，建立初始假说与根节点任务，向用户请求确认 | 目标、最小实验设定、相关研究、立项计划 |
+| **建立基线** | 根节点 worker 实现训练、评测与统计代码，实际运行统一 seed 的 SOTA 基线；Leader 审核后冻结 | 框架版本、基线运行、原始指标和统计结果 |
+| **验证假说** | 每个节点的 worker 在自己的分支或 worktree 中实现改动，按预算运行筛选实验 | 代码版本、实验设定、run/job ID、结果与交付文档 |
+| **比较与迭代** | 使用冻结的统计代码与父节点、SOTA 比较；Leader 决定补充 seed、拓展或剪枝 | 实验判定、节点状态和决定理由 |
+| **复核与结项** | 优于 SOTA 后复核公平性、新颖性与理论正确性；满足条件时作出 GO 或 NOT GO 判断 | 复核记录、最终报告、进度页面与未完成项 |
+
+### 假说树如何组织
+
+根节点只存放实验框架、统计代码和基线；初始假说彼此平级。验证完成且可拓展的节点，才能继续派生子节点。
+
+```text
+根节点：框架与 baselines                   ← worker/root
+├── 初始假说 A                            ← 独立 worker
+│   └── A 的后续改进（A 验证后再创建）     ← 独立 worker
+└── 初始假说 B                            ← 独立 worker
+```
+
+节点状态为 **待验证 → 验证中 → 验证完成·可拓展 / 验证完成·可消灭**。实验结果、作业执行状态和研究决定分别记录；worker 一轮会话结束，不代表实验或研究已经完成。
+
+### 哪些情况需要用户决定
+
+- **立项确认前**：不启动研究 worker。
+- **预算、资源或权限不足时**：Leader 报告进展与所需变更，由用户决定；等待期间可继续授权范围内的独立工作。
+- **用户要求暂停、停止或修改目标时**：按用户指令调整，并核对在途作业与任务。
+- **进入阶段 2 前**：由用户确定大规模实验的范围与预算。
+
+**阶段 1 GO** 要求至少一个节点在全部统一 seed 上达到优于 SOTA 的门槛，并通过新颖性与理论正确性复核。它是继续研究的筛选信号，不等同于统计显著性或可发表结论。
+
+**项目 NOT GO** 要求所有候选节点都有排除依据，且 Leader 无法提出值得验证的新节点。预算不足、工程失败、作业仍在运行或结果缺失，都不能单独作为 NOT GO 的依据。Leader 按规则作出科学判断后直接报告，无需用户再次批准该判断。
+
+完整判定、恢复与产物管理规则见 [research-tree 工作规则](shared/research-tree/rules/research-tree-rules.md)。
+
+## 日常使用
+
+下表省略命令前缀：Claude Code 加 `/research-tree`，Codex 加 `$research-tree`。
+
+| 命令 | 用途 |
+|---|---|
+| `config` | 复制默认 YAML 到当前目录；无需 Python，不覆盖已有文件 |
+| `config show` | 查看生效配置及尚未应用的修改 |
+| `config apply` | 将用户修改后的配置登记为新版本并应用 |
+| `status` | 查看研究摘要；也是不带子命令时的默认操作 |
+| `ui` | Claude 打开研究对话窗口；Codex 返回在另一个终端打开对话窗口的命令 |
+| `pane` | Claude 打开内嵌进度面板；Codex 生成离线 HTML 页面并返回路径 |
+| `refresh` | 刷新研究摘要 |
+| `build` | 生成离线 HTML 进度页面 |
+| `check` | 检查页面版本是否与数据库一致 |
+
+离线页面位于 `research/<项目ID>/site/index.html`，提供**总览、假说树、实验结果、发现、时间线、待处理**六个视图，可直接用浏览器打开。页面是生成时的快照，研究推进后用 `build` 更新。
+
+Claude 版提供内嵌窗口、面板和状态栏；Codex 版使用独立终端与 HTML 页面。两端研究规则与数据协议共用，界面按宿主能力适配。
+
+### 中断后如何继续
+
+重要中间结论会写入版本化文档，节点记录 worker 身份、当前会话和恢复资料。继续研究时，Leader 先读取记录并核对原作业状态，再续接原 worker；无法续接时，以同一身份从恢复资料接手。
+
+消息的**已投递、已接收、已落实**分别记录。没有收到回复时先核对日志和对方状态，避免重复发送指令或重复提交实验。
+
+## 项目配置
+
+配置文件为研究项目目录中的 `research-tree.yaml`。可用 `config` 复制[带注释的默认模板](shared/research-tree/schema/config.template.yaml)，省略的键取默认值。
+
+| 配置项 | 含义 | 默认值 |
+|---|---|---|
+| `platform.dev` / `platform.experiment` | 开发与实验在哪里、如何执行；可填写集群、队列、模块、数据位置等要求 | 在当前机器上运行 |
+| `platform.skills` | worker 应加载的已安装技能 | `[]` |
+| `budget.per_run.nodes` / `budget.per_run.walltime` | 单次运行，即一个 seed 的节点数和墙钟上限 | `8` / `1h` |
+| `budget.screen_node_h` | 按基线实际成本计算筛选 seed 数的预算 | `10` node·h |
+| `budget.max_parallel_workers` | 同时持有任务的 worker 数上限 | `null`，不限 |
+| `budget.alert_node_h` | 累计用量提醒阈值；达到后暂停新实验与扩展 seed，等待用户调整 | `null`，不限 |
+| `stage1.gate_seeds` | 判定优于 SOTA 所需的统一 seed 数 | `3` |
+| `stage1.go_margin` | 主指标领先 SOTA 的幅度门槛 | `0.05` |
+| `stage1.min_related_work` | 每个假说至少引用的相关研究数 | `3` |
+| `models.ui` / `models.worker` | 子代理的模型与 effort | `inherit` / 模型默认 |
+
+`go_margin` 按指标的优劣方向计算：百分比指标使用百分点的绝对差，其他指标使用相对差。`gate_seeds` 和 `go_margin` 在第一个实验登记后不能再修改。
+
+**配置何时生效：**立项确认前，文件修改用于当前规划；确认时登记为生效版本。确认后须运行 `config apply`，插件会生成 `docs/project/config.vN.yaml`、记录用户指令并更新项目记录。新启动的子代理使用现行配置，活跃 worker 由 Leader 转告变更。
+
+主会话就是 RLD，其模型由用户启动宿主 CLI 时选择。
+
+## 源码与发布
+
+### 一份共享源码，两种完整安装包
+
+```text
+shared/research-tree/         # 公共工具、schema、规则与 Python 测试
+claude-mod/research-tree/     # Claude Code 适配层：hooks、types、清单与测试
+codex-plugin/research-tree/   # Codex 适配层：skills、MCP、hooks、会话控制与测试
+scripts/build_plugins.py     # 组装 marketplace 与 ZIP
+
+# 构建产物，不纳入 Git
+dist/claude/                 # Claude marketplace，内含完整插件
+dist/codex/                  # Codex marketplace，内含完整插件
+dist/research-tree-*.zip      # 可独立解压安装的发布包
+```
+
+修改公共业务逻辑时，只改 `shared/research-tree/`；宿主会话、工具调用和界面改对应适配层。构建将两层合并，拒绝同路径文件冲突。生成的包不依赖源码仓库、符号链接或另一宿主目录。
+
+```bash
+python3 scripts/build_plugins.py --target all
+# 也可选择 --target claude 或 --target codex
+# 用 --output <目录> 指定输出位置
+```
+
+每包携带 `pyproject.toml`、`uv.lock`、测试和 `BUILD.json` 文件摘要。ZIP 使用固定排序与时间戳，相同输入产生相同归档。缺少必要文件或发生冲突时，构建失败并保留上次成功产物。不要直接修改 `dist/`。
+
+### 主要入口
+
+| 文件或目录 | 内容 |
+|---|---|
+| [工作规则](shared/research-tree/rules/research-tree-rules.md) | 角色、工作流、科学判定、预算、生命周期与清理 |
+| [research_db.py](shared/research-tree/tools/research_db.py) | 数据库接口、字段校验、角色权限与状态规则 |
+| [research_tree.py](shared/research-tree/tools/research_tree.py) | 初始化、用户指令、需求文档、配置登记与立项阶段 |
+| [copy_config.sh](shared/research-tree/tools/copy_config.sh) | 不依赖 Python 的默认配置复制入口 |
+| [project_config.py](shared/research-tree/tools/project_config.py) | 配置读取、默认值与校验 |
+| [send_message.py](shared/research-tree/tools/send_message.py) | 消息校验与持久化 |
+| [build_site.py](shared/research-tree/tools/build_site.py) | 离线进度页面生成器 |
+| [schema/](shared/research-tree/schema/) | 数据库、配置、文档和消息格式 |
+| [Codex 插件说明](codex-plugin/research-tree/README.md) | Codex 功能对应、会话管理与故障恢复 |
+| [demo/](demo/) | 虚构示例项目，页面位于 `demo/research/P-demo-lora-opt/site/index.html` |
 
 ## 开发与验证
 
-在共享集群上，按集群的规定在计算节点运行测试与生成。
+开发环境依赖声明位于仓库根目录。共享集群上，按平台规定在计算节点运行测试与构建。
+
+**公共逻辑与打包**
 
 ```bash
-P=claude-mod/research-tree
-.venv/bin/python -m unittest discover -s $P/tests        # Python 测试（需要 git；有 node 时检查页面脚本语法）
-claude plugin validate . && claude plugin validate $P   # marketplace 与插件清单
-claude plugin test $P                                   # 插件测试
-.venv/bin/python $P/tools/make_demo.py --dest demo      # 重新生成虚构示例项目
+.venv/bin/python -m unittest discover -s shared/research-tree/tests
+.venv/bin/python -m unittest discover -s tests
+python3 scripts/build_plugins.py --target all
+```
+
+**Claude 适配层**
+
+```bash
+claude plugin validate dist/claude
+claude plugin validate dist/claude/plugins/research-tree
+claude plugin test dist/claude/plugins/research-tree
+```
+
+**Codex 适配层**
+
+```bash
+.venv/bin/python -m unittest discover -s dist/codex/plugins/research-tree/tests -p test_codex_adapter.py
+.venv/bin/python scripts/check_codex_install.py dist/codex
+.venv/bin/python scripts/check_codex_sessions.py dist/codex/plugins/research-tree --evidence /tmp/new-session-check
+```
+
+安装检查使用隔离的配置目录。会话检查使用真实 Codex CLI 和本地确定性 Responses 服务，验证 worker 启动、排队、恢复与独立 UI；不调用付费模型，也不代替对真实模型研究质量的评估。`--evidence` 需要一个尚不存在的目录。
+
+重新生成虚构示例：
+
+```bash
+.venv/bin/python shared/research-tree/tools/make_demo.py --dest demo
 ```

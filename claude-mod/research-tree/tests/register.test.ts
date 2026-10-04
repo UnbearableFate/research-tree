@@ -61,6 +61,20 @@ test('a shell command writing the database file is refused', async ($, on) => {
 
 const RUN = { origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 160 } }
 
+test('bare config copies through the shared shell helper without a project or Python', async () => {
+  const calls: string[][] = []
+  const host = {
+    plugin: { root: '/plugin root' },
+    session: { cwd: async () => '/user project' },
+    process: { run: async (argv: string[]) => {
+      calls.push(argv)
+      return { exitCode: 0, stdout: 'copied\n', stderr: '' }
+    } },
+  }
+  expect(await internals.configCommand(host as never, { actor: 'rld/main' })).toBe('copied')
+  expect(calls).toEqual([['sh', '/plugin root/tools/copy_config.sh', '/user project']])
+})
+
 test('without a project here the command points to init', async $ => {
   const ran = await $.command.run({ command: 'research-tree', args: '', ...RUN })
   expect(ran.text).toContain('/research-tree init')

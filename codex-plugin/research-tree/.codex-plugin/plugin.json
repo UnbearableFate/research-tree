@@ -1,0 +1,8 @@
+{
+  "name": "research-tree",
+  "version": "0.1.0",
+  "description": "Multi-agent ML research: project planning, a separate UI, persistent node workers, experiment gates and an offline progress tree.",
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "hooks": "./hooks/hooks.json"
+}

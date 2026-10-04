@@ -1,0 +1,10 @@
+{
+  "name": "research-tree",
+  "interface": {"displayName": "Research Tree"},
+  "plugins": [{
+    "name": "research-tree",
+    "source": {"source": "local", "path": "./dist/codex/plugins/research-tree"},
+    "policy": {"installation": "AVAILABLE", "authentication": "ON_INSTALL"},
+    "category": "Productivity"
+  }]
+}
