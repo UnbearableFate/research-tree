@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "research-tree/message.schema.json",
+  "title": "Agent message",
+  "description": "One agent-to-agent message: a short note plus references. Serialize as one line of compact UTF-8 JSON (ensure_ascii=False, no spaces); the serialized line must be <= 1000 bytes. The sender appends the exact line to messages/<sender-id>.jsonl before sending.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["v", "id", "ts", "project", "from", "to", "type", "text", "need"],
+  "properties": {
+    "v": { "const": 1, "description": "Message schema version." },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.]+-[0-9]{4,}$",
+      "description": "<sender-id>-<sequence>, unique within the sender's log, e.g. w3-0042."
+    },
+    "ts": { "type": "string", "format": "date-time", "description": "UTC send time." },
+    "project": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$" },
+    "from": { "$ref": "#/$defs/agent" },
+    "to": { "$ref": "#/$defs/agent" },
+    "type": {
+      "enum": ["instruction", "task", "delivery", "question", "reply", "confirm_request", "ack", "alert"],
+      "description": "instruction: UI -> RLD, a registered user instruction. task: RLD -> assignee. delivery: assignee -> RLD, task result. question / reply: ask and answer. confirm_request: RLD -> UI, needs a user decision. ack: receipt only. alert: failure, blocker or integrity problem."
+    },
+    "re": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9_.]+-[0-9]{4,}$",
+      "description": "id of the message this one answers."
+    },
+    "about": {
+      "type": "array",
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$" },
+      "description": "Database entity ids the message concerns (project, hypothesis, experiment, branch, decision, task). Documents such as instructions and literature notes go in docs."
+    },
+    "text": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200,
+      "description": "Short note. Anything that affects a decision must be in a referenced document, not only here."
+    },
+    "docs": {
+      "type": "array",
+      "maxItems": 5,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^(?!/)(?!.*\\.\\.)[A-Za-z0-9_./-]+\\.v[0-9]+\\.(md|json)$"
+      },
+      "description": "Versioned document paths relative to docs/; each must be registered in the database."
+    },
+    "need": {
+      "enum": ["none", "ack", "answer", "decision"],
+      "description": "What the sender expects back. decision is only for confirm_request."
+    }
+  },
+  "$defs": {
+    "agent": {
+      "type": "string",
+      "pattern": "^(ui|rld|worker|assistant|web_builder)/[A-Za-z0-9_.]+$",
+      "description": "<role>/<agent-id>, e.g. worker/w3."
+    }
+  },
+  "allOf": [
+    {
+      "if": { "properties": { "type": { "enum": ["instruction", "task", "delivery", "confirm_request"] } } },
+      "then": { "required": ["docs"], "properties": { "docs": { "minItems": 1 } } }
+    },
+    {
+      "if": { "properties": { "type": { "enum": ["reply", "ack"] } } },
+      "then": { "required": ["re"] }
+    },
+    {
+      "if": { "properties": { "type": { "const": "ack" } } },
+      "then": { "properties": { "need": { "const": "none" } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "confirm_request" } } },
+      "then": { "properties": { "need": { "const": "decision" } } },
+      "else": { "properties": { "need": { "enum": ["none", "ack", "answer"] } } }
+    },
+    {
+      "if": { "properties": { "type": { "const": "instruction" } } },
+      "then": { "properties": { "from": { "pattern": "^ui/" } } }
+    }
+  ]
+}

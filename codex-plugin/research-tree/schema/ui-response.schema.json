@@ -1,0 +1,23 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "reply": {"type": "string"},
+    "actions": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "properties": {
+          "type": {"type": "string", "enum": ["confirm", "instruction", "question", "submit"]},
+          "text": {"type": "string"},
+          "docs": {"type": "array", "items": {"type": "string"}},
+          "about": {"type": "array", "items": {"type": "string"}},
+          "req": {"type": "string"}
+        },
+        "required": ["type", "text", "docs", "about", "req"]
+      }
+    }
+  },
+  "required": ["reply", "actions"]
+}

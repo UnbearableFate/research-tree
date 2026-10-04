@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "research-tree/config.schema.json",
+  "title": "research-tree project configuration",
+  "description": "research-tree.yaml after missing keys are filled from config.template.yaml.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["version", "platform", "budget", "stage1", "models"],
+  "properties": {
+    "version": {"const": 1},
+    "platform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["dev", "experiment", "skills"],
+      "properties": {
+        "dev": {"type": "string", "minLength": 1, "maxLength": 4000},
+        "experiment": {"type": "string", "minLength": 1, "maxLength": 4000},
+        "skills": {"type": "array", "items": {"type": "string", "pattern": "^[A-Za-z0-9_.:-]+$"}, "uniqueItems": true}
+      }
+    },
+    "budget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["per_run", "screen_node_h", "max_parallel_workers", "alert_node_h"],
+      "properties": {
+        "per_run": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["nodes", "walltime"],
+          "properties": {
+            "nodes": {"type": "integer", "minimum": 1},
+            "walltime": {
+              "oneOf": [
+                {"type": "integer", "minimum": 1},
+                {"type": "string", "pattern": "^(?=\\d)(\\d+h)?(\\d+m)?(\\d+s)?$"}
+              ]
+            }
+          }
+        },
+        "screen_node_h": {"type": "number", "exclusiveMinimum": 0},
+        "max_parallel_workers": {"type": ["integer", "null"], "minimum": 1},
+        "alert_node_h": {"type": ["number", "null"], "exclusiveMinimum": 0}
+      }
+    },
+    "stage1": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["gate_seeds", "go_margin", "min_related_work"],
+      "properties": {
+        "gate_seeds": {"type": "integer", "minimum": 1},
+        "go_margin": {"type": "number", "minimum": 0},
+        "min_related_work": {"type": "integer", "minimum": 0}
+      }
+    },
+    "models": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["ui", "worker"],
+      "properties": {
+        "ui": {"$ref": "#/$defs/model"},
+        "worker": {"$ref": "#/$defs/model"}
+      }
+    }
+  },
+  "$defs": {
+    "model": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["model", "effort"],
+      "properties": {
+        "model": {"type": "string", "pattern": "^[A-Za-z0-9_.:\\[\\]-]+$"},
+        "effort": {
+          "oneOf": [
+            {"type": "null"},
+            {"enum": ["low", "medium", "high", "xhigh", "max"]},
+            {"type": "integer", "minimum": 1}
+          ]
+        }
+      }
+    }
+  }
+}

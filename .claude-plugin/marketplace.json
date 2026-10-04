@@ -1,0 +1,16 @@
+{
+  "name": "research-tree",
+  "owner": {
+    "name": "yu mingzhe"
+  },
+  "metadata": {
+    "description": "Multi-agent ML method discovery for Claude Code (research-tree)."
+  },
+  "plugins": [
+    {
+      "name": "research-tree",
+      "source": "./dist/claude/plugins/research-tree",
+      "description": "/research-tree init <plan.md> sets up a research project in the current directory; RLD planning, a UI window, one worker per node, a research database with workflow rules, a progress pane and an offline page."
+    }
+  ]
+}
