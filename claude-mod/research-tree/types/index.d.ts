@@ -113,8 +113,9 @@ declare module 'claude-code' {
       chat: ResearchChatEntry[]
       /** The UI subagent run answering the person's last message, while it runs. */
       uiAgentId: string | null
-      /** That run's outbox id and the person's message it answers, verbatim. */
-      uiRun: { run: string; message: string } | null
+      /** That run's outbox id, the person's message it answers (verbatim, with its window id) and which attempt
+       *  at it this is (a run that left nothing is retried once). */
+      uiRun: { run: string; message: string; messageId?: string; attempt: number } | null
       /** The project of the session's directory; null when there is none. */
       project: ResearchProject | null
       /** Subagent runs the mod started as workers: agentId -> worker/<id>. */

@@ -502,6 +502,7 @@ function uiPrompt(pluginRoot: string, project: ResearchProject, run: string, pyt
 - 向RLD提问：${outbox} question --run ${run} --text '<不超过200字的问题>' --about <ID>
 - 提交澄清完成的需求：${outbox} submit --run ${run} --req REQ-<编号>
 mod 会把用户的原话登记为确认、指令或需求文档，你不必也不能转述原话。
+结束本次运行（SubagentHandback）之前，必须已经运行过 reply；SubagentHandback 的内容不会显示给用户，也不会转交RLD。答不了的问题，reply 说明情况并用 question 转交RLD。
 
 需求草稿（你的工作记录，立即保存，不交给任何人）：
   ${tool('research_tree.py')} requirement draft [--req REQ-<编号>] --title '<一句话>' --goal '<目标与理由>' --scope '<范围：包含与排除>' --constraints '<约束>' --acceptance '<验收>' --priority '<优先级>' --open '<授权与待决定项、明示假设>' --changes '<相对上一版的变化>' --messages <依据的用户消息编号 w-…> --about <ID>
@@ -525,6 +526,8 @@ function workerPrompt(conf: ResearchConfig | null | undefined): string {
 - 代码改动只在任务指定的仓库分支或worktree中进行并提交；除根节点框架任务外，不改动冻结的实验框架与统计代码。
 - 测试、训练、推理等工作按下面“开发与实验平台”的规定运行；规定没有覆盖、又可能占用大量资源的操作，先问RLD。
 - 实验、运行与判定只通过 research_db 登记（create_experiment、create_run、update_run、record_verdict），不编造数字；工程失败如实记录，不当作科学结论。单次运行上限和累计用量提醒由 research_db 检查，被拒绝时交RLD，不绕过。
+- 每个 seed 的运行：create_run 后用 update_run 把 exec_status 从 planned 推进到 submitted（running）再到 succeeded，在 succeeded 时写入 valid=true 和 metric_value、secondary、nodes_used、walltime_used_s；全部 seed 有效后由实验 owner 调用 record_verdict（基线只记指标，不给判定）。
+- 不确定 research_db 的方法或参数时调用 method="help"（kwargs {"method": "<方法名>"} 看完整说明），不要猜；按错误信息改正。
 - 交付：写 tasks/<任务ID>/delivery.v1.md（实际做了什么、产出的文档与实验ID、未完成项和未知项），登记并设为现行，再 update_task(status=delivered, delivery_doc_id)；最终回复只给简短说明和文档引用。
 - 不自行改变研究目标、选择新的研究分支或接管他人任务；范围变化交RLD。
 
@@ -636,6 +639,8 @@ async function loadChat($: EngineInterface, project: ResearchProject): Promise<v
   await $.state.set(chatRef, entries)
 }
 
+type UiRun = { run: string; message: string; messageId?: string; attempt: number }
+
 /** Hands the person's message to a fresh UI subagent run with the recent conversation and the project view. */
 async function askUi($: EngineInterface, cfg: Config, text: string): Promise<void> {
   const message = text.trim()
@@ -644,7 +649,6 @@ async function askUi($: EngineInterface, cfg: Config, text: string): Promise<voi
     await say($, 'note', 'UI 还在处理上一条消息，请稍候。')
     return
   }
-  const history = ((await $.state.get(chatRef)).value ?? []).slice(-30)
   const messageId = await say($, 'user', message)
   const project = (await $.state.get(projectRef)).value ?? (await loadProject($))
   const env = await venv($)
@@ -652,8 +656,19 @@ async function askUi($: EngineInterface, cfg: Config, text: string): Promise<voi
     await say($, 'note', project ? (env as { problem: string }).problem : `当前目录没有研究项目：先运行 /${COMMAND} init <计划.md>。`)
     return
   }
+  await startUi($, cfg, { message, messageId, attempt: 1 })
+}
+
+/** Starts one UI run for the person's message; false when it could not start (said in the window). A later
+ *  attempt is told that the one before ended without a reply. */
+async function startUi($: EngineInterface, cfg: Config, ask: Omit<UiRun, 'run'>): Promise<boolean> {
+  const project = (await $.state.get(projectRef)).value ?? (await loadProject($))
+  const env = await venv($)
+  if (!project || 'problem' in env) return false
   const run = `r${Date.now().toString(36)}`
   const summary = (await $.state.get(summaryRef)).value
+  const history = ((await $.state.get(chatRef)).value ?? [])
+    .filter(h => !(h.role === 'user' && h.id === ask.messageId && h.text === ask.message)).slice(-30)
   const listed = await tree($, cfg, ['requirement', 'list'])
   const drafts = (listed.ok ? listed.result : []) as { id: string; title: string; status: string; version: number }[]
   const open = drafts.filter(d => d.status === 'open')
@@ -663,15 +678,17 @@ async function askUi($: EngineInterface, cfg: Config, text: string): Promise<voi
     `## 需求草稿\n` + (open.length ? `正在澄清：${JSON.stringify(open)}` : '没有正在澄清的需求。') +
       (drafts.length > open.length ? `\n已提交：${drafts.filter(d => d.status !== 'open').map(d => `${d.id} v${d.version} ${d.title}`).join('；')}` : ''),
     history.length ? `## 最近的对话\n${history.map(h => `[${h.id ? `${h.id} ` : ''}${h.role}] ${h.text}`).join('\n')}` : '',
-    `## 用户的新消息（${messageId ?? '未记录编号'}）\n${message}`,
+    ask.attempt > 1 ? '## 注意\n上一次处理这条消息的运行结束时发件箱是空的：用户没有收到回复，消息也没有转交。这一次先用 reply 回复，再结束。' : '',
+    `## 用户的新消息（${ask.messageId ?? '未记录编号'}）\n${ask.message}`,
   ].filter(Boolean).join('\n\n')
   const spawned = await $.agent.spawn({ subagentType: UI_AGENT, prompt, description: 'UI 回复用户' })
   if (spawned.deny !== undefined || !spawned.agentId) {
     await say($, 'note', `无法启动 UI agent：${spawned.deny ?? `未返回 agentId（${JSON.stringify(spawned).slice(0, 200)}）`}`)
-    return
+    return false
   }
   await $.state.set(uiAgentRef, spawned.agentId)
-  await $.state.set(uiRunRef, { run, message })
+  await $.state.set(uiRunRef, { ...ask, run })
+  return true
 }
 
 /** Passes one message from the UI to the RLD: logged through tools/send_message.py, then queued as a prompt. */
@@ -686,7 +703,7 @@ async function relayToRld($: EngineInterface, cfg: Config, type: 'instruction' |
     text: `来自研究对话窗口（UI）的消息：\n${logged.line}\n请按 research-tree 规则处理：先读取引用的文档。` +
       (type === 'instruction'
         ? `收到需求或指令后，用 post_to_ui(type=reply, re=该消息的 id, docs=[引用的文档]) 回执：你理解的版本与内容、可以执行的部分、关键缺口或需要用户决定的事；然后按规则落实。`
-        : '需要用户决定时用 post_to_ui 回复。'),
+        : '这是用户的问题：用 post_to_ui(type=reply, re=该消息的 id) 在研究对话窗口回答。'),
   })
   return undefined
 }
@@ -695,9 +712,10 @@ type UiEntry = { type: 'reply' | 'confirm' | 'instruction' | 'question' | 'submi
   kind?: string; about?: string[]; docs?: string[]; req?: string }
 
 /** What a UI run left in its outbox, carried out in order once the run ended: replies shown in the window, the
- *  person's message registered verbatim as a confirmation or an instruction, questions passed to the RLD. */
-async function carryOutUi($: EngineInterface, cfg: Config, run: { run: string; message: string },
-  answer: string, aborted: boolean): Promise<void> {
+ *  person's message registered verbatim as a confirmation or an instruction, questions passed to the RLD. A run
+ *  that ended with an empty outbox (not interrupted) is retried once; if that one leaves nothing either, the
+ *  person's message goes to the RLD verbatim, so a message is never left unanswered and unforwarded. */
+async function carryOutUi($: EngineInterface, cfg: Config, run: UiRun, answer: string, aborted: boolean): Promise<void> {
   const project = (await $.state.get(projectRef)).value
   const file = project ? `${project.root}/cache/ui/${run.run}.jsonl` : ''
   const entries: UiEntry[] = []
@@ -709,6 +727,17 @@ async function carryOutUi($: EngineInterface, cfg: Config, run: { run: string; m
         await say($, 'note', `UI 发件箱有一行无法解析：${line.slice(0, 120)}`)
       }
     }
+  }
+  if (!entries.length && !aborted) {
+    if (run.attempt < 2) {
+      await say($, 'note', 'UI 没有留下回复，正在重新处理这条消息。')
+      if (await startUi($, cfg, { message: run.message, messageId: run.messageId, attempt: run.attempt + 1 })) return
+    }
+    const id = run.messageId ? `${run.messageId}，` : ''
+    const failed = await relayToRld($, cfg, 'question',
+      `用户在研究对话窗口的消息（${id}UI 未能处理，原文转交；全文见 messages/window.jsonl）：${run.message}`, [], [])
+    await say($, 'note', failed ?? 'UI 没能处理这条消息；已把原文转交RLD，RLD 会在这里回复。')
+    return
   }
   if (!entries.some(x => x.type === 'reply')) {
     await say($, 'ui', answer.trim() || (aborted ? '（UI 被中断）' : '（UI 没有给出回复）'))
@@ -1190,5 +1219,5 @@ function registerProgressPane(on: Parameters<Register>[0], cfg: Config): void {
 
 export const internals = {
   guardReason, writesDatabase, statusText, statusLine, workerBlock, parseInit, workerNode, workerActor, parallelBlock,
-  workerPrompt, platformText, uiPrompt, configCommand,
+  workerPrompt, platformText, uiPrompt, configCommand, carryOutUi,
 }

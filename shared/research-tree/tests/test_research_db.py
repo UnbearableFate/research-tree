@@ -176,7 +176,8 @@ class ProjectTest(Fixture):
             self.rld.update_project(harness_paths=["../outside"])
         design = self.doc(self.worker, "exp/x/design.v1.md", "experiment_design")
         unevaluated = self.worker.create_experiment("baseline", "other", design, self.harness, 1, 60)
-        with self.assertRaisesRegex(ResearchDBError, "no verdict yet"):
+        with self.assertRaisesRegex(ResearchDBError, r"not evaluated yet: .*record_verdict.*not yet valid: "
+                                    rf"{unevaluated}/s\d+ \(no run\).*exec_status planned -> submitted"):
             self.rld.update_project(sota_experiment_id=unevaluated)
         v2 = self.commit({"harness/stats.py": "stats v2\n"})
         self.rld.update_project(harness_ref=v2)
@@ -311,6 +312,13 @@ class ExperimentTest(Fixture):
         with self.assertRaisesRegex(ResearchDBError, "not one of"):
             self.worker.create_run(exp, 43)
         run = self.worker.create_run(exp, 42)
+        # A planned run: the errors name the field and the next states, so no caller needs the source.
+        with self.assertRaisesRegex(ResearchDBError, "does not take status; it takes .*exec_status"):
+            self.rld.update_run(run, status="succeeded")
+        with self.assertRaisesRegex(ResearchDBError, "planned -> succeeded is not allowed; from planned: submitted, cancelled"):
+            self.worker.update_run(run, exec_status="succeeded")
+        with self.assertRaisesRegex(ResearchDBError, "succeeded run's results"):
+            self.worker.update_run(run, metric_value=1.0, secondary={"final_loss": 1.0, "peak_mem_gb": 2.0})
         with self.assertRaises(PermissionDenied):
             ResearchDB(self.db, "worker/w2").update_run(run, exec_status="submitted")
         self.worker.update_run(run, exec_status="submitted")
@@ -344,7 +352,7 @@ class VerdictTest(Fixture):
             self.evaluate(unchanged, "beats_sota")
         design = self.doc(self.worker, "exp/p.v1.md", "experiment_design")
         partial = self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=self.h)
-        with self.assertRaisesRegex(ResearchDBError, "has no valid run"):
+        with self.assertRaisesRegex(ResearchDBError, "needs a valid run for every seed"):
             self.evaluate(partial, "beats_sota")
 
     def test_verdict_consistency(self):
@@ -460,7 +468,7 @@ class DecisionTest(Fixture):
                 self.assertEqual(final[k], first[k], k)
             self.assertGreater(final["beats_sota_at"], first["concluded_at"])
             self.assertEqual(final["concluded_at"], final["beats_sota_at"])  # same decision
-            with self.assertRaises(PermissionDenied):
+            with self.assertRaisesRegex(ResearchDBError, "does not take concluded_at"):
                 self.rld.update_hypothesis(h, concluded_at="2000-01-01T00:00:00Z")
         finally:
             rdb.now_utc = saved
@@ -689,6 +697,8 @@ class TaskTest(Fixture):
             self.worker.update_task(task, status="delivered", delivery_doc_id=draft)
         self.worker.set_document_current(draft)
         self.worker.update_task(task, status="delivered", delivery_doc_id=draft)
+        with self.assertRaisesRegex(ResearchDBError, r"from delivered: accepted \(rld\), rejected \(rld\)"):
+            self.worker.update_task(task, status="delivered", delivery_doc_id=draft)
         with self.assertRaises(PermissionDenied):
             self.worker.update_task(task, status="accepted")
         self.rld.update_task(task, status="accepted")
@@ -777,6 +787,8 @@ class SessionTest(Fixture):
         out = subprocess.run(cmd[:-1] + ["worker/w1", "create_hypothesis", args], capture_output=True, text=True)
         self.assertEqual(out.returncode, 2)
         self.assertIn("PermissionDenied", json.loads(out.stdout)["error"])
+        out = subprocess.run(cmd + ["get", '{"id": "H-0001"}'], capture_output=True, text=True)
+        self.assertIn("get(entity_id: str)", json.loads(out.stdout)["error"])  # wrong arguments: the signature
         listed = json.loads(subprocess.run(cmd + ["help"], capture_output=True, text=True).stdout)["result"]
         update_task = next(m for m in listed if m["method"] == "update_task")
         self.assertEqual(update_task["parameters"], "(task_id: str, status: str | None = None, "

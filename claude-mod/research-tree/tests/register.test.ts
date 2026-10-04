@@ -195,3 +195,64 @@ test('the main model is never offered the UI agent', async $ => {
   } as never)
   expect(offered.isOffered).toBe(false)
 })
+
+/** A host for the UI hand-off alone: state, files, the Python tools, spawns and prompts to the RLD, all in memory. */
+function uiHost(outboxes: Record<string, string>) {
+  const root = '/w/study/research/p'
+  const state = new Map<string, unknown>([['project', { project_id: 'p', phase: 'confirmed', root, db: `${root}/research_tree.db` }]])
+  const files = new Map<string, string>(Object.entries(outboxes).map(([run, text]) => [`${root}/cache/ui/${run}.jsonl`, text]))
+  files.set('/w/study/.venv/bin/python', '')
+  const spawns: string[] = []
+  const prompts: string[] = []
+  const host = {
+    plugin: { root: '/plug' },
+    session: { cwd: async () => '/w/study' },
+    state: {
+      get: async (ref: { key: string }) => ({ value: state.get(ref.key), version: 1 }),
+      set: async (ref: { key: string }, value: unknown) => (state.set(ref.key, value), { isSet: true, version: 1 }),
+    },
+    fs: {
+      exists: async (path: string) => files.has(path),
+      read: async (path: string) => files.get(path) ?? '',
+      write: async (path: string, text: string) => void files.set(path, text),
+    },
+    process: { run: async (argv: string[]) => ({
+      exitCode: 0, stderr: '',
+      stdout: argv[1]!.endsWith('send_message.py') ? '{"id":"ui-0001","type":"question"}' : '{"ok": true, "result": []}',
+    }) },
+    agent: { spawn: async (input: { prompt: string }) => (spawns.push(input.prompt), { agentId: `a${spawns.length}` }) },
+    clock: { after: (_ms: number, fn: () => void) => fn() },
+    prompt: { submit: async (input: { text: string }) => void prompts.push(input.text) },
+    ui: { toast: () => undefined, open: async () => undefined, status: () => undefined },
+  }
+  const window = () => (files.get(`${root}/messages/window.jsonl`) ?? '').split('\n').filter(Boolean).map(l => JSON.parse(l).text as string)
+  return { host: host as never, state, spawns, prompts, window }
+}
+
+test('a UI run that leaves nothing is retried once, then the message goes to the RLD verbatim', async () => {
+  const cfg = { actor: 'rld/main' }
+  const message = 'RLD为什么需要读 research_db.py 的源码?'
+  const { host, state, spawns, prompts, window } = uiHost({ r1: '', r2: '' })
+  await internals.carryOutUi(host, cfg, { run: 'r1', message, messageId: 'w-0015', attempt: 1 }, '', false)
+  expect(spawns.length).toBe(1)
+  expect(spawns[0]).toContain('发件箱是空的')
+  expect(spawns[0]).toContain(`## 用户的新消息（w-0015）\n${message}`)
+  expect(state.get('uiAgentId')).toBe('a1')
+  expect((state.get('uiRun') as { attempt: number }).attempt).toBe(2)
+  expect(prompts).toEqual([])
+
+  await internals.carryOutUi(host, cfg, { run: 'r2', message, messageId: 'w-0015', attempt: 2 }, '', false)
+  expect(spawns.length).toBe(1)
+  expect(prompts.length).toBe(1)
+  expect(prompts[0]).toContain('post_to_ui(type=reply')
+  expect(window().at(-1)).toContain('已把原文转交RLD')
+})
+
+test('a UI run that replied, or was interrupted, is not retried', async () => {
+  const cfg = { actor: 'rld/main' }
+  const { host, spawns, prompts, window } = uiHost({ r1: '{"type": "reply", "text": "已回答"}\n', r2: '' })
+  await internals.carryOutUi(host, cfg, { run: 'r1', message: '进度？', attempt: 1 }, '', false)
+  await internals.carryOutUi(host, cfg, { run: 'r2', message: '进度？', attempt: 1 }, '', true)
+  expect(window()).toEqual(['已回答', '（UI 被中断）'])
+  expect([spawns.length, prompts.length]).toEqual([0, 0])
+})

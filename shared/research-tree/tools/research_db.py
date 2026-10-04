@@ -534,7 +534,7 @@ class ResearchDB:
     def _only_fields(self, given: dict, allowed: tuple[str, ...]) -> None:
         extra = sorted(set(given) - set(allowed))
         if extra:
-            raise PermissionDenied(f"{self.role} may not set {', '.join(extra)} here")
+            raise ResearchDBError(f"this method does not take {', '.join(extra)}; it takes {', '.join(allowed)}")
 
     # -- project ---------------------------------------------------------------
 
@@ -608,8 +608,11 @@ class ResearchDB:
                 if exp["kind"] != "baseline" or exp["seeds"] != final["seeds"]:
                     raise ResearchDBError(f"the SOTA baseline must be a baseline experiment on seeds {final['seeds']}")
                 if not exp.get("evaluated_at"):
-                    raise ResearchDBError(f"{sota} has no verdict yet: its owner records one (record_verdict) once "
-                                          "every run is valid")
+                    invalid = _invalid_runs(tx, exp)
+                    raise ResearchDBError(
+                        f"{sota} is not evaluated yet: its owner (or rld) calls record_verdict(experiment_id, "
+                        "result_doc_id, metric_mean, metric_sd) with no verdict, as baselines record metrics only, "
+                        "once every seed has a valid run" + (f"; not yet valid: {invalid}. {VALID_RUN_HOW}" if invalid else ""))
                 if exp.get("harness_ref") != final.get("harness_ref"):
                     raise ResearchDBError(
                         f"{sota} was evaluated with harness {str(exp.get('harness_ref'))[:10]}, but the frozen harness is "
@@ -734,7 +737,7 @@ class ResearchDB:
         user_declined = any(self._describes(tx, e, hyp["id"], "user_instruction") for e in evidence)
         if new_status != old_status:
             if new_status not in NODE_TRANSITIONS[old_status] and not (new_status == "prunable" and user_declined):
-                raise ResearchDBError(f"{hyp['id']}: status {old_status} -> {new_status} is not allowed")
+                raise _not_allowed(f"{hyp['id']}: status", old_status, new_status, NODE_TRANSITIONS[old_status])
             if doc_id is None:
                 raise ResearchDBError("a node status change needs a decision document (doc_id)")
             if new_status == "verifying" and self._branch_of(tx, hyp["id"]) is None:
@@ -805,7 +808,7 @@ class ResearchDB:
             raise ResearchDBError("project decisions change only status")
         old, new = project["status"], changes["status"]
         if new not in PROJECT_TRANSITIONS[old]:
-            raise ResearchDBError(f"project status {old} -> {new} is not allowed")
+            raise _not_allowed("project status", old, new, PROJECT_TRANSITIONS[old])
         if doc_id is None:
             raise ResearchDBError("a project status change needs a report or decision document (doc_id)")
         hypotheses = [tx.get(i) for i in tx.ids("hypothesis")]
@@ -923,7 +926,14 @@ class ResearchDB:
             })
 
     def update_run(self, run_id: str, **changes) -> None:
-        """A valid run is frozen. A finished, invalid run is resubmitted by raising attempt by one together with
+        """Report a run as the experiment's owner (or rld). Fields: job_id, attempt, exec_status, valid, curve_path,
+        log_path, output_path, started_at, finished_at, and the measurements metric_value, secondary
+        ({secondary metric: number} for each of the project's secondary_metrics), nodes_used, walltime_used_s.
+
+        exec_status moves planned -> submitted -> running -> succeeded, failed or cancelled (submitted may go straight
+        to a final state; unknown when the scheduler cannot tell). metric_value and secondary are a succeeded run's
+        results. valid=true accepts a succeeded run with all four measurements and freezes it; record_verdict needs a
+        valid run for every seed. A finished, invalid run is resubmitted by raising attempt by one together with
         exec_status planned/submitted, which clears its measurements."""
         self._only_fields(changes, ("job_id", "attempt", "exec_status", "valid", "curve_path", "log_path",
                                     "output_path", "started_at", "finished_at") + RUN_MEASUREMENTS)
@@ -938,7 +948,10 @@ class ResearchDB:
             if "attempt" in changes and not retry:
                 raise ResearchDBError("attempt only increases by one, together with exec_status planned or submitted")
             if new != old and not retry and new not in EXEC_TRANSITIONS[old]:
-                raise ResearchDBError(f"exec_status {old} -> {new} is not allowed")
+                raise _not_allowed("exec_status", old, new, EXEC_TRANSITIONS[old])
+            if new != "succeeded" and any(changes.get(k) is not None for k in ("metric_value", "secondary")):
+                raise ResearchDBError(f"metric_value and secondary are a succeeded run's results; {run_id} is {new}: "
+                                      "report exec_status succeeded first or in the same call")
             if retry:
                 changes = {**{k: None for k in RUN_MEASUREMENTS}, "valid": None, **changes}
             final = {**run, **changes}
@@ -976,6 +989,7 @@ class ResearchDB:
         comparisons: [{"target_id", "role": "parent"|"sota", "n_paired", "delta_mean", "delta_sd", "deltas"}],
         deltas oriented so that positive is better. Node experiments compare with SOTA and, below the top
         level, with the parent node's latest evaluated experiment. Baselines record no verdict.
+        Every seed needs a valid run first (update_run: exec_status succeeded, valid true, measurements).
         """
         with self._writer() as tx:
             project = self._project(tx)
@@ -983,10 +997,10 @@ class ResearchDB:
             self._require_owner(exp)
             if exp.get("evaluated_at"):
                 raise ResearchDBError(f"{experiment_id} is already evaluated; extend its seeds or start a new experiment")
-            for seed in exp["seeds"]:
-                run = tx.get(f"{experiment_id}/s{seed}")
-                if run is None or run.get("valid") is not True:
-                    raise ResearchDBError(f"seed {seed} of {experiment_id} has no valid run")
+            invalid = _invalid_runs(tx, exp)
+            if invalid:
+                raise ResearchDBError(f"{experiment_id} needs a valid run for every seed; not yet: {invalid}. "
+                                      f"{VALID_RUN_HOW}")
             self._check_harness(project, exp)
             self._check_refs(tx, "experiment", {"result_doc_id": result_doc_id}, current_docs=True)
             self._check_values("experiment", {"verdict": verdict, "metric_mean": metric_mean, "metric_sd": metric_sd})
@@ -1242,7 +1256,7 @@ class ResearchDB:
         with self._writer() as tx:
             branch = tx.require(branch_id, ("branch",))
             if to_status not in allowed.get(branch["status"], ()):
-                raise ResearchDBError(f"branch {branch['status']} -> {to_status} is not allowed")
+                raise _not_allowed("branch", branch["status"], to_status, allowed.get(branch["status"], ()))
             if to_status == "merged" and not (merged_into and merge_commit):
                 raise ResearchDBError("a merged branch needs merged_into and merge_commit")
             if branch.get("worktree_path") and Path(branch["worktree_path"]).exists():
@@ -1399,7 +1413,8 @@ class ResearchDB:
             if status is not None:
                 who = TASK_TRANSITIONS[task["status"]].get(status)
                 if who is None:
-                    raise ResearchDBError(f"task {task['status']} -> {status} is not allowed")
+                    raise _not_allowed("task", task["status"], status,
+                                       [f"{to} ({who})" for to, who in TASK_TRANSITIONS[task["status"]].items()])
                 if who == "rld":
                     self._require_role("rld")
                 elif (self.role, self.agent) != (task["assignee_role"], task.get("assignee_id")):
@@ -1500,6 +1515,27 @@ def _git_ok(repo: str, *args: str) -> bool:
     return subprocess.run(["git", "-C", repo, *args], capture_output=True).returncode == 0
 
 
+VALID_RUN_HOW = ("A run becomes valid with update_run: exec_status planned -> submitted (-> running) -> succeeded, "
+                 "then valid=true with metric_value, secondary, nodes_used and walltime_used_s.")
+
+
+def _invalid_runs(tx: _Tx, exp: dict) -> str:
+    """The seeds of an experiment without a valid run, each with its run's state."""
+    states = []
+    for seed in exp["seeds"]:
+        run = tx.get(f"{exp['id']}/s{seed}")
+        if run is None:
+            states.append(f"{exp['id']}/s{seed} (no run)")
+        elif run.get("valid") is not True:
+            states.append(f"{run['id']} (exec_status {run['exec_status']}, valid {run.get('valid')})")
+    return ", ".join(states)
+
+
+def _not_allowed(what: str, old: str, new: str, allowed) -> ResearchDBError:
+    """A refused state change, naming the changes that are possible from the current state."""
+    return ResearchDBError(f"{what} {old} -> {new} is not allowed; from {old}: {', '.join(allowed) or 'none (final)'}")
+
+
 def _node_timestamps(hyp: dict, changes: dict, now: str) -> dict:
     """Key node timestamps implied by a decision: first start of verification, first beats_sota, and the
     latest conclusion (cleared when the node is verified again)."""
@@ -1578,7 +1614,11 @@ def main(argv: list[str] | None = None) -> int:
         result = (describe(**kwargs) if args.method == "help"
                   else getattr(ResearchDB(args.db, args.actor), args.method)(**kwargs))
     except (ResearchDBError, json.JSONDecodeError, TypeError) as exc:
-        print(json.dumps({"ok": False, "error": f"{type(exc).__name__}: {exc}"}, ensure_ascii=False))
+        error = f"{type(exc).__name__}: {exc}"
+        if isinstance(exc, TypeError) and args.method in CLI_METHODS:
+            error += (f"; {args.method}{_parameters(getattr(ResearchDB, args.method))}"
+                      f' (help {{"method": "{args.method}"}} describes it)')
+        print(json.dumps({"ok": False, "error": error}, ensure_ascii=False))
         return 2
     print(json.dumps({"ok": True, "result": result}, ensure_ascii=False))
     return 0
