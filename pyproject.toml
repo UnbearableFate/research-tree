@@ -7,6 +7,7 @@ dependencies = [
     "latticedb==0.15.0",
     "jsonschema>=4.26",
     "pyyaml>=6.0",
+    "ruff",
 ]
 
 [tool.uv]
