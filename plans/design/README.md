@@ -1,13 +1,5 @@
 # research-tree 设计文档包
 
-本目录把此前三份设计文档重排为**按研究流程先后顺序**组织的多文件设计包：
-
-- `plans/archive/research-tree_improvement_design_2026-10-05.md`（设计文档，D1–D8）
-- `plans/archive/research-tree_aris_comparison_2026-10-06.md`（对照 ARIS 的改进点与可移植功能）
-- `plans/archive/research-tree_idea_discovery_design_2026-10-06.md`（idea discovery 移植与 pi reviewer）
-
-三份原文移入 `plans/archive/`，内容已全部并入本包；本包内 **03 想法 → 实验设计** 为新写，其余文件的正文大多逐字取自原文并按阶段重组。基准：research-tree `48b3841`；ARIS `3b19a22`；pi 1.0.4。所有内容均为拟议设计，未实现。
-
 ## 阅读顺序与文件索引
 
 | 文件 | 阶段 | 内容 | 主要来源 |
