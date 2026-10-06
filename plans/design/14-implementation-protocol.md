@@ -4,7 +4,7 @@ stage: "实施过程"
 status: "binding for the implementing agent"
 prepared_on: "2026-10-06"
 package: "plans/design（见 README.md）"
-verified_on_host: "pi 1.0.4 列出 anthropic/claude-fable-5-1、anthropic/claude-sonnet-5-5、openai/gpt-6-luna；herdr 支持 kind=claude|codex|pi；HERDR_ENV=1；codex-cli 0.160.0；Claude Code 2.1.291"
+verified_on_host: "pi 1.0.4 列出 openai/gpt-6-luna；Claude Code 2.1.291 `claude -p --output-format json` 实测（09 §1.2）；herdr 支持 kind=claude|codex|pi；HERDR_ENV=1；codex-cli 0.160.0；Claude Code 2.1.291"
 language: "zh-CN"
 ---
 
@@ -43,15 +43,18 @@ claude plugin validate dist/claude/plugins/research-tree
 
 **调用方式**：新的非交互会话，不继承实施者上下文，只给文件路径：
 
+Fable 5.1 是 Claude 系模型，按 09 的路由规则用 Claude Code CLI 作为基座（不用 pi），工作目录为仓库根：
+
 ```bash
-pi -p --mode json --model anthropic/claude-fable-5-1 --thinking high \
-   --no-session --no-extensions --no-skills --no-context-files --no-mcp \
-   --tools read,grep,find,ls \
-   --append-system-prompt plans/design/reviews/prompts/stage-review.md \
+claude -p --output-format json --model claude-fable-5-1 --effort high \
+   --safe-mode --restricted --strict-mcp-config \
+   --tools Read,Grep,Glob --permission-mode dontAsk --permission-prompts none \
+   --no-session-persistence \
+   --append-system-prompt-file plans/design/reviews/prompts/stage-review.md \
    "Review batch <Mn>. Design: plans/design/<阶段文件>. Changed files: <git diff --name-only 列表>. Tests: <测试文件>. Read everything yourself; executor notes are not evidence."
 ```
 
-也可用 `claude -p --model claude-fable-5-1` 执行同一提示。brief 不含实施者的总结、解释或倾向性问题（09 §2 的 reviewer-independence 同样适用于实施评审）。
+成功判据同 09 §2.3：`is_error == false` 且 `terminal_reason == "completed"`，`modelUsage` 只含 `claude-fable-5-1`；否则视为评审未完成，不得跳过。修复后重评用新会话（不 `--resume`），只给新的路径列表。brief 不含实施者的总结、解释或倾向性问题（09 §2.1 的 reviewer-independence 同样适用于实施评审）。
 
 **评审内容**（系统提示文件固定这些维度）：
 
@@ -111,7 +114,7 @@ CODEX_HOME=$T/codex-home herdr agent start rt-codex --kind codex --pane "$P2" --
 | M1 | 结果文档数字与指标文件不符 | `STAT_MISMATCH` / 核验拒绝；无 Evaluation 写入 |
 | M2 | 1 个 seed 轻微负向；达到 seed 上限仍接近门槛 | `inconclusive`；不强制剪枝 |
 | M3 | 两个 worker 争用最后额度；提交状态 unknown | 只准入一个；不自动重提 |
-| M4 | 候选复核：reviewer 可用 / 不可用 / 同族 | review 文档登记；`REVIEW_UNAVAILABLE`；R04 拒绝 |
+| M4 | 候选复核：reviewer 可用 / 不可用 / 同族；Claude 宿主走 pi 后端、Codex 宿主走 Claude Code 后端 | review 文档登记且 `backend` 正确；`REVIEW_UNAVAILABLE`；R04 拒绝；R18–R22 |
 | M5 | 假说文档缺 claim map；sanity 失败 3 次 | X01 拒绝；X06/X07 上报 |
 | M6 | 只给方向 / 给种子假说 | 发现报告分两栏；用户假说进入查新；ABANDON 的用户假说待用户决定 |
 | M7 | 运维噪声写入 lesson；经验要求扩权 | 被过滤；权限不变 |
@@ -131,14 +134,14 @@ CODEX_HOME=$T/codex-home herdr agent start rt-codex --kind codex --pane "$P2" --
 |---|---|---|
 | 主会话（RLD） | `claude-sonnet-5-5`，effort medium | `gpt-6-luna`，reasoning medium |
 | `models.ui` / `models.worker` / `models.lens_assistant` | `inherit`，effort medium | `inherit`，effort medium |
-| `models.reviewer`（pi） | `openai/gpt-6-luna`，thinking medium | `anthropic/claude-sonnet-5-5`，thinking medium |
-| 阶段末评审（§3） | `anthropic/claude-fable-5-1`，thinking high | 同左 |
+| `models.reviewer`（基座按 09 路由） | `openai/gpt-6-luna`，thinking medium → **pi** | `anthropic/claude-sonnet-5-5`，thinking medium → **Claude Code CLI**（`--effort medium`） |
+| 阶段末评审（§3） | `claude-fable-5-1`，effort high → Claude Code CLI | 同左 |
 
-reviewer 与宿主主模型交叉配置是为了满足 `require_cross_family`；每个批次另跑一次"reviewer 与主模型同族"的反例，验证 R04 拒绝。pi 的 `usage.cost.total` 逐次累计进测试记录；`budget.review_usd_alert` 设小值以验证 R14。
+reviewer 与宿主主模型交叉配置是为了满足 `require_cross_family`；两个宿主合起来正好覆盖两个基座：Claude 宿主走 pi 后端，Codex 宿主走 Claude Code 后端。每个批次另跑一次"reviewer 与主模型同族"的反例，验证 R04 拒绝；M4 起在 Codex 宿主再跑一次"`claude` 未登录"（以隔离的 `CLAUDE_CONFIG_DIR` 模拟），验证 R19 不降级到 pi。pi 的 `usage.cost.total` 与 Claude Code 的 `total_cost_usd` 逐次累计进测试记录（注明基座）；`budget.review_usd_alert` 设小值以验证 R14。
 
 ## 6. 记录与完成标准
 
 - `plans/design/reviews/<Mn>-r<k>.md`：Fable 评审原文、JSON、修复对照。
-- `plans/design/test-logs/<Mn>-<host>.md`：命令、observed 模型、每个场景的判据与结果、失败与修复、pi 费用。
+- `plans/design/test-logs/<Mn>-<host>.md`：命令、observed 模型、每个场景的判据与结果、失败与修复、评审费用（按基座分列）。
 - 批次完成 = §2 全部通过 + §3 终审无 CRITICAL/MAJOR + §4 场景表两端全部通过 + 记录齐全。
 - 任一项被跳过或阻塞，报告中明确写出，不得写成已完成。

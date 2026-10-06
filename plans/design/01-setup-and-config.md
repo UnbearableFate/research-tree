@@ -55,7 +55,7 @@ design:                      # 03
   max_core_blocks: 5
   max_baseline_families: 3
   proposal_review_rounds: 1  # 0 关闭
-  code_review: true          # worker 提交作业前的 pi 代码评审
+  code_review: true          # worker 提交作业前的跨模型代码评审（09）
   sanity_first: true         # 每个节点先跑最小规模 smoke，不计 seed
   overrun_factor: 2.0        # 实际用量超过预估的倍数，达到即写 attention
 
@@ -127,9 +127,8 @@ models:
   ui: {model: inherit, effort: null}
   worker: {model: inherit, effort: null}
   lens_assistant: {model: inherit, effort: null}
-  reviewer:                  # 09
-    backend: pi
-    model: openai/gpt-6-astra   # provider/model；须在 pi --list-models 中
+  reviewer:                  # 09；基座按 provider 自动选择，不可覆盖
+    model: openai/gpt-6-astra   # provider/model；anthropic/* → Claude Code CLI，其余 → pi（须在 pi --list-models 中）
     thinking: high
     require_cross_family: true
     timeout_s: 900
@@ -137,7 +136,7 @@ models:
 
 解释：`allowed_regression: 0.10` 表示该相对成本指标允许最多 10% 退化；总预算 360000 node-seconds 为 100 node-hours，三个分项上限之和恰好等于总量。`gate_seeds`、`go_margin` 的语义由 `metric_specs.minimum_practical_gain` 与 `verification` 接管（迁移见 10）。
 
-`prepare` 不检查 pi；`init` 在 `discovery.mode != off` 或 `review.trigger` 需要时运行 `pi auth check`，不可用则在立项简报中写明并由用户决定。
+`prepare` 不检查评审后端；`init` 在 `discovery.mode != off` 或 `review.trigger` 需要时按 reviewer 的 provider 检查对应基座（pi：`pi auth check --provider <p>`；Claude 系模型：`claude auth status` 的 `loggedIn`），不可用则在立项简报中写明并由用户决定。
 
 ## 4. 站点技能对插件的最小义务
 

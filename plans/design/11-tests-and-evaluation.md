@@ -105,7 +105,7 @@ language: "zh-CN"
 
 | 编号 | 场景 | 预期 |
 |---|---|---|
-| R01 | pi 不在 PATH / provider 未就绪 | `REVIEW_UNAVAILABLE`；不登记文档；Leader 不能以自评通过门 |
+| R01 | 所选基座不可用：pi 不在 PATH / provider 未就绪，或 `claude` 不在 PATH / 未登录 | `REVIEW_UNAVAILABLE`；不登记文档；Leader 不能以自评通过门 |
 | R02 | `turn_end.stopReason=error` | 同上，错误原文进 attention |
 | R03 | 回复无 JSON 块或 schema 不符 | 追问一次后 `REVIEW_INVALID` |
 | R04 | reviewer provider 与 Leader observed 模型同族且 `require_cross_family` | 拒绝调用 |
@@ -122,8 +122,13 @@ language: "zh-CN"
 | R12 | 候选去重 | 只按 `dedup_key` 聚类；不因"弱"丢弃 |
 | R13 | 可行性门 | 超出 `per_run` 上限的候选标 infeasible 并写理由；其余 feasible |
 | R14 | 费用累计达到 `review_usd_alert` | 新评审调用被拒，attention 项出现 |
+| R18 | reviewer 为 `anthropic/*` / 其他 provider | 前者只调用 `claude`，后者只调用 `pi`；review 文档 `backend` 字段与之对应 |
+| R19 | reviewer 为 `anthropic/*` 但 `claude` 不可用，pi 的 anthropic provider 就绪 | `REVIEW_UNAVAILABLE`；不降级到 pi |
+| R20 | Claude Code 返回 `is_error: true`（如 404）而 `subtype: "success"` | `REVIEW_UNAVAILABLE`，不当作成功解析 |
+| R21 | Claude Code 的 `modelUsage` 出现非请求模型或多个模型 | `REVIEW_INVALID` |
+| R22 | Claude Code reviewer 会话 | 命令行含 `--safe-mode --restricted`、只读 `--tools`；读工作目录外未 `--add-dir` 的路径被拒并记入 review 文档 |
 
-用假 `pi` 可执行文件（打印预录 JSONL）做适配层测试，与现有 `test_codex_adapter.py` 的假 `codex` 二进制同样做法；真实 pi 调用只在用户批准的冒烟脚本中运行。
+用假 `pi`（打印预录 JSONL）与假 `claude`（打印预录 result JSON，含 09 §1.2 的成功与 404 样本）可执行文件做适配层测试，与现有 `test_codex_adapter.py` 的假 `codex` 二进制同样做法；真实 pi / Claude Code 调用只在用户批准的冒烟脚本中运行。
 
 03 §13 的 X01–X11 一并纳入。06 的停滞计数与 obligation 账本补：
 

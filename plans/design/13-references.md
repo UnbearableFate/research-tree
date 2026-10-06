@@ -202,7 +202,7 @@ research-tree 当前已经具备可用的研究管理骨架。下一步应优先
 
 | ARIS 机制 | 来源 | 本项目的做法 |
 |---|---|---|
-| **Type-A / Type-B 门分类** | `skills/shared-references/acceptance-gate.md` | 对 `decide`、`update_task`、`record_verdict`、项目 GO 的每个条件标注：A（代码可判：产物存在、退出码、预算计数、`passes_gate`）由 `research_db` 判；B（"声明成立""方法新颖"）必须有独立证据路径。与设计文档 4.2 责任矩阵合并成一张表写进规则。Type-B 判定由 **pi 非交互评审**给出（`pi -p --mode json`，默认要求 provider 与 Leader 不同），仍保持"新上下文 + 只给文件路径 + 确定性校验 + 失败即 `REVIEW_UNAVAILABLE`"；不设常驻 reviewer。详见 09 |
+| **Type-A / Type-B 门分类** | `skills/shared-references/acceptance-gate.md` | 对 `decide`、`update_task`、`record_verdict`、项目 GO 的每个条件标注：A（代码可判：产物存在、退出码、预算计数、`passes_gate`）由 `research_db` 判；B（"声明成立""方法新颖"）必须有独立证据路径。与设计文档 4.2 责任矩阵合并成一张表写进规则。Type-B 判定由**跨模型非交互评审**给出（Claude 系模型用 `claude -p --output-format json`，其他用 `pi -p --mode json`；默认要求 provider 与 Leader 不同），仍保持"新上下文 + 只给文件路径 + 确定性校验 + 失败即 `REVIEW_UNAVAILABLE`"；不设常驻 reviewer。详见 09 |
 | **"loop 可以 DRIVE，不能 ACQUIT"** | `external-cadence.md` | 写入规则 §7，作为对任何站点唤醒技能的要求：唤醒只能核对作业、导入结果、重新进入 Leader；不能重跑判定、不能自动 accept。D7 11.9 已有雏形，补这条禁令 |
 | **reviewer 只拿路径，不拿摘要；判定线程每次全新** | `reviewer-independence.md`、`experiment-audit`、`paper-claim-audit` | D8 的定向复核任务：任务请求只列代码版本、协议、Evaluation ID 和原始文件路径，禁止附 worker 的总结。复核 worker 使用新会话 |
 | **实验审计清单 A–F 与评测类型标签** | `skills/experiment-audit/SKILL.md`、`experiment-integrity.md` | 把"GT 来源、自归一化分数、结果文件存在且数字一致、死指标代码、措辞超出证据、评测类型（real_gt / synthetic_proxy / …）"作为复核文档的必需章节；评测类型写入 min_setup 文档并限制结论措辞 |
@@ -250,7 +250,7 @@ research-tree 当前已经具备可用的研究管理骨架。下一步应优先
 |---|---|
 | 论文/海报/幻灯片/专利/rebuttal/resubmit 全部技能 | 超出阶段 1 范围；设计文档 18.2 明确不做 |
 | `idea-discovery` 链路中的 pilot 实验、research-wiki 写回、Feishu、HTML 渲染 | 链路本身**移植**（见 02）：用户给的假说作为种子，与新发现的候选一起查新与评审；pilot 即节点筛选实验，由现有树流程承担 |
-| 多 reviewer 后端路由（`auto-review-loop` 1137 行、codex/gemini/claude/llm-chat/minimax/grok MCP） | 复杂度主要来自后端切换；本项目只用一个后端：`pi` 非交互执行，由 `pi_review.py` 包装（09），`--model provider/model` 即可切换模型 |
+| 多 reviewer 后端路由（`auto-review-loop` 1137 行、codex/gemini/claude/llm-chat/minimax/grok MCP） | 复杂度主要来自 MCP 后端切换；本项目只有两个 CLI 基座且按 provider 固定路由（Claude 系 → Claude Code CLI，其余 → pi），由 `review_call.py` 包装（09），`models.reviewer.model` 写 `provider/model` 即可切换模型 |
 | `research-wiki` 整体、`CLAUDE.md` Pipeline Status、`research_contract.md` | 它们是为了从 Markdown 重建上下文；本项目有数据库与版本化文档，只借其 query_pack 与边类型 |
 | `aris-monitor` | macOS Tkinter，读 Claude 会话文件，不监控实验 |
 | `queue_manager.py`、`watchdog.py`、Vast.ai / Modal / screen 启动、任何调度器适配 | 执行层有意留给 `platform.skills` 的站点技能；插件面向大众，不能内置某个调度器或守护进程。`queue_manager.py` 的"完成以产物存在为准""OOM 有限重试""上游失败阻塞下游"可作为写站点技能时的参考，但不进插件 |

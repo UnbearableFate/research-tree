@@ -16,7 +16,7 @@ language: "zh-CN"
 
 独立复核首先是独立证据路径。两个同类模型重复赞同同一段总结，不自动增加实验独立性。
 
-复核由 pi 非交互评审执行（09，kind=`candidate_recheck`），每个维度一次新会话、只给文件路径；reviewer 不可用记 `REVIEW_UNAVAILABLE`，不得由 Leader 自评代替。现有规则"RLD 亲自复核"改为"RLD 组织复核并对结论负责"。
+复核由跨模型非交互评审执行（09，kind=`candidate_recheck`），每个维度一次新会话、只给文件路径；reviewer 不可用记 `REVIEW_UNAVAILABLE`，不得由 Leader 自评代替。现有规则"RLD 亲自复核"改为"RLD 组织复核并对结论负责"。
 
 ## 2. 核验范围
 

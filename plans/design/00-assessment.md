@@ -196,9 +196,9 @@ memory.py               # 文档型经验检索；可后置
 
 | 角色 / 模块 | 职责 | 所在文件 |
 |---|---|---|
-| `reviewer`（pi 非交互会话） | 只读；按 kind 产出 `review` 文档；不作研究决定 | 09 |
+| `reviewer`（非交互会话：Claude 系模型用 Claude Code CLI，其他用 pi） | 只读；按 kind 产出 `review` 文档；不作研究决定 | 09 |
 | lens 助手（只读子代理） | 只生成候选，不排序、不断言新颖性 | 02 |
-| `pi_review.py`、`discovery_state.py`、`discovery_gate.py`、`candidates.py`、`literature.py` | 确定性脚本；无模型调用 | 02、08、09 |
+| `review_call.py`、`discovery_state.py`、`discovery_gate.py`、`candidates.py`、`literature.py` | 确定性脚本；无模型调用 | 02、08、09 |
 | `evidence.py` 中的数字核验（`evidence_check` 式） | 文档引用的数字必须出现在所引文件中 | 05 |
 | obligation 账本、停滞计数 | 复核发现只能 resolve/waive 关闭；连续无新发现强制换向 | 06 |
 

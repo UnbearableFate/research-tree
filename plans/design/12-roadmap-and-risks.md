@@ -20,7 +20,7 @@ language: "zh-CN"
 | M1 P0 数字闭环 | MetricSpec、记录级重算、产物导入边界、Evaluation、资格有效性、文档数字核对、评测类型标签 | 04、05 | 错数字和过期证据不能产生 GO |
 | M2 P1 判断语义 | inconclusive、disposition、候选/确认分级、保护指标、Type-A/B 门、停滞计数、obligation 账本、结果→claim 路由 | 06 | seed 上限不强制结论；旧状态正确迁移；OPEN 项阻断 GO |
 | M3 P1 执行约束（平台无关部分） | D7 记账（Reservation、submission_key、幂等结算）、站点技能义务写进模板与 README、成本预估与超时 attention、配置去重、可选 webhook、Claude 端回执状态 | 01、05 | 并发准入和未知提交故障测试通过 |
-| M4 P1 评审后端与候选复核 | `pi_review.py`、`review` 文档类型与 `reviewer` 角色、两端 `research_review` 工具、`candidate_recheck`、复核清单、版本化复核 | 09、07 | 每个 GO 都能回答"基于哪次评估、检查了什么、谁复核" |
+| M4 P1 评审后端与候选复核 | `review_call.py`（pi 与 Claude Code CLI 两个基座）、`review` 文档类型与 `reviewer` 角色、两端 `research_review` 工具、`candidate_recheck`、复核清单、版本化复核 | 09、07 | 每个 GO 都能回答"基于哪次评估、检查了什么、谁复核" |
 | M5 P1 想法 → 实验设计 | 问题锚点、假说文档必需章节、claim map 与实验块、`experiment_design` 文档、里程碑、`code_review` 与 sanity 规则、消融规划 | 03 | 节点创建前有完整设计；提交作业前有代码审查与 sanity |
 | M6 P1/P2 发现流程 | 文献工具与存在性核验、`discovery_state`、`discovery_gate`、`candidates`、lens 子代理、planning 提示词分支、`create_hypothesis` 回执检查 | 02、08 | 用户只给方向也能立项；用户假说与新候选一起查新 |
 | M7 P1/P2 经验复用 | finding / lesson 文档、`context_pack`、`capture_filter`、`threat_scan` | 08 | 重复故障下降，经验不越权、不无条件套用 |
@@ -61,7 +61,7 @@ M4 先于 M5、M6：代码审查、消融规划与查新都依赖评审后端。
 
 | 风险 | 缓解方式 |
 |---|---|
-| pi 评审增加费用与延迟 | kind 分级 thinking；`review_usd_alert`；代码审查与消融规划可按配置关闭 |
+| 跨模型评审增加费用与延迟 | kind 分级 thinking；Claude 后端可用 `--max-budget-usd` 单次封顶；`review_usd_alert`；代码审查与消融规划可按配置关闭 |
 | reviewer 与执行者同族时"独立"名不副实 | `require_cross_family` 默认开；身份来自 `turn_end.model`，不来自配置 |
 | 设计阶段文档负担过重 | 必需章节只检查存在与关键字段；claim 与实验块数量有上限；分析类节点不强制代码改动 |
 | 发现流程生成大量低价值候选 | 机械去重 + 预算门；triage 只决定进入查新的数量；候选不建节点就只留在报告中 |
@@ -92,7 +92,7 @@ M4 先于 M5、M6：代码审查、消融规划与查新都依赖评审后端。
 
 ### 3.1 立项前（本包补充）
 
-用户给出优化器改动作为种子假说并授权 100 node-hours。文献助手检索并核验 12 篇相关工作；lens 子代理围绕种子生成 9 个候选（变体、组合、竞争解释各若干）；pi triage 选出 3 个；种子与这 3 个候选各做一次查新与批判性评审，其中一个候选被点名论文覆盖而淘汰并记入报告。Leader 为种子和 2 个新候选写假说文档（问题锚点、claim map、实验块、成本），请用户确认立项。
+用户给出优化器改动作为种子假说并授权 100 node-hours。文献助手检索并核验 12 篇相关工作；lens 子代理围绕种子生成 9 个候选（变体、组合、竞争解释各若干）；跨模型 triage 选出 3 个；种子与这 3 个候选各做一次查新与批判性评审，其中一个候选被点名论文覆盖而淘汰并记入报告。Leader 为种子和 2 个新候选写假说文档（问题锚点、claim map、实验块、成本），请用户确认立项。
 
 ### 3.2 立项
 
@@ -134,7 +134,7 @@ research-tree 当前已经具备可用的研究管理骨架。下一步应优先
 
 **第一优先级：从输入重算统计值；把 GO 资格绑定到当前有效证据。**
 
-**第二优先级：允许不确定；分离科学证据与投入处置；为少数候选保留独立确认预算；用 pi 评审替代自评。**
+**第二优先级：允许不确定；分离科学证据与投入处置；为少数候选保留独立确认预算；用跨模型评审替代自评。**
 
 **第三优先级：把想法到实验设计的过程结构化；让发现流程与经验复用改善后续选择；再通过完整研究对照证明收益。**
 

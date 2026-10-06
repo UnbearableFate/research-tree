@@ -14,7 +14,7 @@ language: "zh-CN"
 
 输入是 02 的幸存想法（用户假说与新候选，各带文献、查新与评审文档）。输出是立项确认所需的一组文档：每个想法一份**假说文档**（问题锚点、方法 proposal、claim map、实验块），一份**最小实验设定**（协议与 MetricSpec 初稿，04 冻结），**根节点任务请求**（框架、统计代码、基线家族），以及按里程碑排列的运行顺序与预算分配。用户确认后，这些文档直接驱动 04（根节点）和 05–06（节点实验）。
 
-ARIS 把这一步拆成 `research-refine`（方法精炼）→ `experiment-plan`（claim 驱动的实验路线图）→ `experiment-bridge`（实现、代码审查、sanity、部署）→ `ablation-planner`（结果后的消融设计）。本项目借其**方法与文档结构**，但判定与门由数据库和 pi 评审执行，不靠提示词常量。
+ARIS 把这一步拆成 `research-refine`（方法精炼）→ `experiment-plan`（claim 驱动的实验路线图）→ `experiment-bridge`（实现、代码审查、sanity、部署）→ `ablation-planner`（结果后的消融设计）。本项目借其**方法与文档结构**，但判定与门由数据库和跨模型评审（09）执行，不靠提示词常量。
 
 当前实现的差距：假说文档只要求"创建理由、计划的代码改动、实验计划"三项自由文本；`min_setup` 由 Leader 一次写成；没有 claim → 证据 → 实验块的对应关系，没有里程碑门，没有消融规划，worker 提交作业前没有独立代码审查和 sanity 约定。
 
@@ -98,7 +98,7 @@ ARIS 把这一步拆成 `research-refine`（方法精炼）→ `experiment-plan`
 借 ARIS ablation-planner，但触发点与分工按本项目：
 
 - **时机**：节点的主锚定结果为 `positive_signal` 或进入 `candidate_ready`（06）后；或复核指出缺少消融时。
-- **出题者是 reviewer**：pi 评审（kind=`ablation_plan`，09）以审稿人视角设计：`name`、`what_it_tests`、`expected_if_component_matters`、`priority 1–5`、`coverage_assessment`、`unnecessary_ablations`、`suggested_order`、`estimated_compute`。Leader 不在 reviewer 看到之前预筛。
+- **出题者是 reviewer**：跨模型评审（kind=`ablation_plan`，09）以审稿人视角设计：`name`、`what_it_tests`、`expected_if_component_matters`、`priority 1–5`、`coverage_assessment`、`unnecessary_ablations`、`suggested_order`、`estimated_compute`。Leader 不在 reviewer 看到之前预筛。
 - **Leader 做工程判断**：预算是否够、哪些只改配置、哪些要改代码、哪些可并行；预算不够时提出裁剪并送回 reviewer 确认，不静默删除。
 - **规则**：组件消融优先于超参扫描；配置级消融优先于改代码；不做与基线等价的 no-op 消融；每个消融必须有 `what_it_tests` 与预期；结果（包括"去掉也没影响"）写入 finding（08）。
 - **登记**：消融作为 `kind=ablation` 实验或子节点，引用来源 review 文档。
@@ -107,7 +107,7 @@ ARIS 把这一步拆成 `research-refine`（方法精炼）→ `experiment-plan`
 
 借 experiment-bridge Phase 2–3。worker 实现节点改动后、提交任何作业前：
 
-1. **代码审查**（`design.code_review`）：pi 评审（kind=`code_review`，09），只给代码路径与假说文档路径，重点查：GT 来源（不得用另一个模型的输出当标签）、自归一化分数、指标代码是否真被调用、seed 与配置是否与协议一致、方法是否确实实现了假说。`CRITICAL` 修复后重审，至多 2 轮；reviewer 不可用时记 `REVIEW_UNAVAILABLE`，由 Leader 决定是否放行并记录。
+1. **代码审查**（`design.code_review`）：跨模型评审（kind=`code_review`，09），只给代码路径与假说文档路径，重点查：GT 来源（不得用另一个模型的输出当标签）、自归一化分数、指标代码是否真被调用、seed 与配置是否与协议一致、方法是否确实实现了假说。`CRITICAL` 修复后重审，至多 2 轮；reviewer 不可用时记 `REVIEW_UNAVAILABLE`，由 Leader 决定是否放行并记录。
 2. **sanity 先行**（`design.sanity_first`）：最小规模跑一次，不计 seed、不占筛选预算以外的额度；验收看有效计数、loss、指标文件、保存读回，不看退出码。
 3. **失败预算**：同一失败至多 2 次补丁，再至多 2 次从假说文档重写；两次重写以同样方式失败 → 归咎计划或环境，上报 Leader，不再重试。与 `search.max_repairs_per_root_cause` 共用计数。
 4. **超时**：实际用量达到预估的 `design.overrun_factor` 倍时写 attention，Leader 决定是否继续，不自动取消。
@@ -135,7 +135,7 @@ ARIS 把这一步拆成 `research-refine`（方法精炼）→ `experiment-plan`
 | `min_setup` | 协议；MetricSpec 列表；评测类型标签；基线家族；seed 层级；训练量 | schema 校验（04） |
 | `experiment_design` | 单个实验块的九字段 + 优先级 + 成本 | 章节检查；实验创建时引用 |
 | `task_request`（根节点） | 现有章节 + 基线家族与里程碑 M0/M1 | 现有检查 |
-| `review`（kind=`ablation_plan` / `code_review`） | 09 的 schema | `pi_review.py` 校验 |
+| `review`（kind=`ablation_plan` / `code_review`） | 09 的 schema | `review_call.py` 校验 |
 
 接口拟议：`create_hypothesis` 增加 `design_doc_id`（假说文档）与 claim 数量上限检查；`create_experiment` 要求引用一个 `experiment_design` 文档并带 `estimated_node_h`、`milestone`；`update_run(valid=true)` 对 sanity attempt 不计入 seed 计数。
 

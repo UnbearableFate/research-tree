@@ -13,12 +13,12 @@
 | `06-verdict-search-and-states.md` | 阶段 5 | 不确定性与三级流程（D3）、状态与处置（D4）、非贪心搜索（D5）、Type-A/B 门、停滞计数、未决问题账本、结果→claim 路由 | 设计文档 §7–9；对照 §4.2 |
 | `07-review-and-go.md` | 阶段 6 | GO 候选的定向复核（D8）、复核清单、GO / NOT GO 报告 | 设计文档 §12、8.3；对照 §4.2 |
 | `08-memory-and-literature.md` | 横切 | 研究发现、运行经验、文献复用（D6）；文献工具；上下文包；记忆写入过滤 | 设计文档 §10；对照 §4.1–4.2 |
-| `09-reviewer-backend.md` | 横切 | pi 非交互评审后端：调用约定、输出 schema、权限、费用 | discovery §4、§10 |
+| `09-reviewer-backend.md` | 横切 | 跨模型非交互评审后端（Claude 系模型 → Claude Code CLI，其余 → pi）：路由、调用约定、输出 schema、权限、费用 | discovery §4、§10 |
 | `10-contracts-and-migration.md` | 横切 | 数据模型、接口、错误码；迁移与兼容 | 设计文档 §13.1–13.5、§14 |
 | `11-tests-and-evaluation.md` | 横切 | 测试与验收；整体工作流对照实验 | 设计文档 §15–16；discovery §8 |
 | `12-roadmap-and-risks.md` | 横切 | 实施批次（合并三份）、风险与取舍、完整执行示例 | 设计文档 §17–19；对照 §6；discovery §9 |
 | `13-references.md` | 附录 | 参考文献、代码定位、ARIS 移植索引（直接移植 / 借鉴机制 / 不移植） | 设计文档 §20；对照 §4–5 |
-| `14-implementation-protocol.md` | 实施过程 | **对实施者有约束力**：每批次末 Fable 5.1 评审并修复；Herdr 侧边开 Claude 与 Codex 加载最新插件真实测试并修复；测试阶段模型矩阵（sonnet 5.5 medium / GPT-6-luna medium，pi reviewer 交叉） | 用户要求（2026-10-06） |
+| `14-implementation-protocol.md` | 实施过程 | **对实施者有约束力**：每批次末 Fable 5.1 评审并修复；Herdr 侧边开 Claude 与 Codex 加载最新插件真实测试并修复；测试阶段模型矩阵（sonnet 5.5 medium / GPT-6-luna medium，reviewer 跨族交叉） | 用户要求（2026-10-06） |
 
 ## 原文章节 → 新文件对照
 
@@ -51,7 +51,7 @@
 
 - **证据等级**沿用 00 §1.2：源码事实 / 静态推断 / 外部作者陈述 / 本文设计建议。
 - **执行层不在插件内**：作业提交、查询、取消与唤醒由 `platform.skills` 加载的站点技能负责（本站点为 `miyabi-pbs-cmd`、`miyabi-pbs-goal-wakeup`）；插件只记账、对账与恢复（05）。
-- **Type-B 判定不自评**：新颖性、是否值得做、声明是否成立由 pi 评审（09）或确定性门给出；reviewer 不可用记 `REVIEW_UNAVAILABLE`。
+- **Type-B 判定不自评**：新颖性、是否值得做、声明是否成立由跨模型评审（09）或确定性门给出；reviewer 不可用记 `REVIEW_UNAVAILABLE`。
 - **用户决定的边界不变**：立项确认、预算、权限、放弃未实验的用户假说、阶段 2 范围。
 - 文中的"设计文档 D1–D8"编号保留，便于与归档原文对照。
 - **实施者每批次必须走完 14 的协议**（单元测试与构建 → Fable 5.1 评审修复 → Herdr 双宿主真实测试修复 → 终审），否则不得报告完成。

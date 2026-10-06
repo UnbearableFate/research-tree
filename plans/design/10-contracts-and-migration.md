@@ -233,7 +233,7 @@ shadow comparison 是比较计算结果，不自动重跑历史训练，不因�
 
 仅修一个函数而不修改展示和 agent 规则，会造成模型继续尝试旧流程，因此不能算完成。
 
-补充同步位置：两端的 agent 类型（`assistant`、reviewer 工具入口 `research_review`）、Bash guard（拒绝直接调用 `pi`）、`planningPrompt` / `codex_prompts.planning` 的发现与设计分支、规则 §1 的新角色、README 的站点技能义务。
+补充同步位置：两端的 agent 类型（`assistant`、reviewer 工具入口 `research_review`）、Bash guard（拒绝直接调用 `pi` 与 `claude -p`）、`planningPrompt` / `codex_prompts.planning` 的发现与设计分支、规则 §1 的新角色、README 的站点技能义务。
 
 <!-- 引用链接 -->
 
