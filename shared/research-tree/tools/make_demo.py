@@ -247,7 +247,7 @@ class Demo:
         rld.update_project(harness_ref=harness, harness_paths=["harness"])
         sota_design = self.doc(w1, "baselines/E-0001/design.v1.md", "experiment_design", "SOTA基线 BaseOpt-A",
                                "在冻结框架下运行虚构的SOTA优化器 BaseOpt-A，3个seed，每个seed 4 nodes。\n", "SOTA基线设计")
-        sota = w1.create_experiment("baseline", "BaseOpt-A（虚构SOTA）", sota_design, harness, 4, 3600)
+        sota = w1.create_experiment("baseline", "BaseOpt-A（虚构SOTA）", sota_design, harness, 4, 3600, estimated_node_h=12.0)
         self.values = {sota: self.finish_experiment(w1, sota, {}, nodes=4)}
         accs = [v["acc"] for v in self.values[sota].values()]
         sota_result = self.doc(w1, "baselines/E-0001/result.v1.md", "experiment_result", "SOTA基线结果",
@@ -301,7 +301,7 @@ class Demo:
             code = self.commit(wt, {f"methods/{h.lower()}.py": f"# 虚构示例：{change}\n# rev {self.rng.random():.6f}\n"}, change)
             dsg = self.doc(worker, f"hypotheses/{h}/experiments/{change[:8]}-{self.rng.randint(100, 999)}/design.v1.md",
                            "experiment_design", f"{h} 实验设计", f"代码 {code[:10]}：{change}。\n", change)
-            exp = worker.create_experiment("method", change, dsg, code, 4, 3600, hypothesis_id=h, n_seeds=n_seeds)
+            exp = worker.create_experiment("method", change, dsg, code, 4, 3600, hypothesis_id=h, n_seeds=n_seeds, estimated_node_h=12.0)
             self.git("tag", f"exp/{exp}", code)
             self.values[exp] = self.finish_experiment(worker, exp, effect, nodes=4)
             return self.evaluate(h, worker, exp, verdict_fn)
@@ -436,7 +436,7 @@ class Demo:
         cb_design = self.doc(w_root, "baselines/confirm/design.v1.md", "experiment_design", "确认基线",
                              "在确认 seed 1042–1044 上运行 BaseOpt-A，作为确认的参照。\n", "确认基线设计")
         cbase = w_root.create_experiment("baseline", "BaseOpt-A（确认基线）", cb_design, self.harness, 4, 3600,
-                                         stage="confirm")
+                                         stage="confirm", estimated_node_h=12.0)
         self.values[cbase] = self.finish_experiment(w_root, cbase, {}, nodes=4)
         cb_result = self.doc(w_root, "baselines/confirm/result.v1.md", "experiment_result", "确认基线结果",
                              "确认 seed 上的基线结果。\n" + self.evidence(cbase), "确认基线")
@@ -444,7 +444,7 @@ class Demo:
         c_design = self.doc(wk3, f"hypotheses/{h3}/experiments/confirm/design.v1.md", "experiment_design",
                             f"{h3} 独立确认", f"冻结代码 {rld.get(e3)['code_ref'][:10]}，确认 seed 1042–1044。\n", "独立确认")
         conf = wk3.create_experiment("method", "moment-balance（确认）", c_design, rld.get(e3)["code_ref"], 4, 3600,
-                                     hypothesis_id=h3, stage="confirm")
+                                     hypothesis_id=h3, stage="confirm", estimated_node_h=12.0)
         self.values[conf] = self.finish_experiment(wk3, conf, {"acc": 0.24, "peak_mem_gb": 1.0, "loss_auc": -0.02}, nodes=4)
         cmps = [self.paired(self.values[conf], self.values[cbase], "sota", cbase)]
         c_result = self.doc(wk3, f"hypotheses/{h3}/experiments/{conf}/result.v3.md", "experiment_result",

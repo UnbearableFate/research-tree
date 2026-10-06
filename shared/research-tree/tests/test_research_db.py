@@ -188,7 +188,7 @@ class Fixture(unittest.TestCase):
     def baseline(self, nodes: int, walltime_s: int) -> str:
         self.n += 1
         design = self.doc(self.worker, f"exp/b{self.n}/design.v1.md", "experiment_design")
-        exp = self.worker.create_experiment("baseline", "sota", design, self.harness, nodes, walltime_s)
+        exp = self.worker.create_experiment("baseline", "sota", design, self.harness, nodes, walltime_s, estimated_node_h=1.0)
         self.finish_runs(self.worker, exp, nodes, walltime_s)
         self.worker.evaluate_experiment(exp, self.result_doc(exp=exp))
         return exp
@@ -212,7 +212,7 @@ class Fixture(unittest.TestCase):
         self.n += 1
         design = self.doc(self.worker, f"exp/m{self.n}/design.v1.md", "experiment_design")
         return self.worker.create_experiment("method", "m", design, code_ref or self.commit(), 1, 1800,
-                                             hypothesis_id=hyp, n_seeds=n_seeds)
+                                             hypothesis_id=hyp, n_seeds=n_seeds, estimated_node_h=1.0)
 
     def comparisons(self, exp: str, sota: tuple[float, float, float], parent=None) -> list[dict]:
         """Claimed comparisons for record_verdict: sota (primary, final_loss, peak_mem_gb) deltas; parent:
@@ -337,7 +337,7 @@ class ProjectTest(Fixture):
         with self.assertRaisesRegex(ResearchDBError, "relative"):
             self.rld.update_project(harness_paths=["../outside"])
         design = self.doc(self.worker, "exp/x/design.v1.md", "experiment_design")
-        unevaluated = self.worker.create_experiment("baseline", "other", design, self.harness, 1, 60)
+        unevaluated = self.worker.create_experiment("baseline", "other", design, self.harness, 1, 60, estimated_node_h=1.0)
         with self.assertRaisesRegex(ResearchDBError, r"not evaluated yet: .*evaluate_experiment.*not yet valid: "
                                     rf"{unevaluated}/s\d+ \(no run\).*exec_status planned -> submitted"):
             self.rld.update_project(sota_experiment_id=unevaluated)
@@ -455,29 +455,29 @@ class ExperimentTest(Fixture):
         ]
         for kwargs, message in cases:
             with self.subTest(kwargs=kwargs), self.assertRaisesRegex(ResearchDBError, message):
-                self.worker.create_experiment(method_name="m", design_doc_id=design, **kwargs)
-        exp = self.worker.create_experiment("method", "m", design, code, 1, 60, hypothesis_id=h)
+                self.worker.create_experiment(method_name="m", design_doc_id=design, **kwargs, estimated_node_h=1.0)
+        exp = self.worker.create_experiment("method", "m", design, code, 1, 60, hypothesis_id=h, estimated_node_h=1.0)
         self.assertEqual(self.rld.get(exp)["seeds"], SEEDS)  # 0.5 node-hours per seed: 3 seeds fit the budget
 
     def test_usage_alert_pauses_new_experiments(self):
         h = self.hypothesis()
         self.branch(h)
         design = self.doc(self.worker, "exp/d.v1.md", "experiment_design")
-        exp = self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h, n_seeds=1)
+        exp = self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h, n_seeds=1, estimated_node_h=1.0)
         self.rld.update_project(alert_node_h=1.5)  # the SOTA baseline used 3 x 0.5 node-hours
         with self.assertRaisesRegex(ResearchDBError, "reached alert_node_h 1.5"):
-            self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h)
+            self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h, estimated_node_h=1.0)
         with self.assertRaisesRegex(ResearchDBError, "reached alert_node_h"):
             self.worker.extend_seeds(exp, 2)
         self.worker.create_run(exp, SEEDS[0])  # runs of an experiment already registered go on
         self.rld.update_project(alert_node_h=None)
-        self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h)
+        self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h, estimated_node_h=1.0)
 
     def test_runs(self):
         h = self.hypothesis()
         self.branch(h)
         design = self.doc(self.worker, "exp/d.v1.md", "experiment_design")
-        exp = self.worker.create_experiment("method", "m", design, self.commit(), 1, 600, hypothesis_id=h, n_seeds=1)
+        exp = self.worker.create_experiment("method", "m", design, self.commit(), 1, 600, hypothesis_id=h, n_seeds=1, estimated_node_h=1.0)
         with self.assertRaisesRegex(ResearchDBError, "not one of"):
             self.worker.create_run(exp, 43)
         run = self.worker.create_run(exp, 42)
@@ -537,7 +537,7 @@ class VerdictTest(Fixture):
             self.evaluate(unchanged, "beats_sota")
         design = self.doc(self.worker, "exp/p.v1.md", "experiment_design")
         partial = self.worker.create_experiment("method", "m", design, self.commit({"m.txt": "x"}), 1, 60,
-                                                hypothesis_id=self.h)
+                                                hypothesis_id=self.h, estimated_node_h=1.0)
         self.worker.create_run(partial, SEEDS[0])
         with self.assertRaisesRegex(ResearchDBError, "needs a valid run for every seed"):
             self.worker.evaluate_experiment(partial, self.result_doc(exp=partial), "beats_sota")
@@ -797,7 +797,7 @@ class DecisionTest(Fixture):
         design = self.doc(self.worker, "exp/stopped.v1.md", "experiment_design")
         req = self.doc(self.rld, "tasks/stopped/request.v1.md", "task_request")
         for start in (lambda: self.rld.create_hypothesis("h", "s", self.rld.get(h)["doc_id"], self.literature),
-                      lambda: self.worker.create_experiment("baseline", "b", design, self.harness, 1, 60),
+                      lambda: self.worker.create_experiment("baseline", "b", design, self.harness, 1, 60, estimated_node_h=1.0),
                       lambda: self.worker.create_run(self.sota, SEEDS[0]),
                       lambda: self.rld.create_task("experiment", "worker", req, target_id=h)):
             with self.assertRaisesRegex(ResearchDBError, "is stopped: no new research work"):
@@ -814,7 +814,7 @@ class KnownDefectTest(Fixture):
 
     def test_f01_summary_must_match_the_runs(self):  # M01
         design = self.doc(self.worker, "exp/f01/design.v1.md", "experiment_design")
-        exp = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 60)
+        exp = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 60, estimated_node_h=1.0)
         self.finish_runs(self.worker, exp)  # every run 70.0
         with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH"):
             self.worker.record_verdict(exp, self.result_doc(exp=exp), 70.3, 0.0)  # the SD (0) is true
@@ -839,7 +839,7 @@ class KnownDefectTest(Fixture):
         self.start(h)
         self.n += 1
         design = self.doc(self.worker, f"exp/m{self.n}/design.v1.md", "experiment_design")
-        exp = self.worker.create_experiment("method", "m", design, self.commit(), 1, 1800, hypothesis_id=h)
+        exp = self.worker.create_experiment("method", "m", design, self.commit(), 1, 1800, hypothesis_id=h, estimated_node_h=1.0)
         self.finish_runs(self.worker, exp, metric_value=70.3)
         claimed = self.comparisons(exp, (0.3, 0.0, 0.0))
         claimed[0]["delta_sd"] = 0.0
@@ -924,7 +924,7 @@ class NumbersTest(Fixture):
         with self.assertRaisesRegex(ResearchDBError, "PROTOCOL_CHANGE_REQUIRED"):
             self.rld.update_project(protocol_doc_id=protocol)
         self.rld.update_project(protocol_doc_id=protocol, user_instruction_doc_id=instruction)
-        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800)
+        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, estimated_node_h=1.0)
         self.imported(base, epochs=30)
         self.worker.evaluate_experiment(base, self.result_doc(exp=base))
         self.rld.update_project(sota_experiment_id=base)
@@ -1036,7 +1036,7 @@ class UnitsTest(Fixture):
 
     def test_m04_m05(self):
         design = self.doc(self.worker, "exp/b.v1.md", "experiment_design")
-        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 600)
+        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 600, estimated_node_h=1.0)
         self.finish_runs(self.worker, base, metric_value=0.699)
         self.worker.evaluate_experiment(base, self.result_doc(exp=base))
         self.rld.update_project(sota_experiment_id=base)
@@ -1065,7 +1065,7 @@ class RelativeTest(Fixture):
 
     def test_m09(self):
         design = self.doc(self.worker, "exp/z.v1.md", "experiment_design")
-        zero = self.worker.create_experiment("baseline", "zero", design, self.harness, 1, 600)
+        zero = self.worker.create_experiment("baseline", "zero", design, self.harness, 1, 600, estimated_node_h=1.0)
         self.finish_runs(self.worker, zero, metric_value=0.5)
         self.worker.evaluate_experiment(zero, self.result_doc(exp=zero))
         self.rld.update_project(sota_experiment_id=zero)
@@ -1199,7 +1199,7 @@ class EligibilityTest(Fixture):
         self.assertEqual(self.rld.get("P-test")["status"], "stopped")
         design = self.doc(self.worker, "exp/after.v1.md", "experiment_design")
         with self.assertRaisesRegex(ResearchDBError, "is stopped: no new research work"):
-            self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h)
+            self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h, estimated_node_h=1.0)
 
     def test_guardrail_failure_blocks_go(self):  # U09, 04 §5
         specs = json.loads(json.dumps(SPECS))
@@ -1297,7 +1297,7 @@ class ArtifactImportTest(Fixture):
 
     def test_artifact_level(self):
         design = self.doc(self.worker, "exp/ai.v1.md", "experiment_design")
-        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800)
+        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, estimated_node_h=1.0)
         self.imported(base)
         self.worker.evaluate_experiment(base, self.result_doc(exp=base))
         self.rld.update_project(sota_experiment_id=base)
@@ -1387,7 +1387,7 @@ class FinalReviewTest(Fixture):
 
     def test_imported_runs_meet_a_later_protocol(self):
         design = self.doc(self.worker, "exp/mr.v1.md", "experiment_design")
-        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800)
+        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, estimated_node_h=1.0)
         self.imported(base, epochs=30)
         self.worker.evaluate_experiment(base, self.result_doc(exp=base))
         self.rld.update_project(sota_experiment_id=base)
@@ -1470,7 +1470,7 @@ class UnitMixTest(Fixture):
 class ReviewSixTest(Fixture):
     def test_one_fraction_among_percentages(self):
         design = self.doc(self.worker, "exp/mix.v1.md", "experiment_design")
-        mixed = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800)
+        mixed = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, estimated_node_h=1.0)
         for seed, value in zip(SEEDS, (69.9, 69.9, 0.699)):
             self.worker.create_run(mixed, seed)
             self.worker.update_run(f"{mixed}/s{seed}", exec_status="submitted")
@@ -1566,7 +1566,7 @@ class UncertaintyTest(Fixture):
             self.method(h)
         design = self.doc(self.worker, "exp/why.v1.md", "experiment_design")
         self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h,
-                                      selection_rationale="2 more seeds separate a 0.05 gain from noise")
+                                      selection_rationale="2 more seeds separate a 0.05 gain from noise", estimated_node_h=1.0)
 
 
 class ConfirmationTest(Fixture):
@@ -1577,7 +1577,7 @@ class ConfirmationTest(Fixture):
 
     def confirm_baseline(self) -> str:
         design = self.doc(self.worker, "exp/cb.v1.md", "experiment_design")
-        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, stage="confirm")
+        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, stage="confirm", estimated_node_h=1.0)
         self.assertEqual(self.rld.get(base)["seeds"], [1042, 1043, 1044])
         self.finish_runs(self.worker, base)
         self.worker.evaluate_experiment(base, self.result_doc(exp=base))
@@ -1592,13 +1592,13 @@ class ConfirmationTest(Fixture):
         design = self.doc(self.worker, "exp/c1.v1.md", "experiment_design")
         with self.assertRaisesRegex(ResearchDBError, "no confirmation baseline"):
             self.worker.create_experiment("method", "m", design, self.rld.get(exp)["code_ref"], 1, 60,
-                                          hypothesis_id=h, stage="confirm")
+                                          hypothesis_id=h, stage="confirm", estimated_node_h=1.0)
         self.confirm_baseline()
         with self.assertRaisesRegex(ResearchDBError, "runs the frozen candidate"):
             self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h,
-                                          stage="confirm")
+                                          stage="confirm", estimated_node_h=1.0)
         conf = self.worker.create_experiment("method", "m", design, self.rld.get(exp)["code_ref"], 1, 60,
-                                             hypothesis_id=h, stage="confirm")
+                                             hypothesis_id=h, stage="confirm", estimated_node_h=1.0)
         self.evaluate(conf, None, sota=(0.3, 0.1, 0.1))
         result = self.rld.get_eligibility(h)
         self.assertEqual((result["eligible"], result["stage"]), (True, "confirmed"), result)
@@ -1607,14 +1607,14 @@ class ConfirmationTest(Fixture):
         self.evaluate(newer, "beats_sota", sota=(0.4, 0.1, 0.1))
         self.recheck_pass(h, newer)
         conf2 = self.worker.create_experiment("method", "m", design, self.rld.get(newer)["code_ref"], 1, 60,
-                                              hypothesis_id=h, stage="confirm")
+                                              hypothesis_id=h, stage="confirm", estimated_node_h=1.0)
         self.evaluate(conf2, None, sota=(0.4, 0.1, 0.1))
         self.assertEqual(self.rld.get_eligibility(h)["reasons"], ["CONFIRMATION_REUSED"])
         # a second node cannot also enter confirmation (max_confirmation_candidates 1)
         h2, exp2 = self.candidate_ready()
         with self.assertRaisesRegex(ResearchDBError, "BUDGET_EXCEEDED: max_confirmation_candidates"):
             self.worker.create_experiment("method", "m", design, self.rld.get(exp2)["code_ref"], 1, 60,
-                                          hypothesis_id=h2, stage="confirm")
+                                          hypothesis_id=h2, stage="confirm", estimated_node_h=1.0)
 
     def candidate_ready(self) -> tuple[str, str]:
         h, exp = self.concluded("beats_sota")
@@ -1630,7 +1630,7 @@ class IndependenceTest(Fixture):
 
     def test_u10(self):
         design = self.doc(self.worker, "exp/ib.v1.md", "experiment_design")
-        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800)
+        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, estimated_node_h=1.0)
         self.imported(base, data_order="fixed")
         self.worker.evaluate_experiment(base, self.result_doc(exp=base))
         self.rld.update_project(sota_experiment_id=base)
@@ -1763,7 +1763,7 @@ class SchemaUpgradeTest(unittest.TestCase):
                 rld.register_document("s.v1.md", "min_setup", "s")
             self.assertEqual(create_db.upgrade_db(db), 6)
             rld.register_document("s.v1.md", "min_setup", "s")
-            self.assertEqual(create_db.upgrade_db(db), 8)  # nothing more to do
+            self.assertEqual(create_db.upgrade_db(db), 9)  # nothing more to do
             self.assertEqual(rdb.SCHEMA_VERSION, create_db.SCHEMA_VERSION)
 
 
@@ -2036,9 +2036,9 @@ class CleanupTest(Fixture):
         design = self.doc(self.worker, "exp/keep.v1.md", "experiment_design")
         with self.assertRaisesRegex(ResearchDBError, "keep needs keep_reason"):
             self.worker.create_experiment("method", "m", design, self.commit(), 1, 1800, hypothesis_id=self.h,
-                                          keep=["final_weights"])
+                                          keep=["final_weights"], estimated_node_h=1.0)
         exp = self.worker.create_experiment("method", "m", design, self.commit(), 1, 1800, hypothesis_id=self.h,
-                                            keep=["final_weights"], keep_reason="the next experiment trains on from them")
+                                            keep=["final_weights"], keep_reason="the next experiment trains on from them", estimated_node_h=1.0)
         self.finish_runs(self.worker, exp)
         self.outputs(exp)
         self.evaluate(exp, "no_gain", sota=(-0.1, -0.1, -0.1))
@@ -2091,8 +2091,8 @@ class WorkerTest(Fixture):
         own = ResearchDB(self.db, f"worker/{wid}")
         design = self.doc(own, "exp/w/design.v1.md", "experiment_design")
         with self.assertRaisesRegex(PermissionDenied, f"worker/{wid}'s node"):
-            self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h)
-        exp = own.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h)
+            self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h, estimated_node_h=1.0)
+        exp = own.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h, estimated_node_h=1.0)
         self.assertEqual(self.rld.get(exp)["owner"], wid)
 
     def test_resume_documents(self):

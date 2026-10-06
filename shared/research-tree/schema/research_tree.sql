@@ -1,4 +1,4 @@
--- 研究假说树 LatticeDB 数据模型（schema_version 8，2026-10-06）
+-- 研究假说树 LatticeDB 数据模型（schema_version 9，2026-10-06）
 --
 -- 说明
 -- * LatticeDB 是属性图数据库（Cypher 查询），不执行 SQL。本文件用 SQL DDL 作为可读的
@@ -56,6 +56,13 @@ CREATE TABLE project (
     max_parallel_workers INTEGER,              -- 同时有任务在手的 worker 数上限；null 为不限
     alert_node_h        REAL,                  -- 累计用量提醒阈值（node·h）；超过时提醒用户，null 为不提醒
     config_doc_id       TEXT,                  -- 生效中的项目配置（research-tree.yaml 的登记版本）；以上预算与门槛取自它
+    -- 硬预算（plans/design 05 §4）：整数 node-seconds；为空 = 只有用量提醒，不声称成本封顶
+    total_limit         INTEGER,               -- 授权总量
+    search_limit        INTEGER,               -- 其中探索（筛选、复制）的上限
+    confirmation_limit  INTEGER,               -- 其中独立确认的上限（总量的一部分，不是追加授权）
+    repair_limit        INTEGER,               -- 其中修复的上限
+    overrun_factor      REAL NOT NULL DEFAULT 2.0,  -- 实际用量达到预估的倍数即写待处理项（不取消作业）
+    admission_paused    TEXT,                  -- 准入暂停的原因（实际超额等）；新的提交预留被拒，直到用户处理
     stall_structural_at INTEGER NOT NULL DEFAULT 2,  -- 子树连续几批没有新发现即须换向（同方向子节点被拒）
     stall_human_at      INTEGER NOT NULL DEFAULT 4,  -- 连续几批没有新发现即上报用户
     protocol_doc_id     TEXT,                  -- 现行实验协议（JSON 文档：评测类型、配对字段、必须一致的设定）
@@ -154,6 +161,9 @@ CREATE TABLE experiment (
     method_name         TEXT NOT NULL,
     design_doc_id       TEXT NOT NULL,         -- 实验设计文档
     stage               TEXT CHECK (stage IN ('screen', 'replicate', 'confirm')),  -- 三级流程（06 §2.2）；空 = screen
+    estimated_node_h    REAL,                  -- 登记时的成本预估（全部 seed 的 node·h）；新实验必填
+    milestone           TEXT CHECK (milestone IN ('M0', 'M1', 'M2', 'M3', 'M4')),  -- 03 §6 里程碑
+    budget_pool         TEXT CHECK (budget_pool IN ('search', 'confirmation', 'repair')),  -- 预留计入的分项
     selection_rationale TEXT,                  -- 为什么现在做、结果怎样改变下一步（同一 claim 多轮不确定后必填）
     result_doc_id       TEXT,                  -- 统计结果文档（冻结统计代码的输出与解读）
     code_ref            TEXT NOT NULL,         -- 运行的 git commit；打标签 exp/<实验ID>，分支删除后仍可追溯
@@ -228,6 +238,7 @@ CREATE TABLE run (
     experiment_id       TEXT NOT NULL,         -- edge: PART_OF
     seed                INTEGER NOT NULL,
     job_id              TEXT,                  -- 调度系统作业 ID
+    submission_key      TEXT,                  -- 当前 attempt 的提交身份（reservation）
     attempt             INTEGER NOT NULL DEFAULT 1,
     exec_status         TEXT NOT NULL CHECK (exec_status IN (
                             'planned', 'submitted', 'running',
@@ -299,6 +310,30 @@ CREATE TABLE evaluation (
     migrated            BOOLEAN,               -- 由 migrate_evaluations 为旧判定补记：只作历史，不支持新规则下的 GO
     created_by          TEXT NOT NULL,
     created_at          TEXT NOT NULL
+);
+
+-- 预算预留（05 §4）：一条对应一个实际可计费的调度分配；记账状态受约束更新
+CREATE TABLE reservation (
+    id                  TEXT PRIMARY KEY,      -- 例：RS-0004
+    project_id          TEXT NOT NULL,
+    submission_key      TEXT NOT NULL,         -- 项目内唯一的提交身份；同一 key 再次预留返回同一条
+    run_attempt_refs    TEXT_LIST NOT NULL,    -- 这次分配运行的 run 与 attempt（一个作业可跑多个 seed）
+    budget_pool         TEXT NOT NULL CHECK (budget_pool IN ('search', 'confirmation', 'repair')),
+    resource_class      TEXT NOT NULL,         -- 资源类别；初版只有 node（node-seconds）
+    reserved_units      INTEGER NOT NULL,      -- 申请资源 × walltime 上限，向上取整
+    actual_units        INTEGER,               -- 结算的实际用量；可超过预留（如实记录）
+    accounting_status   TEXT NOT NULL CHECK (accounting_status IN ('reserved', 'held_unknown', 'settled', 'released')),
+    submission_phase    TEXT NOT NULL CHECK (submission_phase IN ('intent', 'claimed', 'attached')),
+    claim_generation    INTEGER NOT NULL DEFAULT 0,  -- 领取次数；只有最新一次领取的执行者能写回作业
+    job_id              TEXT,
+    platform_profile    TEXT,
+    accounting_ref      TEXT,                  -- 结算依据（调度器用量文件），相对研究根目录
+    accounting_sha256   TEXT,
+    overrun             BOOLEAN,               -- 实际用量超过预留或剩余预算
+    note                TEXT,
+    created_at          TEXT NOT NULL,
+    updated_at          TEXT NOT NULL,
+    settled_at          TEXT
 );
 
 -- 未决问题账本（06 §6）：复核发现、STAT_MISMATCH、协议不匹配、代码审查 CRITICAL 等；只追加

@@ -56,7 +56,7 @@ SPEC_PATH = Path(__file__).resolve().parent.parent / "schema" / "research_tree.s
 CLEANUP_SCRIPT = "research-tree-cleanup.py"
 CLEANUP_TEMPLATE = Path(__file__).resolve().parent.parent / "schema" / "cleanup.template.py"
 # The database layout this interface writes (schema/create_db.py SCHEMA_VERSION; a test keeps them equal).
-SCHEMA_VERSION = 8
+SCHEMA_VERSION = 9
 OPEN_ATTEMPTS = 40
 OPEN_RETRY_DELAY_S = 0.25
 
@@ -72,9 +72,10 @@ ID_PREFIX = {
     "task": "T",
     "evaluation": "EV",
     "obligation": "OB",
+    "reservation": "RS",
 }
 TABLE_OF_PREFIX = {prefix: table for table, prefix in ID_PREFIX.items()}
-ENTITY_ID_RE = re.compile(r"^(P|H|E|EV|OB|BR|D|DEC|T)-[A-Za-z0-9_.-]+$")
+ENTITY_ID_RE = re.compile(r"^(P|H|E|EV|OB|RS|BR|D|DEC|T)-[A-Za-z0-9_.-]+$")
 # A project may also be named like its directory / uv project (`my-study`), as long as it does not look like
 # another record's id.
 PROJECT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
@@ -152,6 +153,8 @@ INCONCLUSIVE_SECTIONS = ("缺失证据", "下一实验")
 NOT_GO_SECTIONS = ("未探索", "工程失败", "不确定", "重复方向", "明确反证", "投入价值判断")
 DISPOSITIONS = ("active", "paused", "retired")
 # The execution lifecycle as the old node status shows it (06 §3.1).
+BUDGET_POOLS = ("search", "confirmation", "repair")
+SUBMISSION_KEY_RE = re.compile(r"[A-Za-z0-9_.:@/-]{1,128}")
 LIFECYCLE = {"pending": "pending", "verifying": "verifying", "expandable": "assessed", "prunable": "assessed"}
 SEVERITIES = ("CRITICAL", "MAJOR", "MINOR")
 FIX_TYPES = ("corrected_from_results", "re_evaluated", "re_run", "code_fixed", "claim_narrowed", "claim_withdrawn",
@@ -203,9 +206,11 @@ FINAL_EXEC = ("succeeded", "failed", "cancelled")
 # What one attempt of a run records; kept in run.attempts when the run is resubmitted.
 REPORTED_FIELDS = ("job_id", "exec_status", "valid", "invalid_reason", "curve_path", "log_path", "output_path",
                    "started_at", "finished_at")
-ATTEMPT_FIELDS = REPORTED_FIELDS + RUN_MEASUREMENTS + IMPORT_FIELDS + ("retracted_at", "retracted_reason")
+ATTEMPT_FIELDS = (REPORTED_FIELDS + RUN_MEASUREMENTS + IMPORT_FIELDS
+                  + ("retracted_at", "retracted_reason", "submission_key"))
 # Settings from the project configuration (research-tree.yaml) besides the caps and gates above.
-LIMIT_FIELDS = ("max_parallel_workers", "alert_node_h", "config_doc_id")
+LIMIT_FIELDS = ("max_parallel_workers", "alert_node_h", "config_doc_id", "total_limit", "search_limit",
+                "confirmation_limit", "repair_limit", "overrun_factor", "stall_structural_at", "stall_human_at")
 # The documents evaluations are computed under (plans/design/04): protocol and metric specification.
 EVIDENCE_DOC_FIELDS = ("protocol_doc_id", "metric_spec_doc_id")
 
@@ -1300,6 +1305,274 @@ class ResearchDB:
         return [o["id"] for o in (tx.get(i) for i in tx.ids("obligation"))
                 if o["status"] == "OPEN" and o["about"] in subjects]
 
+    # -- budget: reservations, submission identity, settlement (plans/design 05 §4) -----------------------
+    # The plugin keeps the books; the site skill submits, queries and cancels (01 §4). Steps 1, 2, 4 and 6 of
+    # the submission protocol are here: reserve, claim, attach, settle; submit (3) and query (5) are the skill's.
+
+    def reserve_submission(self, submission_key: str, run_attempt_refs: list[str], resource_request: dict) -> dict:
+        """Step 1: in one write, check authorization, admission and the budget, and record the submission intent
+        with its reservation. submission_key is the project-unique identity the site skill passes to the scheduler
+        (so a timed-out submission can be found again); the same key again returns the same reservation.
+        run_attempt_refs: the runs this one scheduler allocation runs ('E-0002/s42@1'; one job may run several
+        seeds: they share one reservation). resource_request: {"nodes", "walltime_s"} (the walltime cap the
+        scheduler enforces), optional "budget_pool" (search, confirmation, repair; by default from the experiment's
+        stage) and "platform_profile". Reserved units = nodes x walltime_s node-seconds, rounded up. With a total
+        budget (project.total_limit) a run is submitted only under a reservation."""
+        self._require_role("rld", "worker")
+        if not isinstance(submission_key, str) or not SUBMISSION_KEY_RE.fullmatch(submission_key):
+            raise ResearchDBError("submission_key is 1..128 characters of letters, digits and _ . : @ / -")
+        if not isinstance(resource_request, dict) or set(resource_request) - {"nodes", "walltime_s", "budget_pool",
+                                                                              "platform_profile"}:
+            raise ResearchDBError('resource_request is {"nodes", "walltime_s", "budget_pool"?, "platform_profile"?}')
+        nodes, walltime = resource_request.get("nodes"), resource_request.get("walltime_s")
+        if not all(isinstance(v, int) and not isinstance(v, bool) and v > 0 for v in (nodes, walltime)):
+            raise ResearchDBError("resource_request needs positive integer nodes and walltime_s")
+        refs = sorted(set(run_attempt_refs or []))
+        if not refs:
+            raise ResearchDBError("run_attempt_refs names the runs this allocation runs")
+        with self._writer() as tx:
+            project = self._project(tx)
+            same = tx.ids("reservation", "WHERE n.submission_key = $k", k=submission_key)
+            if same:
+                r = tx.get(same[0])
+                if r["run_attempt_refs"] != refs or r["reserved_units"] != nodes * walltime:
+                    raise CodedError("SUBMISSION_AMBIGUOUS", f"{submission_key} already reserves {r['run_attempt_refs']} "
+                                                             f"({r['reserved_units']} node-s); one key, one submission")
+                return self._reservation_view(r, created=False)
+            self._require_active(project)
+            if project.get("admission_paused"):
+                raise CodedError("BUDGET_EXCEEDED", f"admission is paused: {project['admission_paused']}; the user "
+                                                    "decides (resume_admission with their instruction)")
+            if nodes > project["max_nodes"] or walltime > project["max_walltime_s"]:
+                raise ResearchDBError(f"the request exceeds the per-run cap ({project['max_nodes']} nodes, "
+                                      f"{project['max_walltime_s']} s); report the need to the user")
+            pools = set()
+            for ref in refs:
+                run_id, _, attempt = ref.rpartition("@")
+                run = tx.require(run_id, ("run",))
+                exp = tx.get(run["experiment_id"])
+                self._require_owner(exp)
+                if str(run["attempt"]) != attempt:
+                    raise ResearchDBError(f"{run_id} is at attempt {run['attempt']}, not {attempt}")
+                if run["exec_status"] != "planned":
+                    raise CodedError("SUBMISSION_AMBIGUOUS", f"{run_id}@{attempt} is {run['exec_status']}: it was "
+                                                             "submitted already; reconcile, do not reserve again")
+                if run.get("submission_key"):
+                    raise CodedError("SUBMISSION_AMBIGUOUS", f"{run_id}@{attempt} is under {run['submission_key']}")
+                pools.add(exp.get("budget_pool") or ("confirmation" if exp.get("stage") == "confirm" else "search"))
+            pool = resource_request.get("budget_pool") or (pools.pop() if len(pools) == 1 else None)
+            if pool is None or pool not in BUDGET_POOLS:
+                raise ResearchDBError(f"budget_pool is one of {BUDGET_POOLS}; the runs' experiments name {sorted(pools)}")
+            units = nodes * walltime
+            self._check_budget(tx, project, pool, units)
+            res_id = tx.next_id("reservation")
+            self._insert(tx, "reservation", {
+                "id": res_id, "project_id": project["id"], "submission_key": submission_key,
+                "run_attempt_refs": refs, "budget_pool": pool, "resource_class": "node", "reserved_units": units,
+                "accounting_status": "reserved", "submission_phase": "intent", "claim_generation": 0,
+                "platform_profile": resource_request.get("platform_profile")})
+            for ref in refs:
+                tx.set(ref.rpartition("@")[0], {"submission_key": submission_key})
+            return self._reservation_view(tx.get(res_id), created=True)
+
+    def claim_submission(self, submission_key: str, reclaim: bool = False) -> dict:
+        """Step 2: one executor takes the intent before submitting; it gets a claim generation that attach_job
+        must present. A claimed intent is not claimed again: if its executor is gone, first check with the
+        scheduler that nothing was submitted under the key, then reclaim=true (the old generation can no longer
+        attach)."""
+        with self._writer() as tx:
+            r = self._reservation(tx, submission_key)
+            self._require_run_owner(tx, r)
+            if r["accounting_status"] in ("settled", "released"):
+                raise ResearchDBError(f"{submission_key} is {r['accounting_status']}")
+            if r["submission_phase"] == "attached":
+                raise CodedError("SUBMISSION_AMBIGUOUS", f"{submission_key} is already job {r['job_id']}")
+            if r["submission_phase"] == "claimed" and not reclaim:
+                raise CodedError("SUBMISSION_AMBIGUOUS", f"{submission_key} is claimed (generation "
+                                                         f"{r['claim_generation']}); query the scheduler by the key "
+                                                         "before any new submission, then reclaim=true if nothing "
+                                                         "was submitted")
+            generation = r["claim_generation"] + 1
+            self._update(tx, r["id"], {"submission_phase": "claimed", "claim_generation": generation})
+            return {"submission_key": submission_key, "claim_generation": generation}
+
+    def attach_job(self, submission_key: str, job_id: str, claim_generation: int) -> dict:
+        """Step 4: the scheduler's job id for the claimed submission (also when it was found later by the key after
+        a timeout). Writes the job id on the runs that have none. The same job again changes nothing; another job
+        under the same key is refused."""
+        if not isinstance(job_id, str) or not job_id.strip():
+            raise ResearchDBError("job_id is the scheduler's id")
+        with self._writer() as tx:
+            r = self._reservation(tx, submission_key)
+            self._require_run_owner(tx, r)
+            if r["submission_phase"] == "attached":
+                if r["job_id"] != job_id:
+                    raise CodedError("SUBMISSION_AMBIGUOUS", f"{submission_key} is job {r['job_id']}, not {job_id}")
+                return self._reservation_view(r, created=False)
+            if r["submission_phase"] != "claimed" or claim_generation != r["claim_generation"]:
+                raise CodedError("SUBMISSION_AMBIGUOUS", f"{submission_key} is {r['submission_phase']} with claim "
+                                                         f"generation {r['claim_generation']}, not {claim_generation}")
+            self._update(tx, r["id"], {"submission_phase": "attached", "job_id": job_id})
+            for ref in r["run_attempt_refs"]:
+                run_id = ref.rpartition("@")[0]
+                if not tx.get(run_id).get("job_id"):
+                    tx.set(run_id, {"job_id": job_id})
+            return self._reservation_view(tx.get(r["id"]), created=False)
+
+    def reconcile_submission(self, submission_key: str) -> dict:
+        """Where a submission stands and what is safe next (read-only): never 'submit again' while the scheduler
+        may have it."""
+        with self.reader() as tx:
+            r = self._reservation(tx, submission_key)
+            runs = {ref: tx.get(ref.rpartition("@")[0])["exec_status"] for ref in r["run_attempt_refs"]}
+        if r["accounting_status"] in ("settled", "released"):
+            step = f"nothing: {r['accounting_status']}"
+        elif r["submission_phase"] == "intent":
+            step = "claim_submission, then submit with the key"
+        elif r["submission_phase"] == "claimed":
+            step = ("SUBMISSION_AMBIGUOUS: the scheduler may have it; query it by the submission key and attach_job "
+                    "when found; release only once sure nothing was submitted (user instruction)")
+        elif all(s in FINAL_EXEC for s in runs.values()):
+            step = "settle_reservation with the scheduler's accounting for the job"
+        else:
+            step = f"query job {r['job_id']}; report the runs' exec_status"
+        return {**self._reservation_view(r, created=False), "runs": runs, "next": step}
+
+    def settle_reservation(self, reservation_id: str, accounting_ref: str) -> dict:
+        """Step 6: the actual usage, from the scheduler's accounting file (JSON {"job_id", "node_seconds"} or
+        {"job_id", "nodes_used", "walltime_used_s"}, inside the project), once every run of the allocation is final
+        (failed runs cost too). Recorded as it is, also above the reservation or the budget: then the reservation is
+        marked overrun and admission pauses until the user decides. Settling again with the same file changes
+        nothing; another file is refused."""
+        path = self._inside_project(accounting_ref, self.db_path.parent, "accounting_ref")
+        record = _read_json(path, "accounting file")
+        digest = sha256_file(path)
+        with self._writer() as tx:
+            r = tx.require(reservation_id, ("reservation",))
+            self._require_run_owner(tx, r)
+            if r["accounting_status"] == "settled":
+                if r.get("accounting_sha256") != digest:
+                    raise CodedError("EVIDENCE_CHANGED", f"{reservation_id} was settled from {r['accounting_ref']}")
+                return self._reservation_view(r, created=False)
+            if r["accounting_status"] == "released":
+                raise ResearchDBError(f"{reservation_id} was released")
+            billed = record.get("job_id") if isinstance(record, dict) else None
+            if billed is None or billed != r.get("job_id"):
+                raise CodedError("SUBMISSION_AMBIGUOUS", f"the accounting file is for job {billed}, the reservation's "
+                                                         f"job is {r.get('job_id')}")
+            units = record.get("node_seconds")
+            if units is None and all(isinstance(record.get(k), int) for k in ("nodes_used", "walltime_used_s")):
+                units = record["nodes_used"] * record["walltime_used_s"]
+            if not isinstance(units, int) or isinstance(units, bool) or units < 0:
+                raise ResearchDBError("the accounting file gives node_seconds, or nodes_used and walltime_used_s")
+            open_runs = [ref for ref in r["run_attempt_refs"]
+                         if tx.get(ref.rpartition("@")[0])["exec_status"] not in FINAL_EXEC
+                         and tx.get(ref.rpartition("@")[0])["attempt"] == int(ref.rpartition("@")[2])]
+            if open_runs:
+                raise ResearchDBError(f"runs not final yet: {open_runs}; settle once the job has ended")
+            project = self._project(tx)
+            overrun = units > r["reserved_units"]
+            changes = {"accounting_status": "settled", "actual_units": units, "settled_at": now_utc(),
+                       "accounting_ref": self._research_rel(path), "accounting_sha256": digest, "overrun": overrun}
+            self._update(tx, r["id"], changes)
+            total = project.get("total_limit")
+            used = self._committed(tx)["total"]
+            if overrun or (total is not None and used > total):
+                self._update(tx, project["id"], {"admission_paused": (
+                    f"{r['id']} used {units} node-s against {r['reserved_units']} reserved"
+                    + (f"; committed {used} of {total}" if total is not None else ""))})
+            return self._reservation_view(tx.get(r["id"]), created=False)
+
+    def release_reservation(self, submission_key: str, reason: str, user_instruction_doc_id: str | None = None) -> None:
+        """Give a reservation back. An intent never claimed is released by its owner; once claimed or attached the
+        scheduler may have run it, so only on the user's explicit decision (a current user_instruction document).
+        Passing time is no evidence that a job does not exist."""
+        if not reason.strip():
+            raise ResearchDBError("releasing needs a reason")
+        with self._writer() as tx:
+            r = self._reservation(tx, submission_key)
+            self._require_run_owner(tx, r)
+            if r["accounting_status"] in ("settled", "released"):
+                raise ResearchDBError(f"{submission_key} is {r['accounting_status']}")
+            if r["submission_phase"] != "intent":
+                doc = tx.get(user_instruction_doc_id) if user_instruction_doc_id else None
+                if not doc or (doc.get("doc_type"), doc.get("status")) != ("user_instruction", "current"):
+                    raise CodedError("SUBMISSION_AMBIGUOUS", f"{submission_key} is {r['submission_phase']}: the "
+                                                             "scheduler may run it; releasing needs the user's "
+                                                             "instruction")
+            self._update(tx, r["id"], {"accounting_status": "released", "note": reason})
+            for ref in r["run_attempt_refs"]:
+                run = tx.get(ref.rpartition("@")[0])
+                if run.get("submission_key") == submission_key and run["exec_status"] == "planned":
+                    tx.set(run["id"], {"submission_key": None})
+
+    def resume_admission(self, user_instruction_doc_id: str) -> None:
+        """After an overrun the user decides how to go on (a current user_instruction document); rld records it."""
+        self._require_role("rld")
+        with self._writer() as tx:
+            doc = tx.require(user_instruction_doc_id, ("document",))
+            if (doc["doc_type"], doc["status"]) != ("user_instruction", "current"):
+                raise ResearchDBError("resuming admission is the user's decision: a current user_instruction document")
+            self._update(tx, self._project(tx)["id"], {"admission_paused": None})
+
+    def budget_status(self) -> dict:
+        """Authorized, committed (settled actual + outstanding reservations + recorded usage outside reservations)
+        and available node-seconds, in total and per pool; open reservations; whether admission is paused."""
+        with self.reader() as tx:
+            project = self._project(tx)
+            committed = self._committed(tx)
+            open_res = [self._reservation_view(r, created=False) for r in (tx.get(i) for i in tx.ids("reservation"))
+                        if r["accounting_status"] in ("reserved", "held_unknown")]
+        limits = {"total": project.get("total_limit")} | {p: project.get(f"{p}_limit") for p in BUDGET_POOLS}
+        return {"unit": "node_seconds", "limits": limits, "committed": committed,
+                "available": {k: (v - committed[k] if v is not None else None) for k, v in limits.items()},
+                "open_reservations": open_res, "admission_paused": project.get("admission_paused")}
+
+    def _check_budget(self, tx: _Tx, project: dict, pool: str, units: int) -> None:
+        committed = self._committed(tx)
+        for scope, limit in (("total", project.get("total_limit")), (pool, project.get(f"{pool}_limit"))):
+            if limit is not None and committed[scope] + units > limit:
+                raise CodedError("BUDGET_EXCEEDED", f"{units} node-s do not fit the {scope} budget: {committed[scope]} "
+                                                    f"of {limit} committed (settled, reserved or recorded); report to "
+                                                    "the user, who decides")
+
+    def _committed(self, tx: _Tx) -> dict:
+        """node-seconds committed per pool and in total: settled actual usage, outstanding reservations, and
+        recorded run usage not covered by any reservation (older runs, unreserved projects)."""
+        out = {"total": 0} | {p: 0 for p in BUDGET_POOLS}
+        covered = set()
+        for r in (tx.get(i) for i in tx.ids("reservation")):
+            covered.update(r["run_attempt_refs"])
+            amount = (r.get("actual_units") or 0) if r["accounting_status"] == "settled" else (
+                r["reserved_units"] if r["accounting_status"] in ("reserved", "held_unknown") else 0)
+            out[r["budget_pool"]] += amount
+            out["total"] += amount
+        for run in (tx.get(i) for i in tx.ids("run")):
+            exp = tx.get(run["experiment_id"])
+            pool = exp.get("budget_pool") or ("confirmation" if exp.get("stage") == "confirm" else "search")
+            for n, a in [(run["attempt"], run), *((int(k), v) for k, v in (run.get("attempts") or {}).items())]:
+                if f"{run['id']}@{n}" in covered or not (a.get("nodes_used") and a.get("walltime_used_s")):
+                    continue
+                out[pool] += a["nodes_used"] * a["walltime_used_s"]
+                out["total"] += a["nodes_used"] * a["walltime_used_s"]
+        return out
+
+    def _reservation(self, tx: _Tx, submission_key: str) -> dict:
+        ids = tx.ids("reservation", "WHERE n.submission_key = $k", k=submission_key)
+        if not ids:
+            raise ResearchDBError(f"no reservation {submission_key!r}")
+        return tx.get(ids[0])
+
+    def _require_run_owner(self, tx: _Tx, reservation: dict) -> None:
+        for ref in reservation["run_attempt_refs"]:
+            self._require_owner(tx.get(tx.get(ref.rpartition("@")[0])["experiment_id"]))
+
+    @staticmethod
+    def _reservation_view(r: dict, created: bool) -> dict:
+        return {"reservation_id": r["id"], "created": created, **{k: r.get(k) for k in (
+            "submission_key", "run_attempt_refs", "budget_pool", "reserved_units", "actual_units", "accounting_status",
+            "submission_phase", "claim_generation", "job_id", "overrun")}}
+
     # -- experiments and runs -------------------------------------------------------
 
     def create_experiment(self, kind: str, method_name: str, design_doc_id: str, code_ref: str, nodes: int,
@@ -1317,9 +1590,18 @@ class ResearchDB:
         confirmation_seeds, never used in the search: a confirmation baseline (kind baseline), or the node's frozen
         candidate (the code of its latest experiment that passed the SOTA gate), compared with that baseline; at
         most max_confirmation_candidates nodes are confirmed. selection_rationale (why now, how the result changes
-        the next step) is required once the node's last two results were inconclusive."""
+        the next step) is required once the node's last two results were inconclusive. estimated_node_h (required)
+        is the cost estimate; milestone M0..M4 (03 §6); budget_pool (search, confirmation, repair; by default from
+        the stage) is the budget part its reservations count against."""
         self._require_role("rld", "worker")
-        self._only_fields(optional, ("config_path", "owner", "keep", "keep_reason", "stage", "selection_rationale"))
+        self._only_fields(optional, ("config_path", "owner", "keep", "keep_reason", "stage", "selection_rationale",
+                                     "estimated_node_h", "milestone", "budget_pool"))
+        estimate = optional.get("estimated_node_h")
+        if not (isinstance(estimate, (int, float)) and not isinstance(estimate, bool) and estimate > 0):
+            raise ResearchDBError("estimated_node_h (the experiment's cost estimate over all its seeds, node-h > 0) "
+                                  "is required: the overrun check and the budget compare against it")
+        if optional.get("budget_pool") == "repair" and self.role != "rld":
+            raise PermissionDenied("the repair budget is assigned by rld")
         stage = optional.pop("stage", None) or "screen"
         if stage not in ("screen", "replicate", "confirm"):
             raise ResearchDBError("stage is screen, replicate or confirm")
@@ -1544,6 +1826,8 @@ class ResearchDB:
                         raise CodedError("STAT_MISMATCH", f"{run_id}.{field} was imported from "
                                                           f"{run.get('manifest_path')} as {run.get(field)!r}; it is "
                                                           "not reported again")
+            if new == "submitted" and new != old:
+                self._check_submission(tx, project, {**run, **changes})
             final = {**run, **changes}
             if final.get("valid") is False and not (final.get("invalid_reason") or "").strip():
                 raise ResearchDBError("valid=false needs invalid_reason: what failed acceptance, citing the log")
@@ -1568,9 +1852,25 @@ class ResearchDB:
                                        [n for n in [project["primary_metric"], *project["secondary_metrics"]]
                                         if n in metrics.spec_by_name(self._specs(tx, project))])
             self._update(tx, run_id, changes)
+            if new == "unknown" and run.get("submission_key"):  # a lost answer keeps the reservation held (05 §4.5)
+                held = self._reservation(tx, run["submission_key"])
+                if held["accounting_status"] == "reserved":
+                    self._update(tx, held["id"], {"accounting_status": "held_unknown"})
             exp = tx.get(run["experiment_id"])
             if new == "submitted" and exp.get("hypothesis_id"):
                 self._stamp_once(tx, exp["hypothesis_id"], "first_experiment_at")
+
+    def _check_submission(self, tx: _Tx, project: dict, run: dict) -> None:
+        """With a total budget, a run is submitted only under its attempt's claimed or attached reservation."""
+        if project.get("total_limit") is None and not run.get("submission_key"):
+            return
+        key = run.get("submission_key")
+        r = self._reservation(tx, key) if key else None
+        ref = f"{run['id']}@{run['attempt']}"
+        if r is None or ref not in r["run_attempt_refs"] or r["accounting_status"] not in ("reserved", "held_unknown") \
+                or r["submission_phase"] == "intent":
+            raise CodedError("BUDGET_EXCEEDED", f"{ref} is submitted only under a reservation: reserve_submission, "
+                                                "claim_submission, then submit with the submission key")
 
     def _stamp_once(self, tx: _Tx, hypothesis_id: str, field_name: str) -> None:
         """Record a node's first-time timestamp; later events never overwrite it."""
@@ -3217,7 +3517,8 @@ def default_worker_id(node_id: str, table: str) -> str:
 # The methods that only read: the UI's and any reader's whole interface.
 READ_METHODS = ("help", "get", "find", "edges", "children", "history", "go_candidates", "latest_result",
                 "screen_seed_count", "export_snapshot", "verify_document", "resume_package", "cleanup_due",
-                "get_eligibility", "evaluations", "preview_evaluation", "obligations")
+                "get_eligibility", "evaluations", "preview_evaluation", "obligations", "budget_status",
+                "reconcile_submission")
 
 CLI_METHODS = sorted(
     name for name in vars(ResearchDB) if not name.startswith("_") and callable(getattr(ResearchDB, name))
