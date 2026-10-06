@@ -233,9 +233,12 @@ HYPOTHESIS_2 = '''
 DIRECTION = "由发现流程产生。"
 
 
-def config(host: str, alert: float | None, with_reviewer: bool = False) -> str:
+def config(host: str, alert: float | None, with_reviewer: bool = False, version: int = 2,
+           total_limit: int | None = None) -> str:
     reviewer = ("openai/gpt-6-luna" if host == "claude" else "anthropic/claude-sonnet-5-5")
     alert_text = "null" if alert is None else str(alert)
+    if version == 2:
+        return config_v2(host, alert_text, reviewer, with_reviewer, total_limit)
     return textwrap.dedent(f'''\
         # research-tree 真实宿主测试配置（plans/design/14 §5，{host} 宿主）
         version: 1
@@ -274,6 +277,66 @@ def config(host: str, alert: float | None, with_reviewer: bool = False) -> str:
               if with_reviewer else f"# reviewer（M4 起，--with-reviewer）：{reviewer}，thinking medium\n")
 
 
+def config_v2(host: str, alert_text: str, reviewer: str, with_reviewer: bool, total_limit: int | None) -> str:
+    """The version-2 schema (01 §3, M3 and later): metric specs, seed tiers and a node-seconds budget."""
+    total = "null" if total_limit is None else str(total_limit)
+    return textwrap.dedent(f'''\
+        # research-tree 真实宿主测试配置（plans/design/14 §5，{host} 宿主，version 2）
+        version: 2
+
+        platform:
+          dev: |
+            在当前机器上运行。代码仓库 code/ 用项目的 .venv/bin/python 运行即可，不需要额外依赖。
+          experiment: |
+            在当前机器上运行，不提交集群作业。训练命令：
+            cd <worktree 或 code/> && <项目目录>/.venv/bin/python -m toytrain.train --method <m> --seed <s> --out <输出目录>
+            每次不到几秒；--sanity 为最小规模检查。用量按 1 个节点记，walltime_used_s 为墙钟时间向上取整到整秒、至少 1 秒。
+            本机没有调度器：提交身份（submission_key）就是本次运行的输出目录名；"作业"即本地进程，job_id 用 local-<submission_key>。
+            用量文件由 worker 写在输出目录：{{"job_id": ..., "nodes_used": 1, "walltime_used_s": ...}}。
+          skills: []
+
+        design:
+          overrun_factor: 2.0
+
+        evidence_policy:
+          profile: stage1_confirmed
+
+        metric_specs:
+          - name: accuracy
+            direction: higher
+            input_unit: fraction
+            canonical_unit: percentage_point
+            effect_mode: absolute
+            minimum_practical_gain: 0.5
+            aggregation: paired_run_mean
+            valid_range: [0.0, 1.0]
+
+        verification:
+          screening_seeds: [0]
+          replication_seeds: [1, 2]
+          confirmation_seeds: [100, 101, 102]
+          min_confirmation_pairs: 3
+          max_confirmation_candidates: 2
+
+        budget:
+          per_run: {{nodes: 1, walltime: 10m}}
+          compute_unit: node_seconds
+          total_limit: {total}
+          screen_node_h: 0.05
+          max_parallel_workers: 2
+          alert_node_h: {alert_text}
+
+        literature:
+          min_related_work: 1
+
+        models:
+          ui: {{model: inherit, effort: medium}}
+          worker: {{model: inherit, effort: medium}}
+        ''') + (f"  lens_assistant: {{model: inherit, effort: medium}}\n  reviewer:\n    model: {reviewer}\n"
+              "    thinking: medium\n    require_cross_family: true\n    timeout_s: 900\n"
+              if with_reviewer else f"# reviewer（M4 起，--with-reviewer）：{reviewer}，thinking medium\n")
+
+
 def git(code: Path, *args: str) -> None:
     subprocess.run(["git", "-C", str(code), *args], check=True, capture_output=True)
 
@@ -289,6 +352,10 @@ def main() -> int:
                         "(14 §4.1: small budget)")
     p.add_argument("--with-reviewer", action="store_true",
                    help="write models.reviewer and models.lens_assistant (configuration schema of M4 and later)")
+    p.add_argument("--config-version", type=int, choices=(1, 2), default=2,
+                   help="research-tree.yaml schema; 2 from M3 on")
+    p.add_argument("--total-limit", type=int, default=None,
+                   help="budget.total_limit in node-seconds (version 2); small values test the admission limit")
     args = p.parse_args()
     dest = args.dest.resolve()
     if dest.exists() and any(dest.iterdir()):
@@ -304,7 +371,8 @@ def main() -> int:
     git(code, "-c", "user.name=rt-test", "-c", "user.email=rt@test.invalid", "commit", "-q", "-m", "toytrain framework")
     (dest / "plan.md").write_text(PLAN.format(hypotheses=(DIRECTION, HYPOTHESES, HYPOTHESES + HYPOTHESIS_2)[args.hypotheses],
                                               code=code), encoding="utf-8")
-    (dest / "research-tree.yaml").write_text(config(args.host, args.alert_node_h, args.with_reviewer), encoding="utf-8")
+    (dest / "research-tree.yaml").write_text(config(args.host, args.alert_node_h, args.with_reviewer,
+                                                       args.config_version, args.total_limit), encoding="utf-8")
     print(dest)
     return 0
 

@@ -118,8 +118,10 @@ class ResearchTreeTest(unittest.TestCase):
         data = json.loads(summary.stdout)
         self.assertIsNone(data["project"])
         self.assertEqual(data["nodes"], [])
-        plan_doc = Path(out["result"]["root"]).resolve() / "docs" / out["result"]["plan_instruction"]["path"]
-        self.assertEqual(data["guards"]["frozen_docs"], [str(plan_doc)])
+        root = Path(out["result"]["root"]).resolve()
+        plan_doc = root / "docs" / out["result"]["plan_instruction"]["path"]
+        spec_doc = root / "docs" / out["result"]["metric_spec"]["path"]  # a version-2 configuration's specification
+        self.assertEqual(sorted(data["guards"]["frozen_docs"]), sorted([str(plan_doc), str(spec_doc)]))
 
     def test_init_takes_the_prepared_config_a_named_one_or_the_default(self):
         self.run_tool("init", str(self.plan), "--project-id", "P-demo")
@@ -197,7 +199,9 @@ class ResearchTreeTest(unittest.TestCase):
         self.assertEqual([(r["agent"], r["event"], r["model"]) for r in records],
                          [("a1", "requested", "inherit"), ("a1", "observed", "m-1")])
 
-    def test_config_apply_registers_versions_and_writes_the_record(self):
+    def test_config_apply_registers_versions_and_writes_the_record(self):  # a version-1 configuration
+        (self.cwd / "research-tree.yaml").write_text(
+            (REPO / "schema" / "config.v1.template.yaml").read_text(encoding="utf-8"), encoding="utf-8")
         _, out = self.run_tool("init", str(self.plan), "--project-id", "P-demo")
         root, config = Path(out["result"]["root"]), self.cwd / "research-tree.yaml"
         shown = self.run_tool("config")[1]["result"]
@@ -319,3 +323,122 @@ class ResearchTreeTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ConfigV2Test(unittest.TestCase):
+    """01 §3: version 2 states the gate once (metric_specs and verification); init registers the specification;
+    the Leader's protocol must agree with the configured profile and confirmation settings."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.cwd = Path(self.tmp.name)
+        (self.cwd / "plan.md").write_text("# 计划\n", encoding="utf-8")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def run_tool(self, *args):
+        out = subprocess.run([sys.executable, str(TOOL), *args], cwd=self.cwd, capture_output=True, text=True)
+        return out.returncode, json.loads(out.stdout)
+
+    def test_v2(self):
+        code, out = self.run_tool("init", "plan.md", "--project-id", "P-v2")
+        self.assertEqual(code, 0, out)
+        marker = out["result"]
+        root = Path(marker["root"])
+        spec = json.loads((root / "docs" / marker["metric_spec"]["path"]).read_text(encoding="utf-8"))
+        self.assertEqual((spec["primary"], spec["metrics"][0]["minimum_practical_gain"]), ("accuracy", 0.2))
+        rld = ResearchDB(root / "research_tree.db", "rld/main")
+        (root / "docs" / "project" / "min-setup.v1.md").write_text("setup\n", encoding="utf-8")
+        setup = rld.register_document("project/min-setup.v1.md", "min_setup", "setup")
+        rld.set_document_current(setup)
+        protocol = {"version": 1, "eval_type": "real_gt", "pair_fields": ["seed"], "profile": "screening"}
+        (root / "docs" / "project" / "protocol.v1.json").write_text(json.dumps(protocol), encoding="utf-8")
+        proto = rld.register_document("project/protocol.v1.json", "protocol", "protocol")
+        rld.set_document_current(proto)
+        fields = {k: v for k, v in self.run_tool("config")[1]["result"]["db_fields"].items()
+                  if k in ("go_margin", "gate_seeds")}
+        rld.create_project("P-v2", "v2", setup, "accuracy", "higher", True, ["train_time_s"], [42, 43, 44],
+                           metric_spec_doc_id=marker["metric_spec"]["doc_id"], protocol_doc_id=proto, **fields)
+        code, out = self.run_tool("config", "apply", "--require-project")
+        self.assertEqual(code, 2)
+        self.assertIn("profile is 'screening', the configuration says 'stage1_confirmed'", out["error"])
+        agreeing = {**protocol, "profile": "stage1_confirmed", "confirmation_seeds": [1042, 1043, 1044],
+                    "min_confirmation_pairs": 3, "max_confirmation_candidates": 2, "require_artifact_import": True}
+        (root / "docs" / "project" / "protocol.v2.json").write_text(json.dumps(agreeing), encoding="utf-8")
+        proto2 = rld.register_document("project/protocol.v2.json", "protocol", "protocol")
+        rld.set_document_current(proto2)
+        rld.update_project(protocol_doc_id=proto2)
+        code, out = self.run_tool("config", "apply", "--require-project")
+        self.assertEqual(code, 0, out)
+        # one gate: changing the primary's minimum practical gain changes go_margin with a new specification version
+        config = self.cwd / "research-tree.yaml"
+        config.write_text(config.read_text(encoding="utf-8").replace("minimum_practical_gain: 0.2",
+                                                                     "minimum_practical_gain: 0.3"), encoding="utf-8")
+        code, out = self.run_tool("config", "apply", "--words", "门槛改为 0.3 个百分点")
+        self.assertEqual(code, 0, out)
+        project = rld.get("P-v2")
+        self.assertEqual((project["go_margin"], rld.get(project["metric_spec_doc_id"])["path"]),
+                         (0.3, "project/metric-spec.v2.json"))
+
+
+class NotifyTest(unittest.TestCase):
+    """00 §2.4 item 6: confirmation requests and usage alerts may also go to notify.url; every attempt is logged,
+    a failure never raises, and an unanswered message to the RLD stays visible in `inbox`."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.cwd = Path(self.tmp.name)
+        (self.cwd / "plan.md").write_text("# 计划\n", encoding="utf-8")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def run_tool(self, *args):
+        out = subprocess.run([sys.executable, str(TOOL), *args], cwd=self.cwd, capture_output=True, text=True)
+        return out.returncode, json.loads(out.stdout)
+
+    def test_webhook_log_and_inbox(self):
+        import http.server
+        import threading
+        received = []
+
+        class Handler(http.server.BaseHTTPRequestHandler):
+            def do_POST(self):
+                received.append(json.loads(self.rfile.read(int(self.headers["Content-Length"]))))
+                self.send_response(204)
+                self.end_headers()
+
+            def log_message(self, *args):
+                pass
+
+        server = http.server.HTTPServer(("127.0.0.1", 0), Handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.shutdown)
+        code, out = self.run_tool("init", "plan.md", "--project-id", "P-n")
+        self.assertEqual(code, 0, out)
+        root = Path(out["result"]["root"])
+        code, out = self.run_tool("notify", "--kind", "alert", "--text", "用量到 1 node·h")
+        self.assertEqual((code, out["result"]["outcome"]), (0, "skipped: no notify.url"))
+        config = self.cwd / "research-tree.yaml"
+        config.write_text(config.read_text(encoding="utf-8").replace(
+            "  url: null", f"  url: http://127.0.0.1:{server.server_port}/hook"), encoding="utf-8")
+        code, out = self.run_tool("notify", "--kind", "confirm_request", "--text", "请确认立项",
+                                  "--docs", "project/reports/init-plan.v1.md")
+        self.assertEqual((code, out["result"]["outcome"]), (0, "sent: HTTP 204"))
+        self.assertEqual((received[0]["kind"], received[0]["docs"]),
+                         ("confirm_request", ["project/reports/init-plan.v1.md"]))
+        server.shutdown()
+        server.server_close()
+        code, out = self.run_tool("notify", "--kind", "alert", "--text", "x")
+        self.assertEqual(code, 0)  # the receiver is gone: recorded as failed, the workflow goes on
+        self.assertTrue(out["result"]["outcome"].startswith("failed"), out)
+        log = [json.loads(line) for line in (root / "logs/notify.jsonl").read_text(encoding="utf-8").splitlines()]
+        self.assertEqual([r["outcome"].split(":")[0] for r in log], ["skipped", "sent", "failed"])
+        # receipts: a UI message that needs the RLD's answer is listed until a message about it arrives
+        (root / "messages").mkdir(exist_ok=True)
+        (root / "messages" / "ui.jsonl").write_text(json.dumps(
+            {"id": "M-1", "from": "ui/ui", "to": "rld/main", "type": "requirement", "need": "answer",
+             "text": "请加一个基线", "about": ["REQ-1"]}, ensure_ascii=False) + "\n", encoding="utf-8")
+        code, out = self.run_tool("inbox")
+        self.assertEqual((code, [i["id"] for i in out["result"]]), (0, ["REQ-1"]))

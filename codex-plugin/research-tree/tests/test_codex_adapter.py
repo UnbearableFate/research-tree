@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import os
 import subprocess
 import sys
@@ -30,6 +31,8 @@ class AdapterTest(unittest.TestCase):
         self.cwd = Path(self.temp.name) / "project with spaces"
         self.cwd.mkdir()
         (self.cwd / "plan.md").write_text("# 研究计划\n保留用户原话。\n", encoding="utf-8")
+        # the adapter's behaviour, not the configuration version: version 1 leaves the documents to the RLD
+        shutil.copyfile(ROOT / "schema/config.v1.template.yaml", self.cwd / "research-tree.yaml")
         research_tree.init(self.cwd, self.cwd / "plan.md", "P-test")
         self.runtime = Runtime(self.cwd)
         self.db = self.runtime.db()

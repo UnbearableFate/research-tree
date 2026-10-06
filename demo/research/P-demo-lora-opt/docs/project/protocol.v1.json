@@ -12,6 +12,8 @@
   1044
  ],
  "max_confirmation_candidates": 2,
+ "min_confirmation_pairs": 3,
+ "require_artifact_import": true,
  "match": {
   "train_steps": 1000
  },

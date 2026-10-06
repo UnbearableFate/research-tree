@@ -20,6 +20,8 @@ import subprocess
 import sys
 from pathlib import Path
 
+import yaml
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 
@@ -50,6 +52,7 @@ METRIC_SPECS = {"version": 1, "primary": "acc", "metrics": [
 ]}
 PROTOCOL = {"version": 1, "eval_type": "real_gt", "pair_fields": ["seed", "data_version"],
             "profile": "stage1_confirmed", "confirmation_seeds": [1042, 1043, 1044], "max_confirmation_candidates": 2,
+            "min_confirmation_pairs": 3, "require_artifact_import": True,
             "match": {"train_steps": 1000}, "required_counts": {"n_eval": 8000},
             "description": "（虚构示例）8个常识推理任务、1000步LoRA训练；按seed与数据版本配对"}
 def task_body(*contents: str, kind: str = "task_request") -> str:
@@ -214,6 +217,10 @@ class Demo:
         config_text = project_config.template_text().replace(
             "  dev: |\n    在当前机器上运行。", "  dev: |\n    （虚构示例）在登录节点编辑代码；单元测试在交互式计算节点上运行。").replace(
             "  experiment: |\n    在当前机器上运行。", "  experiment: |\n    （虚构示例）训练与评测以批处理作业提交到集群的GPU节点。")
+        head, _, rest = config_text.partition("metric_specs:\n")  # version 2: the demo's own metric specification
+        config_text = (head + "metric_specs:\n" + yaml.safe_dump(METRIC_SPECS["metrics"], allow_unicode=True,
+                                                                sort_keys=False, default_flow_style=None)
+                       + "\n# seed 层级" + rest.partition("\n# seed 层级")[2])
         (self.dest / project_config.CONFIG_NAME).write_text(config_text, encoding="utf-8")
         (self.docs / "project" / "config.v1.yaml").write_text(config_text, encoding="utf-8")
         config = rld.register_document("project/config.v1.yaml", "config", "项目配置",
@@ -226,7 +233,8 @@ class Demo:
         rld.create_project(PROJECT_ID, "虚构示例：LoRA优化器方法发现", setup, "acc", "higher", True, SECONDARY,
                            SEEDS, goal_doc_id=goal, repo_path=str(self.code), config_doc_id=config,
                            metric_spec_doc_id=specs, protocol_doc_id=protocol,
-                           **project_config.db_fields(project_config.parse(config_text)))
+                           **{k: v for k, v in project_config.db_fields(project_config.parse(config_text)).items()
+                              if k != "seeds"})
 
         # Root node (baselines): harness and SOTA baseline by the root's worker, reviewed and frozen by RLD.
         w1 = ResearchDB(db, f"worker/{rld.assign_worker(PROJECT_ID)}")

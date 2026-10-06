@@ -1,13 +1,33 @@
 """Host-specific role instructions; scientific rules remain in the shared rule file."""
-from pathlib import Path
 import json
+from pathlib import Path
+
+import project_config
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
+def gate(conf):
+    """The gate as the project record takes it, for either configuration version."""
+    f = project_config.db_fields(conf)
+    return {k: f[k] for k in ("gate_seeds", "seeds", "go_margin", "min_related_work", "total_limit") if k in f}
+
+
+def spec_text(project, conf):
+    """Version 2: the configuration states the metric specification (registered by init) and fixes protocol
+    fields."""
+    if conf["version"] != 2:
+        return ""
+    spec = project.get("metric_spec")
+    head = (f"指标规范已由配置文件登记为 {spec['doc_id']}（docs/{spec['path']}），不另写 metric-spec 文档，create_project 用这个 ID；"
+            if spec else "")
+    return (f"{head}协议文档的这些字段必须与配置一致（不一致时 create_project 拒绝）："
+            f"{json.dumps(project_config.protocol_requirements(conf), ensure_ascii=False)}\n")
+
+
 def platform(conf):
     return (f"开发平台：\n{conf['platform']['dev']}\n实验平台：\n{conf['platform']['experiment']}\n"
-            f"预算与门槛：{json.dumps({'budget': conf['budget'], 'stage1': conf['stage1']}, ensure_ascii=False)}\n"
+            f"预算与门槛：{json.dumps({'budget': conf['budget'], 'gate': gate(conf)}, ensure_ascii=False)}\n"
             f"执行前读取这些已安装技能：{', '.join(conf['platform']['skills']) or '无'}。缺少必需技能时报告，不能假装已加载。")
 
 
@@ -27,6 +47,7 @@ metrics_path、units（每个指标的输入单位）、counts、data_version、
 重评分所需的原始评分材料如逐样本预测列在 evidence_paths，清理不会删除），
 用 import_run_result(run_id, attempt, manifest_path) 导入，核对计数、loss 与日志后 update_run(valid=true)；验收不通过时设
 valid=false 并写 invalid_reason。不能导入时才在 update_run 直接写 metric_value、secondary。全部 seed 有效后
+create_experiment 时写预估用量 estimated_node_h（node·h，含全部 seed；实际用量超过预估的 overrun_factor 倍会写待处理项）。提交作业（含本地进程）按提交协议：reserve_submission(submission_key, run_attempt_refs=["E-xxxx/s<seed>@<attempt>", ...], resource_request={{"nodes", "walltime_s"}}) 预留（项目设了授权总量时不预留就不能置 submitted；预算或准入不足被拒绝时交RLD，不绕过）→ claim_submission(submission_key) 取得 claim_generation → 带 submission_key 提交 → attach_job(submission_key, job_id, claim_generation) → update_run(submitted)。提交超时或查询失败把运行置 unknown，用 reconcile_submission(submission_key) 按 key 核对，不重提；作业结束后用调度器（或本机记录）的用量文件 settle_reservation(reservation_id, accounting_ref)。
 evaluate_experiment(experiment_id, result_doc_id)（接口给出确定性的 outcome，不需要判定；确认实验用 stage="confirm"）；结果文档用 ```evidence 代码块列出每个数字及来源文件
 （[{"id","value","source"}]，source 相对研究根目录 research/<项目ID>/，如 outputs/E-0002/s42/metrics.json，不写 ../，不指向 docs/），设为现行时逐项核对；每个已导入 run 的指标文件都要引用，汇总数字（可先用 preview_evaluation 只读预览接口将算出的数字，写入统计文件后引用）用保留编号
 mean:<指标>（主指标均值必填）、sd:<指标>、delta:<sota|parent>:<指标>，计算时与接口重算值核对。evaluate_experiment 之后立即 run_cleanup(experiment_id)
@@ -74,7 +95,7 @@ effect_mode、minimum_practical_gain、aggregation=paired_run_mean，可选 allo
 指标恰为主指标与其他指标）与 project/protocol.v1.json（{{"version":1,"eval_type":real_gt|synthetic_proxy|self_supervised_proxy|simulation_only|human_eval,"pair_fields":["seed",...],
 "match":{{...}},"required_counts":{{...}},"profile":"stage1_confirmed","confirmation_seeds":[搜索不用的 seed，至少 3 个],
 "max_confirmation_candidates":2}}）。
-2. create_project 使用本项目ID {project['project_id']}、真实git仓库路径、metric_spec_doc_id 与 protocol_doc_id、配置中的预算与门槛；
+{spec_text(project, conf)}2. create_project 使用本项目ID {project['project_id']}、真实git仓库路径、metric_spec_doc_id 与 protocol_doc_id、配置中的预算与门槛；
 接口参数先查 help。
 3. 为每个初始假说检索相关研究，缓存原文并登记引用与假说文档，create_hypothesis 不指定parent_id，全部直属根节点。
 4. 根节点只放 baselines；写任务请求（章节：任务与节点、问题与预测、干预与对照、范围与权限、资源与预算、验收与停止条件、

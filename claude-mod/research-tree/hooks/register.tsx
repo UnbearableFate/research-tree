@@ -18,7 +18,7 @@ const ALERT_KIND = 'usage_alert'
 // The host's longest wait for one process (process.run accepts 1..600000 ms).
 const MAX_PROCESS_MS = 600_000
 // research_db.READ_METHODS (a test keeps the two equal)
-const READ_ONLY = /^(help|get|find|edges|children|history|go_candidates|latest_result|screen_seed_count|export_snapshot|verify_document|resume_package|cleanup_due|get_eligibility|evaluations|preview_evaluation|obligations)$/
+const READ_ONLY = /^(help|get|find|edges|children|history|go_candidates|latest_result|screen_seed_count|export_snapshot|verify_document|resume_package|cleanup_due|get_eligibility|evaluations|preview_evaluation|obligations|budget_status|reconcile_submission)$/
 
 const summaryRef = { plugin: 'research-tree', key: 'summary' } as const
 const errorRef = { plugin: 'research-tree', key: 'error' } as const
@@ -135,6 +135,7 @@ async function alertUsage($: EngineInterface, summary: ResearchSummary): Promise
   if (alerted === threshold) return
   await $.state.set(alertedRef, threshold)
   await say($, 'note', `【需要你决定】${alert.text}`)
+  await tree($, { actor: 'rld/main' }, ['notify', '--kind', 'alert', '--text', alert.text])  // optional webhook
   $.ui.toast('研究用量达到提醒阈值，见“研究对话”窗口')
   void $.ui.open({ id: UI_PANE, title: '研究对话（UI）' })
 }
@@ -206,8 +207,10 @@ function configText(view: ResearchConfigView): string {
 }
 
 function statusLine(s: ResearchSummary, p: ResearchProject): string {
+  const waiting = s.attention.filter(a => a.kind === 'awaiting_reply').length
   return `${COMMAND} ${s.project?.id ?? p.project_id} · ${L(p.phase)} · v${s.meta.data_version} · 节点${s.nodes.length} · ` +
-    `优于SOTA ${s.counts.exp_status.beats_sota ?? 0} · GO候选 ${s.counts.go} · 待处理 ${s.attention.length}`
+    `优于SOTA ${s.counts.exp_status.beats_sota ?? 0} · GO候选 ${s.counts.go} · 待处理 ${s.attention.length}` +
+    (waiting ? ` · 待RLD回执 ${waiting}` : '')
 }
 
 function statusText(s: ResearchSummary, p?: ResearchProject | null): string {
@@ -581,6 +584,7 @@ function workerPrompt(conf: ResearchConfig | null | undefined): string {
 - 测试、训练、推理等工作按下面“开发与实验平台”的规定运行；规定没有覆盖、又可能占用大量资源的操作，先问RLD。
 - 实验、运行与判定只通过 research_db 登记（create_experiment、create_run、update_run、import_run_result、evaluate_experiment），不编造数字：均值、SD、配对差值和是否过门槛都由接口从登记的 run 重算，你不提供权威数字；工程失败如实记录，不当作科学结论。单次运行上限和累计用量提醒由 research_db 检查，被拒绝时交RLD，不绕过。
 - 每个 seed 的运行：create_run 后用 update_run 把 exec_status 从 planned 推进到 submitted（running）再到 succeeded。运行写出指标文件（JSON，按指标名给出输入单位的数值）与 manifest.json（experiment_id、seed、attempt、code_ref、exit_status、metrics_path、units（每个指标的输入单位，与指标规范一致）、counts、data_version、config、env，以及协议要求的字段与 log_path、output_path、nodes_used、walltime_used_s；重评分所需的原始评分材料如逐样本预测列在 evidence_paths，清理不会删除它们），用 import_run_result(run_id, attempt, manifest_path) 导入；核对有效计数、loss 与日志后再 update_run(valid=true)，验收不通过时设 valid=false 并写 invalid_reason。不能导入时才在 update_run 中直接写 metric_value、secondary（记录级，核验等级更低）。
+- create_experiment 时写预估用量 estimated_node_h（node·h，含全部 seed；实际用量超过预估的 overrun_factor 倍会写待处理项）。提交作业（含本地进程）按提交协议：reserve_submission(submission_key, run_attempt_refs=["E-xxxx/s<seed>@<attempt>", ...], resource_request={"nodes", "walltime_s"}) 预留（项目设了授权总量时不预留就不能置 submitted；预算或准入不足被拒绝时交RLD，不绕过）→ claim_submission(submission_key) 取得 claim_generation → 带 submission_key 提交 → attach_job(submission_key, job_id, claim_generation) → update_run(submitted)。提交超时或查询失败把运行置 unknown，用 reconcile_submission(submission_key) 按 key 核对，不重提；作业结束后用调度器（或本机记录）的用量文件 settle_reservation(reservation_id, accounting_ref)。
 - 全部 seed 有效后由实验 owner 调用 evaluate_experiment(experiment_id, result_doc_id)：接口给出确定性的 outcome（正向信号、负向信号、不确定），不需要你给判定；确认实验用 create_experiment(stage="confirm") 在协议的确认 seed 上运行冻结的候选代码。结果文档用一个 \`\`\`evidence 代码块列出文中每个数字及其来源文件（[{"id", "value", "source"}]，source 相对研究根目录 research/<项目ID>/，例如 outputs/E-0002/s42/metrics.json；不要写 ../，也不要指向 docs/ 里的文件），设为现行时接口逐项核对，找不到即拒绝（STAT_MISMATCH）；每个已导入 run 的指标文件都要引用，汇总数字（可先用 preview_evaluation 只读预览接口将算出的数字，写入统计文件后引用）用保留编号 mean:<指标>（主指标均值必填）、sd:<指标>、delta:<sota|parent>:<指标>，evaluate_experiment 时与重算值核对。
 - evaluate_experiment 之后立即调用 run_cleanup(experiment_id) 清理该实验的产物（权重、checkpoint 等；日志、曲线、manifest 与指标文件是证据，保留），不必请示；交付前必须完成。后续实验要用这些产物（例如在其权重上继续训练）时，在 create_experiment 时用 keep 与 keep_reason 声明，事后无法恢复。清理什么由项目目录的 research-tree-cleanup.py 决定，可按项目的输出调整它。
 - 不确定 research_db 的方法或参数时调用 method="help"（kwargs {"method": "<方法名>"} 看完整说明），不要猜；按错误信息改正。
@@ -595,10 +599,18 @@ ${platformText(conf)}`
 function budgetText(view: ResearchConfigView | null | undefined): string {
   if (!view) return `（读取不到 ${CONFIG_FILE}）`
   const b = view.effective.budget
-  const s = view.effective.stage1
+  const f = view.db_fields  // the gate as the project record takes it, for either configuration version
+  const total = f.total_limit === null || f.total_limit === undefined ? '' : `；授权总量 ${f.total_limit} node-seconds（提交前预留）`
   return `单次运行上限 ${b.per_run.nodes} nodes × ${b.per_run.walltime}；筛选预算 ${b.screen_node_h} node·h；` +
-    `同时有任务的worker ${b.max_parallel_workers ?? '不限'}；用量提醒 ${b.alert_node_h === null ? '无' : `${b.alert_node_h} node·h`}；` +
-    `优于SOTA门槛：${s.gate_seeds} 个seed、主指标领先超过 ${s.go_margin}；每个节点至少引用 ${s.min_related_work} 篇相关研究`
+    `同时有任务的worker ${b.max_parallel_workers ?? '不限'}；用量提醒 ${b.alert_node_h === null ? '无' : `${b.alert_node_h} node·h`}${total}；` +
+    `优于SOTA门槛：${f.gate_seeds} 个seed（${(f.seeds as number[]).join(', ')}）、主指标领先超过 ${f.go_margin}；每个节点至少引用 ${f.min_related_work} 篇相关研究`
+}
+
+function specText(view: ResearchConfigView | null): string {
+  // version 2: the configuration states the metric specification (registered by init) and fixes protocol fields
+  if (!view?.protocol_requirements) return ''
+  const spec = view.metric_spec ? `指标规范已由配置文件登记为 ${view.metric_spec.doc_id}（docs/${view.metric_spec.path}），不另写 metric-spec 文档，create_project 用这个 ID；` : ''
+  return `${spec}协议文档的 ${Object.keys(view.protocol_requirements).join('、')} 必须与配置一致：${JSON.stringify(view.protocol_requirements)}（不一致时 create_project 拒绝）。`
 }
 
 function planningPrompt(project: ResearchProject, pluginRoot: string, view: ResearchConfigView | null): string {
@@ -611,9 +623,9 @@ ${budgetText(view)}
 ${platformText(view?.effective)}
 
 请作为 Research Leader 完成立项规划。本阶段不要启动 worker，也不要提交任何作业：
-1. 读原文。写 docs/project/goal.v1.md（研究目标）和 docs/project/min-setup.v1.md（最小实验设定：模型、数据、训练量、评测与评测类型（同协议的 eval_type）及其结论上限、主指标及优劣方向、其他比较指标、每个基线家族的合理调参机会、训练量与数据处理、${view?.effective.stage1.gate_seeds ?? 3}个统一seed、计划的实验框架与判定规则；单次运行上限、筛选预算与门槛照抄上面的项目配置）；再写两份 JSON 文档：docs/project/metric-spec.v1.json（指标规范：{"version": 1, "primary": 主指标, "metrics": [每个指标的 name、direction、input_unit、canonical_unit、effect_mode、minimum_practical_gain、aggregation（paired_run_mean），可选 allowed_regression、valid_range、relative_min_denominator]}，指标必须恰为主指标与其他比较指标）和 docs/project/protocol.v1.json（实验协议：{"version": 1, "eval_type": real_gt|synthetic_proxy|self_supervised_proxy|simulation_only|human_eval, "pair_fields": ["seed", ...], "match": {必须一致的设定}, "required_counts": {...}, "profile": "stage1_confirmed", "confirmation_seeds": [搜索中不用的 seed，至少 3 个], "max_confirmation_candidates": 2}）。都用 research_db 登记（register_document）并设为现行。原文的预算或门槛与项目配置不一致时，在立项计划中指出，请用户改配置文件，不要自行取舍。
+1. 读原文。写 docs/project/goal.v1.md（研究目标）和 docs/project/min-setup.v1.md（最小实验设定：模型、数据、训练量、评测与评测类型（同协议的 eval_type）及其结论上限、主指标及优劣方向、其他比较指标、每个基线家族的合理调参机会、训练量与数据处理、${view?.db_fields.gate_seeds ?? 3}个统一seed、计划的实验框架与判定规则；单次运行上限、筛选预算与门槛照抄上面的项目配置）；再写两份 JSON 文档：docs/project/metric-spec.v1.json（指标规范：{"version": 1, "primary": 主指标, "metrics": [每个指标的 name、direction、input_unit、canonical_unit、effect_mode、minimum_practical_gain、aggregation（paired_run_mean），可选 allowed_regression、valid_range、relative_min_denominator]}，指标必须恰为主指标与其他比较指标）和 docs/project/protocol.v1.json（实验协议：{"version": 1, "eval_type": real_gt|synthetic_proxy|self_supervised_proxy|simulation_only|human_eval, "pair_fields": ["seed", ...], "match": {必须一致的设定}, "required_counts": {...}, "profile": "stage1_confirmed", "confirmation_seeds": [搜索中不用的 seed，至少 3 个], "max_confirmation_candidates": 2}）。都用 research_db 登记（register_document）并设为现行。${specText(view)}原文的预算或门槛与项目配置不一致时，在立项计划中指出，请用户改配置文件，不要自行取舍。
 2. create_project：id 为 ${project.project_id}，repo_path 为本项目代码仓库的绝对路径（原文未给出就在 ${project.root}/../.. 下合适的位置新建 git 仓库），metric_spec_doc_id 与 protocol_doc_id 为上面两份文档；预算与门槛参数取自项目配置（${fields}），其余参数取自最小实验设定。
-3. 为原文中的每个初始假说检索并缓存相关研究（docs/literature/，每个节点至少${view?.effective.stage1.min_related_work ?? 3}篇，原文缓存到 cache/literature/），写假说文档（创建理由、计划的代码改动、实验计划），create_hypothesis 建初始节点（状态为待验证）。所有初始假说都不指定 parent_id：它们都是根节点的直接子节点、彼此平级，即使原文暗示了先后或包含关系也不在初始假说之间建立父子关系（只有验证完成、可拓展的节点才能派生子节点）。
+3. 为原文中的每个初始假说检索并缓存相关研究（docs/literature/，每个节点至少${view?.db_fields.min_related_work ?? 3}篇，原文缓存到 cache/literature/），写假说文档（创建理由、计划的代码改动、实验计划），create_hypothesis 建初始节点（状态为待验证）。所有初始假说都不指定 parent_id：它们都是根节点的直接子节点、彼此平级，即使原文暗示了先后或包含关系也不在初始假说之间建立父子关系（只有验证完成、可拓展的节点才能派生子节点）。
 4. 根节点只存放 baselines：写 docs/tasks/T-0001/request.v1.md（章节为“任务与节点、问题与预测、干预与对照、范围与权限、资源与预算、验收与停止条件、交付”，内容见规则第4节），说明要实现的实验骨架与统计代码、按框架的输出调整项目目录的清理脚本 research-tree-cleanup.py（哪些文件是可删的权重、checkpoint 等），以及要运行的SOTA与其他基线方案；create_task(kind=harness, assignee_role=worker)，先不指派。
 5. 写 docs/project/reports/init-plan.v1.md 汇总以上（目标、设定、初始节点、基线与根节点方案、预计资源），登记并设为现行，然后调用 post_to_ui(type=confirm_request, docs=["project/reports/init-plan.v1.md"]) 请用户在研究对话窗口确认。
 用户确认之前 mod 会拒绝启动 worker。规则文件：${pluginRoot}/${RULES}。`
@@ -932,7 +944,7 @@ export const register: Register = (on, options) => {
   on('session.start', async ($, e, next) => {
     await $.command.register({
       name: COMMAND,
-      description: '研究树：prepare [--python 3.13] [--update-uv]（建立环境，生成 plan.md 与 research-tree.yaml）、init [计划.md] [--id 项目ID] [--config 配置.yaml]、confirm、config show/apply、status（默认）、ui、pane、refresh、build、check',
+      description: '研究树：prepare [--python 3.13] [--update-uv]（建立环境，生成 plan.md 与 research-tree.yaml）、init [计划.md] [--id 项目ID] [--config 配置.yaml]、confirm、config show/apply、status（默认）、inbox（待RLD回执）、ui、pane、refresh、build、check',
     })
     await $.tool.register({
       name: 'research_db',
@@ -1062,6 +1074,12 @@ export const register: Register = (on, options) => {
           `项目配置：${view?.file ?? CONFIG_FILE}（${parsed.config ? `取自 ${parsed.config}` : `本目录的 ${CONFIG_FILE}`}；开发与实验平台、资源预算、阶段1门槛、子代理模型）。确认立项前改动直接生效，之后改动用 /${COMMAND} config apply 生效。`].join('\n'),
       }
     }
+    if (sub === 'inbox') {  // receipt status, as the Codex adapter's inbox: what the RLD has not answered yet
+      const listed = await tree($, cfg, ['inbox'])
+      if (!listed.ok) return { text: `读取失败：${listed.error}` }
+      const items = listed.result as { text: string }[]
+      return { text: items.length ? `尚无RLD回执：\n${items.map(i => `- ${i.text}`).join('\n')}` : '所有转交都已有RLD回执。' }
+    }
     if (sub === 'prepare') {
       return { text: await prepareCommand($, words.slice(1)) }
     }
@@ -1090,7 +1108,7 @@ export const register: Register = (on, options) => {
       return { text: (out.stdout || out.stderr).trim() || `exit ${out.exitCode}` }
     }
     if (sub !== 'status' && sub !== 'refresh') {
-      return { text: `未知子命令 ${sub}；可用：prepare、init、confirm、config、status、ui、pane、refresh、build、check` }
+      return { text: `未知子命令 ${sub}；可用：prepare、init、confirm、config、status、inbox、ui、pane、refresh、build、check` }
     }
     await loadProject($)
     const summary = await refresh($, cfg)
@@ -1143,6 +1161,10 @@ export const register: Register = (on, options) => {
           await loadProject($)
           await refresh($, cfg)
         }
+      }
+      if (input.type === 'confirm_request') {  // optional webhook: the user may be away; no answer is no consent
+        await tree($, cfg, ['notify', '--kind', 'confirm_request', '--text', String(input.text ?? ''),
+          ...(input.docs?.length ? ['--docs', ...input.docs] : [])])
       }
       const refs = input.docs?.length ? `\n引用：${input.docs.join('，')}` : ''
       await say($, 'rld', `${input.type === 'confirm_request' ? '【需要你决定】' : ''}${input.text ?? ''}${refs}` +

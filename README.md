@@ -211,22 +211,30 @@ Claude 版提供内嵌窗口、面板和状态栏；Codex 版使用独立终端�
 
 ## 项目配置
 
-配置文件为研究项目目录中的 `research-tree.yaml`。由 `prepare` 从[带注释的默认模板](shared/research-tree/schema/config.template.yaml)生成，省略的键取默认值。
+配置文件为研究项目目录中的 `research-tree.yaml`（version 2）。由 `prepare` 从[带注释的默认模板](shared/research-tree/schema/config.template.yaml)生成，省略的键取默认值；旧的 version 1 文件（[模板](shared/research-tree/schema/config.v1.template.yaml)）仍可读取。
 
 | 配置项 | 含义 | 默认值 |
 |---|---|---|
 | `platform.dev` / `platform.experiment` | 开发与实验在哪里、如何执行；可填写集群、队列、模块、数据位置等要求 | 在当前机器上运行 |
-| `platform.skills` | worker 应加载的已安装技能 | `[]` |
+| `platform.skills` | worker 预加载的站点技能；模板注释列出站点技能对插件的最小义务（提交身份、unknown 不重提、按用量文件结算等） | `[]` |
+| `metric_specs` | 指标规范，第一个为主指标；init 把它登记为 metric_spec 文档，主指标的 `minimum_practical_gain` 即优于 SOTA 的门槛 | accuracy（百分点，0.2） |
+| `verification.screening_seeds` / `replication_seeds` | 筛选与复制 seed，合起来是判定所需的统一 seed | `[42]` / `[43, 44]` |
+| `verification.confirmation_seeds` 等 | 独立确认用的 seed 与候选数；协议文档必须与它们一致 | `[1042, 1043, 1044]` |
+| `evidence_policy.profile` | `screening` 或 `stage1_confirmed`（GO 前须独立确认） | `stage1_confirmed` |
 | `budget.per_run.nodes` / `budget.per_run.walltime` | 单次运行，即一个 seed 的节点数和墙钟上限 | `8` / `1h` |
+| `budget.total_limit` 及 `search_limit` / `confirmation_limit` / `repair_limit` | 授权总量与分池（node-seconds）；设置后每次提交先预留，预算不足时接口拒绝 | `null`，只提醒不封顶 |
 | `budget.screen_node_h` | 按基线实际成本计算筛选 seed 数的预算 | `10` node·h |
 | `budget.max_parallel_workers` | 同时持有任务的 worker 数上限 | `null`，不限 |
 | `budget.alert_node_h` | 累计用量提醒阈值；达到后暂停新实验与扩展 seed，等待用户调整 | `null`，不限 |
-| `stage1.gate_seeds` | 判定优于 SOTA 所需的统一 seed 数 | `3` |
-| `stage1.go_margin` | 主指标领先 SOTA 的幅度门槛 | `0.05` |
-| `stage1.min_related_work` | 每个假说至少引用的相关研究数 | `3` |
+| `design.overrun_factor` | 实际用量达到预估（`estimated_node_h`）的倍数时写待处理项 | `2.0` |
+| `search.stall_structural_at` / `stall_human_at` | 连续无新发现的决策批次数：须换向 / 须上报用户 | `2` / `4` |
+| `notify.url` | 可选：确认请求与用量提醒同时 POST 到这个地址；超时不等于同意，记录在 `logs/notify.jsonl` | `null` |
+| `literature.min_related_work` | 每个假说至少引用的相关研究数 | `3` |
 | `models.ui` / `models.worker` | 子代理的模型与 effort | `inherit` / 模型默认 |
 
-`go_margin` 按指标的优劣方向计算：百分比指标使用百分点的绝对差，其他指标使用相对差。登记了指标规范（`docs/project/metric-spec.v1.json`）的项目以规范中主指标的 `minimum_practical_gain` 为门槛，单位与方向逐指标声明。`gate_seeds` 和 `go_margin` 在第一个实验登记后不能再修改；之后更换指标规范或协议须引用用户指令，旧 evaluation 随之失效。
+`go_margin` 由主指标的 `minimum_practical_gain` 给出，单位与方向逐指标声明（如 accuracy 以百分点计）。门槛与统一 seed 在第一个实验登记后不能再修改；之后更换指标规范或协议须引用用户指令，旧 evaluation 随之失效。
+
+**提交与预算：**设置 `total_limit` 后，worker 每次提交依次 `reserve_submission` → `claim_submission` → 带 submission_key 提交 → `attach_job`，作业结束后按调度器的用量文件 `settle_reservation`。提交超时的运行保持 unknown，按 submission_key 核对，不会自动重提；实际用量超出预留或授权时准入暂停，由你决定后恢复。`budget_status` 查看已授权、已承诺与可用量。研究对话中尚未得到 RLD 回执的消息显示在状态栏，也可用 `/research-tree inbox` 查看。
 
 **配置何时生效：**立项确认前，文件修改用于当前规划；确认时登记为生效版本。确认后须运行 `config apply`，插件会生成 `docs/project/config.vN.yaml`、记录用户指令并更新项目记录。新启动的子代理使用现行配置，活跃 worker 由 Leader 转告变更。
 

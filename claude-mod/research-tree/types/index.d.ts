@@ -68,6 +68,8 @@ export type ResearchProject = {
   confirmed_at: string | null
   /** The registered version of research-tree.yaml in effect; null until it is first applied. */
   config: { doc_id: string; path: string } | null
+  /** Version 2: the metric_spec document registered from research-tree.yaml. */
+  metric_spec?: { doc_id: string; path: string }
 }
 
 /** One subagent's model choice in research-tree.yaml. */
@@ -75,16 +77,19 @@ export type ResearchModel = { model: string; effort: 'low' | 'medium' | 'high' |
 
 /** research-tree.yaml, completed from the template (tools/project_config.py). */
 export type ResearchConfig = {
-  version: 1
+  /** Version 1 states the gate in `stage1`; version 2 in metric_specs and verification (01 §3). */
+  version: 1 | 2
   platform: { dev: string; experiment: string; skills: string[] }
   budget: {
     per_run: { nodes: number; walltime: number | string }
     screen_node_h: number
     max_parallel_workers: number | null
     alert_node_h: number | null
+    total_limit?: number | null
   }
-  stage1: { gate_seeds: number; go_margin: number; min_related_work: number }
-  models: { ui: ResearchModel; worker: ResearchModel }
+  stage1?: { gate_seeds: number; go_margin: number; min_related_work: number }
+  notify?: { url: string | null; timeout_s: number }
+  models: { ui: ResearchModel; worker: ResearchModel; lens_assistant?: ResearchModel; reviewer?: unknown }
 }
 
 /** `research_tree.py config`: the configuration in effect and the state of the file. */
@@ -99,7 +104,11 @@ export type ResearchConfigView = {
   file_error: string | null
   effective: ResearchConfig
   /** The project record's fields the configuration sets. */
-  db_fields: Record<string, number | null>
+  db_fields: Record<string, number | number[] | null>
+  /** Version 2: the metric_spec document init registered from the configuration. */
+  metric_spec?: { doc_id: string; path: string } | null
+  /** Version 2: the protocol fields the configuration fixes. */
+  protocol_requirements?: Record<string, unknown> | null
 }
 
 /** One line of the UI window: the person, the UI agent, or the RLD (this main session). */

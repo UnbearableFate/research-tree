@@ -1,51 +1,128 @@
-# research-tree 项目配置。
-# /research-tree config 可在初始化前复制本文件（无需 Python，不覆盖已有文件）。
-# 编辑后用 init <计划.md> --config research-tree.yaml 初始化；立项确认时登记为生效版本。之后修改本文件，
+# research-tree 项目配置（version 2）。
+# /research-tree config 可在初始化前复制本文件（不覆盖已有文件）。编辑后 init；立项确认时登记为生效版本。之后修改本文件，
 # 运行 /research-tree config apply 才会生效（登记为用户指令与新版本配置，并通知 RLD）。
-version: 1
+# 阈值都是示例值：按你的研究计划填写；看到实验结果之后不能由 agent 调低。
+version: 2
 
-# 开发与实验在哪里、怎么运行。文字原样交给 RLD 和每个 worker，写清楚要遵守的规则即可，
-# 例如集群的登录节点与计算节点分工、作业提交与查询命令、账户组、模块加载、数据位置。
+# 开发与实验在哪里、怎么运行。文字原样交给 RLD 和每个 worker。
 platform:
-  # 写代码、单元测试、小规模检查
   dev: |
     （虚构示例）在登录节点编辑代码；单元测试在交互式计算节点上运行。
-  # 训练、评测等计算类工作
   experiment: |
     （虚构示例）训练与评测以批处理作业提交到集群的GPU节点。
-  # worker 启动时预加载的技能名（例如集群调度系统的技能）；没有就留空
+  # worker 预加载的站点技能（例如集群调度技能）。站点技能对插件的最小义务：
+  #   1. 提交前用 reserve_submission / claim_submission 取得提交身份（submission_key），提交时带上它，
+  #      提交后立即 attach_job 并 update_run(submitted)；job_id 可被调度器再次查询。
+  #   2. 查询失败或提交超时保持 unknown，不重提（接口拒绝从 unknown 重提），按 submission_key 核对。
+  #   3. 作业结束后填实际用量，并用调度器的用量文件 settle_reservation；来源可追溯。
+  #   4. 唤醒后只核对原作业与导入结果，把控制交回 RLD；不作判定、不自动验收。
+  #   5. 不修改 research-tree.yaml、已生效文档与冻结框架。
   skills: []
 
-# 资源预算。用量按 node·h 计（节点数 × 墙钟小时）；单机实验把整台机器算作 1 个节点。
+# 立项前发现（M6 起使用）
+discovery:
+  mode: full                 # off | precheck | full
+  require_precheck: true
+  lenses: [method-transfer, contradiction, untested-assumption, scaling-regime, diagnostic]
+  seed_lenses: [variant, combination, competing, repair]
+  max_candidates: 12
+  triage_top_n: 4
+  max_initial_nodes: 3
+  pi_generator: false
+
+# 从想法到实验设计（03）
+design:
+  max_primary_claims: 2
+  max_core_blocks: 5
+  max_baseline_families: 3
+  proposal_review_rounds: 1
+  code_review: true
+  sanity_first: true
+  overrun_factor: 2.0         # 实际用量达到预估的倍数，写待处理项（不取消作业）
+
+evidence_policy:
+  profile: stage1_confirmed   # screening | stage1_confirmed：后者 GO 前需在确认 seed 上独立确认
+  require_artifact_import: true
+  preserve_raw_metrics: true
+
+# 指标规范：第一个为主指标。init 把它登记为 metric_spec 文档；主指标的 minimum_practical_gain 就是优于 SOTA 的门槛。
+metric_specs:
+- name: acc
+  direction: higher
+  input_unit: percentage
+  canonical_unit: percentage_point
+  effect_mode: absolute
+  minimum_practical_gain: 0.05
+  aggregation: paired_run_mean
+  valid_range: [0, 100]
+- {name: final_loss, direction: lower, input_unit: nats, canonical_unit: nats, effect_mode: absolute,
+  minimum_practical_gain: 0.0, aggregation: paired_run_mean}
+- {name: loss_auc, direction: lower, input_unit: raw, canonical_unit: raw, effect_mode: absolute,
+  minimum_practical_gain: 0.0, aggregation: paired_run_mean}
+- {name: peak_mem_gb, direction: lower, input_unit: gib, canonical_unit: gib, effect_mode: absolute,
+  minimum_practical_gain: 0.0, allowed_regression: 2.0, aggregation: paired_run_mean}
+- {name: train_time_s, direction: lower, input_unit: seconds, canonical_unit: seconds,
+  effect_mode: relative_to_reference_mean, relative_min_denominator: 1.0, allowed_regression: 0.1,
+  minimum_practical_gain: 0.0, aggregation: paired_run_mean}
+
+# seed 层级：筛选 + 复制 = 统一 seed（判定所需的配对数）；确认 seed 只在独立确认时使用。
+verification:
+  screening_seeds: [42]
+  replication_seeds: [43, 44]
+  confirmation_seeds: [1042, 1043, 1044]
+  min_confirmation_pairs: 3
+  max_confirmation_candidates: 2
+  allow_inconclusive_at_limit: true
+  inference_mode: descriptive
+
+# 资源预算。用量按 node-seconds 记（节点数 × 墙钟秒）；单机实验把整台机器算作 1 个节点。
 budget:
-  per_run:                    # 单次运行（一个 seed）的上限
-    nodes: 8
-    walltime: 1h              # 秒数，或 90m、1h、1h30m 这样的写法
+  per_run: {nodes: 8, walltime: 1h}
+  compute_unit: node_seconds
+  total_limit: null           # 授权总量（node-seconds）；null 只有提醒、不封顶。例：360000 = 100 node·h
+  search_limit: null          # 其中探索
+  confirmation_limit: null    # 其中独立确认（总量的一部分）
+  repair_limit: null          # 其中修复
   screen_node_h: 10           # 筛选预算：按 SOTA 第一个 seed 的成本决定筛选实验的 seed 数
-  max_parallel_workers: null  # 同时有任务在手的 worker 数上限；null 为不限
-  alert_node_h: null          # 累计用量达到此值后在研究对话窗口提醒你，并暂停登记新实验和扩展seed，
-                              # 直到你调高或取消它（改后 config apply）；null 为不限
+  reserve_from_scheduler_limits: true
+  unknown_submission_policy: hold_and_reconcile
+  max_parallel_workers: null
+  alert_node_h: null
+  review_usd_alert: null      # 累计评审费用提醒阈值（M4 起）
 
-# 阶段1的判定门槛。第一个实验登记之后不能再改。
-stage1:
-  gate_seeds: 3               # 判定“优于SOTA”所需的 seed 数，也是每个实验的 seed 上限
-  go_margin: 0.05             # 主指标领先 SOTA 的最小幅度，等于指标规范中主指标的 minimum_practical_gain（规范单位：
-                              # 百分比指标为百分点的绝对差；相对效应为相对参照均值的比例）
-  min_related_work: 3         # 创建节点时至少引用的相关研究文档数
-
-# 停滞计数：每个决策批次 RLD 登记子树的新发现数；连续这么多批没有新发现时须换向（同方向子节点被拒），
-# 再到第二个数时向你报告。
 search:
+  exploration_fraction: 0.15
+  max_repairs_per_root_cause: 2
+  require_selection_rationale: true
+  allow_repair_from_retired_evidence: true
   stall_structural_at: 2
   stall_human_at: 4
 
-# 子代理使用的模型。model 为 inherit（与主会话相同）、当前宿主支持的别名或完整模型 ID；
-# effort 为 low、medium、high、xhigh、max，或 null（使用模型默认）。
-# RLD 就是主会话，它的模型由你启动宿主 CLI 时选择，插件不改动。
+memory:
+  enabled: true
+  cross_project: false
+  max_items_per_task: 5
+  include_counterevidence: true
+
+review:
+  trigger: candidate_ready
+  permanent_reviewer: false
+  require_method_code_alignment: true
+
+# 外部通知（可选）：确认请求与用量提醒时向这个地址 POST JSON；超时不等于同意。
+notify:
+  url: null
+  timeout_s: 10
+
+literature:
+  min_related_work: 3         # 创建节点时至少引用的、经存在性核验的相关研究数
+
 models:
-  ui:
-    model: inherit
-    effort: null
-  worker:
-    model: inherit
-    effort: null
+  ui: {model: inherit, effort: null}
+  worker: {model: inherit, effort: null}
+  lens_assistant: {model: inherit, effort: null}
+  reviewer:                   # 基座按 provider 自动选择：anthropic/* → Claude Code CLI，其余 → pi
+    model: openai/gpt-6-astra
+    thinking: high
+    require_cross_family: true
+    timeout_s: 900

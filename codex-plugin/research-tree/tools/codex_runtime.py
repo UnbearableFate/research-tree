@@ -16,11 +16,11 @@ from jsonschema import Draft202012Validator
 
 import build_site
 import codex_prompts
+import notify
 import research_tree as tree
 import send_message as messaging
 from codex_state import actor_key, cache_dir, lock_busy, locked, read_json, write_json
-from project_config import ConfigError
-from research_db import CLI_METHODS, READ_METHODS, ResearchDB, ResearchDBError, busy_workers, describe, now_utc
+from research_db import CLI_METHODS, READ_METHODS, ResearchDB, busy_workers, describe, now_utc
 
 ROOT = Path(__file__).resolve().parents[1]
 READS = set(READ_METHODS)
@@ -75,6 +75,7 @@ class Runtime:
         previous = read_json(self.cache / "alert.json")
         if alert and previous != threshold:
             self.say("note", alert["text"])
+            notify.send(self.root, tree.show_config(self.cwd)["effective"], "alert", alert["text"])
             write_json(self.cache / "alert.json", threshold)
         elif not alert and previous is not None:
             write_json(self.cache / "alert.json", None)
@@ -166,6 +167,8 @@ class Runtime:
             message = None
         if kind == "confirm_request" and self.marker["phase"] == "planning":
             tree.set_phase(self.cwd, "awaiting_confirmation")
+        if kind == "confirm_request":  # optional webhook: the user may be away; no answer is no consent
+            notify.send(self.root, tree.show_config(self.cwd)["effective"], "confirm_request", text, args.get("docs"))
         entry = self.say("rld", text + ("\n引用：" + ", ".join(args["docs"]) if args.get("docs") else ""))
         return {"message": message, "chat": entry, "phase": self.marker["phase"]}
 

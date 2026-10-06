@@ -1775,7 +1775,7 @@ class M2ReviewTest(Fixture):
         design = self.doc(self.worker, "exp/c.v1.md", "experiment_design")
         with self.assertRaisesRegex(ResearchDBError, "OBLIGATION_OPEN: .* not candidate_ready"):
             self.worker.create_experiment("method", "m", design, self.rld.get(exp)["code_ref"], 1, 60,
-                                          hypothesis_id=h, stage="confirm")
+                                          hypothesis_id=h, stage="confirm", estimated_node_h=1.0)
         user = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-2000.v1.md", "user_instruction")
         self.rld.waive_obligation(self.rld.obligations(about=h)[0]["id"], user)
         self.rld.add_obligation("P-test", "audit:A1", "scope", "the harness reads the wrong split", "CRITICAL")
@@ -1817,6 +1817,174 @@ class M2ReviewTest(Fixture):
         self.raw(h, disposition=None)
         node = self.rld.migrate_states()["nodes"][0]
         self.assertEqual((node["lifecycle"], node["disposition"]), ("pending", "retired"))
+
+
+class BudgetTest(Fixture):
+    """plans/design 11 §1.5 (B01–B14): reservations, submission identity and settlement."""
+
+    def setUp(self):
+        super().setUp()
+        # 3 SOTA runs at 1800 node-s are recorded outside reservations: 5400 committed
+        self.rld.update_project(total_limit=12600, search_limit=9000, confirmation_limit=3600)
+        self.h = self.hypothesis()
+        self.start(self.h)
+
+    def planned(self, n_seeds: int = 1) -> tuple[str, list[str]]:
+        exp = self.method(self.h, n_seeds=n_seeds)
+        refs = []
+        for seed in self.rld.get(exp)["seeds"]:
+            self.worker.create_run(exp, seed)
+            refs.append(f"{exp}/s{seed}@1")
+        return exp, refs
+
+    def accounting(self, name: str, job: str, units: int) -> str:
+        path = self.root / "outputs" / "accounting" / f"{name}.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(json.dumps({"job_id": job, "node_seconds": units}))
+        return f"outputs/accounting/{name}.json"
+
+    def test_b02_b10_one_key_one_reservation_per_allocation(self):
+        exp, refs = self.planned(3)
+        r = self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 1000})
+        self.assertEqual((r["reserved_units"], r["budget_pool"], r["created"]), (1000, "search", True))  # B10
+        again = self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 1000})
+        self.assertEqual((again["reservation_id"], again["created"]), (r["reservation_id"], False))  # B02
+        with self.assertRaisesRegex(ResearchDBError, "SUBMISSION_AMBIGUOUS: .*under k1"):
+            self.worker.reserve_submission("k2", refs[:1], {"nodes": 1, "walltime_s": 100})
+
+    def test_submission_protocol_b03_b05_b06(self):
+        exp, refs = self.planned(1)
+        run = refs[0].rpartition("@")[0]
+        with self.assertRaisesRegex(ResearchDBError, "BUDGET_EXCEEDED: .*only under a reservation"):
+            self.worker.update_run(run, exec_status="submitted")
+        self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 1000})
+        with self.assertRaisesRegex(ResearchDBError, "only under a reservation"):  # intent, not yet claimed
+            self.worker.update_run(run, exec_status="submitted")
+        gen = self.worker.claim_submission("k1")["claim_generation"]
+        with self.assertRaisesRegex(ResearchDBError, "SUBMISSION_AMBIGUOUS: .*is claimed"):  # no second submitter
+            self.worker.claim_submission("k1")
+        self.worker.update_run(run, exec_status="submitted")
+        # B03: the scheduler took it but the answer was lost: held, never resubmitted blindly
+        self.worker.update_run(run, exec_status="unknown")
+        self.assertEqual(self.worker.reconcile_submission("k1")["accounting_status"], "held_unknown")
+        self.assertIn("SUBMISSION_AMBIGUOUS", self.worker.reconcile_submission("k1")["next"])
+        # B05: found again by the key: attach the original job, no second job
+        self.worker.attach_job("k1", "job-17", gen)
+        self.assertEqual(self.rld.get(run)["job_id"], "job-17")
+        with self.assertRaisesRegex(ResearchDBError, "SUBMISSION_AMBIGUOUS: .*is job job-17"):
+            self.worker.attach_job("k1", "job-18", gen)
+        self.worker.update_run(run, exec_status="succeeded")
+        res = self.worker.reconcile_submission("k1")["reservation_id"]
+        settled = self.worker.settle_reservation(res, self.accounting("a1", "job-17", 900))
+        self.assertEqual((settled["accounting_status"], settled["actual_units"], settled["overrun"]), ("settled", 900, False))
+        self.assertEqual(self.worker.settle_reservation(res, self.accounting("a1", "job-17", 900))["actual_units"], 900)  # B06
+        with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_CHANGED"):
+            self.worker.settle_reservation(res, self.accounting("a2", "job-17", 950))
+
+    def test_b01_last_quota_admits_one(self):
+        e1, r1 = self.planned(1)
+        e2, r2 = self.planned(1)
+        # 9000 search limit, 5400 committed: room for one 3000 node-s allocation, not two
+        results = []
+        def go(key, refs):
+            try:
+                results.append(ResearchDB(self.db, "worker/w1").reserve_submission(key, refs, {"nodes": 1, "walltime_s": 3000}))
+            except ResearchDBError as exc:
+                results.append(exc)
+        import threading
+        threads = [threading.Thread(target=go, args=a) for a in (("a", r1), ("b", r2))]
+        for th in threads:
+            th.start()
+        for th in threads:
+            th.join()
+        self.assertEqual(sum(isinstance(r, dict) for r in results), 1)
+        self.assertTrue(any(isinstance(r, ResearchDBError) and "BUDGET_EXCEEDED" in str(r) for r in results))
+
+    def test_b04_b07_release_rules(self):
+        _, refs = self.planned(1)
+        self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 500})
+        self.worker.release_reservation("k1", "decided not to run")  # never claimed: safe
+        self.worker.reserve_submission("k2", refs, {"nodes": 1, "walltime_s": 500})
+        self.worker.claim_submission("k2")
+        with self.assertRaisesRegex(ResearchDBError, "SUBMISSION_AMBIGUOUS: .*releasing needs the user's"):
+            self.worker.release_reservation("k2", "executor crashed")  # B04/B07: the job may exist
+        # B04: the claimer crashed before submitting; after checking the scheduler, reclaim the same intent
+        self.assertEqual(self.worker.claim_submission("k2", reclaim=True)["claim_generation"], 2)
+        user = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-3000.v1.md", "user_instruction")
+        self.worker.release_reservation("k2", "user checked: nothing was submitted", user)
+        self.assertEqual(self.rld.budget_status()["open_reservations"], [])
+
+    def test_b08_b09_overrun_is_recorded_and_pauses_admission(self):
+        _, refs = self.planned(1)
+        run = refs[0].rpartition("@")[0]
+        self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 600})
+        gen = self.worker.claim_submission("k1")["claim_generation"]
+        self.worker.update_run(run, exec_status="submitted")
+        self.worker.attach_job("k1", "job-1", gen)
+        self.worker.update_run(run, exec_status="failed")  # B09: a failure costs too
+        res = self.worker.reconcile_submission("k1")["reservation_id"]
+        settled = self.worker.settle_reservation(res, self.accounting("o1", "job-1", 2000))
+        self.assertEqual((settled["actual_units"], settled["overrun"]), (2000, True))
+        status = self.rld.budget_status()
+        self.assertIn("used 2000", status["admission_paused"])
+        self.assertEqual(status["committed"]["total"], 5400 + 2000)
+        _, refs2 = self.planned(1)
+        with self.assertRaisesRegex(ResearchDBError, "BUDGET_EXCEEDED: admission is paused"):
+            self.worker.reserve_submission("k2", refs2, {"nodes": 1, "walltime_s": 100})
+        user = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-3100.v1.md", "user_instruction")
+        self.rld.resume_admission(user)
+        self.worker.reserve_submission("k2", refs2, {"nodes": 1, "walltime_s": 100})
+
+    def test_b12_settlement_waits_for_the_job_and_b14_pools(self):
+        _, refs = self.planned(1)
+        run = refs[0].rpartition("@")[0]
+        self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 3500})
+        gen = self.worker.claim_submission("k1")["claim_generation"]
+        self.worker.update_run(run, exec_status="submitted")
+        self.worker.attach_job("k1", "job-9", gen)
+        res = self.worker.reconcile_submission("k1")["reservation_id"]
+        with self.assertRaisesRegex(ResearchDBError, "runs not final yet"):  # B12: no zero-cost settlement
+            self.worker.settle_reservation(res, self.accounting("b", "job-9", 10))
+        # B14: the search budget is spent (5400 + 3500 of 9000); the confirmation part is still there
+        _, refs2 = self.planned(1)
+        with self.assertRaisesRegex(ResearchDBError, "BUDGET_EXCEEDED: .*search budget"):
+            self.worker.reserve_submission("k2", refs2, {"nodes": 1, "walltime_s": 200})
+        self.worker.reserve_submission("k2", refs2, {"nodes": 1, "walltime_s": 200, "budget_pool": "confirmation"})
+        self.assertEqual(self.rld.budget_status()["available"]["confirmation"], 3400)
+
+    def test_b11_session_restart_keeps_the_attempt(self):
+        _, refs = self.planned(1)
+        run = refs[0].rpartition("@")[0]
+        self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 500})
+        self.worker.claim_submission("k1")
+        self.worker.update_run(run, exec_status="submitted")
+        # a new session of the same worker reads the run: same attempt, same key, nothing to resubmit
+        again = ResearchDB(self.db, "worker/w1").reconcile_submission("k1")
+        self.assertEqual((self.rld.get(run)["attempt"], again["submission_phase"]), (1, "claimed"))
+        self.assertIn("query it by the submission key", again["next"])
+
+
+class CostEstimateTest(Fixture):
+    """X04, X08: experiments carry a cost estimate; an overrun is an attention item, the job is not cancelled."""
+
+    def test_x04(self):
+        h = self.hypothesis()
+        self.start(h)
+        design = self.doc(self.worker, "exp/x04.v1.md", "experiment_design")
+        with self.assertRaisesRegex(ResearchDBError, "estimated_node_h .* is required"):
+            self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h)
+
+    def test_x08(self):
+        import build_site
+        h = self.hypothesis()
+        self.start(h)
+        design = self.doc(self.worker, "exp/x08.v1.md", "experiment_design")
+        exp = self.worker.create_experiment("method", "m", design, self.commit(), 1, 1800, hypothesis_id=h,
+                                            estimated_node_h=0.2)
+        self.finish_runs(self.worker, exp, effect=(self.sota, (0.3, 0.1, 0.1)))  # 3 x 600 s = 0.5 node-h
+        kinds = {(a["kind"], a["id"]) for a in build_site.build(self.db, self.root / "site" / "index.html")["attention"]}
+        self.assertIn(("overrun", h), kinds)
+        self.assertEqual(self.rld.get(f"{exp}/s42")["exec_status"], "succeeded")
 
 
 class SchemaUpgradeTest(unittest.TestCase):

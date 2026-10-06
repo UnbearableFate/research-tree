@@ -30,7 +30,8 @@ ATTENTION_LABELS = {
     "stale_harness": "框架已更换", "run_unknown": "作业状态未知", "curve_missing": "曲线缺失",
     "conclusion_outdated": "结论待更新", "task": "任务", "doc_integrity": "文档完整性", "cleanup_due": "待清理",
     "cleanup_failed": "清理未完成", "evidence_stale": "证据已失效", "obligation_open": "未决问题",
-    "stall": "停滞待换向", "confirmation_required": "待独立确认",
+    "stall": "停滞待换向", "confirmation_required": "待独立确认", "overrun": "用量超出预估",
+    "admission_paused": "准入暂停", "submission_unknown": "提交状态待核对",
 }
 DISPOSITION_LABELS = {"active": "继续投入", "paused": "暂停", "retired": "不再投入"}
 OUTCOME_LABELS = {"positive_signal": "正向信号", "negative_signal": "负向信号", "inconclusive": "不确定", "invalid": "无效"}
@@ -254,6 +255,23 @@ def collect(db_path: Path) -> dict:
         if latest and latest["verdict"] in ("no_gain", "beats_parent", "beats_sota") and latest["verdict"] != n["exp_status"]:
             attention.append({"kind": "conclusion_outdated", "id": n["id"],
                               "text": f"{n['id']} 最新判定为 {latest['verdict']}，节点结论仍为 {n['exp_status']}"})
+    factor = project.get("overrun_factor") or 2.0
+    for x in tables["experiment"]:
+        estimate = x.get("estimated_node_h")
+        used = sum(run_node_hours(r) or 0 for r in tables["run"] if r["experiment_id"] == x["id"])
+        if estimate and used >= factor * estimate:
+            attention.append({"kind": "overrun", "id": x.get("hypothesis_id") or project["id"],
+                              "text": f"{x['id']} 已用 {used:.2f} node·h，达到预估 {estimate} 的 {factor:g} 倍：由 RLD 决定是否继续"
+                                      "（作业不会被自动取消）"})
+    if project.get("admission_paused"):
+        attention.insert(0, {"kind": "admission_paused", "id": project["id"],
+                             "text": f"新的提交预留已暂停：{project['admission_paused']}；由用户决定（resume_admission）"})
+    for r in tables.get("reservation", []):
+        if r["accounting_status"] == "held_unknown" or (r["submission_phase"] == "claimed" and
+                                                         r["accounting_status"] == "reserved"):
+            attention.append({"kind": "submission_unknown", "id": None,
+                              "text": f"{r['submission_key']}（{r['submission_phase']}，{r['accounting_status']}）："
+                                      "按提交身份向调度器核对，不要重新提交"})
     for ob in reader.obligations(status="OPEN"):
         attention.append({"kind": "obligation_open", "id": ob["about"],
                           "text": f"{ob['id']}（{ob['severity']}，{ob['source']}）{ob['claim'][:100]}"

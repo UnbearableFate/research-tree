@@ -74,7 +74,7 @@ class PackagingTest(unittest.TestCase):
             self.assertTrue(Path(marker["db"]).is_file())
             shown = subprocess.run(cmd + ["config"], cwd=project, capture_output=True, text=True)
             self.assertEqual(shown.returncode, 0, shown.stderr)
-            self.assertEqual(json.loads(shown.stdout)["result"]["effective"]["stage1"]["gate_seeds"], 3)
+            self.assertEqual(json.loads(shown.stdout)["result"]["effective"]["verification"]["screening_seeds"], [42])
 
     def test_collisions_and_missing_adapter_do_not_replace_working_build(self):
         import shutil

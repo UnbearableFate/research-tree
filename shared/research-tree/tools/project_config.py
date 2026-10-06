@@ -12,13 +12,21 @@ import json
 import re
 from pathlib import Path
 
+import sys
+
 import yaml
 from jsonschema import Draft202012Validator
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import metrics  # noqa: E402
+
 CONFIG_NAME = "research-tree.yaml"
 SCHEMA_DIR = Path(__file__).resolve().parent.parent / "schema"
-TEMPLATE_PATH = SCHEMA_DIR / "config.template.yaml"
+TEMPLATE_PATH = SCHEMA_DIR / "config.template.yaml"          # version 2, what prepare and init write
 SCHEMA_PATH = SCHEMA_DIR / "config.schema.json"
+# Version 1 (gate settings in stage1) stays readable for projects that started with it.
+V1_TEMPLATE_PATH = SCHEMA_DIR / "config.v1.template.yaml"
+V1_SCHEMA_PATH = SCHEMA_DIR / "config.v1.schema.json"
 WALLTIME_RE = re.compile(r"^(?=\d)(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$")
 
 
@@ -30,8 +38,8 @@ def template_text() -> str:
     return TEMPLATE_PATH.read_text(encoding="utf-8")
 
 
-def defaults() -> dict:
-    return yaml.safe_load(template_text())
+def defaults(version: int = 2) -> dict:
+    return yaml.safe_load((TEMPLATE_PATH if version == 2 else V1_TEMPLATE_PATH).read_text(encoding="utf-8"))
 
 
 def _merge(base: dict, given: dict) -> dict:
@@ -51,13 +59,54 @@ def parse(text: str, source: str = CONFIG_NAME) -> dict:
         given = {}
     if not isinstance(given, dict):
         raise ConfigError(f"{source}: expected a mapping at the top level")
-    config = _merge(defaults(), given)
-    validator = Draft202012Validator(json.loads(SCHEMA_PATH.read_text(encoding="utf-8")))
+    version = given.get("version", 2)
+    if version not in (1, 2):
+        raise ConfigError(f"{source}: version is 1 or 2")
+    # metric_specs is a list: given whole, never merged with the template's example
+    config = _merge(defaults(version), given)
+    if version == 2 and "metric_specs" in given:
+        config["metric_specs"] = given["metric_specs"]
+    validator = Draft202012Validator(json.loads((SCHEMA_PATH if version == 2 else V1_SCHEMA_PATH).read_text(encoding="utf-8")))
     errors = sorted(validator.iter_errors(config), key=lambda e: list(e.path))
     if errors:
         raise ConfigError(f"{source}: " + "; ".join(f"{'.'.join(map(str, e.path)) or '<top>'}: {e.message}"
                                                      for e in errors))
+    if version == 2:
+        try:
+            metrics.check_metric_specs(metric_spec_document(config))
+        except metrics.MetricError as exc:
+            raise ConfigError(f"{source}: metric_specs: {exc}") from None
+        v = config["verification"]
+        search = v["screening_seeds"] + v["replication_seeds"]
+        if len(set(search)) != len(search) or set(search) & set(v["confirmation_seeds"]):
+            raise ConfigError(f"{source}: verification: screening and replication seeds are distinct and never "
+                              "confirmation seeds")
+        if config["evidence_policy"]["profile"] == "stage1_confirmed" and \
+                len(v["confirmation_seeds"]) < v["min_confirmation_pairs"]:
+            raise ConfigError(f"{source}: verification: stage1_confirmed needs at least min_confirmation_pairs "
+                              "confirmation_seeds")
+        b = config["budget"]
+        parts = [b[k] for k in ("search_limit", "confirmation_limit", "repair_limit") if b[k] is not None]
+        if b["total_limit"] is not None and sum(parts) > b["total_limit"]:
+            raise ConfigError(f"{source}: budget: the parts sum to more than total_limit")
+        if b["total_limit"] is None and parts:
+            raise ConfigError(f"{source}: budget: parts need a total_limit")
     return config
+
+
+def metric_spec_document(config: dict) -> dict:
+    """The metric_spec document a version-2 configuration states (the first metric is the primary)."""
+    specs = config["metric_specs"]
+    return {"version": 1, "primary": specs[0].get("name") if specs else None, "metrics": specs}
+
+
+def protocol_requirements(config: dict) -> dict:
+    """What a version-2 configuration fixes in the protocol document: profile and confirmation settings."""
+    v = config["verification"]
+    return {"profile": config["evidence_policy"]["profile"], "confirmation_seeds": v["confirmation_seeds"],
+            "min_confirmation_pairs": v["min_confirmation_pairs"],
+            "max_confirmation_candidates": v["max_confirmation_candidates"],
+            "require_artifact_import": config["evidence_policy"]["require_artifact_import"]}
 
 
 def walltime_seconds(value: int | str) -> int:
@@ -74,7 +123,26 @@ def walltime_seconds(value: int | str) -> int:
 
 
 def db_fields(config: dict) -> dict:
-    """The project record's fields that the configuration sets."""
+    """The project record's fields that the configuration sets. Version 2 states the gate once: the seeds are the
+    screening and replication seeds, the margin the primary metric's minimum_practical_gain."""
+    if config["version"] == 2:
+        budget, v = config["budget"], config["verification"]
+        seeds = v["screening_seeds"] + v["replication_seeds"]
+        return {
+            "max_nodes": budget["per_run"]["nodes"],
+            "max_walltime_s": walltime_seconds(budget["per_run"]["walltime"]),
+            "screen_budget_node_h": budget["screen_node_h"],
+            "max_parallel_workers": budget["max_parallel_workers"],
+            "alert_node_h": budget["alert_node_h"],
+            "gate_seeds": len(seeds), "seeds": seeds,
+            "go_margin": config["metric_specs"][0]["minimum_practical_gain"],
+            "min_related_work": config["literature"]["min_related_work"],
+            "stall_structural_at": config["search"]["stall_structural_at"],
+            "stall_human_at": config["search"]["stall_human_at"],
+            "total_limit": budget["total_limit"], "search_limit": budget["search_limit"],
+            "confirmation_limit": budget["confirmation_limit"], "repair_limit": budget["repair_limit"],
+            "overrun_factor": config["design"]["overrun_factor"],
+        }
     budget, stage1 = config["budget"], config["stage1"]
     return {
         "max_nodes": budget["per_run"]["nodes"],

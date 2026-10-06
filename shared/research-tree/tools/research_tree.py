@@ -58,6 +58,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 
 import create_db  # noqa: E402
+import notify  # noqa: E402
 import project_config  # noqa: E402
 from project_config import CONFIG_NAME, ConfigError  # noqa: E402
 from research_db import (CLEANUP_SCRIPT, CLEANUP_TEMPLATE, GATE_FIELDS, READ_METHODS, ResearchDB,  # noqa: E402
@@ -185,6 +186,9 @@ def init(cwd: Path, plan: Path, project_id: str | None, config: Path | None = No
               "plan_instruction": instruction, "phase": "planning", "created_at": now_utc(), "confirmed_at": None,
               "config": None}
     write_marker(cwd, marker)
+    config_parsed = project_config.parse(config_text)
+    if config_parsed["version"] == 2:  # the metric specification the Leader passes to create_project
+        register_metric_spec(cwd, marker, ResearchDB(db, "rld/main"), config_parsed, None)
     return marker
 
 
@@ -226,7 +230,9 @@ def show_config(cwd: Path) -> dict:
         effective, source, pending = project_config.defaults(), "template", False
     return {"file": str(file), "exists": text is not None, "source": source, "registered": registered,
             "pending": pending, "file_error": file_error, "effective": effective,
-            "db_fields": project_config.db_fields(effective)}
+            "db_fields": project_config.db_fields(effective), "metric_spec": marker.get("metric_spec"),
+            "protocol_requirements": (project_config.protocol_requirements(effective)
+                                      if effective["version"] == 2 else None)}
 
 
 def apply_config(cwd: Path, actor: str, words: str | None = None, require_project: bool = False) -> dict:
@@ -244,8 +250,13 @@ def apply_config(cwd: Path, actor: str, words: str | None = None, require_projec
     project = projects[0] if projects else None
     if require_project and project is None:
         raise TreeError("the RLD has not created the project record yet (create_project)")
+    spec = register_metric_spec(cwd, marker, rld, config, project)
+    if project is not None and spec and spec["doc_id"] != project.get("metric_spec_doc_id"):
+        fields["metric_spec_doc_id"] = spec["doc_id"]
     changes = {k: v for k, v in fields.items() if project is not None and project.get(k) != v}
-    if "gate_seeds" in changes:
+    if project is not None and config["version"] == 2:
+        check_protocol(root, project, config)
+    if "gate_seeds" in changes and "seeds" not in changes:
         seeds = list(project["seeds"])
         while len(seeds) < changes["gate_seeds"]:
             seeds.append(max(seeds, default=-1) + 1)
@@ -276,16 +287,58 @@ def apply_config(cwd: Path, actor: str, words: str | None = None, require_projec
             rld.supersede_document(registered["doc_id"], doc_id)
         registered = marker["config"] = {"doc_id": doc_id, "path": rel}
         write_marker(cwd, marker)
-    if project is not None and (changes or project.get("config_doc_id") != registered["doc_id"]):
-        rld.update_project(**changes, config_doc_id=registered["doc_id"])
     instruction = None
-    if words and (new_version or changes):
+    if words and (new_version or changes):  # first: a new metric specification rests on the user's instruction
         updated = f"；项目记录中的 {', '.join(sorted(changes))} 随之更新" if changes else ""
         instruction = register_instruction(root, words, f"项目配置改为 {registered['path']}"
                                            f"（{registered['doc_id']}）{updated}。", "配置变更",
                                            [project["id"]] if project else [])
+    if project is not None and (changes or project.get("config_doc_id") != registered["doc_id"]):
+        extra = {"user_instruction_doc_id": instruction["doc_id"]} if instruction and "metric_spec_doc_id" in changes else {}
+        rld.update_project(**changes, config_doc_id=registered["doc_id"], **extra)
     return {"config": registered, "new_version": new_version, "updated_fields": changes,
             "instruction": instruction, "effective": config}
+
+
+def register_metric_spec(cwd: Path, marker: dict, rld: ResearchDB, config: dict, project: dict | None) -> dict | None:
+    """A version-2 configuration states the metric specification: register it as the metric_spec document when its
+    content is new (rld/main, current; the previous version superseded). Returns {doc_id, path} or None (v1)."""
+    if config["version"] != 2:
+        return None
+    root = Path(marker["root"])
+    text = json.dumps(project_config.metric_spec_document(config), ensure_ascii=False, indent=1) + "\n"
+    current = marker.get("metric_spec")
+    if current and (root / "docs" / current["path"]).read_text(encoding="utf-8") == text:
+        return current
+    numbers = [int(m.group(1)) for p in (root / "docs" / "project").glob("metric-spec.v*.json")
+               if (m := re.match(r"metric-spec\.v(\d+)\.json$", p.name))]
+    rel = f"project/metric-spec.v{max(numbers, default=0) + 1}.json"
+    (root / "docs" / rel).write_text(text, encoding="utf-8")
+    doc_id = rld.register_document(rel, "metric_spec", "指标规范（research-tree.yaml）",
+                                   summary="research-tree.yaml 的 metric_specs：第一个为主指标",
+                                   about=[project["id"]] if project else [])
+    rld.set_document_current(doc_id)
+    if current:
+        rld.supersede_document(current["doc_id"], doc_id)
+    marker["metric_spec"] = {"doc_id": doc_id, "path": rel}
+    write_marker(cwd, marker)
+    return marker["metric_spec"]
+
+
+def check_protocol(root: Path, project: dict, config: dict) -> None:
+    """The Leader's protocol states what the configuration fixes (profile and confirmation settings) the same way."""
+    if not project.get("protocol_doc_id"):
+        return
+    doc = ResearchDB(root / "research_tree.db", "ui/ui").get(project["protocol_doc_id"])
+    protocol = json.loads((root / "docs" / doc["path"]).read_text(encoding="utf-8"))
+    defaults = {"profile": "stage1_confirmed", "confirmation_seeds": [], "min_confirmation_pairs": 3,
+                "max_confirmation_candidates": None, "require_artifact_import": False}
+    wrong = {k: (protocol.get(k, defaults[k]), v) for k, v in project_config.protocol_requirements(config).items()
+             if protocol.get(k, defaults[k]) != v}
+    if wrong:
+        raise TreeError(f"the protocol {project['protocol_doc_id']} differs from {CONFIG_NAME}: "
+                        + "; ".join(f"{k} is {a!r}, the configuration says {b!r}" for k, (a, b) in wrong.items())
+                        + ". The RLD registers a protocol version that agrees, then apply again")
 
 
 REQ_RE = re.compile(r"^REQ-[0-9]{4}$")
@@ -463,6 +516,11 @@ def main(argv: list[str] | None = None) -> int:
     al.add_argument("--event", required=True, choices=("requested", "observed"))
     al.add_argument("--model", default="")
     al.add_argument("--effort", default="")
+    nt = sub.add_parser("notify", help="POST a confirmation request or usage alert to notify.url (optional)")
+    nt.add_argument("--kind", required=True, choices=notify.KINDS)
+    nt.add_argument("--text", required=True)
+    nt.add_argument("--docs", nargs="*", default=[])
+    sub.add_parser("inbox", help="messages to the RLD that still wait for its receipt or answer")
     sub.add_parser("status")
     args = p.parse_args(argv)
     cwd = Path.cwd()
@@ -493,6 +551,12 @@ def main(argv: list[str] | None = None) -> int:
             result = log_agent_model(Path(read_marker(cwd)["root"]), {
                 "agent": args.agent, "actor": args.actor, "event": args.event, "model": args.model,
                 "effort": args.effort})
+        elif args.cmd == "notify":
+            result = notify.send(Path(read_marker(cwd)["root"]), show_config(cwd)["effective"], args.kind, args.text,
+                                 args.docs)
+        elif args.cmd == "inbox":
+            import build_site
+            result = build_site.unanswered(Path(read_marker(cwd)["root"]))
         elif args.cmd == "requirement":
             if args.action == "draft":
                 result = draft_requirement(cwd, args.req, args.title, {k: getattr(args, k) for k in REQ_FIELDS},

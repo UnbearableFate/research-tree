@@ -124,16 +124,15 @@ def check(marketplace: Path, work: Path):
                 return ident
 
             setup = doc("project/min-setup.v1.md", "min_setup")
-            # fixtures only: raw units, no guardrails (a real project declares them)
-            spec = {"version": 1, "primary": "accuracy", "metrics": [
-                {"name": "accuracy", "direction": "higher", "input_unit": "raw", "canonical_unit": "raw",
-                 "effect_mode": "absolute", "minimum_practical_gain": 0.05, "aggregation": "paired_run_mean"}]}
-            specs = doc("project/metric-spec.v1.json", "metric_spec", json.dumps(spec))
-            protocol = doc("project/protocol.v1.json", "protocol",
-                           json.dumps({"version": 1, "eval_type": "real_gt", "pair_fields": ["seed"], "profile": "screening"}))
+            # the version-2 template states the metric specification; init registered it
+            specs = initialized["project"]["metric_spec"]["doc_id"]
+            protocol = doc("project/protocol.v1.json", "protocol", json.dumps({
+                "version": 1, "eval_type": "real_gt", "pair_fields": ["seed"], "profile": "stage1_confirmed",
+                "confirmation_seeds": [1042, 1043, 1044], "min_confirmation_pairs": 3,
+                "max_confirmation_candidates": 2, "require_artifact_import": True}))
             call("research_db", method="create_project", kwargs={"id": "P-native", "title": "Native installation smoke",
                   "metric_spec_doc_id": specs, "protocol_doc_id": protocol, "min_setup_doc_id": setup, "primary_metric": "accuracy", "metric_direction": "higher",
-                  "metric_is_percent": True, "secondary_metrics": [], "seeds": [1, 2, 3]})
+                  "metric_is_percent": True, "secondary_metrics": ["train_time_s"], "seeds": [42, 43, 44], "go_margin": 0.2})
             doc("project/reports/init-plan.v1.md", "report")
             call("post_to_ui", type="confirm_request", text="Fixture plan; confirm only for validation.", docs=["project/reports/init-plan.v1.md"])
             confirmed = call("research_control", action="confirm", params={"words": "Fixture confirmation; no experiments authorized."})

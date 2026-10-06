@@ -161,6 +161,8 @@ worker确认任务范围、owner和冲突后，在已有授权内自主执行。
 
 任务、运行和节点的状态及其转换由接口定义（`help` 中 `update_task`、`update_run`、`decide` 的说明）。目录存在、工具通过、作业退出或部分结果都不能冒充完整科学交付；准备任务完成不表示其后续实验已经完成。阶段1按“需求与最小实验登记 → 根节点冻结框架并运行SOTA → 参考相关研究建立节点 → 代码改进与实验 → 统计判定 → 优于SOTA后复核 → 拓展、剪枝、GO或NOT GO”运行；单个节点优于SOTA不等于阶段1完成。
 
+**提交与预算。** 项目设了授权总量（`budget.total_limit`）时，每次提交先预留再提交：`reserve_submission`（检查授权、准入与预算，记录提交意图）→ `claim_submission` → 带 submission_key 提交 → `attach_job` → 作业结束后用调度器的用量文件 `settle_reservation`。预留按单次上限（节点数 × walltime）计，结算按实际用量；预算不足或准入暂停时接口拒绝，按第6节上报，不绕过。提交超时或查询失败不等于没有提交：运行保持 unknown，用 `reconcile_submission` 按 submission_key 找回原作业，不重提；只有用户确认没有提交时才释放已认领的预留。实际用量超过预估（`estimated_node_h` × `overrun_factor`）只写待处理项、不取消作业；超出预留或授权时准入暂停，由用户决定后 `resume_admission`。确认请求与用量提醒还可发到 `notify.url`；超时未答复不等于同意。
+
 ### Leader的等待与休眠
 
 Leader在主会话中管理等待、依赖监视和接续；UI不承担轮询或状态控制。所有状态切换遵守宿主平台规则，本规则不扩展实验、数据访问或研究重启权限。
