@@ -28,7 +28,7 @@ metrics_path、units（每个指标的输入单位）、counts、data_version、
 用 import_run_result(run_id, attempt, manifest_path) 导入，核对计数、loss 与日志后 update_run(valid=true)；验收不通过时设
 valid=false 并写 invalid_reason。不能导入时才在 update_run 直接写 metric_value、secondary。全部 seed 有效后
 evaluate_experiment(experiment_id, result_doc_id)（接口给出确定性的 outcome，不需要判定；确认实验用 stage="confirm"）；结果文档用 ```evidence 代码块列出每个数字及来源文件
-（[{"id","value","source"}]，路径相对研究根目录），设为现行时逐项核对；每个已导入 run 的指标文件都要引用，汇总数字（可先用 preview_evaluation 只读预览接口将算出的数字，写入统计文件后引用）用保留编号
+（[{"id","value","source"}]，source 相对研究根目录 research/<项目ID>/，如 outputs/E-0002/s42/metrics.json，不写 ../，不指向 docs/），设为现行时逐项核对；每个已导入 run 的指标文件都要引用，汇总数字（可先用 preview_evaluation 只读预览接口将算出的数字，写入统计文件后引用）用保留编号
 mean:<指标>（主指标均值必填）、sd:<指标>、delta:<sota|parent>:<指标>，计算时与接口重算值核对。evaluate_experiment 之后立即 run_cleanup(experiment_id)
 清理产物（日志、曲线、manifest、指标文件为证据，保留），交付前完成；
 后续实验要用这些产物时在 create_experiment 用 keep 与 keep_reason 声明。错误如实报告，工程失败不当科学结论。

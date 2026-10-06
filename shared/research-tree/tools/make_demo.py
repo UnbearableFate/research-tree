@@ -392,7 +392,8 @@ class Demo:
                                "## 下一实验\n\n可拓展时在子节点补足；可消灭时不再投入，除非出现新的机制依据。\n", h)
             verdict = rld.get(exp)["verdict"]
             changes = {"experiment_status": verdict if verdict != "needs_rld" else status_for[h], "status": status}
-            rld.decide(h, changes, reason, doc_id=dd, based_on=[exp])
+            rld.decide(h, changes, reason, doc_id=dd, based_on=[exp],
+                       reconsider_when="出现能修复该缺陷的新机制依据" if status == "prunable" else None)
 
         status_for = {}
         # H-0001: sub-batch second moments — beats the parent (SOTA) without the gate; expandable.
@@ -472,7 +473,7 @@ class Demo:
                             "## 用户原话\n\n“单个实验需要32个节点，超出预算，放弃这个方向。”\n", "用户决定放弃H-0006", about=(h6,))
         dd = self.decision(f"hypotheses/{h6}/decisions/infeasible.v1.md", f"{h6} 无法在上限内实验",
                            "估算单次运行需要32 nodes，超过8 nodes上限，已上报用户。", h6)
-        rld.decide(h6, {"status": "prunable"}, "用户决定放弃（超出单次运行上限）", doc_id=dd, based_on=[declined])
+        rld.decide(h6, {"status": "prunable"}, "用户决定放弃（超出单次运行上限）", doc_id=dd, based_on=[declined], reconsider_when="用户提供新的预算或资源")
         # H-0007: 8-bit optimizer state — accuracy level with parent, memory much lower; needs RLD.
         h7 = node("8-bit优化器状态", "以8-bit存储优化器状态，在精度不变时显著降低显存。", [lit[4], lit[0], lit[1]],
                   rationale="文献E在全参数微调上验证，LoRA场景未知。")
@@ -488,6 +489,20 @@ class Demo:
             "3个seed均有效后重新判定。", "tasks/T-0002/delivery.v1.md"), "扩展seed")
         t = rld.create_task("experiment", "worker", req, target_id=h5, assignee_id=wk5.agent)
         wk5.update_task(t, status="in_progress")
+        # H-0007: memory saving without accuracy gain: paused, with what would reopen it.
+        e7 = rld.latest_result(h7)["id"]
+        rld.decide_disposition(h7, "paused", "精度持平、只省显存；阶段1目标是精度，暂不投入", [e7],
+                               reconsider_when="用户把显存列为阶段目标，或出现精度改进的组合依据")
+        # A review finding about H-0003's code, resolved with the re-checked code file.
+        ob = rld.add_obligation(e3, "code_review:RV-demo", "seed_config", "（虚构）复核指出配置中 seed 列表与协议不一致",
+                                "MAJOR", "config.yaml seeds")
+        fix = self.root / "outputs" / "fixes" / "seed-config-check.txt"
+        fix.parent.mkdir(parents=True, exist_ok=True)
+        fix.write_text("（虚构）seed 列表已与协议核对一致：42, 43, 44\n", encoding="utf-8")
+        rld.resolve_obligation(ob["obligation_id"], "code_fixed", "outputs/fixes/seed-config-check.txt")
+        # Decision batch: the H-0001 subtree brought one finding (H-0003), the next batch none.
+        rld.note_findings(h1, 1, direction="二阶矩估计")
+        rld.note_findings(h1, 0)
 
     def close_branch(self, h: str, worker: ResearchDB, wt: Path, to_status: str, reason: str) -> None:
         br = self.rld.find("branch", hypothesis_id=h)[0]["id"]

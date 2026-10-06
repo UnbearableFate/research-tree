@@ -85,4 +85,6 @@ def db_fields(config: dict) -> dict:
         "gate_seeds": stage1["gate_seeds"],
         "go_margin": stage1["go_margin"],
         "min_related_work": stage1["min_related_work"],
+        "stall_structural_at": config["search"]["stall_structural_at"],
+        "stall_human_at": config["search"]["stall_human_at"],
     }
