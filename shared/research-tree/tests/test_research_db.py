@@ -154,7 +154,7 @@ class Fixture(unittest.TestCase):
         source.write_text(json.dumps({"delta": 0.3}), encoding="utf-8")
         body = (f"report {self.n}\n\n```evidence\n"
                 f'[{{"id": "delta", "value": "0.3", "source": "outputs/evidence/report{self.n}.json"}}]\n```\n'
-                + "".join(f"\n## {s}\n\n无\n" for s in rdb.NOT_GO_SECTIONS))
+                + "".join(f"\n## {s}\n\n无\n" for s in rdb.NOT_GO_SECTIONS + ("未经独立确认",)))
         return self.doc(self.rld, f"reports/{name}-{self.n}.v1.md", "report", body=body)
 
     def values_for(self, exp: str) -> dict:
@@ -434,9 +434,9 @@ class HypothesisTest(Fixture):
         report = self.doc(self.rld, f"h/{h}/decisions/infeasible.v1.md", "decision")
         unrelated = self.doc(ui, "instructions/UI-0001.v1.md", "user_instruction")
         with self.assertRaisesRegex(ResearchDBError, "pending -> prunable is not allowed"):
-            self.rld.decide(h, {"status": "prunable"}, "needs 32 nodes", doc_id=report, based_on=[unrelated])
+            self.rld.decide(h, {"status": "prunable"}, "needs 32 nodes", doc_id=report, based_on=[unrelated], reconsider_when="new evidence on the mechanism")
         declined = self.doc(ui, "instructions/UI-0002.v1.md", "user_instruction", about=(h,))
-        self.rld.decide(h, {"status": "prunable"}, "user declined the extra budget", doc_id=report, based_on=[declined])
+        self.rld.decide(h, {"status": "prunable"}, "user declined the extra budget", doc_id=report, based_on=[declined], reconsider_when="new evidence on the mechanism")
         self.assertEqual((self.rld.get(h)["status"], self.rld.get(h)["experiment_status"]), ("prunable", "todo"))
 
 
@@ -617,14 +617,14 @@ class DecisionTest(Fixture):
     def test_status_follows_latest_verdict(self):
         h, exp = self.concluded("no_gain", sota=(-0.1, -0.1, -0.1))
         with self.assertRaisesRegex(ResearchDBError, "needs based_on the latest evaluated experiment"):
-            self.rld.decide(h, {"experiment_status": "no_gain", "status": "prunable"}, "x", doc_id=self.decision_doc())
+            self.rld.decide(h, {"experiment_status": "no_gain", "status": "prunable"}, "x", doc_id=self.decision_doc(), reconsider_when="new evidence on the mechanism")
         with self.assertRaisesRegex(ResearchDBError, "verdict no_gain"):
             self.rld.decide(h, {"experiment_status": "beats_parent"}, "x", based_on=[exp])
         # F03: a node without gain is not forced out; retiring it is a separate, reasoned decision
         self.rld.decide(h, {"experiment_status": "no_gain"}, "no gain", based_on=[exp])
         self.assertEqual(self.rld.get(h)["status"], "verifying")
         self.rld.decide(h, {"status": "prunable"}, "no gain, nothing to repair", doc_id=self.decision_doc(),
-                        based_on=[exp])
+                        based_on=[exp], reconsider_when="new evidence on the mechanism")
         self.assertEqual(self.rld.history(h)[-1]["based_on"], [exp])
         self.assertEqual(self.rld.get(h)["disposition"], "retired")
 
@@ -639,7 +639,7 @@ class DecisionTest(Fixture):
             exp = self.method(h)
             self.evaluate(exp, "no_gain", sota=(-0.1, -0.1, -0.1))
             self.rld.decide(h, {"experiment_status": "no_gain", "status": "prunable"}, "no gain",
-                            doc_id=self.decision_doc(), based_on=[exp])
+                            doc_id=self.decision_doc(), based_on=[exp], reconsider_when="new evidence on the mechanism")
             first = self.rld.get(h)
             order = [first["created_at"]] + [first[k] for k in ("started_at", "first_experiment_at",
                                                                 "first_result_at", "concluded_at")]
@@ -647,7 +647,12 @@ class DecisionTest(Fixture):
             self.assertEqual(len(set(order)), 5)
             self.assertIsNone(first.get("beats_sota_at"))
 
-            # Re-verifying clears the completion time; first-time stamps are kept.
+            # Re-verifying clears the completion time; first-time stamps are kept. A retired node is reopened
+            # explicitly first.
+            with self.assertRaisesRegex(ResearchDBError, "is retired: decide_disposition active"):
+                self.rld.decide(h, {"status": "verifying", "experiment_status": "running"}, "retry",
+                                doc_id=self.decision_doc())
+            self.rld.decide_disposition(h, "active", "a fix for the failure mode", [exp])
             self.rld.decide(h, {"status": "verifying", "experiment_status": "running"}, "retry with a fix",
                             doc_id=self.decision_doc())
             self.assertIsNone(self.rld.get(h).get("concluded_at"))
@@ -668,7 +673,7 @@ class DecisionTest(Fixture):
     def test_user_declined_node_has_completion_but_no_start(self):
         h = self.hypothesis()
         declined = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0009.v1.md", "user_instruction", about=(h,))
-        self.rld.decide(h, {"status": "prunable"}, "declined", doc_id=self.decision_doc(), based_on=[declined])
+        self.rld.decide(h, {"status": "prunable"}, "declined", doc_id=self.decision_doc(), based_on=[declined], reconsider_when="new evidence on the mechanism")
         record = self.rld.get(h)
         self.assertIsNotNone(record.get("concluded_at"))
         self.assertIsNone(record.get("started_at"))
@@ -756,15 +761,15 @@ class DecisionTest(Fixture):
         self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
         prior = self.doc(self.rld, f"h/{h}/novelty.v1.md", "novelty", about=(h,))
         with self.assertRaisesRegex(ResearchDBError, "retiring a node .* needs based_on its evidence"):
-            self.rld.decide(h, {"status": "prunable"}, "x", doc_id=self.decision_doc())
+            self.rld.decide(h, {"status": "prunable"}, "x", doc_id=self.decision_doc(), reconsider_when="new evidence on the mechanism")
         self.rld.decide(h, {"novelty_recheck": "fail", "status": "prunable"}, "direct prior",
-                        doc_id=self.decision_doc(), based_on=[prior])
+                        doc_id=self.decision_doc(), based_on=[prior], reconsider_when="new evidence on the mechanism")
         self.assertEqual(self.rld.go_candidates(), [])
 
     def test_not_go(self):  # 06 §3.3: no active node, a report that accounts for the open ends
         h, exp = self.concluded("no_gain", sota=(-0.1, -0.1, -0.1))
         self.rld.decide(h, {"experiment_status": "no_gain", "status": "prunable"}, "no gain",
-                        doc_id=self.decision_doc(), based_on=[exp])
+                        doc_id=self.decision_doc(), based_on=[exp], reconsider_when="new evidence on the mechanism")
         h2 = self.hypothesis()
         with self.assertRaisesRegex(ResearchDBError, f"still active: \\['{h2}'\\]"):
             self.rld.decide("P-test", {"status": "not_go"}, "x", doc_id=self.report_doc("not-go"))
@@ -1550,7 +1555,7 @@ class UncertaintyTest(Fixture):
         self.assertEqual(self.rld.evaluations(experiment_id=exp), [])
         self.assertEqual(self.rld.get_eligibility(h)["reasons"], ["NO_EVALUATION"])
         with self.assertRaisesRegex(ResearchDBError, "retiring a node .* needs based_on"):
-            self.rld.decide(h, {"status": "prunable"}, "it failed", doc_id=self.decision_doc())
+            self.rld.decide(h, {"status": "prunable"}, "it failed", doc_id=self.decision_doc(), reconsider_when="new evidence on the mechanism")
 
     def test_inconclusive_decisions_name_the_missing_evidence(self):
         h = self.hypothesis()
@@ -1725,7 +1730,7 @@ class StateMigrationTest(Fixture):
     def test_old_states(self):
         h, exp = self.concluded("no_gain", sota=(-0.1, -0.1, -0.1))
         self.rld.decide(h, {"experiment_status": "no_gain", "status": "prunable"}, "no gain",
-                        doc_id=self.decision_doc(), based_on=[exp])
+                        doc_id=self.decision_doc(), based_on=[exp], reconsider_when="new evidence on the mechanism")
         h2 = self.hypothesis()
         for node in (h, h2):
             self.raw(node, disposition=None)  # as an old project left them
@@ -1741,6 +1746,77 @@ class StateMigrationTest(Fixture):
         first = self.rld.create_task("harness", "worker", req, target_id="P-test", assignee_id="w1")
         self.rld.create_task("analysis", "worker", req, target_id="P-test", assignee_id="w1")
         self.assertEqual(self.rld.resume_package("P-test")["first_unaccepted_task"], first)
+
+
+class M2ReviewTest(Fixture):
+    """M2 review: admission follows disposition; candidate_ready before confirmation; project obligations; the
+    screening GO disclaimer; invalid outcome; closed branches; never-tested nodes migrate as pending."""
+
+    def test_paused_nodes_take_no_new_work(self):
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h, n_seeds=1)
+        self.evaluate(exp, None, sota=(0.01, 0.0, 0.0))
+        self.rld.decide_disposition(h, "paused", "budget held for H-other", [exp], reconsider_when="budget frees up")
+        with self.assertRaisesRegex(ResearchDBError, "is paused .*no new experiments"):
+            self.method(h)
+        with self.assertRaisesRegex(ResearchDBError, "not active: no seed extensions"):
+            self.worker.extend_seeds(exp, 3)
+        self.rld.decide_disposition(h, "active", "budget freed", [exp])
+        self.method(h)
+
+    def test_confirmation_after_candidate_ready_and_project_obligations(self):
+        self.rld.update_project(protocol_doc_id=self.doc(self.rld, "project/protocol.v20.json", "protocol", body=json.dumps(
+            {**PROTOCOL, "confirmation_seeds": [1042, 1043, 1044]})), user_instruction_doc_id=self.doc(
+            ResearchDB(self.db, "ui/ui"), "instructions/UI-1999.v1.md", "user_instruction"))
+        self.worker.evaluate_experiment(self.sota, self.result_doc(exp=self.sota))
+        h, exp = self.candidate()
+        self.rld.add_obligation(h, "code_review:RV-0001", "seed_config", "seeds differ from the protocol", "MAJOR")
+        design = self.doc(self.worker, "exp/c.v1.md", "experiment_design")
+        with self.assertRaisesRegex(ResearchDBError, "OBLIGATION_OPEN: .* not candidate_ready"):
+            self.worker.create_experiment("method", "m", design, self.rld.get(exp)["code_ref"], 1, 60,
+                                          hypothesis_id=h, stage="confirm")
+        user = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-2000.v1.md", "user_instruction")
+        self.rld.waive_obligation(self.rld.obligations(about=h)[0]["id"], user)
+        self.rld.add_obligation("P-test", "audit:A1", "scope", "the harness reads the wrong split", "CRITICAL")
+        with self.assertRaisesRegex(ResearchDBError, "OBLIGATION_OPEN: open obligations about the project"):
+            self.rld.decide("P-test", {"status": "go"}, "GO", doc_id=self.report_doc("go"))
+
+    def test_screening_go_says_it_is_unconfirmed(self):
+        h, exp = self.candidate()
+        path = self.root / "docs" / "reports" / "go-bare.v1.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        (self.root / "outputs" / "evidence").mkdir(parents=True, exist_ok=True)
+        (self.root / "outputs" / "evidence" / "g.json").write_text('{"d": 0.3}')
+        path.write_text('```evidence\n[{"id": "d", "value": "0.3", "source": "outputs/evidence/g.json"}]\n```\n')
+        doc = self.rld.register_document("reports/go-bare.v1.md", "report", "go")
+        self.rld.set_document_current(doc)
+        with self.assertRaisesRegex(ResearchDBError, "screening profile: .*missing 未经独立确认"):
+            self.rld.decide("P-test", {"status": "go"}, "GO", doc_id=doc)
+
+    def test_invalid_outcome_and_closed_branch(self):
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h, n_seeds=1)
+        self.worker.create_run(exp, 42)
+        self.worker.update_run(f"{exp}/s42", exec_status="submitted")
+        self.worker.update_run(f"{exp}/s42", exec_status="failed")
+        self.assertEqual(self.rld.get_eligibility(h)["outcome"], "invalid")
+        br = self.rld.find("branch", hypothesis_id=h)[0]["id"]
+        self.git("tag", f"exp/{exp}", self.rld.get(exp)["code_ref"])
+        self.worker.return_branch(br, self.commit())
+        self.rld.close_branch(br, "deleted", "pruned", self.decision_doc())
+        with self.assertRaisesRegex(ResearchDBError, "is deleted"):
+            self.method(h)
+
+    def test_never_tested_prunable_migrates_as_pending(self):
+        h = self.hypothesis()
+        declined = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-2100.v1.md", "user_instruction", about=(h,))
+        self.rld.decide(h, {"status": "prunable"}, "user declined", doc_id=self.decision_doc(), based_on=[declined],
+                        reconsider_when="the user asks again")
+        self.raw(h, disposition=None)
+        node = self.rld.migrate_states()["nodes"][0]
+        self.assertEqual((node["lifecycle"], node["disposition"]), ("pending", "retired"))
 
 
 class SchemaUpgradeTest(unittest.TestCase):
@@ -2050,7 +2126,7 @@ class CleanupTest(Fixture):
         self.worker.link("rel_depends_on", user, exp, artifact="final_weights")
         self.evaluate(user, "no_gain", sota=(-0.1, -0.1, -0.1))
         self.rld.decide(self.h, {"experiment_status": "no_gain", "status": "prunable"}, "no gain",
-                        doc_id=self.decision_doc(), based_on=[user])
+                        doc_id=self.decision_doc(), based_on=[user], reconsider_when="new evidence on the mechanism")
         due = {d["experiment_id"]: d["reason"] for d in self.rld.cleanup_due(self.h)}
         self.assertEqual(due, {exp: "kept outputs released", user: "statistics recorded"})
         self.clean_all()

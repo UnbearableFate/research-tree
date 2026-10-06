@@ -52,6 +52,15 @@
         "min_related_work": {"type": "integer", "minimum": 0}
       }
     },
+    "search": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["stall_structural_at", "stall_human_at"],
+      "properties": {
+        "stall_structural_at": {"type": "integer", "minimum": 1},
+        "stall_human_at": {"type": "integer", "minimum": 1}
+      }
+    },
     "models": {
       "type": "object",
       "additionalProperties": false,

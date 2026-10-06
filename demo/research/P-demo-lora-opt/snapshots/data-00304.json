@@ -1,8 +1,8 @@
 {
  "meta": {
   "schema_version": 8,
-  "data_version": 299,
-  "updated_at": "2026-10-06T23:17:10Z"
+  "data_version": 304,
+  "updated_at": "2026-10-06T23:35:26Z"
  },
  "tables": {
   "project": [
@@ -38,18 +38,18 @@
     "gate_seeds": 3,
     "go_margin": 0.05,
     "min_related_work": 3,
+    "stall_structural_at": 2,
+    "stall_human_at": 4,
     "resume_doc_ids": [
      "D-0003",
      "D-0002",
      "D-0007",
      "D-0010"
     ],
-    "stall_structural_at": 2,
-    "stall_human_at": 4,
-    "created_at": "2026-10-06T23:15:57Z",
-    "updated_at": "2026-10-06T23:16:05Z",
+    "created_at": "2026-10-06T23:34:12Z",
+    "updated_at": "2026-10-06T23:34:19Z",
     "worker_id": "root",
-    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "harness_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
     "harness_paths": [
      "harness"
     ],
@@ -73,16 +73,17 @@
      "D-0016"
     ],
     "disposition": "active",
-    "new_findings_streak": 0,
+    "new_findings_streak": 1,
     "stall_state": "none",
-    "created_at": "2026-10-06T23:16:08Z",
-    "updated_at": "2026-10-06T23:16:14Z",
+    "created_at": "2026-10-06T23:34:22Z",
+    "updated_at": "2026-10-06T23:35:26Z",
     "worker_id": "h0001",
-    "concluded_at": "2026-10-06T23:16:14Z",
-    "started_at": "2026-10-06T23:16:09Z",
+    "concluded_at": "2026-10-06T23:34:28Z",
+    "started_at": "2026-10-06T23:34:24Z",
     "status_reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
-    "first_experiment_at": "2026-10-06T23:16:11Z",
-    "first_result_at": "2026-10-06T23:16:13Z",
+    "first_experiment_at": "2026-10-06T23:34:26Z",
+    "first_result_at": "2026-10-06T23:34:27Z",
+    "direction": "二阶矩估计",
     "parent_id": "P-demo-lora-opt"
    },
    {
@@ -103,15 +104,16 @@
     "disposition": "retired",
     "new_findings_streak": 0,
     "stall_state": "none",
-    "created_at": "2026-10-06T23:16:15Z",
-    "updated_at": "2026-10-06T23:16:21Z",
+    "created_at": "2026-10-06T23:34:29Z",
+    "updated_at": "2026-10-06T23:34:36Z",
     "worker_id": "h0002",
-    "concluded_at": "2026-10-06T23:16:21Z",
-    "started_at": "2026-10-06T23:16:16Z",
+    "concluded_at": "2026-10-06T23:34:36Z",
+    "started_at": "2026-10-06T23:34:31Z",
     "status_reason": "所有指标都不优于SOTA，按规则消灭。",
-    "first_experiment_at": "2026-10-06T23:16:18Z",
-    "first_result_at": "2026-10-06T23:16:20Z",
+    "first_experiment_at": "2026-10-06T23:34:32Z",
+    "first_result_at": "2026-10-06T23:34:35Z",
     "disposition_reason": "所有指标都不优于SOTA，按规则消灭。",
+    "reconsider_when": "出现能修复该缺陷的新机制依据",
     "parent_id": "P-demo-lora-opt"
    },
    {
@@ -132,15 +134,15 @@
     "disposition": "active",
     "new_findings_streak": 0,
     "stall_state": "none",
-    "created_at": "2026-10-06T23:16:23Z",
-    "updated_at": "2026-10-06T23:16:34Z",
+    "created_at": "2026-10-06T23:34:38Z",
+    "updated_at": "2026-10-06T23:34:49Z",
     "worker_id": "h0003",
-    "concluded_at": "2026-10-06T23:16:34Z",
-    "started_at": "2026-10-06T23:16:25Z",
+    "concluded_at": "2026-10-06T23:34:49Z",
+    "started_at": "2026-10-06T23:34:39Z",
     "status_reason": "优于SOTA且复核通过，可拓展",
-    "first_experiment_at": "2026-10-06T23:16:27Z",
-    "first_result_at": "2026-10-06T23:16:29Z",
-    "beats_sota_at": "2026-10-06T23:16:32Z",
+    "first_experiment_at": "2026-10-06T23:34:42Z",
+    "first_result_at": "2026-10-06T23:34:44Z",
+    "beats_sota_at": "2026-10-06T23:34:47Z",
     "parent_id": "H-0001"
    },
    {
@@ -161,15 +163,16 @@
     "disposition": "retired",
     "new_findings_streak": 0,
     "stall_state": "none",
-    "created_at": "2026-10-06T23:16:44Z",
-    "updated_at": "2026-10-06T23:16:51Z",
+    "created_at": "2026-10-06T23:34:58Z",
+    "updated_at": "2026-10-06T23:35:04Z",
     "worker_id": "h0004",
-    "concluded_at": "2026-10-06T23:16:51Z",
-    "started_at": "2026-10-06T23:16:45Z",
+    "concluded_at": "2026-10-06T23:35:04Z",
+    "started_at": "2026-10-06T23:34:59Z",
     "status_reason": "相对父节点各项指标都不更好，按规则消灭。",
-    "first_experiment_at": "2026-10-06T23:16:48Z",
-    "first_result_at": "2026-10-06T23:16:50Z",
+    "first_experiment_at": "2026-10-06T23:35:01Z",
+    "first_result_at": "2026-10-06T23:35:03Z",
     "disposition_reason": "相对父节点各项指标都不更好，按规则消灭。",
+    "reconsider_when": "出现能修复该缺陷的新机制依据",
     "parent_id": "H-0001"
    },
    {
@@ -191,13 +194,13 @@
     "disposition": "active",
     "new_findings_streak": 0,
     "stall_state": "none",
-    "created_at": "2026-10-06T23:16:53Z",
-    "updated_at": "2026-10-06T23:16:55Z",
+    "created_at": "2026-10-06T23:35:07Z",
+    "updated_at": "2026-10-06T23:35:08Z",
     "worker_id": "h0005",
-    "started_at": "2026-10-06T23:16:55Z",
+    "started_at": "2026-10-06T23:35:08Z",
     "status_reason": "开始代码改进与实验",
-    "first_experiment_at": "2026-10-06T23:16:57Z",
-    "first_result_at": "2026-10-06T23:16:59Z",
+    "first_experiment_at": "2026-10-06T23:35:10Z",
+    "first_result_at": "2026-10-06T23:35:13Z",
     "parent_id": "P-demo-lora-opt"
    },
    {
@@ -218,11 +221,12 @@
     "disposition": "retired",
     "new_findings_streak": 0,
     "stall_state": "none",
-    "created_at": "2026-10-06T23:17:00Z",
-    "updated_at": "2026-10-06T23:17:01Z",
-    "concluded_at": "2026-10-06T23:17:01Z",
+    "created_at": "2026-10-06T23:35:14Z",
+    "updated_at": "2026-10-06T23:35:15Z",
+    "concluded_at": "2026-10-06T23:35:15Z",
     "status_reason": "用户决定放弃（超出单次运行上限）",
     "disposition_reason": "用户决定放弃（超出单次运行上限）",
+    "reconsider_when": "用户提供新的预算或资源",
     "parent_id": "P-demo-lora-opt"
    },
    {
@@ -240,16 +244,18 @@
     "resume_doc_ids": [
      "D-0052"
     ],
-    "disposition": "active",
+    "disposition": "paused",
     "new_findings_streak": 0,
     "stall_state": "none",
-    "created_at": "2026-10-06T23:17:02Z",
-    "updated_at": "2026-10-06T23:17:04Z",
+    "created_at": "2026-10-06T23:35:16Z",
+    "updated_at": "2026-10-06T23:35:25Z",
     "worker_id": "h0007",
-    "started_at": "2026-10-06T23:17:04Z",
+    "started_at": "2026-10-06T23:35:17Z",
     "status_reason": "开始代码改进与实验",
-    "first_experiment_at": "2026-10-06T23:17:05Z",
-    "first_result_at": "2026-10-06T23:17:08Z",
+    "first_experiment_at": "2026-10-06T23:35:20Z",
+    "first_result_at": "2026-10-06T23:35:23Z",
+    "disposition_reason": "精度持平、只省显存；阶段1目标是精度，暂不投入",
+    "reconsider_when": "用户把显存列为阶段目标，或出现精度改进的组合依据",
     "parent_id": "P-demo-lora-opt"
    },
    {
@@ -270,8 +276,8 @@
     "disposition": "active",
     "new_findings_streak": 0,
     "stall_state": "none",
-    "created_at": "2026-10-06T23:17:09Z",
-    "updated_at": "2026-10-06T23:17:09Z",
+    "created_at": "2026-10-06T23:35:24Z",
+    "updated_at": "2026-10-06T23:35:24Z",
     "parent_id": "H-0003"
    }
   ],
@@ -282,7 +288,7 @@
     "kind": "baseline",
     "method_name": "BaseOpt-A（虚构SOTA）",
     "design_doc_id": "D-0008",
-    "code_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "code_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
     "seeds": [
      42,
      43,
@@ -292,16 +298,16 @@
     "walltime_s": 3600,
     "stage": "screen",
     "owner": "root",
-    "created_at": "2026-10-06T23:16:00Z",
+    "created_at": "2026-10-06T23:34:15Z",
     "metric_mean": 71.40016666666666,
     "metric_sd": 0.0415175063477257,
     "result_doc_id": "D-0009",
-    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
-    "evaluated_at": "2026-10-06T23:16:04Z",
+    "harness_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
+    "evaluated_at": "2026-10-06T23:34:19Z",
     "evaluation_id": "EV-0001",
     "cleanup": {
      "1": {
-      "at": "2026-10-06T23:16:04Z",
+      "at": "2026-10-06T23:34:19Z",
       "by": "worker/root",
       "reason": "statistics recorded",
       "kept": [],
@@ -323,7 +329,7 @@
     "kind": "method",
     "method_name": "subbatch-moment",
     "design_doc_id": "D-0018",
-    "code_ref": "738fc623d651f0a29e45ea3ee3b32471e1ce6349",
+    "code_ref": "88e4ee9580587dfc0a6337e493a1ded3c38a76f9",
     "seeds": [
      42,
      43
@@ -333,17 +339,17 @@
     "stage": "screen",
     "owner": "h0001",
     "baseline_experiment_id": "E-0001",
-    "created_at": "2026-10-06T23:16:11Z",
+    "created_at": "2026-10-06T23:34:25Z",
     "verdict": "beats_parent",
     "metric_mean": 71.58189999999999,
     "metric_sd": 0.023334523779156954,
     "result_doc_id": "D-0019",
-    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
-    "evaluated_at": "2026-10-06T23:16:13Z",
+    "harness_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
+    "evaluated_at": "2026-10-06T23:34:27Z",
     "evaluation_id": "EV-0002",
     "cleanup": {
      "1": {
-      "at": "2026-10-06T23:16:13Z",
+      "at": "2026-10-06T23:34:28Z",
       "by": "worker/h0001",
       "reason": "statistics recorded",
       "kept": [],
@@ -365,7 +371,7 @@
     "kind": "method",
     "method_name": "orthogonal-update",
     "design_doc_id": "D-0023",
-    "code_ref": "833244f6196c50e333ca714bd0717a34a8101d52",
+    "code_ref": "f4838eacc8c49227834c6d91fb7f6d726c7df673",
     "seeds": [
      42,
      43
@@ -375,17 +381,17 @@
     "stage": "screen",
     "owner": "h0002",
     "baseline_experiment_id": "E-0001",
-    "created_at": "2026-10-06T23:16:17Z",
+    "created_at": "2026-10-06T23:34:32Z",
     "verdict": "no_gain",
     "metric_mean": 71.1753,
     "metric_sd": 0.034082546853187526,
     "result_doc_id": "D-0024",
-    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
-    "evaluated_at": "2026-10-06T23:16:20Z",
+    "harness_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
+    "evaluated_at": "2026-10-06T23:34:35Z",
     "evaluation_id": "EV-0003",
     "cleanup": {
      "1": {
-      "at": "2026-10-06T23:16:21Z",
+      "at": "2026-10-06T23:34:35Z",
       "by": "worker/h0002",
       "reason": "statistics recorded",
       "kept": [],
@@ -407,7 +413,7 @@
     "kind": "method",
     "method_name": "moment-balance",
     "design_doc_id": "D-0029",
-    "code_ref": "dc34ffa48dd1b5c41eff0b6461662c4265bf9336",
+    "code_ref": "7e92c87ba0181d1e982a6e6b011edf2b62c35a1a",
     "seeds": [
      42,
      43,
@@ -419,17 +425,17 @@
     "owner": "h0003",
     "baseline_experiment_id": "E-0001",
     "parent_experiment_id": "E-0002",
-    "created_at": "2026-10-06T23:16:27Z",
+    "created_at": "2026-10-06T23:34:41Z",
     "verdict": "beats_sota",
     "metric_mean": 71.64136666666667,
     "metric_sd": 0.03925892679803191,
     "result_doc_id": "D-0031",
-    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
-    "evaluated_at": "2026-10-06T23:16:32Z",
+    "harness_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
+    "evaluated_at": "2026-10-06T23:34:46Z",
     "evaluation_id": "EV-0005",
     "cleanup": {
      "1": {
-      "at": "2026-10-06T23:16:30Z",
+      "at": "2026-10-06T23:34:44Z",
       "by": "worker/h0003",
       "reason": "statistics recorded",
       "kept": [],
@@ -443,7 +449,7 @@
       "failed": 0
      },
      "2": {
-      "at": "2026-10-06T23:16:32Z",
+      "at": "2026-10-06T23:34:47Z",
       "by": "worker/h0003",
       "reason": "statistics recorded",
       "kept": [],
@@ -466,7 +472,7 @@
     "kind": "baseline",
     "method_name": "BaseOpt-A（确认基线）",
     "design_doc_id": "D-0035",
-    "code_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "code_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
     "seeds": [
      1042,
      1043,
@@ -476,12 +482,12 @@
     "walltime_s": 3600,
     "stage": "confirm",
     "owner": "root",
-    "created_at": "2026-10-06T23:16:35Z",
+    "created_at": "2026-10-06T23:34:49Z",
     "metric_mean": 71.39286666666668,
     "metric_sd": 0.03691941675234285,
     "result_doc_id": "D-0036",
-    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
-    "evaluated_at": "2026-10-06T23:16:38Z",
+    "harness_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
+    "evaluated_at": "2026-10-06T23:34:53Z",
     "evaluation_id": "EV-0006"
    },
    {
@@ -490,7 +496,7 @@
     "kind": "method",
     "method_name": "moment-balance（确认）",
     "design_doc_id": "D-0037",
-    "code_ref": "dc34ffa48dd1b5c41eff0b6461662c4265bf9336",
+    "code_ref": "7e92c87ba0181d1e982a6e6b011edf2b62c35a1a",
     "seeds": [
      1042,
      1043,
@@ -501,12 +507,12 @@
     "stage": "confirm",
     "owner": "h0003",
     "baseline_experiment_id": "E-0005",
-    "created_at": "2026-10-06T23:16:39Z",
+    "created_at": "2026-10-06T23:34:53Z",
     "metric_mean": 71.6318,
     "metric_sd": 0.026685389260785654,
     "result_doc_id": "D-0038",
-    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
-    "evaluated_at": "2026-10-06T23:16:43Z",
+    "harness_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
+    "evaluated_at": "2026-10-06T23:34:57Z",
     "evaluation_id": "EV-0007",
     "hypothesis_id": "H-0003"
    },
@@ -516,7 +522,7 @@
     "kind": "method",
     "method_name": "momentum-rescale",
     "design_doc_id": "D-0041",
-    "code_ref": "8ad41088300648d08859d67662da21485bc87f5f",
+    "code_ref": "c1720f99b7e7557adf7d85d9d2e5f168e196fad0",
     "seeds": [
      42,
      43
@@ -527,17 +533,17 @@
     "owner": "h0004",
     "baseline_experiment_id": "E-0001",
     "parent_experiment_id": "E-0002",
-    "created_at": "2026-10-06T23:16:47Z",
+    "created_at": "2026-10-06T23:35:01Z",
     "verdict": "no_gain",
     "metric_mean": 71.43705,
     "metric_sd": 0.045749808742760974,
     "result_doc_id": "D-0042",
-    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
-    "evaluated_at": "2026-10-06T23:16:50Z",
+    "harness_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
+    "evaluated_at": "2026-10-06T23:35:03Z",
     "evaluation_id": "EV-0008",
     "cleanup": {
      "1": {
-      "at": "2026-10-06T23:16:51Z",
+      "at": "2026-10-06T23:35:04Z",
       "by": "worker/h0004",
       "reason": "statistics recorded",
       "kept": [],
@@ -559,7 +565,7 @@
     "kind": "method",
     "method_name": "kron-diag",
     "design_doc_id": "D-0047",
-    "code_ref": "8140231db2882e73008e6ec8484fe09c99bb1acf",
+    "code_ref": "6ea33b166c6601ba0b884ef5cda2370628501e1d",
     "seeds": [
      42,
      43
@@ -569,17 +575,17 @@
     "stage": "screen",
     "owner": "h0005",
     "baseline_experiment_id": "E-0001",
-    "created_at": "2026-10-06T23:16:56Z",
+    "created_at": "2026-10-06T23:35:10Z",
     "verdict": "close",
     "metric_mean": 71.48580000000001,
     "metric_sd": 0.028708535316172238,
     "result_doc_id": "D-0048",
-    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
-    "evaluated_at": "2026-10-06T23:16:59Z",
+    "harness_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
+    "evaluated_at": "2026-10-06T23:35:13Z",
     "evaluation_id": "EV-0009",
     "cleanup": {
      "1": {
-      "at": "2026-10-06T23:16:59Z",
+      "at": "2026-10-06T23:35:13Z",
       "by": "worker/h0005",
       "reason": "statistics recorded",
       "kept": [],
@@ -601,7 +607,7 @@
     "kind": "method",
     "method_name": "state-8bit",
     "design_doc_id": "D-0054",
-    "code_ref": "13876bf283176c0d54b7f3f62c0aaf665ae68dab",
+    "code_ref": "6716d71a1cd852ec29c41c861e9b680308af1306",
     "seeds": [
      42,
      43
@@ -611,17 +617,17 @@
     "stage": "screen",
     "owner": "h0007",
     "baseline_experiment_id": "E-0001",
-    "created_at": "2026-10-06T23:17:05Z",
+    "created_at": "2026-10-06T23:35:19Z",
     "verdict": "needs_rld",
     "metric_mean": 71.4312,
     "metric_sd": 0.024890158697768755,
     "result_doc_id": "D-0055",
-    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
-    "evaluated_at": "2026-10-06T23:17:08Z",
+    "harness_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
+    "evaluated_at": "2026-10-06T23:35:23Z",
     "evaluation_id": "EV-0010",
     "cleanup": {
      "1": {
-      "at": "2026-10-06T23:17:08Z",
+      "at": "2026-10-06T23:35:23Z",
       "by": "worker/h0007",
       "reason": "statistics recorded",
       "kept": [],
@@ -644,11 +650,11 @@
     "repo_path": "code",
     "name": "node/H-0001",
     "base_ref": "main",
-    "base_commit": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "base_commit": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
     "worktree_path": "worktrees/H-0001",
     "owner": "h0001",
     "status": "active",
-    "created_at": "2026-10-06T23:16:09Z",
+    "created_at": "2026-10-06T23:34:23Z",
     "hypothesis_id": "H-0001"
    },
    {
@@ -656,13 +662,13 @@
     "repo_path": "code",
     "name": "node/H-0002",
     "base_ref": "main",
-    "base_commit": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "base_commit": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
     "owner": "main",
     "status": "deleted",
-    "created_at": "2026-10-06T23:16:16Z",
-    "head_commit": "833244f6196c50e333ca714bd0717a34a8101d52",
-    "returned_at": "2026-10-06T23:16:21Z",
-    "closed_at": "2026-10-06T23:16:22Z",
+    "created_at": "2026-10-06T23:34:30Z",
+    "head_commit": "f4838eacc8c49227834c6d91fb7f6d726c7df673",
+    "returned_at": "2026-10-06T23:34:36Z",
+    "closed_at": "2026-10-06T23:34:37Z",
     "hypothesis_id": "H-0002"
    },
    {
@@ -670,11 +676,11 @@
     "repo_path": "code",
     "name": "node/H-0003",
     "base_ref": "node/H-0001",
-    "base_commit": "738fc623d651f0a29e45ea3ee3b32471e1ce6349",
+    "base_commit": "88e4ee9580587dfc0a6337e493a1ded3c38a76f9",
     "worktree_path": "worktrees/H-0003",
     "owner": "h0003",
     "status": "active",
-    "created_at": "2026-10-06T23:16:25Z",
+    "created_at": "2026-10-06T23:34:39Z",
     "hypothesis_id": "H-0003"
    },
    {
@@ -682,13 +688,13 @@
     "repo_path": "code",
     "name": "node/H-0004",
     "base_ref": "node/H-0001",
-    "base_commit": "738fc623d651f0a29e45ea3ee3b32471e1ce6349",
+    "base_commit": "88e4ee9580587dfc0a6337e493a1ded3c38a76f9",
     "owner": "main",
     "status": "deleted",
-    "created_at": "2026-10-06T23:16:45Z",
-    "head_commit": "8ad41088300648d08859d67662da21485bc87f5f",
-    "returned_at": "2026-10-06T23:16:52Z",
-    "closed_at": "2026-10-06T23:16:52Z",
+    "created_at": "2026-10-06T23:34:58Z",
+    "head_commit": "c1720f99b7e7557adf7d85d9d2e5f168e196fad0",
+    "returned_at": "2026-10-06T23:35:05Z",
+    "closed_at": "2026-10-06T23:35:06Z",
     "hypothesis_id": "H-0004"
    },
    {
@@ -696,11 +702,11 @@
     "repo_path": "code",
     "name": "node/H-0005",
     "base_ref": "main",
-    "base_commit": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "base_commit": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
     "worktree_path": "worktrees/H-0005",
     "owner": "h0005",
     "status": "active",
-    "created_at": "2026-10-06T23:16:54Z",
+    "created_at": "2026-10-06T23:35:08Z",
     "hypothesis_id": "H-0005"
    },
    {
@@ -708,11 +714,11 @@
     "repo_path": "code",
     "name": "node/H-0007",
     "base_ref": "main",
-    "base_commit": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "base_commit": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
     "worktree_path": "worktrees/H-0007",
     "owner": "h0007",
     "status": "active",
-    "created_at": "2026-10-06T23:17:03Z",
+    "created_at": "2026-10-06T23:35:17Z",
     "hypothesis_id": "H-0007"
    }
   ],
@@ -727,8 +733,8 @@
     "status": "current",
     "author_role": "ui",
     "author_id": "ui",
-    "created_at": "2026-10-06T23:15:55Z",
-    "sha256": "10d47e0e493f20e4a916ac0c160689681247f634ad11d2f34081c83217b0091a"
+    "created_at": "2026-10-06T23:34:09Z",
+    "sha256": "e89a16a24b6c6edc26bbf21abfd8598d74f5471b2d731df4dc3a1744f5efb2f2"
    },
    {
     "id": "D-0002",
@@ -740,8 +746,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:15:55Z",
-    "sha256": "a1e8d5f22320a2d87d5f01d21fff864e23311d471773e7913ca3c1c5e0668c45"
+    "created_at": "2026-10-06T23:34:10Z",
+    "sha256": "3821bf4f48f97b3b3ff69e4680b289e865cf3dbcc0572b43201ee674269905e8"
    },
    {
     "id": "D-0003",
@@ -753,8 +759,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:15:56Z",
-    "sha256": "041644abd9d62d87c88e728db8573b20507bcd0232204500101879bd7756b214"
+    "created_at": "2026-10-06T23:34:10Z",
+    "sha256": "7c91ba66a438fb904039ff1a4ee5165becabc99eedb3be27b06bab172c7fe215"
    },
    {
     "id": "D-0004",
@@ -766,8 +772,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:15:56Z",
-    "sha256": "edb52c028be9b6482a3453c7290a40dc514da5f232974ef00facb08398f18603"
+    "created_at": "2026-10-06T23:34:11Z",
+    "sha256": "d115c391ef90bbd3b09d8ca3515ad2bf6634e2b55f09c7e600ea418ddb922f46"
    },
    {
     "id": "D-0005",
@@ -779,7 +785,7 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:15:56Z",
+    "created_at": "2026-10-06T23:34:11Z",
     "sha256": "45cb4bf064c2622c7e6623d14d33f1d0f1a94e9db3ba46ae5c9da59a44584237"
    },
    {
@@ -792,7 +798,7 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:15:57Z",
+    "created_at": "2026-10-06T23:34:11Z",
     "sha256": "554fc6d0a295f9c00ba2a27a262295eb6eb7051435b45b422bd403734eb2e5ba"
    },
    {
@@ -805,8 +811,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:15:59Z",
-    "sha256": "f288ee7697ede2594385bb92da9f1aad17d1bc74d2549ed78ab63c2772e7c0ec"
+    "created_at": "2026-10-06T23:34:14Z",
+    "sha256": "c8e11b307299132127cd8fda053209fcc9ddd0f032fc088bdd8bc00bd02247b7"
    },
    {
     "id": "D-0008",
@@ -818,8 +824,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-06T23:16:00Z",
-    "sha256": "a3395d584f7d7930a7d24abee8fc2c11d2227664a58cfb8da249dea313b76f2a"
+    "created_at": "2026-10-06T23:34:15Z",
+    "sha256": "0061e5c6ffb9c46cbd3e7d3e35edfa4fa928df1e49c4b1406dd91df0751d23c4"
    },
    {
     "id": "D-0009",
@@ -831,8 +837,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-06T23:16:04Z",
-    "sha256": "19316aa47c5bcc47cb2f47164adea4c876335fda889692f10795b97acd0e1e04"
+    "created_at": "2026-10-06T23:34:18Z",
+    "sha256": "d85bd0ce8a536b6dfa9674e83e621d8f20db4c1700447f2d23b9741f532fec34"
    },
    {
     "id": "D-0010",
@@ -844,8 +850,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-06T23:16:05Z",
-    "sha256": "71d363138abfccb55b4ca75a4b86c9620fb57e682e8458f84426095909ace866"
+    "created_at": "2026-10-06T23:34:19Z",
+    "sha256": "6a70e8e015b24bc943ed98f41fb117b73d8ebc95adb8bcc3e1500e5e1bc04f65"
    },
    {
     "id": "D-0011",
@@ -857,8 +863,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-06T23:16:06Z",
-    "sha256": "d9895041aa22ae17ec1b75b4e50fbdeba9986d1f8916e3bd28946393cf81749f"
+    "created_at": "2026-10-06T23:34:20Z",
+    "sha256": "12ff26c3fb14e3117d170ff2a776b56e03f66c471e411b2387d25a11da749db5"
    },
    {
     "id": "D-0012",
@@ -870,8 +876,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-06T23:16:06Z",
-    "sha256": "f1e6fa68189e0017a395caa6d2703a431637bf65407a9a7fc2b71b1d7b14cf5e"
+    "created_at": "2026-10-06T23:34:20Z",
+    "sha256": "5e4fdccaaad508efd0cc337c441391efc7cd5534bbbe974d656b4f0561d682a5"
    },
    {
     "id": "D-0013",
@@ -883,8 +889,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-06T23:16:07Z",
-    "sha256": "993b6fd497b862ba93226c312607d2d0ada404f539d596640ebe7c944b4e4277"
+    "created_at": "2026-10-06T23:34:21Z",
+    "sha256": "1422bf58040d6b3c68a1a79a383346df71926b2fdfa5d4138a6f30ee98f48b9d"
    },
    {
     "id": "D-0014",
@@ -896,8 +902,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-06T23:16:07Z",
-    "sha256": "ddee157a5d8677d7320c9220ef268a76fd3578ffb133761d896637ab12c2119a"
+    "created_at": "2026-10-06T23:34:21Z",
+    "sha256": "d5b32836c432e1fc989155959aa34ce152d98952a4d4144e803aa3bcf5654d5b"
    },
    {
     "id": "D-0015",
@@ -909,8 +915,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-06T23:16:07Z",
-    "sha256": "4e965ce39ff95c56639a5b678c9a502078b4ea9cb1200060af0c4e5d9a0e17bb"
+    "created_at": "2026-10-06T23:34:21Z",
+    "sha256": "49162eff70514337eb7fb9d89c6db39fda69b79680c9fc7669d526779e5071cb"
    },
    {
     "id": "D-0016",
@@ -922,8 +928,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:16:07Z",
-    "sha256": "c2e725d292bd6a521678d8cce310dced4b2573e83430007632dc09969fbbad40"
+    "created_at": "2026-10-06T23:34:22Z",
+    "sha256": "d261ac6739d1eabc2d9f0add9915f760188220df4eae9c4e1f342a7d16820978"
    },
    {
     "id": "D-0017",
@@ -935,8 +941,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:16:09Z",
-    "sha256": "cb25f49ec043f34b9ca5921981744c5e8e4f13535a54720862f0a3f70b67bbff"
+    "created_at": "2026-10-06T23:34:23Z",
+    "sha256": "60749b88f371aa720ea115251cc24f372206531e0dd3e71ee0e56aa9e1590d51"
    },
    {
     "id": "D-0018",
@@ -948,8 +954,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0001",
-    "created_at": "2026-10-06T23:16:10Z",
-    "sha256": "a28d829cdbe2abfb034eac92a4ef8a9ef25d30695346995c50e523dc297de57d"
+    "created_at": "2026-10-06T23:34:25Z",
+    "sha256": "bb8a5c008ca5e4d1f41a638b93d5878d6e6ebff24267389d8e9bf085208aa29b"
    },
    {
     "id": "D-0019",
@@ -961,8 +967,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0001",
-    "created_at": "2026-10-06T23:16:12Z",
-    "sha256": "45b55c13ac2234b53a552e4bd511a1d478e97dd42e51d0641b1834d5ccab6e62"
+    "created_at": "2026-10-06T23:34:27Z",
+    "sha256": "41859e3f5291ff221765b79374d9a10e3545449e275d5d4f596f0520b7876e0f"
    },
    {
     "id": "D-0020",
@@ -974,8 +980,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:16:14Z",
-    "sha256": "e572a7d07f40148492a3311a64f13be0b1b82e3c972c513472a443db735afe9a"
+    "created_at": "2026-10-06T23:34:28Z",
+    "sha256": "e9a5e2ac1e37f594e5c84e12af5c96d75f75e7416f021be177fbf75ecf375f3e"
    },
    {
     "id": "D-0021",
@@ -987,8 +993,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:16:14Z",
-    "sha256": "13404fa44dac0a6ca0bb3e498d88a2a907c5792b7c98d045cf564c0b554961af"
+    "created_at": "2026-10-06T23:34:28Z",
+    "sha256": "f0aec126fa95d5521c051907fa80ad138a701140f070e862972bffb6c95c0761"
    },
    {
     "id": "D-0022",
@@ -1000,8 +1006,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:16:16Z",
-    "sha256": "255a14c706d481587e8158310784a002c826776546823c989c919bf3c9f58dd2"
+    "created_at": "2026-10-06T23:34:30Z",
+    "sha256": "ef487663cba4cd697b316dded44defd907d895aa2674eb3ab9e3cb8d5fd396dd"
    },
    {
     "id": "D-0023",
@@ -1013,8 +1019,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0002",
-    "created_at": "2026-10-06T23:16:17Z",
-    "sha256": "67c1dead7415dfedae6cd172ebfd8d5a67b298db11c7a5ead1e8d776f9acfdf9"
+    "created_at": "2026-10-06T23:34:31Z",
+    "sha256": "b0da7b1c752f017cd07f418a39a4092341b18c7231497bf606c44d4baa5265f2"
    },
    {
     "id": "D-0024",
@@ -1026,8 +1032,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0002",
-    "created_at": "2026-10-06T23:16:20Z",
-    "sha256": "f9ade9b57033c7281fd18ee05587f88faa572ffee1a0e01f33bad6ce4788af83"
+    "created_at": "2026-10-06T23:34:35Z",
+    "sha256": "f361085a1ca2ba7c30e0350368ea7550f6ef5574896b5db5feb32f526c796e2f"
    },
    {
     "id": "D-0025",
@@ -1039,8 +1045,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:16:21Z",
-    "sha256": "9237842246e83792d4d3f28cddbd3eef09fac6f6734542a63b47ea965b8b3398"
+    "created_at": "2026-10-06T23:34:36Z",
+    "sha256": "71d374bb8b55688470425697c8d15cd11603691a053c921a9b9748340b2224ae"
    },
    {
     "id": "D-0026",
@@ -1052,8 +1058,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:16:22Z",
-    "sha256": "8aea2b8d1ddba531c9c7b54887d74a96ce1de19ea277a64ecfd1e93372c3dbe3"
+    "created_at": "2026-10-06T23:34:37Z",
+    "sha256": "4bac6e37e7bc0d0ab842ac1d2534771c2c26fb45d216fcc201fb0ba754bd990f"
    },
    {
     "id": "D-0027",
@@ -1065,8 +1071,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:16:23Z",
-    "sha256": "26c50abd231ab33e49c04a3cc5761abc4ae206f2f7f9f8885f7d69aaa17c5f99"
+    "created_at": "2026-10-06T23:34:37Z",
+    "sha256": "71bd8033e1b9ddc2523a0e80f5daebdd76f950b580634067c5c03ac61edcb6db"
    },
    {
     "id": "D-0028",
@@ -1078,8 +1084,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:16:25Z",
-    "sha256": "7d5fedeec794cb58fe2f935f810df7e1a2f8a4c920a344f7ab15d92602694860"
+    "created_at": "2026-10-06T23:34:39Z",
+    "sha256": "ad1e98770b6797ab7041b25e94b119cf2d994eaf93bb98bc8cbd8491edba69be"
    },
    {
     "id": "D-0029",
@@ -1091,8 +1097,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-06T23:16:26Z",
-    "sha256": "93df18cd123c01ff8be3f55a61c8b285ec8ed2947247378d919028d6e6f384ec"
+    "created_at": "2026-10-06T23:34:40Z",
+    "sha256": "464a14d7b7b4451c99abd53ec29b8d64f49e5b64ba2021eae2f8c2ee554c7ceb"
    },
    {
     "id": "D-0030",
@@ -1104,8 +1110,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-06T23:16:29Z",
-    "sha256": "aa4895436f6c514b6cefaedce8bafef1d13fc130bdf2b6045af299a9fe92d633"
+    "created_at": "2026-10-06T23:34:43Z",
+    "sha256": "828f5e5431bcf8817ab0cc844582d903d4b1fcb890f3a384b3810e2c13c2a9e0"
    },
    {
     "id": "D-0031",
@@ -1117,8 +1123,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-06T23:16:31Z",
-    "sha256": "33875468054cb991a10d28048ced38201a5f9069fdd8dc178bb48b77729b5bda"
+    "created_at": "2026-10-06T23:34:46Z",
+    "sha256": "90e77782b5804e67b11bd5b5d8c56f775bd6c8cf9cf0d9550cd9c5f593570f41"
    },
    {
     "id": "D-0032",
@@ -1130,8 +1136,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:16:33Z",
-    "sha256": "5f8a4d6bb6ae8eb03c9a91164d89e7542fde8b991014d9829b00390a273a7435"
+    "created_at": "2026-10-06T23:34:47Z",
+    "sha256": "7dbfc23b93c55401c40e705226c3e5d336d979571b6ba6df5516ee87b0a8f3b0"
    },
    {
     "id": "D-0033",
@@ -1143,8 +1149,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:16:33Z",
-    "sha256": "0bd228017c555046006ba11ff291dffdb21fb26884286ed8a0ddf9b64dafef88"
+    "created_at": "2026-10-06T23:34:48Z",
+    "sha256": "3c59ead071d9f1e35ef2eb68ba034db59ae03b33da41419432570dd967bb7cd6"
    },
    {
     "id": "D-0034",
@@ -1156,8 +1162,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:16:34Z",
-    "sha256": "1f2921826396ab440ec63fe561e5a715020c6c3e04372c961a071f901fc511d0"
+    "created_at": "2026-10-06T23:34:48Z",
+    "sha256": "adfc0fda89acb548d3c7941247d327a421779fe7da7496e51456ce168915b07e"
    },
    {
     "id": "D-0035",
@@ -1169,8 +1175,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-06T23:16:34Z",
-    "sha256": "e6d8b5a3dcaa52be47dacb6b757b1fb37e82e5795a9a65ace39ece5bc782c395"
+    "created_at": "2026-10-06T23:34:49Z",
+    "sha256": "513acd350dd194250b9361638debee6b44c13a725834785fc96cbac2e90bd8ea"
    },
    {
     "id": "D-0036",
@@ -1182,8 +1188,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-06T23:16:38Z",
-    "sha256": "d7088af824507e9adc287f6c54a5b30e8b9daee8be346bc5012e92e9a099ee28"
+    "created_at": "2026-10-06T23:34:52Z",
+    "sha256": "90269b058b48ac317ca18d586253d166b8f80aa7c7dd7fe40846b497b60cc4ce"
    },
    {
     "id": "D-0037",
@@ -1195,8 +1201,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-06T23:16:38Z",
-    "sha256": "77337ae1ea0c3459b796b5b4e41526189a67e289cb16daf4a2720e332b9e76f3"
+    "created_at": "2026-10-06T23:34:53Z",
+    "sha256": "3ad9a41c22a59f257fd7f44801ea8961a237f156109353bfe9b15a00e637255c"
    },
    {
     "id": "D-0038",
@@ -1208,8 +1214,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-06T23:16:42Z",
-    "sha256": "24b15803add9ab20565958a067b3ddfe4925a583654a620f51c313b6ee3bdac4"
+    "created_at": "2026-10-06T23:34:56Z",
+    "sha256": "2e99add4dbf9810913dea4433cb099366197d0e87ebe2e88dec1e20f296146c2"
    },
    {
     "id": "D-0039",
@@ -1221,8 +1227,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:16:43Z",
-    "sha256": "0591b34d63f89709a37d611dbbd4c29c8fabc7c006d39757d46c3d4f06e30009"
+    "created_at": "2026-10-06T23:34:57Z",
+    "sha256": "dbc6608a85f8e1c5f5ebd8573ea0a27b4049d5798b8a19142d974437cf08f315"
    },
    {
     "id": "D-0040",
@@ -1234,8 +1240,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:16:45Z",
-    "sha256": "9a8c9e185fca4272a0af8c2c64885cdead74d8dd68deee4f2320b0580d74094b"
+    "created_at": "2026-10-06T23:34:59Z",
+    "sha256": "161facd39adfd9fd2fb2a10bd627f6da1261e942ca91bf9201c074b8e304cd2d"
    },
    {
     "id": "D-0041",
@@ -1247,8 +1253,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0004",
-    "created_at": "2026-10-06T23:16:46Z",
-    "sha256": "455137cc92872e91ea0965c11447db508dc6c2d66c3b70bd9a3a8526c5204806"
+    "created_at": "2026-10-06T23:35:00Z",
+    "sha256": "3c7c884c1bcf964826996ed4cbcb66c9d34d68d09e6b83b1d784419337eabc39"
    },
    {
     "id": "D-0042",
@@ -1260,8 +1266,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0004",
-    "created_at": "2026-10-06T23:16:50Z",
-    "sha256": "9f03ea4605c7dd77934a19059b7ab5184f1da70676dc1c76a05fb05de76b1fe5"
+    "created_at": "2026-10-06T23:35:03Z",
+    "sha256": "c4b9778794c87c64c5dc6bb85320e80c4154ddeae1d679f90d699f6f47ae7eb9"
    },
    {
     "id": "D-0043",
@@ -1273,8 +1279,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:16:51Z",
-    "sha256": "dce47f88f7343c3ee69c509c38e78b7e3e9a158f000fd03d976f7a8d85ff371e"
+    "created_at": "2026-10-06T23:35:04Z",
+    "sha256": "2fcd4caf6a627a56937100de0d413ef95dc4451306d6e2cc69155102a6c8ef34"
    },
    {
     "id": "D-0044",
@@ -1286,8 +1292,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:16:52Z",
-    "sha256": "217b2b5e49325be279f57b64d33d2a9191286e2fc92cf7e8976dee9a9412145f"
+    "created_at": "2026-10-06T23:35:05Z",
+    "sha256": "32ab7b5b70a89e76376d353ccffafb0015e6bb510c4bebdb4fac6d6c1d3e2c2d"
    },
    {
     "id": "D-0045",
@@ -1299,8 +1305,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:16:53Z",
-    "sha256": "18738bbcc95f3661a854dde8588af1539bf87381d5bb3a4f2ae82abc9c6b0564"
+    "created_at": "2026-10-06T23:35:06Z",
+    "sha256": "f76db93b346194a061031192db714f716844aa11b9ae669070bb569002d7a06b"
    },
    {
     "id": "D-0046",
@@ -1312,8 +1318,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:16:54Z",
-    "sha256": "1e25c8762671222084b114b05a5211f14d3eb07db03d0cb583e7c1751bac2ef9"
+    "created_at": "2026-10-06T23:35:08Z",
+    "sha256": "8d1cddbfdedcc10112b6a421c08d97b4725a45683e059cd056a0530caa2734fc"
    },
    {
     "id": "D-0047",
@@ -1325,8 +1331,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0005",
-    "created_at": "2026-10-06T23:16:56Z",
-    "sha256": "d33b2f4f8d6c2fcefa9e52bda4b7e3bb3593532d97b5d2bb6db7f1edf109430e"
+    "created_at": "2026-10-06T23:35:09Z",
+    "sha256": "c045117d3a9a3218f674876b328bf618200f5ddc69277b05e05ded5f66b6ae90"
    },
    {
     "id": "D-0048",
@@ -1338,8 +1344,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0005",
-    "created_at": "2026-10-06T23:16:59Z",
-    "sha256": "fd70eb41bb0f4e32125af6ef7df7af8f3afed6c21e96a081ae57d3b03a5394a3"
+    "created_at": "2026-10-06T23:35:12Z",
+    "sha256": "2699938ebb944ab1363d74fb4a8bba7b97f444c8fa720eeca56922b6b08f0923"
    },
    {
     "id": "D-0049",
@@ -1351,8 +1357,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:17:00Z",
-    "sha256": "cd1532887f162c2172dae1ae780b4c8f1a533def0c02bab25ef5c6d69f9f3fc4"
+    "created_at": "2026-10-06T23:35:13Z",
+    "sha256": "e82aa6f30bdbc715d5b410048a7123fb7a51634aee0e4f33742f9748fa514492"
    },
    {
     "id": "D-0050",
@@ -1364,8 +1370,8 @@
     "status": "current",
     "author_role": "ui",
     "author_id": "ui",
-    "created_at": "2026-10-06T23:17:00Z",
-    "sha256": "0d869445d45ec4288a72359311e78972c572aba6e89033b70b2583bc7f36f03a"
+    "created_at": "2026-10-06T23:35:14Z",
+    "sha256": "7a7ba22044afe31190ca4fbd31ee5865c6092ee5ffec1678ce14325049a2e625"
    },
    {
     "id": "D-0051",
@@ -1377,8 +1383,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:17:01Z",
-    "sha256": "e6527e0fc9ea72bf7ab4cc89995c2f09b8b68bbb51f223abf61fc99b8ed1f83f"
+    "created_at": "2026-10-06T23:35:14Z",
+    "sha256": "4e0de139c2ab0fa07167053f1f598f8de936177fd68483878cc2bd7b292ca857"
    },
    {
     "id": "D-0052",
@@ -1390,8 +1396,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:17:01Z",
-    "sha256": "37601bb36646df9b837ad43b06bd9c3c25f4a2c4f675e24f50536521ce543579"
+    "created_at": "2026-10-06T23:35:15Z",
+    "sha256": "aa7aaa1b1b0f1588404ad70f78df94a9f1f97d35bdbf43adb2680afea830634b"
    },
    {
     "id": "D-0053",
@@ -1403,8 +1409,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:17:03Z",
-    "sha256": "3c212f50b05a98737dcd03d60486323d9c615c7f0f71f4bc6a8d849c07aed593"
+    "created_at": "2026-10-06T23:35:17Z",
+    "sha256": "f16a35e264b9ce3324bbba4cc2ec83b8f1df2ae183bf94e47728e1429a027d0a"
    },
    {
     "id": "D-0054",
@@ -1416,8 +1422,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0007",
-    "created_at": "2026-10-06T23:17:04Z",
-    "sha256": "e6f793b07fd8c2ace536c9d608b23acc943605cb147ab7737b1b9b3b5001896c"
+    "created_at": "2026-10-06T23:35:18Z",
+    "sha256": "f81f2f9d7549ab96ae7e2fcbc3725bf8507f5dbaa3dbb2ff1f41be2c11ee1469"
    },
    {
     "id": "D-0055",
@@ -1429,8 +1435,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0007",
-    "created_at": "2026-10-06T23:17:07Z",
-    "sha256": "30772e9249ef121acd0e3a49fe5951f1a87ac15d7e11660fc2c79ce3dd1a43ee"
+    "created_at": "2026-10-06T23:35:22Z",
+    "sha256": "039a94e8ec60c2d6718c6c51c473682e546d17a459344e37443dc01306c0b0e6"
    },
    {
     "id": "D-0056",
@@ -1442,8 +1448,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:17:09Z",
-    "sha256": "f2a21b0f2bea43b4acbd3fdc51e8250d242f0e304bc9bc3fbec352652fec1b0b"
+    "created_at": "2026-10-06T23:35:24Z",
+    "sha256": "cdcef24bc2b25415e6797e0781b5f585cd424803c11c851b5a6f791f9675fde1"
    },
    {
     "id": "D-0057",
@@ -1455,8 +1461,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T23:17:10Z",
-    "sha256": "44b50c0aec7916b699ea360eee24d776b51f6183d5f4b823650f9369d9cf0e8f"
+    "created_at": "2026-10-06T23:35:24Z",
+    "sha256": "bc3d232342ad9d410b5c08aea1a1bfddf9a5e4db123e9d9fd9a3a07c72524392"
    }
   ],
   "decision": [
@@ -1468,7 +1474,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0017",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:16:09Z",
+    "decided_at": "2026-10-06T23:34:24Z",
     "target_id": "H-0001"
    },
    {
@@ -1479,7 +1485,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0017",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:16:09Z",
+    "decided_at": "2026-10-06T23:34:24Z",
     "target_id": "H-0001"
    },
    {
@@ -1490,7 +1496,7 @@
     "reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
     "doc_id": "D-0020",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:16:14Z",
+    "decided_at": "2026-10-06T23:34:28Z",
     "target_id": "H-0001"
    },
    {
@@ -1501,7 +1507,7 @@
     "reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
     "doc_id": "D-0020",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:16:14Z",
+    "decided_at": "2026-10-06T23:34:28Z",
     "target_id": "H-0001"
    },
    {
@@ -1512,7 +1518,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0022",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:16:16Z",
+    "decided_at": "2026-10-06T23:34:31Z",
     "target_id": "H-0002"
    },
    {
@@ -1523,7 +1529,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0022",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:16:16Z",
+    "decided_at": "2026-10-06T23:34:31Z",
     "target_id": "H-0002"
    },
    {
@@ -1534,7 +1540,7 @@
     "reason": "所有指标都不优于SOTA，按规则消灭。",
     "doc_id": "D-0025",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:16:21Z",
+    "decided_at": "2026-10-06T23:34:36Z",
     "target_id": "H-0002"
    },
    {
@@ -1545,192 +1551,255 @@
     "reason": "所有指标都不优于SOTA，按规则消灭。",
     "doc_id": "D-0025",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:16:21Z",
+    "decided_at": "2026-10-06T23:34:36Z",
     "target_id": "H-0002"
    },
    {
     "id": "DEC-0009",
+    "field": "disposition",
+    "from_value": "active",
+    "to_value": "retired",
+    "reason": "所有指标都不优于SOTA，按规则消灭。",
+    "doc_id": "D-0025",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T23:34:36Z",
+    "target_id": "H-0002"
+   },
+   {
+    "id": "DEC-0010",
     "field": "branch_status",
     "from_value": "returned",
     "to_value": "deleted",
     "reason": "无提升，删除分支（实验提交已打标签）。",
     "doc_id": "D-0026",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:16:22Z",
+    "decided_at": "2026-10-06T23:34:37Z",
     "target_id": "BR-0002"
    },
    {
-    "id": "DEC-0010",
+    "id": "DEC-0011",
     "field": "experiment_status",
     "from_value": "todo",
     "to_value": "running",
     "reason": "开始代码改进与实验",
     "doc_id": "D-0028",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:16:25Z",
+    "decided_at": "2026-10-06T23:34:39Z",
     "target_id": "H-0003"
    },
    {
-    "id": "DEC-0011",
+    "id": "DEC-0012",
     "field": "status",
     "from_value": "pending",
     "to_value": "verifying",
     "reason": "开始代码改进与实验",
     "doc_id": "D-0028",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:16:25Z",
+    "decided_at": "2026-10-06T23:34:39Z",
     "target_id": "H-0003"
    },
    {
-    "id": "DEC-0012",
+    "id": "DEC-0013",
     "field": "experiment_status",
     "from_value": "running",
     "to_value": "beats_sota",
     "reason": "3个seed判定",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:16:32Z",
+    "decided_at": "2026-10-06T23:34:47Z",
     "target_id": "H-0003"
    },
    {
-    "id": "DEC-0013",
+    "id": "DEC-0014",
     "field": "novelty_recheck",
     "from_value": "pending",
     "to_value": "pass",
     "reason": "复核通过",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:16:33Z",
+    "decided_at": "2026-10-06T23:34:48Z",
     "target_id": "H-0003"
    },
    {
-    "id": "DEC-0014",
+    "id": "DEC-0015",
     "field": "theory_recheck",
     "from_value": "pending",
     "to_value": "pass",
     "reason": "复核通过",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:16:33Z",
+    "decided_at": "2026-10-06T23:34:48Z",
     "target_id": "H-0003"
    },
    {
-    "id": "DEC-0015",
+    "id": "DEC-0016",
     "field": "status",
     "from_value": "verifying",
     "to_value": "expandable",
     "reason": "优于SOTA且复核通过，可拓展",
     "doc_id": "D-0034",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:16:34Z",
+    "decided_at": "2026-10-06T23:34:49Z",
     "target_id": "H-0003"
    },
    {
-    "id": "DEC-0016",
+    "id": "DEC-0017",
     "field": "experiment_status",
     "from_value": "todo",
     "to_value": "running",
     "reason": "开始代码改进与实验",
     "doc_id": "D-0040",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:16:45Z",
+    "decided_at": "2026-10-06T23:34:59Z",
     "target_id": "H-0004"
    },
    {
-    "id": "DEC-0017",
+    "id": "DEC-0018",
     "field": "status",
     "from_value": "pending",
     "to_value": "verifying",
     "reason": "开始代码改进与实验",
     "doc_id": "D-0040",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:16:45Z",
+    "decided_at": "2026-10-06T23:34:59Z",
     "target_id": "H-0004"
    },
    {
-    "id": "DEC-0018",
+    "id": "DEC-0019",
     "field": "experiment_status",
     "from_value": "running",
     "to_value": "no_gain",
     "reason": "相对父节点各项指标都不更好，按规则消灭。",
     "doc_id": "D-0043",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:16:51Z",
+    "decided_at": "2026-10-06T23:35:04Z",
     "target_id": "H-0004"
    },
    {
-    "id": "DEC-0019",
+    "id": "DEC-0020",
     "field": "status",
     "from_value": "verifying",
     "to_value": "prunable",
     "reason": "相对父节点各项指标都不更好，按规则消灭。",
     "doc_id": "D-0043",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:16:51Z",
+    "decided_at": "2026-10-06T23:35:04Z",
     "target_id": "H-0004"
    },
    {
-    "id": "DEC-0020",
+    "id": "DEC-0021",
+    "field": "disposition",
+    "from_value": "active",
+    "to_value": "retired",
+    "reason": "相对父节点各项指标都不更好，按规则消灭。",
+    "doc_id": "D-0043",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T23:35:04Z",
+    "target_id": "H-0004"
+   },
+   {
+    "id": "DEC-0022",
     "field": "branch_status",
     "from_value": "returned",
     "to_value": "deleted",
     "reason": "无提升，删除分支。",
     "doc_id": "D-0044",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:16:52Z",
+    "decided_at": "2026-10-06T23:35:06Z",
     "target_id": "BR-0004"
    },
    {
-    "id": "DEC-0021",
+    "id": "DEC-0023",
     "field": "experiment_status",
     "from_value": "todo",
     "to_value": "running",
     "reason": "开始代码改进与实验",
     "doc_id": "D-0046",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:16:55Z",
+    "decided_at": "2026-10-06T23:35:08Z",
     "target_id": "H-0005"
    },
    {
-    "id": "DEC-0022",
+    "id": "DEC-0024",
     "field": "status",
     "from_value": "pending",
     "to_value": "verifying",
     "reason": "开始代码改进与实验",
     "doc_id": "D-0046",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:16:55Z",
+    "decided_at": "2026-10-06T23:35:08Z",
     "target_id": "H-0005"
    },
    {
-    "id": "DEC-0023",
+    "id": "DEC-0025",
     "field": "status",
     "from_value": "pending",
     "to_value": "prunable",
     "reason": "用户决定放弃（超出单次运行上限）",
     "doc_id": "D-0051",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:17:01Z",
+    "decided_at": "2026-10-06T23:35:15Z",
     "target_id": "H-0006"
    },
    {
-    "id": "DEC-0024",
+    "id": "DEC-0026",
+    "field": "disposition",
+    "from_value": "active",
+    "to_value": "retired",
+    "reason": "用户决定放弃（超出单次运行上限）",
+    "doc_id": "D-0051",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T23:35:15Z",
+    "target_id": "H-0006"
+   },
+   {
+    "id": "DEC-0027",
     "field": "experiment_status",
     "from_value": "todo",
     "to_value": "running",
     "reason": "开始代码改进与实验",
     "doc_id": "D-0053",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:17:04Z",
+    "decided_at": "2026-10-06T23:35:17Z",
     "target_id": "H-0007"
    },
    {
-    "id": "DEC-0025",
+    "id": "DEC-0028",
     "field": "status",
     "from_value": "pending",
     "to_value": "verifying",
     "reason": "开始代码改进与实验",
     "doc_id": "D-0053",
     "decided_by": "main",
-    "decided_at": "2026-10-06T23:17:04Z",
+    "decided_at": "2026-10-06T23:35:17Z",
     "target_id": "H-0007"
+   },
+   {
+    "id": "DEC-0029",
+    "field": "disposition",
+    "from_value": "active",
+    "to_value": "paused",
+    "reason": "精度持平、只省显存；阶段1目标是精度，暂不投入",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T23:35:25Z",
+    "target_id": "H-0007"
+   },
+   {
+    "id": "DEC-0030",
+    "field": "findings",
+    "from_value": "0",
+    "to_value": "0",
+    "reason": "1 new finding(s) this batch; stall none",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T23:35:26Z",
+    "target_id": "H-0001"
+   },
+   {
+    "id": "DEC-0031",
+    "field": "findings",
+    "from_value": "0",
+    "to_value": "1",
+    "reason": "0 new finding(s) this batch; stall none",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T23:35:26Z",
+    "target_id": "H-0001"
    }
   ],
   "task": [
@@ -1741,8 +1810,8 @@
     "assignee_role": "worker",
     "assignee_id": "root",
     "request_doc_id": "D-0007",
-    "created_at": "2026-10-06T23:16:00Z",
-    "updated_at": "2026-10-06T23:16:06Z",
+    "created_at": "2026-10-06T23:34:14Z",
+    "updated_at": "2026-10-06T23:34:20Z",
     "delivery_doc_id": "D-0010",
     "accepted_by": "rld/main",
     "accepted_evidence": [
@@ -1758,8 +1827,8 @@
     "assignee_role": "worker",
     "assignee_id": "h0005",
     "request_doc_id": "D-0057",
-    "created_at": "2026-10-06T23:17:10Z",
-    "updated_at": "2026-10-06T23:17:10Z",
+    "created_at": "2026-10-06T23:35:25Z",
+    "updated_at": "2026-10-06T23:35:25Z",
     "target_id": "H-0005"
    }
   ],
@@ -1814,8 +1883,8 @@
      }
     },
     "pair_keys": {},
-    "method_code_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
-    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "method_code_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
+    "harness_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
     "harness_paths": [
      "harness"
     ],
@@ -1916,10 +1985,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "d0a4ced37317b81a658e90146334de67fb50b6b6386554784c4356b07c0c146c",
-    "inputs_digest": "33d3a0138582f713c5cb02db256248c4c6f380bd32c1319dc2dc78d1faa1845f",
+    "fingerprint": "6f9c4c582d53ebd83d49bff9229a7663bd78c7fb2053e517aba1109682556fcf",
+    "inputs_digest": "7979e3a7295c4d92af7002eb64ad964786a87a9eb3a8a8a96dc005222b2f4e20",
     "created_by": "worker/root",
-    "created_at": "2026-10-06T23:16:04Z",
+    "created_at": "2026-10-06T23:34:19Z",
     "experiment_id": "E-0001"
    },
    {
@@ -2005,8 +2074,8 @@
       "seed=43/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "738fc623d651f0a29e45ea3ee3b32471e1ce6349",
-    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "method_code_ref": "88e4ee9580587dfc0a6337e493a1ded3c38a76f9",
+    "harness_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
     "harness_paths": [
      "harness"
     ],
@@ -2187,10 +2256,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "1a288ad499311b212c29260e05906f176c6d84b53d9a197b47059f36d3ba4b25",
-    "inputs_digest": "dfb4faa4daca807e5e5c1704831705cdf9e6f0470a84502d31ef36368844ba2f",
+    "fingerprint": "73e96ae2a02826c5604854d0e1e9116dceb349aafed5ce81d75a333e778dbeb8",
+    "inputs_digest": "f9501ce6a239c14886094327397b384e88cd47d403a4a0022ddf372f24e109eb",
     "created_by": "worker/h0001",
-    "created_at": "2026-10-06T23:16:13Z",
+    "created_at": "2026-10-06T23:34:27Z",
     "experiment_id": "E-0002"
    },
    {
@@ -2276,8 +2345,8 @@
       "seed=43/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "833244f6196c50e333ca714bd0717a34a8101d52",
-    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "method_code_ref": "f4838eacc8c49227834c6d91fb7f6d726c7df673",
+    "harness_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
     "harness_paths": [
      "harness"
     ],
@@ -2458,10 +2527,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "af843c0af6e03f7e1ba2e218d9791c15cb0527220d2d29fddb3a700350f68c56",
-    "inputs_digest": "4a737b587a04a5bbe44f32e2d467dbe45823c726b633b69a1be3503c84ec1d4a",
+    "fingerprint": "14ee2a865863d1a7fd8b21bf0907739fcf888ede53805c1d3dc68a32c4a23f4d",
+    "inputs_digest": "7f65a3355a89b2de2dd2b85c8cfa1a81fc38f080651cfa59bfa32518f01729cd",
     "created_by": "worker/h0002",
-    "created_at": "2026-10-06T23:16:20Z",
+    "created_at": "2026-10-06T23:34:35Z",
     "experiment_id": "E-0003"
    },
    {
@@ -2579,8 +2648,8 @@
       "seed=43/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "dc34ffa48dd1b5c41eff0b6461662c4265bf9336",
-    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "method_code_ref": "7e92c87ba0181d1e982a6e6b011edf2b62c35a1a",
+    "harness_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
     "harness_paths": [
      "harness"
     ],
@@ -2844,10 +2913,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "bb6c439e23d0499e8e01b83ae52a95646b83e50ba5e868a736d596271bb92f5d",
-    "inputs_digest": "bd8650f0218936c66ebf975bdbcd93917ce8753202c10b5684586c756a6734c8",
+    "fingerprint": "c1f24046b3a7906c4e79ff3e097c6773bb935dca3c9e0ff4166b0d0e81c621b3",
+    "inputs_digest": "2a5cb39fae0e2f715d7828f20b315e999e892848c8854cb5faaf01a4d7e92a7d",
     "created_by": "worker/h0003",
-    "created_at": "2026-10-06T23:16:29Z",
+    "created_at": "2026-10-06T23:34:44Z",
     "experiment_id": "E-0004"
    },
    {
@@ -2980,8 +3049,8 @@
       "seed=43/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "dc34ffa48dd1b5c41eff0b6461662c4265bf9336",
-    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "method_code_ref": "7e92c87ba0181d1e982a6e6b011edf2b62c35a1a",
+    "harness_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
     "harness_paths": [
      "harness"
     ],
@@ -3260,11 +3329,11 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "756c6c8c604f808de36aad6bcfca4612b88066d0e4b208e62138d1c0fc59fd3f",
-    "inputs_digest": "da7acdd1f78b1d209ba002f9ed339e64a0043377dbfecf1ca7b0e94b346126f1",
+    "fingerprint": "3444684f5510a439ee52715c25e975e952a78585ffbe18ee4b87e4a822495915",
+    "inputs_digest": "055c3f951c0a3808798d5e344d355b978d98cd55fe69afeb86b7ebd5545a951b",
     "supersedes_evaluation_id": "EV-0004",
     "created_by": "worker/h0003",
-    "created_at": "2026-10-06T23:16:32Z",
+    "created_at": "2026-10-06T23:34:46Z",
     "experiment_id": "E-0004"
    },
    {
@@ -3317,8 +3386,8 @@
      }
     },
     "pair_keys": {},
-    "method_code_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
-    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "method_code_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
+    "harness_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
     "harness_paths": [
      "harness"
     ],
@@ -3419,10 +3488,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "dae5c6127548a3d76484e7b45672f01f1b2bfc047cb7c65e7bd99248a9a1db57",
-    "inputs_digest": "089f5bf1de01bea652576a0bb660c66bed60a674bbf3dc14af13369339de3959",
+    "fingerprint": "bd4609726b9e2ea457cfb4e4a00d306e849f62825a38a4fbd7631e98b59b6724",
+    "inputs_digest": "80d798ab08213f6e7b33ff09586bfc693edd499f0514f8dd1d8e3af4c4c4f618",
     "created_by": "worker/root",
-    "created_at": "2026-10-06T23:16:38Z",
+    "created_at": "2026-10-06T23:34:53Z",
     "experiment_id": "E-0005"
    },
    {
@@ -3523,8 +3592,8 @@
       "seed=1044/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "dc34ffa48dd1b5c41eff0b6461662c4265bf9336",
-    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "method_code_ref": "7e92c87ba0181d1e982a6e6b011edf2b62c35a1a",
+    "harness_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
     "harness_paths": [
      "harness"
     ],
@@ -3719,10 +3788,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "e928bc7db1761307216ce7e9bac2826742e151f7e19ff1eb43a636bb6031811d",
-    "inputs_digest": "d0ee3c90fe7fea0086af676ae724ecc66da8ec3ea567e3417b3d30fa1ead6907",
+    "fingerprint": "2897b5db47a88b03e4ffdc2153fd4802d25b5c1a0ace0afae9f7a7b9fe4332c4",
+    "inputs_digest": "ce63247cdd164e3b745b85021209886e6670f27993a7ef989b37c4489147c83c",
     "created_by": "worker/h0003",
-    "created_at": "2026-10-06T23:16:43Z",
+    "created_at": "2026-10-06T23:34:57Z",
     "experiment_id": "E-0006"
    },
    {
@@ -3840,8 +3909,8 @@
       "seed=43/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "8ad41088300648d08859d67662da21485bc87f5f",
-    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "method_code_ref": "c1720f99b7e7557adf7d85d9d2e5f168e196fad0",
+    "harness_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
     "harness_paths": [
      "harness"
     ],
@@ -4105,10 +4174,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "725756db383dc0afb1fdbe09d16de88b95eeab5b2adb572b9f760cf0b93d9326",
-    "inputs_digest": "f93bf1561262a6130fb0e3e081b1b42b085c96564335df85ab6e94b0b3ff4d6e",
+    "fingerprint": "e819d061b8fe4a5c1692a9c8b44f93fde47f914e8685561c021cd70159cd0143",
+    "inputs_digest": "fcf5f00c7e9d810028b3a7da05979645993064924617e18ee148c7d2eef51c94",
     "created_by": "worker/h0004",
-    "created_at": "2026-10-06T23:16:50Z",
+    "created_at": "2026-10-06T23:35:03Z",
     "experiment_id": "E-0007"
    },
    {
@@ -4194,8 +4263,8 @@
       "seed=43/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "8140231db2882e73008e6ec8484fe09c99bb1acf",
-    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "method_code_ref": "6ea33b166c6601ba0b884ef5cda2370628501e1d",
+    "harness_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
     "harness_paths": [
      "harness"
     ],
@@ -4376,10 +4445,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "d77f0097a9fb94ae65e34c8fd9e4f68ce48a1a054f862e4a37acb64d04e96061",
-    "inputs_digest": "a16f43f57f7d5f48ec85ea278d4af22c293e9ffac8de14a711bee2bbfd9168b7",
+    "fingerprint": "a84ea3d951cd97ab6d447571f092c50439236345108fcc06bae3460b53c5f263",
+    "inputs_digest": "db11d456d167fba3a75c4c479bb0e72c268c23e9f805f3f65b61875793de2daa",
     "created_by": "worker/h0005",
-    "created_at": "2026-10-06T23:16:59Z",
+    "created_at": "2026-10-06T23:35:13Z",
     "experiment_id": "E-0008"
    },
    {
@@ -4465,8 +4534,8 @@
       "seed=43/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "13876bf283176c0d54b7f3f62c0aaf665ae68dab",
-    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "method_code_ref": "6716d71a1cd852ec29c41c861e9b680308af1306",
+    "harness_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
     "harness_paths": [
      "harness"
     ],
@@ -4647,14 +4716,35 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "e5c78731926627ce43ad87919d0a242d434170c52df2fe0a93e53ecbfba11715",
-    "inputs_digest": "641ef642911b7bed3c4f9f224948debaff5fb24c0410c1d3bae8b3c5c20627b5",
+    "fingerprint": "a9a5ab108530baeed4ef3e4d7c957109b275b8f59386b33d6cd0d89941ddd77b",
+    "inputs_digest": "65fc93a1d86e660d08836eb68d7751b6ee6cd7c4f6a56e01a5254dea08232b3d",
     "created_by": "worker/h0007",
-    "created_at": "2026-10-06T23:17:08Z",
+    "created_at": "2026-10-06T23:35:23Z",
     "experiment_id": "E-0009"
    }
   ],
-  "obligation": [],
+  "obligation": [
+   {
+    "id": "OB-0001",
+    "about": "E-0004",
+    "source": "code_review:RV-demo",
+    "pattern": "seed_config",
+    "fingerprint": "5dbd87f519eb63192332f683",
+    "severity": "MAJOR",
+    "status": "RESOLVED",
+    "claim": "（虚构）复核指出配置中 seed 列表与协议不一致",
+    "evidence_excerpt": "config.yaml seeds",
+    "created_at": "2026-10-06T23:35:25Z",
+    "updated_at": "2026-10-06T23:35:26Z",
+    "resolution": {
+     "fix_type": "code_fixed",
+     "verified_by": "rld/main",
+     "resolved_at": "2026-10-06T23:35:26Z",
+     "evidence_path": "outputs/fixes/seed-config-check.txt",
+     "evidence_sha256": "a7839e214bf78b3ed8710724d4d77eb84e13e4d20ecdd9cf13e5dc547f190692"
+    }
+   }
+  ],
   "run": [
    {
     "id": "E-0001/s42",
@@ -4676,7 +4766,7 @@
      "experiment_id": "E-0001",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+     "code_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4696,9 +4786,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "770a965ddd7f2a4d5707bbdd5fbdcf07091622dda7f9b02945d2213b446ccae9",
+     "manifest_sha256": "7d586ab60bbf403a7019b90b86a2eccc8e817098736456e35b9b2591754ab7e3",
      "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
-     "imported_at": "2026-10-06T23:16:01Z",
+     "imported_at": "2026-10-06T23:34:16Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0001/s42/train.log",
@@ -4729,7 +4819,7 @@
      "experiment_id": "E-0001",
      "seed": 43,
      "attempt": 1,
-     "code_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+     "code_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4749,9 +4839,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "737194d9306724046e8ec101862d3713caf6d28388c5b89f6e1efc59980437f2",
+     "manifest_sha256": "9f8158d0a17e218efb10fc760af3c7ee85cf045c7b2108dd38608f015a6894b8",
      "metrics_sha256": "e0386148c42cd8ea61da0ad1f7042b2a8c6d507bd344ae53b0883aec634c6708",
-     "imported_at": "2026-10-06T23:16:02Z",
+     "imported_at": "2026-10-06T23:34:17Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0001/s43/train.log",
@@ -4782,7 +4872,7 @@
      "experiment_id": "E-0001",
      "seed": 44,
      "attempt": 1,
-     "code_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+     "code_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4802,9 +4892,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "854c66c2d77030ca8bd1789ee4b799ca4f6353a07fd0c0d4e01c923476e663de",
+     "manifest_sha256": "b179dd481e3ff1f7bd828083885c899750c7418961153b6fe9a76a9b66cb8619",
      "metrics_sha256": "82a37fc2e7493d2ccaf8c64f8226df791347a939461908f55cf910abdecba6c9",
-     "imported_at": "2026-10-06T23:16:03Z",
+     "imported_at": "2026-10-06T23:34:17Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0001/s44/train.log",
@@ -4835,7 +4925,7 @@
      "experiment_id": "E-0002",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "738fc623d651f0a29e45ea3ee3b32471e1ce6349",
+     "code_ref": "88e4ee9580587dfc0a6337e493a1ded3c38a76f9",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4855,9 +4945,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "e8fe5a136d3fd8bb2731f81298918bcce919f50cabf4b7d13bcaca115e62b3d8",
+     "manifest_sha256": "4480e2a3878fed0aa472f761f459bf79018645b272b34b5d356def15982dcf68",
      "metrics_sha256": "c1ddce2e7874bc5212c02641714c12dc46094fb9b2cd61cff8ec3242c80ad6d4",
-     "imported_at": "2026-10-06T23:16:11Z",
+     "imported_at": "2026-10-06T23:34:26Z",
      "by": "worker/h0001"
     },
     "log_path": "outputs/E-0002/s42/train.log",
@@ -4888,7 +4978,7 @@
      "experiment_id": "E-0002",
      "seed": 43,
      "attempt": 1,
-     "code_ref": "738fc623d651f0a29e45ea3ee3b32471e1ce6349",
+     "code_ref": "88e4ee9580587dfc0a6337e493a1ded3c38a76f9",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4908,9 +4998,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "90a395059066ea61b01f08cdaa3dc181b1aa71ae750ee8024b85f6872d04da4a",
+     "manifest_sha256": "b33e38818ab05764ae5d9e5f4d113d60cd84087eed38419cdec06d070ca89b38",
      "metrics_sha256": "71bc44ef6e279a3d37ce2edbf2c7cd86a90ed79d42c42848b6efbb37f9753420",
-     "imported_at": "2026-10-06T23:16:12Z",
+     "imported_at": "2026-10-06T23:34:27Z",
      "by": "worker/h0001"
     },
     "log_path": "outputs/E-0002/s43/train.log",
@@ -4941,7 +5031,7 @@
      "experiment_id": "E-0003",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "833244f6196c50e333ca714bd0717a34a8101d52",
+     "code_ref": "f4838eacc8c49227834c6d91fb7f6d726c7df673",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4961,9 +5051,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "248fad3e96709a3b038130bddbf23a30963a200f223e1ccced7baf9570542762",
+     "manifest_sha256": "79241a9b83be1f3761167c06263f78f32313dbb99c15fb763a34be3edce5ab6b",
      "metrics_sha256": "86701fb69bdedba6fa5fb18ffb8a22c7b22e6021cf97589c24bde87cdac3cb4c",
-     "imported_at": "2026-10-06T23:16:18Z",
+     "imported_at": "2026-10-06T23:34:33Z",
      "by": "worker/h0002"
     },
     "log_path": "outputs/E-0003/s42/train.log",
@@ -4994,7 +5084,7 @@
      "experiment_id": "E-0003",
      "seed": 43,
      "attempt": 1,
-     "code_ref": "833244f6196c50e333ca714bd0717a34a8101d52",
+     "code_ref": "f4838eacc8c49227834c6d91fb7f6d726c7df673",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5014,9 +5104,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "a86cde2228fcf3b00d8ab3221f7d6afcb61013ab82ac2ab655e9528ff7851a9e",
+     "manifest_sha256": "316f83c6e551c4a5ea51278a3021b4858f692bdff7e9d5a428453f81f258509a",
      "metrics_sha256": "80ccb0613772de1acc8f459d6a6b95b101571b61190fb53c6b80de4667a66ec7",
-     "imported_at": "2026-10-06T23:16:19Z",
+     "imported_at": "2026-10-06T23:34:34Z",
      "by": "worker/h0002"
     },
     "log_path": "outputs/E-0003/s43/train.log",
@@ -5047,7 +5137,7 @@
      "experiment_id": "E-0004",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "dc34ffa48dd1b5c41eff0b6461662c4265bf9336",
+     "code_ref": "7e92c87ba0181d1e982a6e6b011edf2b62c35a1a",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5067,9 +5157,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "1a755d969f56e74ee036b645c20d8e30e01b532fc4bfb1d9fa9e88a8b3a9c49a",
+     "manifest_sha256": "6be7cb56adbd0dd650e7bd31c2ca98427c6e55152f60fda17d84712cf17c15d3",
      "metrics_sha256": "2f1dd44520747b568904c41d1a600bac1160afd8d8ff5fa31e4000a3c503ff1d",
-     "imported_at": "2026-10-06T23:16:27Z",
+     "imported_at": "2026-10-06T23:34:42Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0004/s42/train.log",
@@ -5100,7 +5190,7 @@
      "experiment_id": "E-0004",
      "seed": 43,
      "attempt": 1,
-     "code_ref": "dc34ffa48dd1b5c41eff0b6461662c4265bf9336",
+     "code_ref": "7e92c87ba0181d1e982a6e6b011edf2b62c35a1a",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5120,9 +5210,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "ac5d592f9abd3767cec2754d61bbd6cab01aa4454f38e59fb9122041dfccb231",
+     "manifest_sha256": "c2f9ccca8c16d6422d5b9f9f9e6906bab965272b0a5a434a52bdc7125f2c596d",
      "metrics_sha256": "2154ee6a1906915114788f0396aa5d9c8a5ff2b6526a6a25282badb63f34bbff",
-     "imported_at": "2026-10-06T23:16:28Z",
+     "imported_at": "2026-10-06T23:34:43Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0004/s43/train.log",
@@ -5153,7 +5243,7 @@
      "experiment_id": "E-0004",
      "seed": 44,
      "attempt": 1,
-     "code_ref": "dc34ffa48dd1b5c41eff0b6461662c4265bf9336",
+     "code_ref": "7e92c87ba0181d1e982a6e6b011edf2b62c35a1a",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5173,9 +5263,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "1f8a8f2f43d2181257f15fd3df240a14de1a552d05d01b229be71f73a5efd33e",
+     "manifest_sha256": "ae04adc50089484d15a071770845a5c280e2a3ec318aab22252803d4a20c8fec",
      "metrics_sha256": "09f3d05dc52133573e1378ee97cbf61f472e6848ec211ba1207aaf574fb8e3f5",
-     "imported_at": "2026-10-06T23:16:31Z",
+     "imported_at": "2026-10-06T23:34:45Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0004/s44/train.log",
@@ -5206,7 +5296,7 @@
      "experiment_id": "E-0005",
      "seed": 1042,
      "attempt": 1,
-     "code_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+     "code_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5226,9 +5316,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "ee075c5251aef1595aec0d9239014133721f6fd0482160b023d2d3d8c07f5336",
+     "manifest_sha256": "204865139166ea9da23545b36c34a1e8ca36b69254ef0e0e3b8fec7283bbe308",
      "metrics_sha256": "1e261d4529fc7745d4fc2126954bd56b60b320134a07bfbf5d82480c3c8c0f94",
-     "imported_at": "2026-10-06T23:16:36Z",
+     "imported_at": "2026-10-06T23:34:50Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0005/s1042/train.log",
@@ -5259,7 +5349,7 @@
      "experiment_id": "E-0005",
      "seed": 1043,
      "attempt": 1,
-     "code_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+     "code_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5279,9 +5369,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "315a2c68e64cc9a97018902208e8332d3cf028485751e69b4609b9b8bfa5a895",
+     "manifest_sha256": "41379c1af8913ed65e1a2948939f87f2c1b171868a6642eee5b843aa7fa6111b",
      "metrics_sha256": "c3d1faf3800fda5048b375f5187d136d731f1b9ef58e499f9f8d19ca2ebf9fb5",
-     "imported_at": "2026-10-06T23:16:37Z",
+     "imported_at": "2026-10-06T23:34:51Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0005/s1043/train.log",
@@ -5312,7 +5402,7 @@
      "experiment_id": "E-0005",
      "seed": 1044,
      "attempt": 1,
-     "code_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+     "code_ref": "7959137cf9e6e0c83a8e5906a1549c31740322b8",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5332,9 +5422,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "9803e6407bb65f8ab0ed7a70c6e3e80855f3992512a1ca26bb6ec79ac72c7391",
+     "manifest_sha256": "2801a7271016ab2bd0a451ab4a1754856379abeba018f0212500798c133d058c",
      "metrics_sha256": "cb7f3994a4d43a18d80eaafabdecb61fd81798d3ed8b4470ed6a9e679cc8a0b6",
-     "imported_at": "2026-10-06T23:16:37Z",
+     "imported_at": "2026-10-06T23:34:52Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0005/s1044/train.log",
@@ -5365,7 +5455,7 @@
      "experiment_id": "E-0006",
      "seed": 1042,
      "attempt": 1,
-     "code_ref": "dc34ffa48dd1b5c41eff0b6461662c4265bf9336",
+     "code_ref": "7e92c87ba0181d1e982a6e6b011edf2b62c35a1a",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5385,9 +5475,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "69b927fb469b0bf193cd20d734da38c44695f86d18a4b72d1640d3dfe204cb60",
+     "manifest_sha256": "084924ce936bb0c8418a2a1501117af9325815d4e600a8ae58f02796053e27e3",
      "metrics_sha256": "2e7fe6047968177c1de3908fabbc39008a5d2fb2e339545e3a927a6d41a87953",
-     "imported_at": "2026-10-06T23:16:40Z",
+     "imported_at": "2026-10-06T23:34:54Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0006/s1042/train.log",
@@ -5418,7 +5508,7 @@
      "experiment_id": "E-0006",
      "seed": 1043,
      "attempt": 1,
-     "code_ref": "dc34ffa48dd1b5c41eff0b6461662c4265bf9336",
+     "code_ref": "7e92c87ba0181d1e982a6e6b011edf2b62c35a1a",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5438,9 +5528,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "f0f9d3aad28a287410e2117f601bc0807f256c276d3446e421af17d1113c8369",
+     "manifest_sha256": "106d79602e6603d444db58cc1ce6da491b0d96fefd06d7ab6d8608d5fa933ae6",
      "metrics_sha256": "7e32f6b1cd7a20d7dd21f11abba82e46d1ab87a858dc2c89146f1a462aa86ddf",
-     "imported_at": "2026-10-06T23:16:41Z",
+     "imported_at": "2026-10-06T23:34:55Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0006/s1043/train.log",
@@ -5471,7 +5561,7 @@
      "experiment_id": "E-0006",
      "seed": 1044,
      "attempt": 1,
-     "code_ref": "dc34ffa48dd1b5c41eff0b6461662c4265bf9336",
+     "code_ref": "7e92c87ba0181d1e982a6e6b011edf2b62c35a1a",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5491,9 +5581,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "7d5647a39ccecb0e2de307f1874b74b1431e870eac34a6f877e746303ba7cd0a",
+     "manifest_sha256": "7e9e57b5e45fac3f887ad68688f68dc02ceddf6dca1fdf523de8c3f21e993dab",
      "metrics_sha256": "23fe44261874eca8f9c07c02eacc89750110c5339960757724f5e70401f12109",
-     "imported_at": "2026-10-06T23:16:42Z",
+     "imported_at": "2026-10-06T23:34:56Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0006/s1044/train.log",
@@ -5524,7 +5614,7 @@
      "experiment_id": "E-0007",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "8ad41088300648d08859d67662da21485bc87f5f",
+     "code_ref": "c1720f99b7e7557adf7d85d9d2e5f168e196fad0",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5544,9 +5634,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "2fc53a2e312e1dec567323ba8e390d7f9644346c9f8d42b3e2afdefd8c6e9905",
+     "manifest_sha256": "20692f1c255cf1fc7a9b5025c9b6065fb40951c4113096d48211f678261de065",
      "metrics_sha256": "c6a9898028e1864128f1a481b10f0834e00e0799cd39ad6167d908322c235266",
-     "imported_at": "2026-10-06T23:16:48Z",
+     "imported_at": "2026-10-06T23:35:01Z",
      "by": "worker/h0004"
     },
     "log_path": "outputs/E-0007/s42/train.log",
@@ -5577,7 +5667,7 @@
      "experiment_id": "E-0007",
      "seed": 43,
      "attempt": 1,
-     "code_ref": "8ad41088300648d08859d67662da21485bc87f5f",
+     "code_ref": "c1720f99b7e7557adf7d85d9d2e5f168e196fad0",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5597,9 +5687,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "859aacbd76dc9051a128c4ac9b7bfe2b2bdfe51c74ebefd1a6db78d0bd168e6b",
+     "manifest_sha256": "79aeee8c9008a5ab76389c652beb8e1c802a6db950071dee2713fab3b27edb62",
      "metrics_sha256": "26d404e31819d1c15933281b617dafa05ed59ed1a5ed5086ad82227b97361c11",
-     "imported_at": "2026-10-06T23:16:49Z",
+     "imported_at": "2026-10-06T23:35:02Z",
      "by": "worker/h0004"
     },
     "log_path": "outputs/E-0007/s43/train.log",
@@ -5630,7 +5720,7 @@
      "experiment_id": "E-0008",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "8140231db2882e73008e6ec8484fe09c99bb1acf",
+     "code_ref": "6ea33b166c6601ba0b884ef5cda2370628501e1d",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5650,9 +5740,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "cc6c76e92227af21018db5d6bfd3480aafeb0fc9158cd43bc55816ce8541f74f",
+     "manifest_sha256": "31362189bc5480ceb3146b0247d55a85b6f9ef58f35ccaf58b138c084f5b897d",
      "metrics_sha256": "1c67221c2e2014751bba0423e91fb81a4ef1ed2dc413f8b5ee2f66d3b797ee87",
-     "imported_at": "2026-10-06T23:16:57Z",
+     "imported_at": "2026-10-06T23:35:11Z",
      "by": "worker/h0005"
     },
     "log_path": "outputs/E-0008/s42/train.log",
@@ -5683,7 +5773,7 @@
      "experiment_id": "E-0008",
      "seed": 43,
      "attempt": 1,
-     "code_ref": "8140231db2882e73008e6ec8484fe09c99bb1acf",
+     "code_ref": "6ea33b166c6601ba0b884ef5cda2370628501e1d",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5703,9 +5793,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "a514c899d77a1de20478542fb2e2fc9598d47d4b39da1aebe31c5b85c222cd54",
+     "manifest_sha256": "c260033e7848c700f77faea6f56851db4076e817ddad381b76c88febc10a723b",
      "metrics_sha256": "64fda824fa1f1c233b0ee7fcc77c5f32b86175fe6f0fa7a945d9bf1b8c04b0e2",
-     "imported_at": "2026-10-06T23:16:58Z",
+     "imported_at": "2026-10-06T23:35:12Z",
      "by": "worker/h0005"
     },
     "log_path": "outputs/E-0008/s43/train.log",
@@ -5736,7 +5826,7 @@
      "experiment_id": "E-0009",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "13876bf283176c0d54b7f3f62c0aaf665ae68dab",
+     "code_ref": "6716d71a1cd852ec29c41c861e9b680308af1306",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5756,9 +5846,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "c3ec83751ed70fa5385f3c11345ff301059be53ded98a6c96399f360bffc8baf",
+     "manifest_sha256": "3c9b4b89767a3170e2622678062b65a4fd3fd2a545c1e07a8a6be1fc5c94f348",
      "metrics_sha256": "08f8b3bb8e8e6b6fa0422b1a1b1747b1765950d03e1081e8a77188e8e633fcc3",
-     "imported_at": "2026-10-06T23:17:06Z",
+     "imported_at": "2026-10-06T23:35:20Z",
      "by": "worker/h0007"
     },
     "log_path": "outputs/E-0009/s42/train.log",
@@ -5789,7 +5879,7 @@
      "experiment_id": "E-0009",
      "seed": 43,
      "attempt": 1,
-     "code_ref": "13876bf283176c0d54b7f3f62c0aaf665ae68dab",
+     "code_ref": "6716d71a1cd852ec29c41c861e9b680308af1306",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5809,9 +5899,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "5c638ee0b1118eb20be4f98726a33feb56bb19dd81b83dae2b0c93ee9e950dc2",
+     "manifest_sha256": "121f4552684397268f4a479f67fbaeb76a1392c4187c5fcacf7f52ae0a1353bc",
      "metrics_sha256": "b77b0ebf77632a00b66ec104af9b020d80c8e64ec1e78162351adc1e34ce4b68",
-     "imported_at": "2026-10-06T23:17:07Z",
+     "imported_at": "2026-10-06T23:35:22Z",
      "by": "worker/h0007"
     },
     "log_path": "outputs/E-0009/s43/train.log",
@@ -6145,16 +6235,8 @@
     "target_id": "E-0003"
    },
    {
-    "source_id": "DEC-0012",
-    "target_id": "E-0004"
-   },
-   {
-    "source_id": "DEC-0013",
-    "target_id": "D-0032"
-   },
-   {
-    "source_id": "DEC-0013",
-    "target_id": "D-0033"
+    "source_id": "DEC-0009",
+    "target_id": "E-0003"
    },
    {
     "source_id": "DEC-0013",
@@ -6173,16 +6255,40 @@
     "target_id": "E-0004"
    },
    {
-    "source_id": "DEC-0018",
-    "target_id": "E-0007"
+    "source_id": "DEC-0015",
+    "target_id": "D-0032"
+   },
+   {
+    "source_id": "DEC-0015",
+    "target_id": "D-0033"
+   },
+   {
+    "source_id": "DEC-0015",
+    "target_id": "E-0004"
    },
    {
     "source_id": "DEC-0019",
     "target_id": "E-0007"
    },
    {
-    "source_id": "DEC-0023",
+    "source_id": "DEC-0020",
+    "target_id": "E-0007"
+   },
+   {
+    "source_id": "DEC-0021",
+    "target_id": "E-0007"
+   },
+   {
+    "source_id": "DEC-0025",
     "target_id": "D-0050"
+   },
+   {
+    "source_id": "DEC-0026",
+    "target_id": "D-0050"
+   },
+   {
+    "source_id": "DEC-0029",
+    "target_id": "E-0009"
    }
   ]
  }

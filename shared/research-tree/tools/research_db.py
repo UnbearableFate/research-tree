@@ -205,7 +205,7 @@ REPORTED_FIELDS = ("job_id", "exec_status", "valid", "invalid_reason", "curve_pa
                    "started_at", "finished_at")
 ATTEMPT_FIELDS = REPORTED_FIELDS + RUN_MEASUREMENTS + IMPORT_FIELDS + ("retracted_at", "retracted_reason")
 # Settings from the project configuration (research-tree.yaml) besides the caps and gates above.
-LIMIT_FIELDS = ("max_parallel_workers", "alert_node_h", "config_doc_id")
+LIMIT_FIELDS = ("max_parallel_workers", "alert_node_h", "config_doc_id", "stall_structural_at", "stall_human_at")
 # The documents evaluations are computed under (plans/design/04): protocol and metric specification.
 EVIDENCE_DOC_FIELDS = ("protocol_doc_id", "metric_spec_doc_id")
 
@@ -855,11 +855,13 @@ class ResearchDB:
     # -- decisions --------------------------------------------------------------
 
     def decide(self, target_id: str, changes: dict, reason: str, doc_id: str | None = None,
-               based_on: list[str] | tuple[str, ...] = ()) -> list[str]:
+               based_on: list[str] | tuple[str, ...] = (), reconsider_when: str | None = None) -> list[str]:
         """Change hypothesis state or project status; one decision record per field. A GO or NOT GO rests on a report
         (doc_id) that lists the numbers it relies on, with their source files, in an ```evidence block.
 
-        Hypothesis fields: status, experiment_status, novelty_recheck, theory_recheck, priority.
+        Hypothesis fields: status, experiment_status, novelty_recheck, theory_recheck, priority. status prunable also
+        retires the node (a 'disposition' decision on the same evidence) and needs reconsider_when; verifying needs
+        the node's disposition active (decide_disposition first when it was paused or retired).
         Project field: status.
         """
         self._require_role("rld")
@@ -874,6 +876,9 @@ class ResearchDB:
             self._check_values(target["_table"], changes)
             if target["_table"] == "hypothesis":
                 self._check_hypothesis_decision(tx, target, changes, doc_id, evidence)
+                if changes.get("status") == "prunable" and not (reconsider_when or "").strip():
+                    raise ResearchDBError("status prunable retires the node: reconsider_when says what fact would "
+                                          "reopen it")
             else:
                 self._check_project_decision(tx, target, changes, doc_id, evidence)
             if doc_id is not None:
@@ -898,10 +903,17 @@ class ResearchDB:
                 update.update(_node_timestamps(target, changes, now))
                 if "status" in changes:
                     update["status_reason"] = reason
-                    if changes["status"] == "prunable":
-                        update.update(disposition="retired", disposition_reason=reason)
-                    elif changes["status"] == "verifying" and target.get("disposition") != "active":
-                        update.update(disposition="active", disposition_reason=reason)
+                    if changes["status"] == "prunable" and _disposition(target) != "retired":
+                        decision_id = tx.next_id("decision")
+                        self._insert(tx, "decision", {
+                            "id": decision_id, "target_id": target_id, "field": "disposition",
+                            "from_value": _disposition(target), "to_value": "retired", "reason": reason,
+                            "doc_id": doc_id, "decided_by": self.agent, "decided_at": now})
+                        for item in evidence:
+                            tx.link("rel_based_on", decision_id, item["id"])
+                        decision_ids.append(decision_id)
+                        update.update(disposition="retired", disposition_reason=reason,
+                                      reconsider_when=reconsider_when)
             self._update(tx, target_id, update)
             return decision_ids
 
@@ -932,6 +944,9 @@ class ResearchDB:
                 raise ResearchDBError("a node status change needs a decision document (doc_id)")
             if new_status == "verifying" and self._branch_of(tx, hyp["id"]) is None:
                 raise ResearchDBError(f"{hyp['id']} needs a code branch before verification starts")
+            if new_status == "verifying" and _disposition(hyp) != "active":
+                raise ResearchDBError(f"{hyp['id']} is {_disposition(hyp)}: decide_disposition active (with its "
+                                      "reason and evidence) before verifying it again")
 
         eval_changes = {f: v for f, v in changes.items() if f in EVAL_FIELDS}
         if eval_changes and old_status != "verifying" and new_status != "verifying":
@@ -1039,6 +1054,10 @@ class ResearchDB:
             raise ResearchDBError("a project status change needs a report or decision document (doc_id)")
         hypotheses = [tx.get(i) for i in tx.ids("hypothesis")]
         if new == "go":
+            project_open = [o["id"] for o in (tx.get(i) for i in tx.ids("obligation"))
+                            if o["status"] == "OPEN" and o["about"] == project["id"]]
+            if project_open:
+                raise CodedError("OBLIGATION_OPEN", f"open obligations about the project: {project_open}")
             # Checked again inside this write: no earlier snapshot or cached label stands for current evidence.
             results = [self._eligibility(tx, project, h) for h in hypotheses]
             if not any(r["eligible"] for r in results):
@@ -1080,6 +1099,10 @@ class ResearchDB:
             if bad:
                 raise CodedError("STAT_MISMATCH", f"{doc_id}: numbers not found in their sources: " + "; ".join(
                     f"{r.get('id', '?')} {r.get('value')!r}: {r['status']}" for r in bad[:10]))
+            protocol = self._protocol(tx, project)
+            if new == "go" and protocol and protocol.get("profile") == "screening":
+                # screening ends at candidate_ready (06 §2.4): a GO on it says so in its report
+                self._check_headings(tx, doc_id, ("未经独立确认",), "a GO under the screening profile")
         if new in ("stopped", "active") and not any(
             e["_table"] == "document" and e["doc_type"] == "user_instruction" for e in evidence
         ):
@@ -1341,6 +1364,9 @@ class ResearchDB:
                 )
             self._check_usage_alert(tx, project)
             node = tx.require(hypothesis_id, ("hypothesis",)) if hypothesis_id is not None else project
+            if hypothesis_id is not None and _disposition(node) != "active":
+                raise ResearchDBError(f"{hypothesis_id} is {_disposition(node)} ({node.get('disposition_reason')}): no "
+                                      "new experiments; decide_disposition active first if that changed")
             protocol = self._protocol(tx, project) or {}
             if stage == "confirm":
                 pool = protocol.get("confirmation_seeds") or []
@@ -1369,8 +1395,12 @@ class ResearchDB:
                                           "or narrow the claim, change direction, pause)")
             if self.role == "worker" and node.get("worker_id") and node["worker_id"] != self.agent:
                 raise PermissionDenied(f"{node['id']} is worker/{node['worker_id']}'s node")
-            if hypothesis_id is not None and self._branch_of(tx, hypothesis_id) is None:
+            branch = self._branch_of(tx, hypothesis_id) if hypothesis_id is not None else None
+            if hypothesis_id is not None and branch is None:
                 raise ResearchDBError(f"{hypothesis_id} needs a code branch before experiments")
+            if branch is not None and branch["status"] in ("merged", "deleted"):
+                raise ResearchDBError(f"{hypothesis_id}'s branch {branch['id']} is {branch['status']}: experiments run "
+                                      "on a branch that still exists (a deleted or merged one is closed)")
             resolved = _git_commit(project["repo_path"], code_ref)
             if resolved is None:
                 raise ResearchDBError(f"code_ref {code_ref} is not a commit in {project['repo_path']}")
@@ -1398,10 +1428,13 @@ class ResearchDB:
     def _confirm_setup(self, tx: _Tx, project: dict, protocol: dict, hyp: dict, code_ref: str) -> str:
         """A node's confirmation: its frozen candidate and the confirmation baseline it is compared with."""
         latest = self._latest_evaluated(tx, hyp["id"])
-        ev = tx.get(latest["evaluation_id"]) if latest and latest.get("evaluation_id") else None
-        if ev is None or not ev.get("gate_passed"):
-            raise CodedError("CONFIRMATION_REQUIRED", f"{hyp['id']} is not a candidate: its latest search result does "
-                                                      "not pass the SOTA gate (candidate_ready comes first)")
+        state = self._eligibility(tx, project, hyp)
+        if latest is None or state["stage"] not in ("candidate_ready", "confirmed"):
+            blocking = [r for r in state["reasons"] if not r.startswith(("RECHECK", "CONFIRMATION"))]
+            raise CodedError("OBLIGATION_OPEN" if "OBLIGATION_OPEN" in blocking else "CONFIRMATION_REQUIRED",
+                             f"{hyp['id']} is not candidate_ready ({', '.join(blocking) or 'no evaluation'}): "
+                             "confirmation comes after a current search result that passes the gate and guardrails "
+                             "with no open obligation")
         if code_ref != latest["code_ref"]:
             raise CodedError("CONFIRMATION_REQUIRED", f"a confirmation runs the frozen candidate {latest['id']} "
                                                       f"(code {latest['code_ref'][:10]}), not other code")
@@ -1468,6 +1501,10 @@ class ResearchDB:
             exp = tx.require(experiment_id, ("experiment",))
             self._require_owner(exp)
             self._require_active(project)
+            if exp.get("stage") == "confirm":
+                raise ResearchDBError("a confirmation keeps its declared confirmation seeds; it is not extended")
+            if exp.get("hypothesis_id") and _disposition(tx.get(exp["hypothesis_id"])) != "active":
+                raise ResearchDBError(f"{exp['hypothesis_id']} is not active: no seed extensions")
             if not len(exp["seeds"]) < n_seeds <= project["gate_seeds"]:
                 raise ResearchDBError(f"{experiment_id} has {len(exp['seeds'])} seeds; extend to at most {project['gate_seeds']}")
             self._check_usage_alert(tx, project)
@@ -1930,7 +1967,9 @@ class ResearchDB:
             plan = [(h["id"], h["status"], _disposition(h), h.get("status_reason"))
                     for h in (tx.get(i) for i in tx.ids("hypothesis")) if not h.get("disposition")]
             closes = [e["id"] for e in (tx.get(i) for i in tx.ids("experiment")) if e.get("verdict") == "close"]
-        report = {"nodes": [{"hypothesis_id": h, "status": st, "lifecycle": LIFECYCLE[st], "disposition": d}
+            ran = {h for h, *_ in plan if self._node_evaluations(tx, h)}
+        report = {"nodes": [{"hypothesis_id": h, "status": st, "disposition": d,
+                             "lifecycle": "pending" if st == "prunable" and h not in ran else LIFECYCLE[st]}
                             for h, st, d, _ in plan], "close_as_inconclusive": closes}
         if not dry_run:
             with self._writer() as tx:
@@ -2938,9 +2977,12 @@ class ResearchDB:
         (plans/design 05 §3.3): {eligible, basis_evaluation_id, experiment_id, evidence_state (none, current,
         stale), reasons, verification_level, gate_passed, guardrails_passed}. The basis is the node's latest
         evaluation; reasons name what is missing or no longer applies (HARNESS_CHANGED, BASELINE_CHANGED,
-        PROTOCOL_CHANGED, METRIC_SPEC_CHANGED, RUN_RETRACTED, INPUT_CHANGED, RESULT_REVISION_PENDING,
-        LEGACY_RESULT_UNVERIFIED, GATE_NOT_PASSED, GUARDRAIL_FAILED, RECHECK_PENDING, RECHECK_FAILED,
-        RECHECK_STALE)."""
+        PROTOCOL_CHANGED, METRIC_SPEC_CHANGED, STATISTICS_CHANGED, RUN_RETRACTED, INPUT_CHANGED,
+        RESULT_REVISION_PENDING, LEGACY_RESULT_UNVERIFIED, EVAL_TYPE_MISSING, GATE_NOT_PASSED, GUARDRAIL_FAILED,
+        OBLIGATION_OPEN, DISPOSITION_RETIRED, RECHECK_PENDING, RECHECK_FAILED, RECHECK_STALE, CONFIRMATION_REQUIRED,
+        CONFIRMATION_FAILED, CONFIRMATION_REUSED, CONFIRMATION_STALE). stage: candidate_ready once the search
+        evidence passes the Type-A gates, confirmed after the confirmation; outcome: the basis's outcome, or invalid
+        when the node's runs all ended without a valid one."""
         with self.reader() as tx:
             return self._eligibility(tx, self._project(tx), tx.require(hypothesis_id, ("hypothesis",)), protocol_id)
 
@@ -2969,6 +3011,11 @@ class ResearchDB:
                "gate_passed": None, "guardrails_passed": None, "stage": None, "outcome": None,
                "confirmation_evaluation_id": None, "open_obligations": []}
         if not search:
+            # an engineering failure is no evidence: no evaluation; the node's outcome reads 'invalid' (06 §2.1)
+            tried = [e for e in exps if e["kind"] == "method" and (e.get("stage") or "screen") != "confirm"]
+            runs = [tx.get(f"{e['id']}/s{s}") for e in tried for s in e["seeds"]]
+            if runs and all(r and r["exec_status"] in FINAL_EXEC and r.get("valid") is not True for r in runs):
+                out["outcome"] = "invalid"
             return out
         latest = max(search, key=lambda e: int(e["id"].split("-")[1]))
         history = self._evaluations_of(tx, latest["id"])

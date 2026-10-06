@@ -134,8 +134,8 @@ CREATE TABLE hypothesis (
     --                                RLD 选择并附决定文档），且该实验使用当前冻结框架
     --   *_recheck 只在 experiment_status='beats_sota' 后改变，依据 RLD 的 novelty/theory 文档
     --   status='expandable' ⇒ experiment_status 为 beats_parent 或 beats_sota
-    --   status='prunable'   ⇒ experiment_status='no_gain'，或某项复核为 'fail'，或引用一份描述本节点的
-    --                          现行用户指令文档（无法实验、用户决定放弃；此时可从任何状态转入）
+    --   status='prunable'   ⇒ 引用证据（实验、evaluation 或文档）并写复议条件，同时记一条 disposition=retired
+    --                          的决定；从未实验的节点只能引用描述本节点的现行用户指令文档（用户决定放弃）
     --   评估字段只在 status='verifying' 时改变；任何变更都在同一事务写入 decision
     --   GO 资格由 evaluation 计算（get_eligibility）：最新 evaluation 仍适用、过门槛与保护指标，两项复核为 'pass'
     --   且绑定到该 evaluation 的代码；不读 experiment_status 等缓存字段

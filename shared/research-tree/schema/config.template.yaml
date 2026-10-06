@@ -33,6 +33,12 @@ stage1:
                               # 百分比指标为百分点的绝对差；相对效应为相对参照均值的比例）
   min_related_work: 3         # 创建节点时至少引用的相关研究文档数
 
+# 停滞计数：每个决策批次 RLD 登记子树的新发现数；连续这么多批没有新发现时须换向（同方向子节点被拒），
+# 再到第二个数时向你报告。
+search:
+  stall_structural_at: 2
+  stall_human_at: 4
+
 # 子代理使用的模型。model 为 inherit（与主会话相同）、当前宿主支持的别名或完整模型 ID；
 # effort 为 low、medium、high、xhigh、max，或 null（使用模型默认）。
 # RLD 就是主会话，它的模型由你启动宿主 CLI 时选择，插件不改动。
