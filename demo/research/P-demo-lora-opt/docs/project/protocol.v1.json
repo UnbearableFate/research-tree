@@ -5,6 +5,13 @@
   "seed",
   "data_version"
  ],
+ "profile": "stage1_confirmed",
+ "confirmation_seeds": [
+  1042,
+  1043,
+  1044
+ ],
+ "max_confirmation_candidates": 2,
  "match": {
   "train_steps": 1000
  },

@@ -70,7 +70,13 @@ Statistics are never supplied by an agent: runs are imported through their manif
 or reported per run, and `evaluate_experiment` recomputes means, SDs, paired effects, the gate and guardrails
 into an evaluation record. Result documents cite each number in an `evidence` block that is checked against the
 cited files. GO eligibility comes from `get_eligibility` (current evaluation, gate, guardrails, rechecks bound
-to the evaluated code), never from cached labels.
+to the evaluated code, no OPEN obligation, and under profile stage1_confirmed an unseen confirmation of the
+same code), never from cached labels. Each evaluation carries a deterministic outcome (positive_signal,
+negative_signal, inconclusive); a seed limit does not force a conclusion. Investment is a separate decision
+(`decide_disposition`: active, paused, retired, with reason, evidence and reopening condition); NOT GO needs no
+active node and a report covering unexplored, failed, uncertain, repeated, refuted and value judgements. Record
+new findings per decision batch with `note_findings`; close review findings only through `resolve_obligation`
+(with evidence) or a user waiver. Accept tasks with `evidence_ids`.
 
 ## User communication
 

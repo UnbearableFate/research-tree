@@ -56,7 +56,12 @@ SPEC_FIELDS = {"name", "direction", "input_unit", "canonical_unit", "effect_mode
 REQUIRED_SPEC_FIELDS = ("name", "direction", "input_unit", "canonical_unit", "effect_mode", "minimum_practical_gain",
                         "aggregation")
 PROTOCOL_FIELDS = {"version", "eval_type", "pair_fields", "match", "required_counts", "gate_comparison",
-                   "min_pairs", "require_artifact_import", "inference_mode", "description"}
+                   "min_pairs", "require_artifact_import", "inference_mode", "description", "profile",
+                   "confirmation_seeds", "min_confirmation_pairs", "max_confirmation_candidates",
+                   "independence_fields"}
+# 06 §2.4: screening ends at candidate_ready; stage1_confirmed needs an independent confirmation for GO.
+PROFILES = ("screening", "stage1_confirmed")
+OUTCOMES = ("positive_signal", "negative_signal", "inconclusive", "invalid")
 GATE_COMPARISONS = (">", ">=")
 
 
@@ -145,6 +150,23 @@ def check_protocol(doc: Any) -> dict:
         raise MetricError("PROTOCOL_CHANGE_REQUIRED", f"gate_comparison is one of {GATE_COMPARISONS}")
     if doc.get("min_pairs") is not None and not (isinstance(doc["min_pairs"], int) and doc["min_pairs"] >= 1):
         raise MetricError("PROTOCOL_CHANGE_REQUIRED", "min_pairs is a positive integer")
+    if doc.get("profile", "stage1_confirmed") not in PROFILES:
+        raise MetricError("PROTOCOL_CHANGE_REQUIRED", f"profile is one of {PROFILES}")
+    seeds = doc.get("confirmation_seeds", [])
+    if not (isinstance(seeds, list) and all(isinstance(x, int) and not isinstance(x, bool) for x in seeds)
+            and len(set(seeds)) == len(seeds)):
+        raise MetricError("PROTOCOL_CHANGE_REQUIRED", "confirmation_seeds is a list of distinct integers")
+    for key in ("min_confirmation_pairs", "max_confirmation_candidates"):
+        if doc.get(key) is not None and not (isinstance(doc[key], int) and doc[key] >= 1):
+            raise MetricError("PROTOCOL_CHANGE_REQUIRED", f"{key} is a positive integer")
+    if doc.get("profile", "stage1_confirmed") == "stage1_confirmed":
+        need = doc.get("min_confirmation_pairs", 3)
+        if len(seeds) < need:
+            raise MetricError("PROTOCOL_CHANGE_REQUIRED", f"profile stage1_confirmed declares at least {need} "
+                                                          "confirmation_seeds, unused during the search")
+    fields = doc.get("independence_fields", [])
+    if not (isinstance(fields, list) and all(isinstance(f, str) and f for f in fields)):
+        raise MetricError("PROTOCOL_CHANGE_REQUIRED", "independence_fields is a list of manifest fields")
     return doc
 
 
@@ -309,8 +331,14 @@ def compare(specs: dict, protocol: dict | None, mine: list[dict], theirs: list[d
     keys = sorted(set(a) & set(b), key=key_text)
     seeds_a = {r["seed"] for r in mine}
     mismatched = sorted(r["seed"] for r in theirs if r["seed"] in seeds_a and pair_key(protocol, r) not in a)
-    result = {"n_paired": len(keys), "pair_keys": [key_text(k) for k in keys], "metrics": {},
-              "unpaired_same_seed": mismatched}
+    independence = (protocol or {}).get("independence_fields") or []
+    if independence:  # runs that share these (e.g. the same data order) are one independent repeat, not several
+        distinct = {tuple((a[k].get("manifest") or {}).get(f) for f in independence) for k in keys}
+        n_independent = len(distinct)
+    else:
+        n_independent = len(keys)
+    result = {"n_paired": len(keys), "n_independent": n_independent, "pair_keys": [key_text(k) for k in keys],
+              "metrics": {}, "unpaired_same_seed": mismatched}
     if not keys:
         return result
     legacy_pct = specs.get("legacy_relative_percent", False)
@@ -365,6 +393,24 @@ def matches_given(given: Any, computed: float | None) -> bool:
     return abs(given - computed) <= 0.5 * 10 ** -decimals + 1e-12
 
 
+def outcome(effect: float | None, gain: float, n_pairs: int, min_pairs: int, comparison: str = ">") -> tuple[str, str]:
+    """The deterministic conclusion of one evaluation (plans/design 06 §2.1), from the primary metric's effect
+    against the experiment's reference (the parent's experiment, or the SOTA at the top level):
+    positive_signal: the effect clears the minimum practical gain;
+    negative_signal: the effect is at least the minimum practical gain the wrong way, over the required pairs;
+    inconclusive: anything else, including a small negative effect on one seed or a result at the seed limit
+    near the threshold. The effect itself is always kept; 'negative' holds only in the tested conditions."""
+    if effect is None:
+        return "inconclusive", "the effect could not be computed"
+    if passes(effect, gain, comparison):
+        return "positive_signal", f"effect {effect:.6g} clears the minimum practical gain {gain:g}"
+    if n_pairs >= min_pairs and passes(-effect, gain, comparison):
+        return "negative_signal", (f"effect {effect:.6g} is below -{gain:g} over {n_pairs} pairs "
+                                   "(within the tested setting only)")
+    return "inconclusive", (f"effect {effect:.6g} over {n_pairs} pair(s): neither clear of {gain:g} nor a negative "
+                            f"signal over {min_pairs} pairs")
+
+
 def minimal_documents(primary: str, direction: str, secondary: list[str], gain: float = 0.05) -> tuple[dict, dict]:
     """A metric specification and protocol with raw units and no guardrails, for fixtures and smoke checks only:
     a real project declares its units, ranges and guardrails (doc_library: metric_spec, protocol)."""
@@ -373,4 +419,4 @@ def minimal_documents(primary: str, direction: str, secondary: list[str], gain: 
                 "minimum_practical_gain": mpg, "aggregation": "paired_run_mean"}
     specs = {"version": 1, "primary": primary,
              "metrics": [spec(primary, direction, gain)] + [spec(n, "lower", 0.0) for n in secondary]}
-    return specs, {"version": 1, "eval_type": "real_gt", "pair_fields": ["seed"]}
+    return specs, {"version": 1, "eval_type": "real_gt", "pair_fields": ["seed"], "profile": "screening"}

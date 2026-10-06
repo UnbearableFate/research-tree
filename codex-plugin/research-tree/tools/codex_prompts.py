@@ -27,7 +27,7 @@ metrics_path、units（每个指标的输入单位）、counts、data_version、
 重评分所需的原始评分材料如逐样本预测列在 evidence_paths，清理不会删除），
 用 import_run_result(run_id, attempt, manifest_path) 导入，核对计数、loss 与日志后 update_run(valid=true)；验收不通过时设
 valid=false 并写 invalid_reason。不能导入时才在 update_run 直接写 metric_value、secondary。全部 seed 有效后
-evaluate_experiment(experiment_id, result_doc_id, verdict)（基线不给判定）；结果文档用 ```evidence 代码块列出每个数字及来源文件
+evaluate_experiment(experiment_id, result_doc_id)（接口给出确定性的 outcome，不需要判定；确认实验用 stage="confirm"）；结果文档用 ```evidence 代码块列出每个数字及来源文件
 （[{"id","value","source"}]，路径相对研究根目录），设为现行时逐项核对；每个已导入 run 的指标文件都要引用，汇总数字（可先用 preview_evaluation 只读预览接口将算出的数字，写入统计文件后引用）用保留编号
 mean:<指标>（主指标均值必填）、sd:<指标>、delta:<sota|parent>:<指标>，计算时与接口重算值核对。evaluate_experiment 之后立即 run_cleanup(experiment_id)
 清理产物（日志、曲线、manifest、指标文件为证据，保留），交付前完成；
@@ -72,7 +72,8 @@ def planning(project, conf):
 project/metric-spec.v1.json（{{"version":1,"primary":主指标,"metrics":[每个指标的 name、direction、input_unit、canonical_unit、
 effect_mode、minimum_practical_gain、aggregation=paired_run_mean，可选 allowed_regression、valid_range、relative_min_denominator]}}，
 指标恰为主指标与其他指标）与 project/protocol.v1.json（{{"version":1,"eval_type":real_gt|synthetic_proxy|self_supervised_proxy|simulation_only|human_eval,"pair_fields":["seed",...],
-"match":{{...}},"required_counts":{{...}}}}）。
+"match":{{...}},"required_counts":{{...}},"profile":"stage1_confirmed","confirmation_seeds":[搜索不用的 seed，至少 3 个],
+"max_confirmation_candidates":2}}）。
 2. create_project 使用本项目ID {project['project_id']}、真实git仓库路径、metric_spec_doc_id 与 protocol_doc_id、配置中的预算与门槛；
 接口参数先查 help。
 3. 为每个初始假说检索相关研究，缓存原文并登记引用与假说文档，create_hypothesis 不指定parent_id，全部直属根节点。

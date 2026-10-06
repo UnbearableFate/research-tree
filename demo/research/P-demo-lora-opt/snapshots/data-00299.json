@@ -1,8 +1,8 @@
 {
  "meta": {
-  "schema_version": 7,
-  "data_version": 257,
-  "updated_at": "2026-10-06T19:20:44Z"
+  "schema_version": 8,
+  "data_version": 299,
+  "updated_at": "2026-10-06T23:17:10Z"
  },
  "tables": {
   "project": [
@@ -44,10 +44,12 @@
      "D-0007",
      "D-0010"
     ],
-    "created_at": "2026-10-06T19:19:44Z",
-    "updated_at": "2026-10-06T19:19:51Z",
+    "stall_structural_at": 2,
+    "stall_human_at": 4,
+    "created_at": "2026-10-06T23:15:57Z",
+    "updated_at": "2026-10-06T23:16:05Z",
     "worker_id": "root",
-    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
     "harness_paths": [
      "harness"
     ],
@@ -70,14 +72,17 @@
     "resume_doc_ids": [
      "D-0016"
     ],
-    "created_at": "2026-10-06T19:19:54Z",
-    "updated_at": "2026-10-06T19:20:00Z",
+    "disposition": "active",
+    "new_findings_streak": 0,
+    "stall_state": "none",
+    "created_at": "2026-10-06T23:16:08Z",
+    "updated_at": "2026-10-06T23:16:14Z",
     "worker_id": "h0001",
-    "concluded_at": "2026-10-06T19:20:00Z",
-    "started_at": "2026-10-06T19:19:56Z",
+    "concluded_at": "2026-10-06T23:16:14Z",
+    "started_at": "2026-10-06T23:16:09Z",
     "status_reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
-    "first_experiment_at": "2026-10-06T19:19:58Z",
-    "first_result_at": "2026-10-06T19:20:00Z",
+    "first_experiment_at": "2026-10-06T23:16:11Z",
+    "first_result_at": "2026-10-06T23:16:13Z",
     "parent_id": "P-demo-lora-opt"
    },
    {
@@ -95,14 +100,18 @@
     "resume_doc_ids": [
      "D-0021"
     ],
-    "created_at": "2026-10-06T19:20:01Z",
-    "updated_at": "2026-10-06T19:20:07Z",
+    "disposition": "retired",
+    "new_findings_streak": 0,
+    "stall_state": "none",
+    "created_at": "2026-10-06T23:16:15Z",
+    "updated_at": "2026-10-06T23:16:21Z",
     "worker_id": "h0002",
-    "concluded_at": "2026-10-06T19:20:07Z",
-    "started_at": "2026-10-06T19:20:03Z",
+    "concluded_at": "2026-10-06T23:16:21Z",
+    "started_at": "2026-10-06T23:16:16Z",
     "status_reason": "所有指标都不优于SOTA，按规则消灭。",
-    "first_experiment_at": "2026-10-06T19:20:05Z",
-    "first_result_at": "2026-10-06T19:20:07Z",
+    "first_experiment_at": "2026-10-06T23:16:18Z",
+    "first_result_at": "2026-10-06T23:16:20Z",
+    "disposition_reason": "所有指标都不优于SOTA，按规则消灭。",
     "parent_id": "P-demo-lora-opt"
    },
    {
@@ -120,15 +129,18 @@
     "resume_doc_ids": [
      "D-0027"
     ],
-    "created_at": "2026-10-06T19:20:09Z",
-    "updated_at": "2026-10-06T19:20:19Z",
+    "disposition": "active",
+    "new_findings_streak": 0,
+    "stall_state": "none",
+    "created_at": "2026-10-06T23:16:23Z",
+    "updated_at": "2026-10-06T23:16:34Z",
     "worker_id": "h0003",
-    "concluded_at": "2026-10-06T19:20:19Z",
-    "started_at": "2026-10-06T19:20:10Z",
+    "concluded_at": "2026-10-06T23:16:34Z",
+    "started_at": "2026-10-06T23:16:25Z",
     "status_reason": "优于SOTA且复核通过，可拓展",
-    "first_experiment_at": "2026-10-06T19:20:12Z",
-    "first_result_at": "2026-10-06T19:20:14Z",
-    "beats_sota_at": "2026-10-06T19:20:17Z",
+    "first_experiment_at": "2026-10-06T23:16:27Z",
+    "first_result_at": "2026-10-06T23:16:29Z",
+    "beats_sota_at": "2026-10-06T23:16:32Z",
     "parent_id": "H-0001"
    },
    {
@@ -136,7 +148,7 @@
     "project_id": "P-demo-lora-opt",
     "title": "子批次二阶矩 + 动量重标度",
     "statement": "按子批次方差重标度动量可减少噪声。",
-    "doc_id": "D-0035",
+    "doc_id": "D-0039",
     "status": "prunable",
     "experiment_status": "no_gain",
     "novelty_recheck": "pending",
@@ -144,16 +156,20 @@
     "priority": 0,
     "owner": "main",
     "resume_doc_ids": [
-     "D-0035"
+     "D-0039"
     ],
-    "created_at": "2026-10-06T19:20:20Z",
-    "updated_at": "2026-10-06T19:20:26Z",
+    "disposition": "retired",
+    "new_findings_streak": 0,
+    "stall_state": "none",
+    "created_at": "2026-10-06T23:16:44Z",
+    "updated_at": "2026-10-06T23:16:51Z",
     "worker_id": "h0004",
-    "concluded_at": "2026-10-06T19:20:26Z",
-    "started_at": "2026-10-06T19:20:22Z",
+    "concluded_at": "2026-10-06T23:16:51Z",
+    "started_at": "2026-10-06T23:16:45Z",
     "status_reason": "相对父节点各项指标都不更好，按规则消灭。",
-    "first_experiment_at": "2026-10-06T19:20:24Z",
-    "first_result_at": "2026-10-06T19:20:25Z",
+    "first_experiment_at": "2026-10-06T23:16:48Z",
+    "first_result_at": "2026-10-06T23:16:50Z",
+    "disposition_reason": "相对父节点各项指标都不更好，按规则消灭。",
     "parent_id": "H-0001"
    },
    {
@@ -161,7 +177,7 @@
     "project_id": "P-demo-lora-opt",
     "title": "Kronecker因子对角近似",
     "statement": "对Kronecker预条件取对角近似，在低秩上以低成本获得二阶信息。",
-    "doc_id": "D-0041",
+    "doc_id": "D-0045",
     "status": "verifying",
     "experiment_status": "running",
     "novelty_recheck": "pending",
@@ -169,16 +185,19 @@
     "priority": 0,
     "owner": "main",
     "resume_doc_ids": [
-     "D-0041",
-     "D-0053"
+     "D-0045",
+     "D-0057"
     ],
-    "created_at": "2026-10-06T19:20:29Z",
-    "updated_at": "2026-10-06T19:20:30Z",
+    "disposition": "active",
+    "new_findings_streak": 0,
+    "stall_state": "none",
+    "created_at": "2026-10-06T23:16:53Z",
+    "updated_at": "2026-10-06T23:16:55Z",
     "worker_id": "h0005",
-    "started_at": "2026-10-06T19:20:30Z",
+    "started_at": "2026-10-06T23:16:55Z",
     "status_reason": "开始代码改进与实验",
-    "first_experiment_at": "2026-10-06T19:20:31Z",
-    "first_result_at": "2026-10-06T19:20:34Z",
+    "first_experiment_at": "2026-10-06T23:16:57Z",
+    "first_result_at": "2026-10-06T23:16:59Z",
     "parent_id": "P-demo-lora-opt"
    },
    {
@@ -186,7 +205,7 @@
     "project_id": "P-demo-lora-opt",
     "title": "完整Kronecker二阶预条件",
     "statement": "对每层使用完整Kronecker因子预条件。",
-    "doc_id": "D-0045",
+    "doc_id": "D-0049",
     "status": "prunable",
     "experiment_status": "todo",
     "novelty_recheck": "pending",
@@ -194,12 +213,16 @@
     "priority": 0,
     "owner": "main",
     "resume_doc_ids": [
-     "D-0045"
+     "D-0049"
     ],
-    "created_at": "2026-10-06T19:20:34Z",
-    "updated_at": "2026-10-06T19:20:35Z",
-    "concluded_at": "2026-10-06T19:20:35Z",
+    "disposition": "retired",
+    "new_findings_streak": 0,
+    "stall_state": "none",
+    "created_at": "2026-10-06T23:17:00Z",
+    "updated_at": "2026-10-06T23:17:01Z",
+    "concluded_at": "2026-10-06T23:17:01Z",
     "status_reason": "用户决定放弃（超出单次运行上限）",
+    "disposition_reason": "用户决定放弃（超出单次运行上限）",
     "parent_id": "P-demo-lora-opt"
    },
    {
@@ -207,7 +230,7 @@
     "project_id": "P-demo-lora-opt",
     "title": "8-bit优化器状态",
     "statement": "以8-bit存储优化器状态，在精度不变时显著降低显存。",
-    "doc_id": "D-0048",
+    "doc_id": "D-0052",
     "status": "verifying",
     "experiment_status": "running",
     "novelty_recheck": "pending",
@@ -215,15 +238,18 @@
     "priority": 0,
     "owner": "main",
     "resume_doc_ids": [
-     "D-0048"
+     "D-0052"
     ],
-    "created_at": "2026-10-06T19:20:36Z",
-    "updated_at": "2026-10-06T19:20:38Z",
+    "disposition": "active",
+    "new_findings_streak": 0,
+    "stall_state": "none",
+    "created_at": "2026-10-06T23:17:02Z",
+    "updated_at": "2026-10-06T23:17:04Z",
     "worker_id": "h0007",
-    "started_at": "2026-10-06T19:20:38Z",
+    "started_at": "2026-10-06T23:17:04Z",
     "status_reason": "开始代码改进与实验",
-    "first_experiment_at": "2026-10-06T19:20:40Z",
-    "first_result_at": "2026-10-06T19:20:43Z",
+    "first_experiment_at": "2026-10-06T23:17:05Z",
+    "first_result_at": "2026-10-06T23:17:08Z",
     "parent_id": "P-demo-lora-opt"
    },
    {
@@ -231,7 +257,7 @@
     "project_id": "P-demo-lora-opt",
     "title": "自适应秩分配",
     "statement": "按层的子批次方差分配LoRA秩，可在同等参数量下提升精度。",
-    "doc_id": "D-0052",
+    "doc_id": "D-0056",
     "status": "pending",
     "experiment_status": "todo",
     "novelty_recheck": "pending",
@@ -239,10 +265,13 @@
     "priority": 0,
     "owner": "main",
     "resume_doc_ids": [
-     "D-0052"
+     "D-0056"
     ],
-    "created_at": "2026-10-06T19:20:44Z",
-    "updated_at": "2026-10-06T19:20:44Z",
+    "disposition": "active",
+    "new_findings_streak": 0,
+    "stall_state": "none",
+    "created_at": "2026-10-06T23:17:09Z",
+    "updated_at": "2026-10-06T23:17:09Z",
     "parent_id": "H-0003"
    }
   ],
@@ -253,7 +282,7 @@
     "kind": "baseline",
     "method_name": "BaseOpt-A（虚构SOTA）",
     "design_doc_id": "D-0008",
-    "code_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "code_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
     "seeds": [
      42,
      43,
@@ -261,17 +290,18 @@
     ],
     "nodes": 4,
     "walltime_s": 3600,
+    "stage": "screen",
     "owner": "root",
-    "created_at": "2026-10-06T19:19:47Z",
+    "created_at": "2026-10-06T23:16:00Z",
     "metric_mean": 71.40016666666666,
     "metric_sd": 0.0415175063477257,
     "result_doc_id": "D-0009",
-    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
-    "evaluated_at": "2026-10-06T19:19:50Z",
+    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "evaluated_at": "2026-10-06T23:16:04Z",
     "evaluation_id": "EV-0001",
     "cleanup": {
      "1": {
-      "at": "2026-10-06T19:19:51Z",
+      "at": "2026-10-06T23:16:04Z",
       "by": "worker/root",
       "reason": "statistics recorded",
       "kept": [],
@@ -293,26 +323,27 @@
     "kind": "method",
     "method_name": "subbatch-moment",
     "design_doc_id": "D-0018",
-    "code_ref": "0a34213ca488fb0a71c93e953b73f9b114f28683",
+    "code_ref": "738fc623d651f0a29e45ea3ee3b32471e1ce6349",
     "seeds": [
      42,
      43
     ],
     "nodes": 4,
     "walltime_s": 3600,
+    "stage": "screen",
     "owner": "h0001",
     "baseline_experiment_id": "E-0001",
-    "created_at": "2026-10-06T19:19:57Z",
+    "created_at": "2026-10-06T23:16:11Z",
     "verdict": "beats_parent",
     "metric_mean": 71.58189999999999,
     "metric_sd": 0.023334523779156954,
     "result_doc_id": "D-0019",
-    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
-    "evaluated_at": "2026-10-06T19:20:00Z",
+    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "evaluated_at": "2026-10-06T23:16:13Z",
     "evaluation_id": "EV-0002",
     "cleanup": {
      "1": {
-      "at": "2026-10-06T19:20:00Z",
+      "at": "2026-10-06T23:16:13Z",
       "by": "worker/h0001",
       "reason": "statistics recorded",
       "kept": [],
@@ -334,26 +365,27 @@
     "kind": "method",
     "method_name": "orthogonal-update",
     "design_doc_id": "D-0023",
-    "code_ref": "88c7c6eb4d52a3826a8fac51f559de0f18de34cd",
+    "code_ref": "833244f6196c50e333ca714bd0717a34a8101d52",
     "seeds": [
      42,
      43
     ],
     "nodes": 4,
     "walltime_s": 3600,
+    "stage": "screen",
     "owner": "h0002",
     "baseline_experiment_id": "E-0001",
-    "created_at": "2026-10-06T19:20:04Z",
+    "created_at": "2026-10-06T23:16:17Z",
     "verdict": "no_gain",
     "metric_mean": 71.1753,
     "metric_sd": 0.034082546853187526,
     "result_doc_id": "D-0024",
-    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
-    "evaluated_at": "2026-10-06T19:20:07Z",
+    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "evaluated_at": "2026-10-06T23:16:20Z",
     "evaluation_id": "EV-0003",
     "cleanup": {
      "1": {
-      "at": "2026-10-06T19:20:07Z",
+      "at": "2026-10-06T23:16:21Z",
       "by": "worker/h0002",
       "reason": "statistics recorded",
       "kept": [],
@@ -375,7 +407,7 @@
     "kind": "method",
     "method_name": "moment-balance",
     "design_doc_id": "D-0029",
-    "code_ref": "c434993c829927243b6fdb05afceb0ad556d7e2b",
+    "code_ref": "dc34ffa48dd1b5c41eff0b6461662c4265bf9336",
     "seeds": [
      42,
      43,
@@ -383,20 +415,21 @@
     ],
     "nodes": 4,
     "walltime_s": 3600,
+    "stage": "screen",
     "owner": "h0003",
     "baseline_experiment_id": "E-0001",
     "parent_experiment_id": "E-0002",
-    "created_at": "2026-10-06T19:20:12Z",
+    "created_at": "2026-10-06T23:16:27Z",
     "verdict": "beats_sota",
     "metric_mean": 71.64136666666667,
     "metric_sd": 0.03925892679803191,
     "result_doc_id": "D-0031",
-    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
-    "evaluated_at": "2026-10-06T19:20:17Z",
+    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "evaluated_at": "2026-10-06T23:16:32Z",
     "evaluation_id": "EV-0005",
     "cleanup": {
      "1": {
-      "at": "2026-10-06T19:20:15Z",
+      "at": "2026-10-06T23:16:30Z",
       "by": "worker/h0003",
       "reason": "statistics recorded",
       "kept": [],
@@ -410,7 +443,7 @@
       "failed": 0
      },
      "2": {
-      "at": "2026-10-06T19:20:17Z",
+      "at": "2026-10-06T23:16:32Z",
       "by": "worker/h0003",
       "reason": "statistics recorded",
       "kept": [],
@@ -430,113 +463,82 @@
    {
     "id": "E-0005",
     "project_id": "P-demo-lora-opt",
-    "kind": "method",
-    "method_name": "momentum-rescale",
-    "design_doc_id": "D-0037",
-    "code_ref": "98f362f1348945401690914d1121cd20c56019ee",
+    "kind": "baseline",
+    "method_name": "BaseOpt-A（确认基线）",
+    "design_doc_id": "D-0035",
+    "code_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
     "seeds": [
-     42,
-     43
+     1042,
+     1043,
+     1044
     ],
     "nodes": 4,
     "walltime_s": 3600,
-    "owner": "h0004",
-    "baseline_experiment_id": "E-0001",
-    "parent_experiment_id": "E-0002",
-    "created_at": "2026-10-06T19:20:23Z",
-    "verdict": "no_gain",
-    "metric_mean": 71.43705,
-    "metric_sd": 0.045749808742760974,
-    "result_doc_id": "D-0038",
-    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
-    "evaluated_at": "2026-10-06T19:20:25Z",
-    "evaluation_id": "EV-0006",
-    "cleanup": {
-     "1": {
-      "at": "2026-10-06T19:20:26Z",
-      "by": "worker/h0004",
-      "reason": "statistics recorded",
-      "kept": [],
-      "freed_bytes": 0,
-      "unlocated": [],
-      "items": [],
-      "covered": [
-       "E-0005/s42@1",
-       "E-0005/s43@1"
-      ],
-      "failed": 0
-     }
-    },
-    "hypothesis_id": "H-0004"
+    "stage": "confirm",
+    "owner": "root",
+    "created_at": "2026-10-06T23:16:35Z",
+    "metric_mean": 71.39286666666668,
+    "metric_sd": 0.03691941675234285,
+    "result_doc_id": "D-0036",
+    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "evaluated_at": "2026-10-06T23:16:38Z",
+    "evaluation_id": "EV-0006"
    },
    {
     "id": "E-0006",
     "project_id": "P-demo-lora-opt",
     "kind": "method",
-    "method_name": "kron-diag",
-    "design_doc_id": "D-0043",
-    "code_ref": "b63dd8e23189084c83b24e2fc2b68766eb2a4523",
+    "method_name": "moment-balance（确认）",
+    "design_doc_id": "D-0037",
+    "code_ref": "dc34ffa48dd1b5c41eff0b6461662c4265bf9336",
     "seeds": [
-     42,
-     43
+     1042,
+     1043,
+     1044
     ],
     "nodes": 4,
     "walltime_s": 3600,
-    "owner": "h0005",
-    "baseline_experiment_id": "E-0001",
-    "created_at": "2026-10-06T19:20:31Z",
-    "verdict": "close",
-    "metric_mean": 71.48580000000001,
-    "metric_sd": 0.028708535316172238,
-    "result_doc_id": "D-0044",
-    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
-    "evaluated_at": "2026-10-06T19:20:34Z",
+    "stage": "confirm",
+    "owner": "h0003",
+    "baseline_experiment_id": "E-0005",
+    "created_at": "2026-10-06T23:16:39Z",
+    "metric_mean": 71.6318,
+    "metric_sd": 0.026685389260785654,
+    "result_doc_id": "D-0038",
+    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "evaluated_at": "2026-10-06T23:16:43Z",
     "evaluation_id": "EV-0007",
-    "cleanup": {
-     "1": {
-      "at": "2026-10-06T19:20:34Z",
-      "by": "worker/h0005",
-      "reason": "statistics recorded",
-      "kept": [],
-      "freed_bytes": 0,
-      "unlocated": [],
-      "items": [],
-      "covered": [
-       "E-0006/s42@1",
-       "E-0006/s43@1"
-      ],
-      "failed": 0
-     }
-    },
-    "hypothesis_id": "H-0005"
+    "hypothesis_id": "H-0003"
    },
    {
     "id": "E-0007",
     "project_id": "P-demo-lora-opt",
     "kind": "method",
-    "method_name": "state-8bit",
-    "design_doc_id": "D-0050",
-    "code_ref": "aaa83837038b1a360ffb6526857f884a2b7f4e0b",
+    "method_name": "momentum-rescale",
+    "design_doc_id": "D-0041",
+    "code_ref": "8ad41088300648d08859d67662da21485bc87f5f",
     "seeds": [
      42,
      43
     ],
     "nodes": 4,
     "walltime_s": 3600,
-    "owner": "h0007",
+    "stage": "screen",
+    "owner": "h0004",
     "baseline_experiment_id": "E-0001",
-    "created_at": "2026-10-06T19:20:39Z",
-    "verdict": "needs_rld",
-    "metric_mean": 71.4312,
-    "metric_sd": 0.024890158697768755,
-    "result_doc_id": "D-0051",
-    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
-    "evaluated_at": "2026-10-06T19:20:43Z",
+    "parent_experiment_id": "E-0002",
+    "created_at": "2026-10-06T23:16:47Z",
+    "verdict": "no_gain",
+    "metric_mean": 71.43705,
+    "metric_sd": 0.045749808742760974,
+    "result_doc_id": "D-0042",
+    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "evaluated_at": "2026-10-06T23:16:50Z",
     "evaluation_id": "EV-0008",
     "cleanup": {
      "1": {
-      "at": "2026-10-06T19:20:43Z",
-      "by": "worker/h0007",
+      "at": "2026-10-06T23:16:51Z",
+      "by": "worker/h0004",
       "reason": "statistics recorded",
       "kept": [],
       "freed_bytes": 0,
@@ -545,6 +547,90 @@
       "covered": [
        "E-0007/s42@1",
        "E-0007/s43@1"
+      ],
+      "failed": 0
+     }
+    },
+    "hypothesis_id": "H-0004"
+   },
+   {
+    "id": "E-0008",
+    "project_id": "P-demo-lora-opt",
+    "kind": "method",
+    "method_name": "kron-diag",
+    "design_doc_id": "D-0047",
+    "code_ref": "8140231db2882e73008e6ec8484fe09c99bb1acf",
+    "seeds": [
+     42,
+     43
+    ],
+    "nodes": 4,
+    "walltime_s": 3600,
+    "stage": "screen",
+    "owner": "h0005",
+    "baseline_experiment_id": "E-0001",
+    "created_at": "2026-10-06T23:16:56Z",
+    "verdict": "close",
+    "metric_mean": 71.48580000000001,
+    "metric_sd": 0.028708535316172238,
+    "result_doc_id": "D-0048",
+    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "evaluated_at": "2026-10-06T23:16:59Z",
+    "evaluation_id": "EV-0009",
+    "cleanup": {
+     "1": {
+      "at": "2026-10-06T23:16:59Z",
+      "by": "worker/h0005",
+      "reason": "statistics recorded",
+      "kept": [],
+      "freed_bytes": 0,
+      "unlocated": [],
+      "items": [],
+      "covered": [
+       "E-0008/s42@1",
+       "E-0008/s43@1"
+      ],
+      "failed": 0
+     }
+    },
+    "hypothesis_id": "H-0005"
+   },
+   {
+    "id": "E-0009",
+    "project_id": "P-demo-lora-opt",
+    "kind": "method",
+    "method_name": "state-8bit",
+    "design_doc_id": "D-0054",
+    "code_ref": "13876bf283176c0d54b7f3f62c0aaf665ae68dab",
+    "seeds": [
+     42,
+     43
+    ],
+    "nodes": 4,
+    "walltime_s": 3600,
+    "stage": "screen",
+    "owner": "h0007",
+    "baseline_experiment_id": "E-0001",
+    "created_at": "2026-10-06T23:17:05Z",
+    "verdict": "needs_rld",
+    "metric_mean": 71.4312,
+    "metric_sd": 0.024890158697768755,
+    "result_doc_id": "D-0055",
+    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "evaluated_at": "2026-10-06T23:17:08Z",
+    "evaluation_id": "EV-0010",
+    "cleanup": {
+     "1": {
+      "at": "2026-10-06T23:17:08Z",
+      "by": "worker/h0007",
+      "reason": "statistics recorded",
+      "kept": [],
+      "freed_bytes": 0,
+      "unlocated": [],
+      "items": [],
+      "covered": [
+       "E-0009/s42@1",
+       "E-0009/s43@1"
       ],
       "failed": 0
      }
@@ -558,11 +644,11 @@
     "repo_path": "code",
     "name": "node/H-0001",
     "base_ref": "main",
-    "base_commit": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "base_commit": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
     "worktree_path": "worktrees/H-0001",
     "owner": "h0001",
     "status": "active",
-    "created_at": "2026-10-06T19:19:55Z",
+    "created_at": "2026-10-06T23:16:09Z",
     "hypothesis_id": "H-0001"
    },
    {
@@ -570,13 +656,13 @@
     "repo_path": "code",
     "name": "node/H-0002",
     "base_ref": "main",
-    "base_commit": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "base_commit": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
     "owner": "main",
     "status": "deleted",
-    "created_at": "2026-10-06T19:20:02Z",
-    "head_commit": "88c7c6eb4d52a3826a8fac51f559de0f18de34cd",
-    "returned_at": "2026-10-06T19:20:08Z",
-    "closed_at": "2026-10-06T19:20:08Z",
+    "created_at": "2026-10-06T23:16:16Z",
+    "head_commit": "833244f6196c50e333ca714bd0717a34a8101d52",
+    "returned_at": "2026-10-06T23:16:21Z",
+    "closed_at": "2026-10-06T23:16:22Z",
     "hypothesis_id": "H-0002"
    },
    {
@@ -584,11 +670,11 @@
     "repo_path": "code",
     "name": "node/H-0003",
     "base_ref": "node/H-0001",
-    "base_commit": "0a34213ca488fb0a71c93e953b73f9b114f28683",
+    "base_commit": "738fc623d651f0a29e45ea3ee3b32471e1ce6349",
     "worktree_path": "worktrees/H-0003",
     "owner": "h0003",
     "status": "active",
-    "created_at": "2026-10-06T19:20:10Z",
+    "created_at": "2026-10-06T23:16:25Z",
     "hypothesis_id": "H-0003"
    },
    {
@@ -596,13 +682,13 @@
     "repo_path": "code",
     "name": "node/H-0004",
     "base_ref": "node/H-0001",
-    "base_commit": "0a34213ca488fb0a71c93e953b73f9b114f28683",
+    "base_commit": "738fc623d651f0a29e45ea3ee3b32471e1ce6349",
     "owner": "main",
     "status": "deleted",
-    "created_at": "2026-10-06T19:20:21Z",
-    "head_commit": "98f362f1348945401690914d1121cd20c56019ee",
-    "returned_at": "2026-10-06T19:20:27Z",
-    "closed_at": "2026-10-06T19:20:28Z",
+    "created_at": "2026-10-06T23:16:45Z",
+    "head_commit": "8ad41088300648d08859d67662da21485bc87f5f",
+    "returned_at": "2026-10-06T23:16:52Z",
+    "closed_at": "2026-10-06T23:16:52Z",
     "hypothesis_id": "H-0004"
    },
    {
@@ -610,11 +696,11 @@
     "repo_path": "code",
     "name": "node/H-0005",
     "base_ref": "main",
-    "base_commit": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "base_commit": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
     "worktree_path": "worktrees/H-0005",
     "owner": "h0005",
     "status": "active",
-    "created_at": "2026-10-06T19:20:29Z",
+    "created_at": "2026-10-06T23:16:54Z",
     "hypothesis_id": "H-0005"
    },
    {
@@ -622,11 +708,11 @@
     "repo_path": "code",
     "name": "node/H-0007",
     "base_ref": "main",
-    "base_commit": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "base_commit": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
     "worktree_path": "worktrees/H-0007",
     "owner": "h0007",
     "status": "active",
-    "created_at": "2026-10-06T19:20:37Z",
+    "created_at": "2026-10-06T23:17:03Z",
     "hypothesis_id": "H-0007"
    }
   ],
@@ -641,8 +727,8 @@
     "status": "current",
     "author_role": "ui",
     "author_id": "ui",
-    "created_at": "2026-10-06T19:19:42Z",
-    "sha256": "eed5c05f807924cad4cc796bfac9fb9ea77da1ae34aeec62b721173b240031eb"
+    "created_at": "2026-10-06T23:15:55Z",
+    "sha256": "10d47e0e493f20e4a916ac0c160689681247f634ad11d2f34081c83217b0091a"
    },
    {
     "id": "D-0002",
@@ -654,8 +740,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:19:43Z",
-    "sha256": "89f7c8a0363a03280519cbaf3d65475372f7559cc7a7c25d663707d2a31667a7"
+    "created_at": "2026-10-06T23:15:55Z",
+    "sha256": "a1e8d5f22320a2d87d5f01d21fff864e23311d471773e7913ca3c1c5e0668c45"
    },
    {
     "id": "D-0003",
@@ -667,8 +753,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:19:43Z",
-    "sha256": "c59056424fd8cab86913493c33216183689baedd34148de3536e9cb5d3c3f43c"
+    "created_at": "2026-10-06T23:15:56Z",
+    "sha256": "041644abd9d62d87c88e728db8573b20507bcd0232204500101879bd7756b214"
    },
    {
     "id": "D-0004",
@@ -680,7 +766,7 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:19:43Z",
+    "created_at": "2026-10-06T23:15:56Z",
     "sha256": "edb52c028be9b6482a3453c7290a40dc514da5f232974ef00facb08398f18603"
    },
    {
@@ -693,7 +779,7 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:19:44Z",
+    "created_at": "2026-10-06T23:15:56Z",
     "sha256": "45cb4bf064c2622c7e6623d14d33f1d0f1a94e9db3ba46ae5c9da59a44584237"
    },
    {
@@ -706,8 +792,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:19:44Z",
-    "sha256": "1a74a4859379292c2418f377e4a2e4acb526bc2ed4647bc06db01567cada286a"
+    "created_at": "2026-10-06T23:15:57Z",
+    "sha256": "554fc6d0a295f9c00ba2a27a262295eb6eb7051435b45b422bd403734eb2e5ba"
    },
    {
     "id": "D-0007",
@@ -719,8 +805,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:19:47Z",
-    "sha256": "6b61dd719f44ada8884f60ed6e4abdbfa49ed05eadb029df2b7df8180b61698d"
+    "created_at": "2026-10-06T23:15:59Z",
+    "sha256": "f288ee7697ede2594385bb92da9f1aad17d1bc74d2549ed78ab63c2772e7c0ec"
    },
    {
     "id": "D-0008",
@@ -732,8 +818,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-06T19:19:47Z",
-    "sha256": "48c83d1e1f899420d3cf91892c64c5fe36414918b91782a5eca15cfcfbfc9286"
+    "created_at": "2026-10-06T23:16:00Z",
+    "sha256": "a3395d584f7d7930a7d24abee8fc2c11d2227664a58cfb8da249dea313b76f2a"
    },
    {
     "id": "D-0009",
@@ -745,8 +831,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-06T19:19:50Z",
-    "sha256": "05412fb9a921bbdbfa624bfec300a0ea5198f363b8095e952e86067b308ad034"
+    "created_at": "2026-10-06T23:16:04Z",
+    "sha256": "19316aa47c5bcc47cb2f47164adea4c876335fda889692f10795b97acd0e1e04"
    },
    {
     "id": "D-0010",
@@ -758,8 +844,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-06T19:19:51Z",
-    "sha256": "003717c0202bd0fe8383ce7af1a9d5f0c99b010f45a6f179850300b7259a8707"
+    "created_at": "2026-10-06T23:16:05Z",
+    "sha256": "71d363138abfccb55b4ca75a4b86c9620fb57e682e8458f84426095909ace866"
    },
    {
     "id": "D-0011",
@@ -771,8 +857,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-06T19:19:52Z",
-    "sha256": "fb7d4b9ea229904dae7b5a08a26abdf7a60d3158228684b31506aa0159900e77"
+    "created_at": "2026-10-06T23:16:06Z",
+    "sha256": "d9895041aa22ae17ec1b75b4e50fbdeba9986d1f8916e3bd28946393cf81749f"
    },
    {
     "id": "D-0012",
@@ -784,8 +870,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-06T19:19:52Z",
-    "sha256": "12efe91fa8fefc6cc459719b6b53fc505ba898f632f52d8ac66fbbc7a258d2dd"
+    "created_at": "2026-10-06T23:16:06Z",
+    "sha256": "f1e6fa68189e0017a395caa6d2703a431637bf65407a9a7fc2b71b1d7b14cf5e"
    },
    {
     "id": "D-0013",
@@ -797,8 +883,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-06T19:19:53Z",
-    "sha256": "fc7633e5b27b1c9c1d6d589ce8946caa87873f10f4e85df9af3d2db11a687afd"
+    "created_at": "2026-10-06T23:16:07Z",
+    "sha256": "993b6fd497b862ba93226c312607d2d0ada404f539d596640ebe7c944b4e4277"
    },
    {
     "id": "D-0014",
@@ -810,8 +896,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-06T19:19:53Z",
-    "sha256": "491e4a3f37881376d3b6555775dd81b0c026ed407bb60d125e9912ce1d7396e4"
+    "created_at": "2026-10-06T23:16:07Z",
+    "sha256": "ddee157a5d8677d7320c9220ef268a76fd3578ffb133761d896637ab12c2119a"
    },
    {
     "id": "D-0015",
@@ -823,8 +909,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-06T19:19:53Z",
-    "sha256": "1ed4aeee33ea04b7e13e27e59b7260c922bc8c9d39aa71b0ed95af05a1fd8533"
+    "created_at": "2026-10-06T23:16:07Z",
+    "sha256": "4e965ce39ff95c56639a5b678c9a502078b4ea9cb1200060af0c4e5d9a0e17bb"
    },
    {
     "id": "D-0016",
@@ -836,8 +922,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:19:54Z",
-    "sha256": "3de4a6313a1eee2b4745c49630afe325513c1aa9c15d5c3e08faf6608f802efa"
+    "created_at": "2026-10-06T23:16:07Z",
+    "sha256": "c2e725d292bd6a521678d8cce310dced4b2573e83430007632dc09969fbbad40"
    },
    {
     "id": "D-0017",
@@ -849,8 +935,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:19:55Z",
-    "sha256": "d5df0d271ed2f86070af0654c11ae5fa5e22950760e4af5e9791968562476af7"
+    "created_at": "2026-10-06T23:16:09Z",
+    "sha256": "cb25f49ec043f34b9ca5921981744c5e8e4f13535a54720862f0a3f70b67bbff"
    },
    {
     "id": "D-0018",
@@ -862,8 +948,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0001",
-    "created_at": "2026-10-06T19:19:56Z",
-    "sha256": "708ad8a565859e6a427baeae27cb58d662852cfff94ba80496cf51a4d3d694e0"
+    "created_at": "2026-10-06T23:16:10Z",
+    "sha256": "a28d829cdbe2abfb034eac92a4ef8a9ef25d30695346995c50e523dc297de57d"
    },
    {
     "id": "D-0019",
@@ -875,8 +961,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0001",
-    "created_at": "2026-10-06T19:19:59Z",
-    "sha256": "b650251badb69e96dbfcdd97a597093e0dfffd39cba86e547c6071e1f373c653"
+    "created_at": "2026-10-06T23:16:12Z",
+    "sha256": "45b55c13ac2234b53a552e4bd511a1d478e97dd42e51d0641b1834d5ccab6e62"
    },
    {
     "id": "D-0020",
@@ -888,8 +974,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:20:00Z",
-    "sha256": "f89be652e35c822d27cff663a905db11d7645914662be5c285c102fd8ef91f42"
+    "created_at": "2026-10-06T23:16:14Z",
+    "sha256": "e572a7d07f40148492a3311a64f13be0b1b82e3c972c513472a443db735afe9a"
    },
    {
     "id": "D-0021",
@@ -901,8 +987,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:20:01Z",
-    "sha256": "b7a1d378b07b199c5081b79906250912940a2b36ace9fa713ee9b306edbc7f04"
+    "created_at": "2026-10-06T23:16:14Z",
+    "sha256": "13404fa44dac0a6ca0bb3e498d88a2a907c5792b7c98d045cf564c0b554961af"
    },
    {
     "id": "D-0022",
@@ -914,8 +1000,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:20:02Z",
-    "sha256": "9b6df8bcafc529f3e52afd5b8f5cea20cfd7090fca65d23591f4bc43d7cffa79"
+    "created_at": "2026-10-06T23:16:16Z",
+    "sha256": "255a14c706d481587e8158310784a002c826776546823c989c919bf3c9f58dd2"
    },
    {
     "id": "D-0023",
@@ -927,8 +1013,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0002",
-    "created_at": "2026-10-06T19:20:04Z",
-    "sha256": "968c30b268d3df3218b5601ea31daa4cedc894ae62cf94298793c4fe259aa894"
+    "created_at": "2026-10-06T23:16:17Z",
+    "sha256": "67c1dead7415dfedae6cd172ebfd8d5a67b298db11c7a5ead1e8d776f9acfdf9"
    },
    {
     "id": "D-0024",
@@ -940,8 +1026,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0002",
-    "created_at": "2026-10-06T19:20:06Z",
-    "sha256": "caff2b5e9382f7da1535f47ea4ee47de473bff4cbd0dc39bcdf437557d574db2"
+    "created_at": "2026-10-06T23:16:20Z",
+    "sha256": "f9ade9b57033c7281fd18ee05587f88faa572ffee1a0e01f33bad6ce4788af83"
    },
    {
     "id": "D-0025",
@@ -953,8 +1039,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:20:07Z",
-    "sha256": "1c9b03ea495add50e4f3e6d58b8456fd8751c7716c0936eca30281663f534eab"
+    "created_at": "2026-10-06T23:16:21Z",
+    "sha256": "9237842246e83792d4d3f28cddbd3eef09fac6f6734542a63b47ea965b8b3398"
    },
    {
     "id": "D-0026",
@@ -966,8 +1052,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:20:08Z",
-    "sha256": "eb7ffbce64c2dbadea1a469622278b98bee24d37c3cf4641bf37890ab3464280"
+    "created_at": "2026-10-06T23:16:22Z",
+    "sha256": "8aea2b8d1ddba531c9c7b54887d74a96ce1de19ea277a64ecfd1e93372c3dbe3"
    },
    {
     "id": "D-0027",
@@ -979,8 +1065,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:20:09Z",
-    "sha256": "9713346348272bdb5537a347bd2d884c69279016a50a42d30a2fd92df3720ed2"
+    "created_at": "2026-10-06T23:16:23Z",
+    "sha256": "26c50abd231ab33e49c04a3cc5761abc4ae206f2f7f9f8885f7d69aaa17c5f99"
    },
    {
     "id": "D-0028",
@@ -992,8 +1078,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:20:10Z",
-    "sha256": "ce1f9ca76b7aa4d25cd031321ad9c03f2cc225b92cc1747bf93eb805bb4ff907"
+    "created_at": "2026-10-06T23:16:25Z",
+    "sha256": "7d5fedeec794cb58fe2f935f810df7e1a2f8a4c920a344f7ab15d92602694860"
    },
    {
     "id": "D-0029",
@@ -1005,8 +1091,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-06T19:20:11Z",
-    "sha256": "5a904746d12de596cc5be4b6588a2aa047f6112503ced325ac54ec080e36fd75"
+    "created_at": "2026-10-06T23:16:26Z",
+    "sha256": "93df18cd123c01ff8be3f55a61c8b285ec8ed2947247378d919028d6e6f384ec"
    },
    {
     "id": "D-0030",
@@ -1018,8 +1104,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-06T19:20:14Z",
-    "sha256": "ea014749113ee592ccb0bfdbf71566e26680540a85821bd93305a257b3a97bfe"
+    "created_at": "2026-10-06T23:16:29Z",
+    "sha256": "aa4895436f6c514b6cefaedce8bafef1d13fc130bdf2b6045af299a9fe92d633"
    },
    {
     "id": "D-0031",
@@ -1031,8 +1117,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-06T19:20:16Z",
-    "sha256": "ed1ef67bf07898e0bf065834c4281fde08e93e157d89e6ec705416563aca6151"
+    "created_at": "2026-10-06T23:16:31Z",
+    "sha256": "33875468054cb991a10d28048ced38201a5f9069fdd8dc178bb48b77729b5bda"
    },
    {
     "id": "D-0032",
@@ -1044,8 +1130,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:20:18Z",
-    "sha256": "250406bda92c248741928d957ff65baf950e37aa7745991b2850afdb392381d4"
+    "created_at": "2026-10-06T23:16:33Z",
+    "sha256": "5f8a4d6bb6ae8eb03c9a91164d89e7542fde8b991014d9829b00390a273a7435"
    },
    {
     "id": "D-0033",
@@ -1057,8 +1143,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:20:18Z",
-    "sha256": "34501eef654efe0c2978486aaf9083a632ff73964bbcafb2405266107de451aa"
+    "created_at": "2026-10-06T23:16:33Z",
+    "sha256": "0bd228017c555046006ba11ff291dffdb21fb26884286ed8a0ddf9b64dafef88"
    },
    {
     "id": "D-0034",
@@ -1070,11 +1156,63 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:20:19Z",
-    "sha256": "7ec27b6bea6a5ce67bd2151afcfe1638e78dfd7f1204b38ce4b5907f16a41cb5"
+    "created_at": "2026-10-06T23:16:34Z",
+    "sha256": "1f2921826396ab440ec63fe561e5a715020c6c3e04372c961a071f901fc511d0"
    },
    {
     "id": "D-0035",
+    "path": "baselines/confirm/design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "确认基线",
+    "summary": "确认基线设计",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "root",
+    "created_at": "2026-10-06T23:16:34Z",
+    "sha256": "e6d8b5a3dcaa52be47dacb6b757b1fb37e82e5795a9a65ace39ece5bc782c395"
+   },
+   {
+    "id": "D-0036",
+    "path": "baselines/confirm/result.v1.md",
+    "version": 1,
+    "doc_type": "experiment_result",
+    "title": "确认基线结果",
+    "summary": "确认基线",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "root",
+    "created_at": "2026-10-06T23:16:38Z",
+    "sha256": "d7088af824507e9adc287f6c54a5b30e8b9daee8be346bc5012e92e9a099ee28"
+   },
+   {
+    "id": "D-0037",
+    "path": "hypotheses/H-0003/experiments/confirm/design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "H-0003 独立确认",
+    "summary": "独立确认",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0003",
+    "created_at": "2026-10-06T23:16:38Z",
+    "sha256": "77337ae1ea0c3459b796b5b4e41526189a67e289cb16daf4a2720e332b9e76f3"
+   },
+   {
+    "id": "D-0038",
+    "path": "hypotheses/H-0003/experiments/E-0006/result.v3.md",
+    "version": 3,
+    "doc_type": "experiment_result",
+    "title": "E-0006 确认结果",
+    "summary": "E-0006 独立确认",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0003",
+    "created_at": "2026-10-06T23:16:42Z",
+    "sha256": "24b15803add9ab20565958a067b3ddfe4925a583654a620f51c313b6ee3bdac4"
+   },
+   {
+    "id": "D-0039",
     "path": "hypotheses/H-0004/hypothesis.v1.md",
     "version": 1,
     "doc_type": "hypothesis",
@@ -1083,11 +1221,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:20:20Z",
-    "sha256": "9c0c616c3513f916715ab96fc5bb942ee50ebc260fd30e3cca7793e4c36905e7"
+    "created_at": "2026-10-06T23:16:43Z",
+    "sha256": "0591b34d63f89709a37d611dbbd4c29c8fabc7c006d39757d46c3d4f06e30009"
    },
    {
-    "id": "D-0036",
+    "id": "D-0040",
     "path": "hypotheses/H-0004/decisions/start.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -1096,12 +1234,12 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:20:21Z",
-    "sha256": "d68e7bb68ed7b0a1092682bf8cc183bd4d4df834e6587efce2f308c43e6ef029"
+    "created_at": "2026-10-06T23:16:45Z",
+    "sha256": "9a8c9e185fca4272a0af8c2c64885cdead74d8dd68deee4f2320b0580d74094b"
    },
    {
-    "id": "D-0037",
-    "path": "hypotheses/H-0004/experiments/momentum-874/design.v1.md",
+    "id": "D-0041",
+    "path": "hypotheses/H-0004/experiments/momentum-411/design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
     "title": "H-0004 实验设计",
@@ -1109,24 +1247,24 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0004",
-    "created_at": "2026-10-06T19:20:23Z",
-    "sha256": "19ee1830d005881fb0b4e8735280d69e59a5cbde90952e13c69d3d7aa794da1e"
+    "created_at": "2026-10-06T23:16:46Z",
+    "sha256": "455137cc92872e91ea0965c11447db508dc6c2d66c3b70bd9a3a8526c5204806"
    },
    {
-    "id": "D-0038",
-    "path": "hypotheses/H-0004/experiments/E-0005/result.v2.md",
+    "id": "D-0042",
+    "path": "hypotheses/H-0004/experiments/E-0007/result.v2.md",
     "version": 2,
     "doc_type": "experiment_result",
-    "title": "E-0005 统计结果",
-    "summary": "E-0005 判定 no_gain",
+    "title": "E-0007 统计结果",
+    "summary": "E-0007 判定 no_gain",
     "status": "current",
     "author_role": "worker",
     "author_id": "h0004",
-    "created_at": "2026-10-06T19:20:25Z",
-    "sha256": "fc948f9ea75b5234c1eb39ee85af54e5ac6aae6760c7b6b97db1dc6c830b47d5"
+    "created_at": "2026-10-06T23:16:50Z",
+    "sha256": "9f03ea4605c7dd77934a19059b7ab5184f1da70676dc1c76a05fb05de76b1fe5"
    },
    {
-    "id": "D-0039",
+    "id": "D-0043",
     "path": "hypotheses/H-0004/decisions/prunable.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -1135,11 +1273,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:20:26Z",
-    "sha256": "73031b0d36c1532f355a971fa6a247cb9e00ffa0e9e8cf1cf79b9e557075cc5f"
+    "created_at": "2026-10-06T23:16:51Z",
+    "sha256": "dce47f88f7343c3ee69c509c38e78b7e3e9a158f000fd03d976f7a8d85ff371e"
    },
    {
-    "id": "D-0040",
+    "id": "D-0044",
     "path": "hypotheses/H-0004/decisions/branch-deleted.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -1148,11 +1286,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:20:27Z",
-    "sha256": "e7bd52ecb7a76a0cd16094aa9334cba9cc0530d3f1320869b6729ec937a6d1c3"
+    "created_at": "2026-10-06T23:16:52Z",
+    "sha256": "217b2b5e49325be279f57b64d33d2a9191286e2fc92cf7e8976dee9a9412145f"
    },
    {
-    "id": "D-0041",
+    "id": "D-0045",
     "path": "hypotheses/H-0005/hypothesis.v1.md",
     "version": 1,
     "doc_type": "hypothesis",
@@ -1161,11 +1299,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:20:28Z",
-    "sha256": "7f3c2f09d4d3d1d6046ccdffcde87cea76e8c763ca9565497f3c9521fc9d410e"
+    "created_at": "2026-10-06T23:16:53Z",
+    "sha256": "18738bbcc95f3661a854dde8588af1539bf87381d5bb3a4f2ae82abc9c6b0564"
    },
    {
-    "id": "D-0042",
+    "id": "D-0046",
     "path": "hypotheses/H-0005/decisions/start.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -1174,12 +1312,12 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:20:30Z",
-    "sha256": "dfcf1ad70e1170a2bc4c7c83293e43fede74f14872f766b691828a85039c2eb9"
+    "created_at": "2026-10-06T23:16:54Z",
+    "sha256": "1e25c8762671222084b114b05a5211f14d3eb07db03d0cb583e7c1751bac2ef9"
    },
    {
-    "id": "D-0043",
-    "path": "hypotheses/H-0005/experiments/kron-dia-330/design.v1.md",
+    "id": "D-0047",
+    "path": "hypotheses/H-0005/experiments/kron-dia-288/design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
     "title": "H-0005 实验设计",
@@ -1187,24 +1325,24 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0005",
-    "created_at": "2026-10-06T19:20:31Z",
-    "sha256": "bcdbe116f7fa5ca546b6ec34a75f508524450faedc8964d1ef0072e532fed9d4"
+    "created_at": "2026-10-06T23:16:56Z",
+    "sha256": "d33b2f4f8d6c2fcefa9e52bda4b7e3bb3593532d97b5d2bb6db7f1edf109430e"
    },
    {
-    "id": "D-0044",
-    "path": "hypotheses/H-0005/experiments/E-0006/result.v2.md",
+    "id": "D-0048",
+    "path": "hypotheses/H-0005/experiments/E-0008/result.v2.md",
     "version": 2,
     "doc_type": "experiment_result",
-    "title": "E-0006 统计结果",
-    "summary": "E-0006 判定 close",
+    "title": "E-0008 统计结果",
+    "summary": "E-0008 判定 close",
     "status": "current",
     "author_role": "worker",
     "author_id": "h0005",
-    "created_at": "2026-10-06T19:20:33Z",
-    "sha256": "a3e166a5dcfff353ade4e9bbd25154402c8e72deb02a13bd1af9c4632a8774fa"
+    "created_at": "2026-10-06T23:16:59Z",
+    "sha256": "fd70eb41bb0f4e32125af6ef7df7af8f3afed6c21e96a081ae57d3b03a5394a3"
    },
    {
-    "id": "D-0045",
+    "id": "D-0049",
     "path": "hypotheses/H-0006/hypothesis.v1.md",
     "version": 1,
     "doc_type": "hypothesis",
@@ -1213,11 +1351,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:20:34Z",
-    "sha256": "4bc5a373831d2ad4d724cbea4c52f4bae2b4caf80fa74e63c84ad48263dce268"
+    "created_at": "2026-10-06T23:17:00Z",
+    "sha256": "cd1532887f162c2172dae1ae780b4c8f1a533def0c02bab25ef5c6d69f9f3fc4"
    },
    {
-    "id": "D-0046",
+    "id": "D-0050",
     "path": "instructions/UI-0002.v1.md",
     "version": 1,
     "doc_type": "user_instruction",
@@ -1226,11 +1364,11 @@
     "status": "current",
     "author_role": "ui",
     "author_id": "ui",
-    "created_at": "2026-10-06T19:20:35Z",
-    "sha256": "b82cb9dbefccfe2e7ab89571a30525164d70ba15e96e8153808aba10f3def060"
+    "created_at": "2026-10-06T23:17:00Z",
+    "sha256": "0d869445d45ec4288a72359311e78972c572aba6e89033b70b2583bc7f36f03a"
    },
    {
-    "id": "D-0047",
+    "id": "D-0051",
     "path": "hypotheses/H-0006/decisions/infeasible.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -1239,11 +1377,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:20:35Z",
-    "sha256": "b517e466991cdf6567c8855a40f0ab04d381513e08adbb14216119d37d283114"
+    "created_at": "2026-10-06T23:17:01Z",
+    "sha256": "e6527e0fc9ea72bf7ab4cc89995c2f09b8b68bbb51f223abf61fc99b8ed1f83f"
    },
    {
-    "id": "D-0048",
+    "id": "D-0052",
     "path": "hypotheses/H-0007/hypothesis.v1.md",
     "version": 1,
     "doc_type": "hypothesis",
@@ -1252,11 +1390,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:20:36Z",
-    "sha256": "65ab85340f61a136be72fc8141d4557cb46ec12756d6bc612a148e96482d6b05"
+    "created_at": "2026-10-06T23:17:01Z",
+    "sha256": "37601bb36646df9b837ad43b06bd9c3c25f4a2c4f675e24f50536521ce543579"
    },
    {
-    "id": "D-0049",
+    "id": "D-0053",
     "path": "hypotheses/H-0007/decisions/start.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -1265,12 +1403,12 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:20:37Z",
-    "sha256": "344f0b7fdf38f11108008740f39162a58e5e7cf908a5fb28ba652420314f236c"
+    "created_at": "2026-10-06T23:17:03Z",
+    "sha256": "3c212f50b05a98737dcd03d60486323d9c615c7f0f71f4bc6a8d849c07aed593"
    },
    {
-    "id": "D-0050",
-    "path": "hypotheses/H-0007/experiments/state-8b-411/design.v1.md",
+    "id": "D-0054",
+    "path": "hypotheses/H-0007/experiments/state-8b-468/design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
     "title": "H-0007 实验设计",
@@ -1278,24 +1416,24 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0007",
-    "created_at": "2026-10-06T19:20:39Z",
-    "sha256": "e17b799e2b3678f190063390515194ebaeab59e5ed7f52b83aa70d136fdd7d7b"
+    "created_at": "2026-10-06T23:17:04Z",
+    "sha256": "e6f793b07fd8c2ace536c9d608b23acc943605cb147ab7737b1b9b3b5001896c"
    },
    {
-    "id": "D-0051",
-    "path": "hypotheses/H-0007/experiments/E-0007/result.v2.md",
+    "id": "D-0055",
+    "path": "hypotheses/H-0007/experiments/E-0009/result.v2.md",
     "version": 2,
     "doc_type": "experiment_result",
-    "title": "E-0007 统计结果",
-    "summary": "E-0007 判定 needs_rld",
+    "title": "E-0009 统计结果",
+    "summary": "E-0009 判定 needs_rld",
     "status": "current",
     "author_role": "worker",
     "author_id": "h0007",
-    "created_at": "2026-10-06T19:20:42Z",
-    "sha256": "1e62b55a6bbd868409845c0c0f7456048a1f17c740305282daf1f65e55d4c214"
+    "created_at": "2026-10-06T23:17:07Z",
+    "sha256": "30772e9249ef121acd0e3a49fe5951f1a87ac15d7e11660fc2c79ce3dd1a43ee"
    },
    {
-    "id": "D-0052",
+    "id": "D-0056",
     "path": "hypotheses/H-0008/hypothesis.v1.md",
     "version": 1,
     "doc_type": "hypothesis",
@@ -1304,11 +1442,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:20:43Z",
-    "sha256": "1254089d15505aef31c088ed50a4ec47102c033329b9e12e28690fbfa57f1c83"
+    "created_at": "2026-10-06T23:17:09Z",
+    "sha256": "f2a21b0f2bea43b4acbd3fdc51e8250d242f0e304bc9bc3fbec352652fec1b0b"
    },
    {
-    "id": "D-0053",
+    "id": "D-0057",
     "path": "tasks/T-0002/request.v1.md",
     "version": 1,
     "doc_type": "task_request",
@@ -1317,8 +1455,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-06T19:20:44Z",
-    "sha256": "b94dfb8ad3805f526e8a61e2573be5afedd4c84f00eddbb7df4660e35aa67bbd"
+    "created_at": "2026-10-06T23:17:10Z",
+    "sha256": "44b50c0aec7916b699ea360eee24d776b51f6183d5f4b823650f9369d9cf0e8f"
    }
   ],
   "decision": [
@@ -1330,7 +1468,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0017",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:19:56Z",
+    "decided_at": "2026-10-06T23:16:09Z",
     "target_id": "H-0001"
    },
    {
@@ -1341,7 +1479,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0017",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:19:56Z",
+    "decided_at": "2026-10-06T23:16:09Z",
     "target_id": "H-0001"
    },
    {
@@ -1352,7 +1490,7 @@
     "reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
     "doc_id": "D-0020",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:20:00Z",
+    "decided_at": "2026-10-06T23:16:14Z",
     "target_id": "H-0001"
    },
    {
@@ -1363,7 +1501,7 @@
     "reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
     "doc_id": "D-0020",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:20:00Z",
+    "decided_at": "2026-10-06T23:16:14Z",
     "target_id": "H-0001"
    },
    {
@@ -1374,7 +1512,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0022",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:20:03Z",
+    "decided_at": "2026-10-06T23:16:16Z",
     "target_id": "H-0002"
    },
    {
@@ -1385,7 +1523,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0022",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:20:03Z",
+    "decided_at": "2026-10-06T23:16:16Z",
     "target_id": "H-0002"
    },
    {
@@ -1396,7 +1534,7 @@
     "reason": "所有指标都不优于SOTA，按规则消灭。",
     "doc_id": "D-0025",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:20:07Z",
+    "decided_at": "2026-10-06T23:16:21Z",
     "target_id": "H-0002"
    },
    {
@@ -1407,7 +1545,7 @@
     "reason": "所有指标都不优于SOTA，按规则消灭。",
     "doc_id": "D-0025",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:20:07Z",
+    "decided_at": "2026-10-06T23:16:21Z",
     "target_id": "H-0002"
    },
    {
@@ -1418,7 +1556,7 @@
     "reason": "无提升，删除分支（实验提交已打标签）。",
     "doc_id": "D-0026",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:20:08Z",
+    "decided_at": "2026-10-06T23:16:22Z",
     "target_id": "BR-0002"
    },
    {
@@ -1429,7 +1567,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0028",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:20:10Z",
+    "decided_at": "2026-10-06T23:16:25Z",
     "target_id": "H-0003"
    },
    {
@@ -1440,7 +1578,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0028",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:20:10Z",
+    "decided_at": "2026-10-06T23:16:25Z",
     "target_id": "H-0003"
    },
    {
@@ -1450,7 +1588,7 @@
     "to_value": "beats_sota",
     "reason": "3个seed判定",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:20:17Z",
+    "decided_at": "2026-10-06T23:16:32Z",
     "target_id": "H-0003"
    },
    {
@@ -1460,7 +1598,7 @@
     "to_value": "pass",
     "reason": "复核通过",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:20:18Z",
+    "decided_at": "2026-10-06T23:16:33Z",
     "target_id": "H-0003"
    },
    {
@@ -1470,7 +1608,7 @@
     "to_value": "pass",
     "reason": "复核通过",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:20:18Z",
+    "decided_at": "2026-10-06T23:16:33Z",
     "target_id": "H-0003"
    },
    {
@@ -1481,7 +1619,7 @@
     "reason": "优于SOTA且复核通过，可拓展",
     "doc_id": "D-0034",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:20:19Z",
+    "decided_at": "2026-10-06T23:16:34Z",
     "target_id": "H-0003"
    },
    {
@@ -1490,9 +1628,9 @@
     "from_value": "todo",
     "to_value": "running",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0036",
+    "doc_id": "D-0040",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:20:22Z",
+    "decided_at": "2026-10-06T23:16:45Z",
     "target_id": "H-0004"
    },
    {
@@ -1501,9 +1639,9 @@
     "from_value": "pending",
     "to_value": "verifying",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0036",
+    "doc_id": "D-0040",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:20:22Z",
+    "decided_at": "2026-10-06T23:16:45Z",
     "target_id": "H-0004"
    },
    {
@@ -1512,9 +1650,9 @@
     "from_value": "running",
     "to_value": "no_gain",
     "reason": "相对父节点各项指标都不更好，按规则消灭。",
-    "doc_id": "D-0039",
+    "doc_id": "D-0043",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:20:26Z",
+    "decided_at": "2026-10-06T23:16:51Z",
     "target_id": "H-0004"
    },
    {
@@ -1523,9 +1661,9 @@
     "from_value": "verifying",
     "to_value": "prunable",
     "reason": "相对父节点各项指标都不更好，按规则消灭。",
-    "doc_id": "D-0039",
+    "doc_id": "D-0043",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:20:26Z",
+    "decided_at": "2026-10-06T23:16:51Z",
     "target_id": "H-0004"
    },
    {
@@ -1534,9 +1672,9 @@
     "from_value": "returned",
     "to_value": "deleted",
     "reason": "无提升，删除分支。",
-    "doc_id": "D-0040",
+    "doc_id": "D-0044",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:20:28Z",
+    "decided_at": "2026-10-06T23:16:52Z",
     "target_id": "BR-0004"
    },
    {
@@ -1545,9 +1683,9 @@
     "from_value": "todo",
     "to_value": "running",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0042",
+    "doc_id": "D-0046",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:20:30Z",
+    "decided_at": "2026-10-06T23:16:55Z",
     "target_id": "H-0005"
    },
    {
@@ -1556,9 +1694,9 @@
     "from_value": "pending",
     "to_value": "verifying",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0042",
+    "doc_id": "D-0046",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:20:30Z",
+    "decided_at": "2026-10-06T23:16:55Z",
     "target_id": "H-0005"
    },
    {
@@ -1567,9 +1705,9 @@
     "from_value": "pending",
     "to_value": "prunable",
     "reason": "用户决定放弃（超出单次运行上限）",
-    "doc_id": "D-0047",
+    "doc_id": "D-0051",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:20:35Z",
+    "decided_at": "2026-10-06T23:17:01Z",
     "target_id": "H-0006"
    },
    {
@@ -1578,9 +1716,9 @@
     "from_value": "todo",
     "to_value": "running",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0049",
+    "doc_id": "D-0053",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:20:38Z",
+    "decided_at": "2026-10-06T23:17:04Z",
     "target_id": "H-0007"
    },
    {
@@ -1589,9 +1727,9 @@
     "from_value": "pending",
     "to_value": "verifying",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0049",
+    "doc_id": "D-0053",
     "decided_by": "main",
-    "decided_at": "2026-10-06T19:20:38Z",
+    "decided_at": "2026-10-06T23:17:04Z",
     "target_id": "H-0007"
    }
   ],
@@ -1603,9 +1741,14 @@
     "assignee_role": "worker",
     "assignee_id": "root",
     "request_doc_id": "D-0007",
-    "created_at": "2026-10-06T19:19:47Z",
-    "updated_at": "2026-10-06T19:19:51Z",
+    "created_at": "2026-10-06T23:16:00Z",
+    "updated_at": "2026-10-06T23:16:06Z",
     "delivery_doc_id": "D-0010",
+    "accepted_by": "rld/main",
+    "accepted_evidence": [
+     "E-0001",
+     "D-0010"
+    ],
     "target_id": "P-demo-lora-opt"
    },
    {
@@ -1614,9 +1757,9 @@
     "status": "in_progress",
     "assignee_role": "worker",
     "assignee_id": "h0005",
-    "request_doc_id": "D-0053",
-    "created_at": "2026-10-06T19:20:44Z",
-    "updated_at": "2026-10-06T19:20:44Z",
+    "request_doc_id": "D-0057",
+    "created_at": "2026-10-06T23:17:10Z",
+    "updated_at": "2026-10-06T23:17:10Z",
     "target_id": "H-0005"
    }
   ],
@@ -1671,8 +1814,8 @@
      }
     },
     "pair_keys": {},
-    "method_code_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
-    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "method_code_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
     "harness_paths": [
      "harness"
     ],
@@ -1762,6 +1905,7 @@
      }
     },
     "comparisons": {},
+    "stage": "screen",
     "eval_type": "real_gt",
     "limitations": [],
     "verification_level": "artifact_imported",
@@ -1772,10 +1916,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "35164bd02113ad191faeb278f6bc472ec7b5d8382968dc850d3302935ebf3720",
-    "inputs_digest": "1c007297f9c2580181e1a779c0b9469e2385129a47a4e0e67b0bc34e6f8208c4",
+    "fingerprint": "d0a4ced37317b81a658e90146334de67fb50b6b6386554784c4356b07c0c146c",
+    "inputs_digest": "33d3a0138582f713c5cb02db256248c4c6f380bd32c1319dc2dc78d1faa1845f",
     "created_by": "worker/root",
-    "created_at": "2026-10-06T19:19:50Z",
+    "created_at": "2026-10-06T23:16:04Z",
     "experiment_id": "E-0001"
    },
    {
@@ -1861,8 +2005,8 @@
       "seed=43/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "0a34213ca488fb0a71c93e953b73f9b114f28683",
-    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "method_code_ref": "738fc623d651f0a29e45ea3ee3b32471e1ce6349",
+    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
     "harness_paths": [
      "harness"
     ],
@@ -1947,6 +2091,7 @@
      "sota": {
       "target_id": "E-0001",
       "n_paired": 2,
+      "n_independent": 2,
       "metrics": {
        "acc": {
         "n_paired": 2,
@@ -2025,6 +2170,9 @@
      }
     },
     "verdict": "beats_parent",
+    "outcome": "positive_signal",
+    "outcome_reason": "effect 0.16375 clears the minimum practical gain 0.05",
+    "stage": "screen",
     "gate_passed": false,
     "guardrails_passed": true,
     "eval_type": "real_gt",
@@ -2039,10 +2187,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "e28216318bfa12a7baea85d31bd9d65245fad418edfe92cc0df3f20a1c22315f",
-    "inputs_digest": "8513788fc028b6b84f6e1ae8e7b176c78813bc9286026734bac01e087d7938c0",
+    "fingerprint": "1a288ad499311b212c29260e05906f176c6d84b53d9a197b47059f36d3ba4b25",
+    "inputs_digest": "dfb4faa4daca807e5e5c1704831705cdf9e6f0470a84502d31ef36368844ba2f",
     "created_by": "worker/h0001",
-    "created_at": "2026-10-06T19:20:00Z",
+    "created_at": "2026-10-06T23:16:13Z",
     "experiment_id": "E-0002"
    },
    {
@@ -2128,8 +2276,8 @@
       "seed=43/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "88c7c6eb4d52a3826a8fac51f559de0f18de34cd",
-    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "method_code_ref": "833244f6196c50e333ca714bd0717a34a8101d52",
+    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
     "harness_paths": [
      "harness"
     ],
@@ -2214,6 +2362,7 @@
      "sota": {
       "target_id": "E-0001",
       "n_paired": 2,
+      "n_independent": 2,
       "metrics": {
        "acc": {
         "n_paired": 2,
@@ -2292,6 +2441,9 @@
      }
     },
     "verdict": "no_gain",
+    "outcome": "inconclusive",
+    "outcome_reason": "effect -0.24285 over 2 pair(s): neither clear of 0.05 nor a negative signal over 3 pairs",
+    "stage": "screen",
     "gate_passed": false,
     "guardrails_passed": true,
     "eval_type": "real_gt",
@@ -2306,10 +2458,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "3ea86a0583764ad8d3f8fd29b55e3f55f5fb42c4c93b5d01a750357825f4dc29",
-    "inputs_digest": "f0a4c9555e31c1d13592b88cbc42736be879db5028f9d95a4f90fc10afd1f35d",
+    "fingerprint": "af843c0af6e03f7e1ba2e218d9791c15cb0527220d2d29fddb3a700350f68c56",
+    "inputs_digest": "4a737b587a04a5bbe44f32e2d467dbe45823c726b633b69a1be3503c84ec1d4a",
     "created_by": "worker/h0002",
-    "created_at": "2026-10-06T19:20:07Z",
+    "created_at": "2026-10-06T23:16:20Z",
     "experiment_id": "E-0003"
    },
    {
@@ -2427,8 +2579,8 @@
       "seed=43/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "c434993c829927243b6fdb05afceb0ad556d7e2b",
-    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "method_code_ref": "dc34ffa48dd1b5c41eff0b6461662c4265bf9336",
+    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
     "harness_paths": [
      "harness"
     ],
@@ -2515,6 +2667,7 @@
      "sota": {
       "target_id": "E-0001",
       "n_paired": 2,
+      "n_independent": 2,
       "metrics": {
        "acc": {
         "n_paired": 2,
@@ -2594,6 +2747,7 @@
      "parent": {
       "target_id": "E-0002",
       "n_paired": 2,
+      "n_independent": 2,
       "metrics": {
        "acc": {
         "n_paired": 2,
@@ -2671,6 +2825,9 @@
      }
     },
     "verdict": "beats_parent",
+    "outcome": "positive_signal",
+    "outcome_reason": "effect 0.08125 clears the minimum practical gain 0.05",
+    "stage": "screen",
     "gate_passed": false,
     "guardrails_passed": true,
     "eval_type": "real_gt",
@@ -2687,10 +2844,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "4dfb5b7a5edadd192aa67d328a7a0f3bbdf0f998e2e6d5545c19df08c5e1202d",
-    "inputs_digest": "35306caec7a2bb5ac95759ed1e317afcc960b4a5196f4f23a21fc17181722486",
+    "fingerprint": "bb6c439e23d0499e8e01b83ae52a95646b83e50ba5e868a736d596271bb92f5d",
+    "inputs_digest": "bd8650f0218936c66ebf975bdbcd93917ce8753202c10b5684586c756a6734c8",
     "created_by": "worker/h0003",
-    "created_at": "2026-10-06T19:20:14Z",
+    "created_at": "2026-10-06T23:16:29Z",
     "experiment_id": "E-0004"
    },
    {
@@ -2823,8 +2980,8 @@
       "seed=43/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "c434993c829927243b6fdb05afceb0ad556d7e2b",
-    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "method_code_ref": "dc34ffa48dd1b5c41eff0b6461662c4265bf9336",
+    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
     "harness_paths": [
      "harness"
     ],
@@ -2921,6 +3078,7 @@
      "sota": {
       "target_id": "E-0001",
       "n_paired": 3,
+      "n_independent": 3,
       "metrics": {
        "acc": {
         "n_paired": 3,
@@ -3004,6 +3162,7 @@
      "parent": {
       "target_id": "E-0002",
       "n_paired": 2,
+      "n_independent": 2,
       "metrics": {
        "acc": {
         "n_paired": 2,
@@ -3081,6 +3240,9 @@
      }
     },
     "verdict": "beats_sota",
+    "outcome": "positive_signal",
+    "outcome_reason": "effect 0.08125 clears the minimum practical gain 0.05",
+    "stage": "screen",
     "gate_passed": true,
     "guardrails_passed": true,
     "eval_type": "real_gt",
@@ -3098,15 +3260,473 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "e389be5b700c2561c311b3f70e5bab8a9cf40c52ed584d95aba93df96e8e58d9",
-    "inputs_digest": "b8ee4695d0dcc6d4ec8038e2b90fdca777d1f6de46cb1a1458ef7e2daf856d0d",
+    "fingerprint": "756c6c8c604f808de36aad6bcfca4612b88066d0e4b208e62138d1c0fc59fd3f",
+    "inputs_digest": "da7acdd1f78b1d209ba002f9ed339e64a0043377dbfecf1ca7b0e94b346126f1",
     "supersedes_evaluation_id": "EV-0004",
     "created_by": "worker/h0003",
-    "created_at": "2026-10-06T19:20:17Z",
+    "created_at": "2026-10-06T23:16:32Z",
     "experiment_id": "E-0004"
    },
    {
     "id": "EV-0006",
+    "result_revision": 1,
+    "run_attempt_refs": [
+     "E-0005/s1042@1",
+     "E-0005/s1043@1",
+     "E-0005/s1044@1"
+    ],
+    "input_revisions": {
+     "E-0005/s1042": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4353,
+      "secondary": {
+       "final_loss": 0.911,
+       "loss_auc": 1.2864,
+       "peak_mem_gb": 37.9953,
+       "train_time_s": 3004.0509
+      },
+      "retracted_at": null,
+      "import": "1e261d4529fc7745d4fc2126954bd56b60b320134a07bfbf5d82480c3c8c0f94"
+     },
+     "E-0005/s1043": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3752,
+      "secondary": {
+       "final_loss": 0.9108,
+       "loss_auc": 1.2881,
+       "peak_mem_gb": 38.0568,
+       "train_time_s": 3001.8965
+      },
+      "retracted_at": null,
+      "import": "c3d1faf3800fda5048b375f5187d136d731f1b9ef58e499f9f8d19ca2ebf9fb5"
+     },
+     "E-0005/s1044": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3681,
+      "secondary": {
+       "final_loss": 0.9096,
+       "loss_auc": 1.2809,
+       "peak_mem_gb": 38.0353,
+       "train_time_s": 3000.6821
+      },
+      "retracted_at": null,
+      "import": "cb7f3994a4d43a18d80eaafabdecb61fd81798d3ed8b4470ed6a9e679cc8a0b6"
+     }
+    },
+    "pair_keys": {},
+    "method_code_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "harness_paths": [
+     "harness"
+    ],
+    "protocol_doc_id": "D-0006",
+    "metric_spec_doc_id": "D-0005",
+    "result_doc_id": "D-0036",
+    "metrics": {
+     "acc": {
+      "n": 3,
+      "mean": 71.39286666666668,
+      "values": [
+       71.4353,
+       71.3752,
+       71.3681
+      ],
+      "sd": 0.03691941675234285,
+      "unit": "percentage_point",
+      "seeds": [
+       1042,
+       1043,
+       1044
+      ]
+     },
+     "final_loss": {
+      "n": 3,
+      "mean": 0.9104666666666666,
+      "values": [
+       0.911,
+       0.9108,
+       0.9096
+      ],
+      "sd": 0.0007571877794400802,
+      "unit": "nats",
+      "seeds": [
+       1042,
+       1043,
+       1044
+      ]
+     },
+     "loss_auc": {
+      "n": 3,
+      "mean": 1.2851333333333332,
+      "values": [
+       1.2864,
+       1.2881,
+       1.2809
+      ],
+      "sd": 0.003763420430052121,
+      "unit": "raw",
+      "seeds": [
+       1042,
+       1043,
+       1044
+      ]
+     },
+     "peak_mem_gb": {
+      "n": 3,
+      "mean": 38.029133333333334,
+      "values": [
+       37.9953,
+       38.0568,
+       38.0353
+      ],
+      "sd": 0.03121030812621677,
+      "unit": "gib",
+      "seeds": [
+       1042,
+       1043,
+       1044
+      ]
+     },
+     "train_time_s": {
+      "n": 3,
+      "mean": 3002.209833333333,
+      "values": [
+       3004.0509,
+       3001.8965,
+       3000.6821
+      ],
+      "sd": 1.7061174324570207,
+      "unit": "seconds",
+      "seeds": [
+       1042,
+       1043,
+       1044
+      ]
+     }
+    },
+    "comparisons": {},
+    "stage": "confirm",
+    "eval_type": "real_gt",
+    "limitations": [],
+    "verification_level": "artifact_imported",
+    "artifact_refs": [
+     "outputs/E-0005/s1042/metrics.json",
+     "outputs/E-0005/s1043/metrics.json",
+     "outputs/E-0005/s1044/metrics.json"
+    ],
+    "statistics_version": "rt-stats-1",
+    "parser_version": "rt-manifest-1",
+    "fingerprint": "dae5c6127548a3d76484e7b45672f01f1b2bfc047cb7c65e7bd99248a9a1db57",
+    "inputs_digest": "089f5bf1de01bea652576a0bb660c66bed60a674bbf3dc14af13369339de3959",
+    "created_by": "worker/root",
+    "created_at": "2026-10-06T23:16:38Z",
+    "experiment_id": "E-0005"
+   },
+   {
+    "id": "EV-0007",
+    "result_revision": 1,
+    "run_attempt_refs": [
+     "E-0005/s1042@1",
+     "E-0005/s1043@1",
+     "E-0005/s1044@1",
+     "E-0006/s1042@1",
+     "E-0006/s1043@1",
+     "E-0006/s1044@1"
+    ],
+    "input_revisions": {
+     "E-0006/s1042": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.6599,
+      "secondary": {
+       "final_loss": 0.9072,
+       "loss_auc": 1.2629,
+       "peak_mem_gb": 38.9978,
+       "train_time_s": 3011.5515
+      },
+      "retracted_at": null,
+      "import": "2e7fe6047968177c1de3908fabbc39008a5d2fb2e339545e3a927a6d41a87953"
+     },
+     "E-0006/s1043": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.6068,
+      "secondary": {
+       "final_loss": 0.9123,
+       "loss_auc": 1.2588,
+       "peak_mem_gb": 39.0505,
+       "train_time_s": 3000.4876
+      },
+      "retracted_at": null,
+      "import": "7e32f6b1cd7a20d7dd21f11abba82e46d1ab87a858dc2c89146f1a462aa86ddf"
+     },
+     "E-0006/s1044": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.6287,
+      "secondary": {
+       "final_loss": 0.9105,
+       "loss_auc": 1.2606,
+       "peak_mem_gb": 38.9932,
+       "train_time_s": 3006.5599
+      },
+      "retracted_at": null,
+      "import": "23fe44261874eca8f9c07c02eacc89750110c5339960757724f5e70401f12109"
+     },
+     "E-0005/s1042": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4353,
+      "secondary": {
+       "final_loss": 0.911,
+       "loss_auc": 1.2864,
+       "peak_mem_gb": 37.9953,
+       "train_time_s": 3004.0509
+      },
+      "retracted_at": null,
+      "import": "1e261d4529fc7745d4fc2126954bd56b60b320134a07bfbf5d82480c3c8c0f94"
+     },
+     "E-0005/s1043": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3752,
+      "secondary": {
+       "final_loss": 0.9108,
+       "loss_auc": 1.2881,
+       "peak_mem_gb": 38.0568,
+       "train_time_s": 3001.8965
+      },
+      "retracted_at": null,
+      "import": "c3d1faf3800fda5048b375f5187d136d731f1b9ef58e499f9f8d19ca2ebf9fb5"
+     },
+     "E-0005/s1044": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3681,
+      "secondary": {
+       "final_loss": 0.9096,
+       "loss_auc": 1.2809,
+       "peak_mem_gb": 38.0353,
+       "train_time_s": 3000.6821
+      },
+      "retracted_at": null,
+      "import": "cb7f3994a4d43a18d80eaafabdecb61fd81798d3ed8b4470ed6a9e679cc8a0b6"
+     }
+    },
+    "pair_keys": {
+     "sota": [
+      "seed=1042/data_version=commonsense-mix-v1（虚构）",
+      "seed=1043/data_version=commonsense-mix-v1（虚构）",
+      "seed=1044/data_version=commonsense-mix-v1（虚构）"
+     ]
+    },
+    "method_code_ref": "dc34ffa48dd1b5c41eff0b6461662c4265bf9336",
+    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+    "harness_paths": [
+     "harness"
+    ],
+    "protocol_doc_id": "D-0006",
+    "metric_spec_doc_id": "D-0005",
+    "baseline_experiment_id": "E-0005",
+    "baseline_evaluation_id": "EV-0006",
+    "result_doc_id": "D-0038",
+    "metrics": {
+     "acc": {
+      "n": 3,
+      "mean": 71.6318,
+      "values": [
+       71.6599,
+       71.6068,
+       71.6287
+      ],
+      "sd": 0.026685389260785654,
+      "unit": "percentage_point",
+      "seeds": [
+       1042,
+       1043,
+       1044
+      ]
+     },
+     "final_loss": {
+      "n": 3,
+      "mean": 0.91,
+      "values": [
+       0.9072,
+       0.9123,
+       0.9105
+      ],
+      "sd": 0.0025865034312755066,
+      "unit": "nats",
+      "seeds": [
+       1042,
+       1043,
+       1044
+      ]
+     },
+     "loss_auc": {
+      "n": 3,
+      "mean": 1.2607666666666666,
+      "values": [
+       1.2629,
+       1.2588,
+       1.2606
+      ],
+      "sd": 0.002055075018906442,
+      "unit": "raw",
+      "seeds": [
+       1042,
+       1043,
+       1044
+      ]
+     },
+     "peak_mem_gb": {
+      "n": 3,
+      "mean": 39.01383333333333,
+      "values": [
+       38.9978,
+       39.0505,
+       38.9932
+      ],
+      "sd": 0.031837451740572995,
+      "unit": "gib",
+      "seeds": [
+       1042,
+       1043,
+       1044
+      ]
+     },
+     "train_time_s": {
+      "n": 3,
+      "mean": 3006.199666666667,
+      "values": [
+       3011.5515,
+       3000.4876,
+       3006.5599
+      ],
+      "sd": 5.5407397379171295,
+      "unit": "seconds",
+      "seeds": [
+       1042,
+       1043,
+       1044
+      ]
+     }
+    },
+    "comparisons": {
+     "sota": {
+      "target_id": "E-0005",
+      "n_paired": 3,
+      "n_independent": 3,
+      "metrics": {
+       "acc": {
+        "n_paired": 3,
+        "effect_mode": "absolute",
+        "unit": "percentage_point",
+        "deltas": [
+         0.22459999999999525,
+         0.23160000000000025,
+         0.2605999999999966
+        ],
+        "delta_mean": 0.2389333333333307,
+        "delta_sd": 0.01908751773629369
+       },
+       "final_loss": {
+        "n_paired": 3,
+        "effect_mode": "absolute",
+        "unit": "nats",
+        "deltas": [
+         0.0038000000000000256,
+         -0.0014999999999999458,
+         -0.0009000000000000119
+        ],
+        "delta_mean": 0.00046666666666668927,
+        "delta_sd": 0.0029022979401386977
+       },
+       "loss_auc": {
+        "n_paired": 3,
+        "effect_mode": "absolute",
+        "unit": "raw",
+        "deltas": [
+         0.023500000000000076,
+         0.029300000000000104,
+         0.020299999999999985
+        ],
+        "delta_mean": 0.02436666666666672,
+        "delta_sd": 0.004562163229580222
+       },
+       "peak_mem_gb": {
+        "n_paired": 3,
+        "effect_mode": "absolute",
+        "unit": "gib",
+        "deltas": [
+         -1.0024999999999977,
+         -0.9936999999999969,
+         -0.9579000000000022
+        ],
+        "delta_mean": -0.9846999999999989,
+        "delta_sd": 0.023622870274373372
+       },
+       "train_time_s": {
+        "n_paired": 3,
+        "effect_mode": "relative_to_reference_mean",
+        "unit": "fraction",
+        "delta_mean": -0.0013289655136810028,
+        "delta_sd": null,
+        "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
+       }
+      },
+      "delta_mean": 0.2389333333333307,
+      "delta_sd": 0.01908751773629369,
+      "deltas": {
+       "final_loss": 0.00046666666666668927,
+       "loss_auc": 0.02436666666666672,
+       "peak_mem_gb": -0.9846999999999989,
+       "train_time_s": -0.0013289655136810028
+      },
+      "guardrails": {
+       "peak_mem_gb": {
+        "allowed_regression": 2.0,
+        "effect": -0.9846999999999989,
+        "passed": true
+       },
+       "train_time_s": {
+        "allowed_regression": 0.1,
+        "effect": -0.0013289655136810028,
+        "passed": true
+       }
+      },
+      "passes_gate": true
+     }
+    },
+    "outcome": "positive_signal",
+    "outcome_reason": "effect 0.238933 clears the minimum practical gain 0.05",
+    "stage": "confirm",
+    "gate_passed": true,
+    "guardrails_passed": true,
+    "eval_type": "real_gt",
+    "limitations": [],
+    "verification_level": "artifact_imported",
+    "artifact_refs": [
+     "outputs/E-0005/s1042/metrics.json",
+     "outputs/E-0005/s1043/metrics.json",
+     "outputs/E-0005/s1044/metrics.json",
+     "outputs/E-0006/s1042/metrics.json",
+     "outputs/E-0006/s1043/metrics.json",
+     "outputs/E-0006/s1044/metrics.json"
+    ],
+    "statistics_version": "rt-stats-1",
+    "parser_version": "rt-manifest-1",
+    "fingerprint": "e928bc7db1761307216ce7e9bac2826742e151f7e19ff1eb43a636bb6031811d",
+    "inputs_digest": "d0ee3c90fe7fea0086af676ae724ecc66da8ec3ea567e3417b3d30fa1ead6907",
+    "created_by": "worker/h0003",
+    "created_at": "2026-10-06T23:16:43Z",
+    "experiment_id": "E-0006"
+   },
+   {
+    "id": "EV-0008",
     "result_revision": 1,
     "run_attempt_refs": [
      "E-0001/s42@1",
@@ -3114,11 +3734,11 @@
      "E-0001/s44@1",
      "E-0002/s42@1",
      "E-0002/s43@1",
-     "E-0005/s42@1",
-     "E-0005/s43@1"
+     "E-0007/s42@1",
+     "E-0007/s43@1"
     ],
     "input_revisions": {
-     "E-0005/s42": {
+     "E-0007/s42": {
       "attempt": 1,
       "valid": true,
       "metric_value": 71.4047,
@@ -3131,7 +3751,7 @@
       "retracted_at": null,
       "import": "c6a9898028e1864128f1a481b10f0834e00e0799cd39ad6167d908322c235266"
      },
-     "E-0005/s43": {
+     "E-0007/s43": {
       "attempt": 1,
       "valid": true,
       "metric_value": 71.4694,
@@ -3220,8 +3840,8 @@
       "seed=43/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "98f362f1348945401690914d1121cd20c56019ee",
-    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "method_code_ref": "8ad41088300648d08859d67662da21485bc87f5f",
+    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
     "harness_paths": [
      "harness"
     ],
@@ -3231,7 +3851,7 @@
     "baseline_evaluation_id": "EV-0001",
     "parent_experiment_id": "E-0002",
     "parent_evaluation_id": "EV-0002",
-    "result_doc_id": "D-0038",
+    "result_doc_id": "D-0042",
     "metrics": {
      "acc": {
       "n": 2,
@@ -3308,6 +3928,7 @@
      "sota": {
       "target_id": "E-0001",
       "n_paired": 2,
+      "n_independent": 2,
       "metrics": {
        "acc": {
         "n_paired": 2,
@@ -3387,6 +4008,7 @@
      "parent": {
       "target_id": "E-0002",
       "n_paired": 2,
+      "n_independent": 2,
       "metrics": {
        "acc": {
         "n_paired": 2,
@@ -3464,6 +4086,9 @@
      }
     },
     "verdict": "no_gain",
+    "outcome": "inconclusive",
+    "outcome_reason": "effect -0.14485 over 2 pair(s): neither clear of 0.05 nor a negative signal over 3 pairs",
+    "stage": "screen",
     "gate_passed": false,
     "guardrails_passed": true,
     "eval_type": "real_gt",
@@ -3475,29 +4100,29 @@
      "outputs/E-0001/s44/metrics.json",
      "outputs/E-0002/s42/metrics.json",
      "outputs/E-0002/s43/metrics.json",
-     "outputs/E-0005/s42/metrics.json",
-     "outputs/E-0005/s43/metrics.json"
+     "outputs/E-0007/s42/metrics.json",
+     "outputs/E-0007/s43/metrics.json"
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "8b94243bf831817630cbfda9d0c718fa4b31a7e218e2d38040665bca7bd6dd3d",
-    "inputs_digest": "f2ab43e15a82f9bae35ab0428b6c6a8ec2f1ce07782a7afde9dc621bf0bbb257",
+    "fingerprint": "725756db383dc0afb1fdbe09d16de88b95eeab5b2adb572b9f760cf0b93d9326",
+    "inputs_digest": "f93bf1561262a6130fb0e3e081b1b42b085c96564335df85ab6e94b0b3ff4d6e",
     "created_by": "worker/h0004",
-    "created_at": "2026-10-06T19:20:25Z",
-    "experiment_id": "E-0005"
+    "created_at": "2026-10-06T23:16:50Z",
+    "experiment_id": "E-0007"
    },
    {
-    "id": "EV-0007",
+    "id": "EV-0009",
     "result_revision": 1,
     "run_attempt_refs": [
      "E-0001/s42@1",
      "E-0001/s43@1",
      "E-0001/s44@1",
-     "E-0006/s42@1",
-     "E-0006/s43@1"
+     "E-0008/s42@1",
+     "E-0008/s43@1"
     ],
     "input_revisions": {
-     "E-0006/s42": {
+     "E-0008/s42": {
       "attempt": 1,
       "valid": true,
       "metric_value": 71.4655,
@@ -3510,7 +4135,7 @@
       "retracted_at": null,
       "import": "1c67221c2e2014751bba0423e91fb81a4ef1ed2dc413f8b5ee2f66d3b797ee87"
      },
-     "E-0006/s43": {
+     "E-0008/s43": {
       "attempt": 1,
       "valid": true,
       "metric_value": 71.5061,
@@ -3569,8 +4194,8 @@
       "seed=43/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "b63dd8e23189084c83b24e2fc2b68766eb2a4523",
-    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "method_code_ref": "8140231db2882e73008e6ec8484fe09c99bb1acf",
+    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
     "harness_paths": [
      "harness"
     ],
@@ -3578,7 +4203,7 @@
     "metric_spec_doc_id": "D-0005",
     "baseline_experiment_id": "E-0001",
     "baseline_evaluation_id": "EV-0001",
-    "result_doc_id": "D-0044",
+    "result_doc_id": "D-0048",
     "metrics": {
      "acc": {
       "n": 2,
@@ -3655,6 +4280,7 @@
      "sota": {
       "target_id": "E-0001",
       "n_paired": 2,
+      "n_independent": 2,
       "metrics": {
        "acc": {
         "n_paired": 2,
@@ -3733,6 +4359,9 @@
      }
     },
     "verdict": "close",
+    "outcome": "positive_signal",
+    "outcome_reason": "effect 0.06765 clears the minimum practical gain 0.05",
+    "stage": "screen",
     "gate_passed": false,
     "guardrails_passed": true,
     "eval_type": "real_gt",
@@ -3742,29 +4371,29 @@
      "outputs/E-0001/s42/metrics.json",
      "outputs/E-0001/s43/metrics.json",
      "outputs/E-0001/s44/metrics.json",
-     "outputs/E-0006/s42/metrics.json",
-     "outputs/E-0006/s43/metrics.json"
+     "outputs/E-0008/s42/metrics.json",
+     "outputs/E-0008/s43/metrics.json"
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "281fcc0d3cc3201f12d415d14ac708704f71054d58b50f19a3c8b829e95f4d3e",
-    "inputs_digest": "10f7356ed2f37d390fd92ae3bb5a683a9adb8425b05c7354644bba0db1e93e0d",
+    "fingerprint": "d77f0097a9fb94ae65e34c8fd9e4f68ce48a1a054f862e4a37acb64d04e96061",
+    "inputs_digest": "a16f43f57f7d5f48ec85ea278d4af22c293e9ffac8de14a711bee2bbfd9168b7",
     "created_by": "worker/h0005",
-    "created_at": "2026-10-06T19:20:34Z",
-    "experiment_id": "E-0006"
+    "created_at": "2026-10-06T23:16:59Z",
+    "experiment_id": "E-0008"
    },
    {
-    "id": "EV-0008",
+    "id": "EV-0010",
     "result_revision": 1,
     "run_attempt_refs": [
      "E-0001/s42@1",
      "E-0001/s43@1",
      "E-0001/s44@1",
-     "E-0007/s42@1",
-     "E-0007/s43@1"
+     "E-0009/s42@1",
+     "E-0009/s43@1"
     ],
     "input_revisions": {
-     "E-0007/s42": {
+     "E-0009/s42": {
       "attempt": 1,
       "valid": true,
       "metric_value": 71.4136,
@@ -3777,7 +4406,7 @@
       "retracted_at": null,
       "import": "08f8b3bb8e8e6b6fa0422b1a1b1747b1765950d03e1081e8a77188e8e633fcc3"
      },
-     "E-0007/s43": {
+     "E-0009/s43": {
       "attempt": 1,
       "valid": true,
       "metric_value": 71.4488,
@@ -3836,8 +4465,8 @@
       "seed=43/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "aaa83837038b1a360ffb6526857f884a2b7f4e0b",
-    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "method_code_ref": "13876bf283176c0d54b7f3f62c0aaf665ae68dab",
+    "harness_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
     "harness_paths": [
      "harness"
     ],
@@ -3845,7 +4474,7 @@
     "metric_spec_doc_id": "D-0005",
     "baseline_experiment_id": "E-0001",
     "baseline_evaluation_id": "EV-0001",
-    "result_doc_id": "D-0051",
+    "result_doc_id": "D-0055",
     "metrics": {
      "acc": {
       "n": 2,
@@ -3922,6 +4551,7 @@
      "sota": {
       "target_id": "E-0001",
       "n_paired": 2,
+      "n_independent": 2,
       "metrics": {
        "acc": {
         "n_paired": 2,
@@ -4000,6 +4630,9 @@
      }
     },
     "verdict": "needs_rld",
+    "outcome": "inconclusive",
+    "outcome_reason": "effect 0.01305 over 2 pair(s): neither clear of 0.05 nor a negative signal over 3 pairs",
+    "stage": "screen",
     "gate_passed": false,
     "guardrails_passed": true,
     "eval_type": "real_gt",
@@ -4009,18 +4642,19 @@
      "outputs/E-0001/s42/metrics.json",
      "outputs/E-0001/s43/metrics.json",
      "outputs/E-0001/s44/metrics.json",
-     "outputs/E-0007/s42/metrics.json",
-     "outputs/E-0007/s43/metrics.json"
+     "outputs/E-0009/s42/metrics.json",
+     "outputs/E-0009/s43/metrics.json"
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "38afd61839a04e3761eb91b92fc11b4101a9581d9bd7aa2a27b55f3554af08e3",
-    "inputs_digest": "4f3125c7cf1dc5debe65d9abb2e94e43ff5a675a2417e354a5dc348b822614c8",
+    "fingerprint": "e5c78731926627ce43ad87919d0a242d434170c52df2fe0a93e53ecbfba11715",
+    "inputs_digest": "641ef642911b7bed3c4f9f224948debaff5fb24c0410c1d3bae8b3c5c20627b5",
     "created_by": "worker/h0007",
-    "created_at": "2026-10-06T19:20:43Z",
-    "experiment_id": "E-0007"
+    "created_at": "2026-10-06T23:17:08Z",
+    "experiment_id": "E-0009"
    }
   ],
+  "obligation": [],
   "run": [
    {
     "id": "E-0001/s42",
@@ -4042,7 +4676,7 @@
      "experiment_id": "E-0001",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+     "code_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4062,9 +4696,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "1d9d37f09594223d5e8e19b36638ae1c8d70731d01ed82ed5d3fff847996482c",
+     "manifest_sha256": "770a965ddd7f2a4d5707bbdd5fbdcf07091622dda7f9b02945d2213b446ccae9",
      "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
-     "imported_at": "2026-10-06T19:19:48Z",
+     "imported_at": "2026-10-06T23:16:01Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0001/s42/train.log",
@@ -4095,7 +4729,7 @@
      "experiment_id": "E-0001",
      "seed": 43,
      "attempt": 1,
-     "code_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+     "code_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4115,9 +4749,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "b86bb2a26441d63cf191eaff4a7aaa5b77049b6c3b43bfaa8b134f9b79b1171e",
+     "manifest_sha256": "737194d9306724046e8ec101862d3713caf6d28388c5b89f6e1efc59980437f2",
      "metrics_sha256": "e0386148c42cd8ea61da0ad1f7042b2a8c6d507bd344ae53b0883aec634c6708",
-     "imported_at": "2026-10-06T19:19:49Z",
+     "imported_at": "2026-10-06T23:16:02Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0001/s43/train.log",
@@ -4148,7 +4782,7 @@
      "experiment_id": "E-0001",
      "seed": 44,
      "attempt": 1,
-     "code_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+     "code_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4168,9 +4802,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "a6c9e388dc6622426a1b4ce4b1c24ee6936376151055639fbcc5062eb0a5968a",
+     "manifest_sha256": "854c66c2d77030ca8bd1789ee4b799ca4f6353a07fd0c0d4e01c923476e663de",
      "metrics_sha256": "82a37fc2e7493d2ccaf8c64f8226df791347a939461908f55cf910abdecba6c9",
-     "imported_at": "2026-10-06T19:19:49Z",
+     "imported_at": "2026-10-06T23:16:03Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0001/s44/train.log",
@@ -4201,7 +4835,7 @@
      "experiment_id": "E-0002",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "0a34213ca488fb0a71c93e953b73f9b114f28683",
+     "code_ref": "738fc623d651f0a29e45ea3ee3b32471e1ce6349",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4221,9 +4855,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "7f68b5fc4ef6605e227a463e5098168444d71d6c32a49d3b6c0e26a1604be7dc",
+     "manifest_sha256": "e8fe5a136d3fd8bb2731f81298918bcce919f50cabf4b7d13bcaca115e62b3d8",
      "metrics_sha256": "c1ddce2e7874bc5212c02641714c12dc46094fb9b2cd61cff8ec3242c80ad6d4",
-     "imported_at": "2026-10-06T19:19:58Z",
+     "imported_at": "2026-10-06T23:16:11Z",
      "by": "worker/h0001"
     },
     "log_path": "outputs/E-0002/s42/train.log",
@@ -4254,7 +4888,7 @@
      "experiment_id": "E-0002",
      "seed": 43,
      "attempt": 1,
-     "code_ref": "0a34213ca488fb0a71c93e953b73f9b114f28683",
+     "code_ref": "738fc623d651f0a29e45ea3ee3b32471e1ce6349",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4274,9 +4908,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "d22aa5530803c6686c817d19aa614aae0343c4a7cb88cd0f1b511f45148b7131",
+     "manifest_sha256": "90a395059066ea61b01f08cdaa3dc181b1aa71ae750ee8024b85f6872d04da4a",
      "metrics_sha256": "71bc44ef6e279a3d37ce2edbf2c7cd86a90ed79d42c42848b6efbb37f9753420",
-     "imported_at": "2026-10-06T19:19:59Z",
+     "imported_at": "2026-10-06T23:16:12Z",
      "by": "worker/h0001"
     },
     "log_path": "outputs/E-0002/s43/train.log",
@@ -4307,7 +4941,7 @@
      "experiment_id": "E-0003",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "88c7c6eb4d52a3826a8fac51f559de0f18de34cd",
+     "code_ref": "833244f6196c50e333ca714bd0717a34a8101d52",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4327,9 +4961,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "9a0b7c3996c3c4e0f6b2076b4f70524eee2b78f2f0ae76e72ac56eeecb02bf3b",
+     "manifest_sha256": "248fad3e96709a3b038130bddbf23a30963a200f223e1ccced7baf9570542762",
      "metrics_sha256": "86701fb69bdedba6fa5fb18ffb8a22c7b22e6021cf97589c24bde87cdac3cb4c",
-     "imported_at": "2026-10-06T19:20:05Z",
+     "imported_at": "2026-10-06T23:16:18Z",
      "by": "worker/h0002"
     },
     "log_path": "outputs/E-0003/s42/train.log",
@@ -4360,7 +4994,7 @@
      "experiment_id": "E-0003",
      "seed": 43,
      "attempt": 1,
-     "code_ref": "88c7c6eb4d52a3826a8fac51f559de0f18de34cd",
+     "code_ref": "833244f6196c50e333ca714bd0717a34a8101d52",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4380,9 +5014,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "e342d00a492982837997b86afd815c97c89a949e0a3d92610d5702046752ea83",
+     "manifest_sha256": "a86cde2228fcf3b00d8ab3221f7d6afcb61013ab82ac2ab655e9528ff7851a9e",
      "metrics_sha256": "80ccb0613772de1acc8f459d6a6b95b101571b61190fb53c6b80de4667a66ec7",
-     "imported_at": "2026-10-06T19:20:06Z",
+     "imported_at": "2026-10-06T23:16:19Z",
      "by": "worker/h0002"
     },
     "log_path": "outputs/E-0003/s43/train.log",
@@ -4413,7 +5047,7 @@
      "experiment_id": "E-0004",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "c434993c829927243b6fdb05afceb0ad556d7e2b",
+     "code_ref": "dc34ffa48dd1b5c41eff0b6461662c4265bf9336",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4433,9 +5067,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "ffce40f793bacd11d78f3d58ff6cd125ffe5297f9e0b573af683a4e59126f361",
+     "manifest_sha256": "1a755d969f56e74ee036b645c20d8e30e01b532fc4bfb1d9fa9e88a8b3a9c49a",
      "metrics_sha256": "2f1dd44520747b568904c41d1a600bac1160afd8d8ff5fa31e4000a3c503ff1d",
-     "imported_at": "2026-10-06T19:20:13Z",
+     "imported_at": "2026-10-06T23:16:27Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0004/s42/train.log",
@@ -4466,7 +5100,7 @@
      "experiment_id": "E-0004",
      "seed": 43,
      "attempt": 1,
-     "code_ref": "c434993c829927243b6fdb05afceb0ad556d7e2b",
+     "code_ref": "dc34ffa48dd1b5c41eff0b6461662c4265bf9336",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4486,9 +5120,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "ee0e1c328459f835ee0c6c3c094bb58bb01fa1cf0a45ce7c704a4d4b64c5b226",
+     "manifest_sha256": "ac5d592f9abd3767cec2754d61bbd6cab01aa4454f38e59fb9122041dfccb231",
      "metrics_sha256": "2154ee6a1906915114788f0396aa5d9c8a5ff2b6526a6a25282badb63f34bbff",
-     "imported_at": "2026-10-06T19:20:13Z",
+     "imported_at": "2026-10-06T23:16:28Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0004/s43/train.log",
@@ -4519,7 +5153,7 @@
      "experiment_id": "E-0004",
      "seed": 44,
      "attempt": 1,
-     "code_ref": "c434993c829927243b6fdb05afceb0ad556d7e2b",
+     "code_ref": "dc34ffa48dd1b5c41eff0b6461662c4265bf9336",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4539,9 +5173,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "40cc0e8bd6f694b0a38cdbcbfdacf00cc54d0fdefc808eff3c9fed66d2532438",
+     "manifest_sha256": "1f8a8f2f43d2181257f15fd3df240a14de1a552d05d01b229be71f73a5efd33e",
      "metrics_sha256": "09f3d05dc52133573e1378ee97cbf61f472e6848ec211ba1207aaf574fb8e3f5",
-     "imported_at": "2026-10-06T19:20:16Z",
+     "imported_at": "2026-10-06T23:16:31Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0004/s44/train.log",
@@ -4553,9 +5187,327 @@
     "experiment_id": "E-0004"
    },
    {
-    "id": "E-0005/s42",
-    "seed": 42,
+    "id": "E-0005/s1042",
+    "seed": 1042,
     "job_id": "demo-3482083",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.4353,
+    "secondary": {
+     "final_loss": 0.911,
+     "loss_auc": 1.2864,
+     "peak_mem_gb": 37.9953,
+     "train_time_s": 3004.0509
+    },
+    "manifest_path": "outputs/E-0005/s1042/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0005",
+     "seed": 1042,
+     "attempt": 1,
+     "code_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3064,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0005/s1042/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "ee075c5251aef1595aec0d9239014133721f6fd0482160b023d2d3d8c07f5336",
+     "metrics_sha256": "1e261d4529fc7745d4fc2126954bd56b60b320134a07bfbf5d82480c3c8c0f94",
+     "imported_at": "2026-10-06T23:16:36Z",
+     "by": "worker/root"
+    },
+    "log_path": "outputs/E-0005/s1042/train.log",
+    "curve_path": "outputs/E-0005/s1042/curve.json",
+    "output_path": "outputs/E-0005/s1042",
+    "nodes_used": 4,
+    "walltime_used_s": 3064,
+    "valid": true,
+    "experiment_id": "E-0005"
+   },
+   {
+    "id": "E-0005/s1043",
+    "seed": 1043,
+    "job_id": "demo-3488383",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.3752,
+    "secondary": {
+     "final_loss": 0.9108,
+     "loss_auc": 1.2881,
+     "peak_mem_gb": 38.0568,
+     "train_time_s": 3001.8965
+    },
+    "manifest_path": "outputs/E-0005/s1043/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0005",
+     "seed": 1043,
+     "attempt": 1,
+     "code_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3061,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0005/s1043/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "315a2c68e64cc9a97018902208e8332d3cf028485751e69b4609b9b8bfa5a895",
+     "metrics_sha256": "c3d1faf3800fda5048b375f5187d136d731f1b9ef58e499f9f8d19ca2ebf9fb5",
+     "imported_at": "2026-10-06T23:16:37Z",
+     "by": "worker/root"
+    },
+    "log_path": "outputs/E-0005/s1043/train.log",
+    "curve_path": "outputs/E-0005/s1043/curve.json",
+    "output_path": "outputs/E-0005/s1043",
+    "nodes_used": 4,
+    "walltime_used_s": 3061,
+    "valid": true,
+    "experiment_id": "E-0005"
+   },
+   {
+    "id": "E-0005/s1044",
+    "seed": 1044,
+    "job_id": "demo-3480930",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.3681,
+    "secondary": {
+     "final_loss": 0.9096,
+     "loss_auc": 1.2809,
+     "peak_mem_gb": 38.0353,
+     "train_time_s": 3000.6821
+    },
+    "manifest_path": "outputs/E-0005/s1044/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0005",
+     "seed": 1044,
+     "attempt": 1,
+     "code_ref": "5b415a1cc99cbf88beb6c6b6ee9746743b318f61",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3060,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0005/s1044/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "9803e6407bb65f8ab0ed7a70c6e3e80855f3992512a1ca26bb6ec79ac72c7391",
+     "metrics_sha256": "cb7f3994a4d43a18d80eaafabdecb61fd81798d3ed8b4470ed6a9e679cc8a0b6",
+     "imported_at": "2026-10-06T23:16:37Z",
+     "by": "worker/root"
+    },
+    "log_path": "outputs/E-0005/s1044/train.log",
+    "curve_path": "outputs/E-0005/s1044/curve.json",
+    "output_path": "outputs/E-0005/s1044",
+    "nodes_used": 4,
+    "walltime_used_s": 3060,
+    "valid": true,
+    "experiment_id": "E-0005"
+   },
+   {
+    "id": "E-0006/s1042",
+    "seed": 1042,
+    "job_id": "demo-3483690",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.6599,
+    "secondary": {
+     "final_loss": 0.9072,
+     "loss_auc": 1.2629,
+     "peak_mem_gb": 38.9978,
+     "train_time_s": 3011.5515
+    },
+    "manifest_path": "outputs/E-0006/s1042/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0006",
+     "seed": 1042,
+     "attempt": 1,
+     "code_ref": "dc34ffa48dd1b5c41eff0b6461662c4265bf9336",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3071,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0006/s1042/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "69b927fb469b0bf193cd20d734da38c44695f86d18a4b72d1640d3dfe204cb60",
+     "metrics_sha256": "2e7fe6047968177c1de3908fabbc39008a5d2fb2e339545e3a927a6d41a87953",
+     "imported_at": "2026-10-06T23:16:40Z",
+     "by": "worker/h0003"
+    },
+    "log_path": "outputs/E-0006/s1042/train.log",
+    "curve_path": "outputs/E-0006/s1042/curve.json",
+    "output_path": "outputs/E-0006/s1042",
+    "nodes_used": 4,
+    "walltime_used_s": 3071,
+    "valid": true,
+    "experiment_id": "E-0006"
+   },
+   {
+    "id": "E-0006/s1043",
+    "seed": 1043,
+    "job_id": "demo-3489195",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.6068,
+    "secondary": {
+     "final_loss": 0.9123,
+     "loss_auc": 1.2588,
+     "peak_mem_gb": 39.0505,
+     "train_time_s": 3000.4876
+    },
+    "manifest_path": "outputs/E-0006/s1043/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0006",
+     "seed": 1043,
+     "attempt": 1,
+     "code_ref": "dc34ffa48dd1b5c41eff0b6461662c4265bf9336",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3060,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0006/s1043/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "f0f9d3aad28a287410e2117f601bc0807f256c276d3446e421af17d1113c8369",
+     "metrics_sha256": "7e32f6b1cd7a20d7dd21f11abba82e46d1ab87a858dc2c89146f1a462aa86ddf",
+     "imported_at": "2026-10-06T23:16:41Z",
+     "by": "worker/h0003"
+    },
+    "log_path": "outputs/E-0006/s1043/train.log",
+    "curve_path": "outputs/E-0006/s1043/curve.json",
+    "output_path": "outputs/E-0006/s1043",
+    "nodes_used": 4,
+    "walltime_used_s": 3060,
+    "valid": true,
+    "experiment_id": "E-0006"
+   },
+   {
+    "id": "E-0006/s1044",
+    "seed": 1044,
+    "job_id": "demo-3488045",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.6287,
+    "secondary": {
+     "final_loss": 0.9105,
+     "loss_auc": 1.2606,
+     "peak_mem_gb": 38.9932,
+     "train_time_s": 3006.5599
+    },
+    "manifest_path": "outputs/E-0006/s1044/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0006",
+     "seed": 1044,
+     "attempt": 1,
+     "code_ref": "dc34ffa48dd1b5c41eff0b6461662c4265bf9336",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3066,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0006/s1044/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "7d5647a39ccecb0e2de307f1874b74b1431e870eac34a6f877e746303ba7cd0a",
+     "metrics_sha256": "23fe44261874eca8f9c07c02eacc89750110c5339960757724f5e70401f12109",
+     "imported_at": "2026-10-06T23:16:42Z",
+     "by": "worker/h0003"
+    },
+    "log_path": "outputs/E-0006/s1044/train.log",
+    "curve_path": "outputs/E-0006/s1044/curve.json",
+    "output_path": "outputs/E-0006/s1044",
+    "nodes_used": 4,
+    "walltime_used_s": 3066,
+    "valid": true,
+    "experiment_id": "E-0006"
+   },
+   {
+    "id": "E-0007/s42",
+    "seed": 42,
+    "job_id": "demo-3485582",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -4567,12 +5519,12 @@
      "peak_mem_gb": 39.5652,
      "train_time_s": 3090.8359
     },
-    "manifest_path": "outputs/E-0005/s42/manifest.json",
+    "manifest_path": "outputs/E-0007/s42/manifest.json",
     "manifest": {
-     "experiment_id": "E-0005",
+     "experiment_id": "E-0007",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "98f362f1348945401690914d1121cd20c56019ee",
+     "code_ref": "8ad41088300648d08859d67662da21485bc87f5f",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4588,27 +5540,27 @@
      }
     },
     "evidence_paths": [
-     "outputs/E-0005/s42/metrics.json"
+     "outputs/E-0007/s42/metrics.json"
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "96e201014b48b9f39fb15e1b304ba4b03f52e4910e81806030ef35f0e444fc7c",
+     "manifest_sha256": "2fc53a2e312e1dec567323ba8e390d7f9644346c9f8d42b3e2afdefd8c6e9905",
      "metrics_sha256": "c6a9898028e1864128f1a481b10f0834e00e0799cd39ad6167d908322c235266",
-     "imported_at": "2026-10-06T19:20:24Z",
+     "imported_at": "2026-10-06T23:16:48Z",
      "by": "worker/h0004"
     },
-    "log_path": "outputs/E-0005/s42/train.log",
-    "curve_path": "outputs/E-0005/s42/curve.json",
-    "output_path": "outputs/E-0005/s42",
+    "log_path": "outputs/E-0007/s42/train.log",
+    "curve_path": "outputs/E-0007/s42/curve.json",
+    "output_path": "outputs/E-0007/s42",
     "nodes_used": 4,
     "walltime_used_s": 3150,
     "valid": true,
-    "experiment_id": "E-0005"
+    "experiment_id": "E-0007"
    },
    {
-    "id": "E-0005/s43",
+    "id": "E-0007/s43",
     "seed": 43,
-    "job_id": "demo-3488383",
+    "job_id": "demo-3485454",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -4620,12 +5572,12 @@
      "peak_mem_gb": 39.6413,
      "train_time_s": 3080.9947
     },
-    "manifest_path": "outputs/E-0005/s43/manifest.json",
+    "manifest_path": "outputs/E-0007/s43/manifest.json",
     "manifest": {
-     "experiment_id": "E-0005",
+     "experiment_id": "E-0007",
      "seed": 43,
      "attempt": 1,
-     "code_ref": "98f362f1348945401690914d1121cd20c56019ee",
+     "code_ref": "8ad41088300648d08859d67662da21485bc87f5f",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4641,27 +5593,27 @@
      }
     },
     "evidence_paths": [
-     "outputs/E-0005/s43/metrics.json"
+     "outputs/E-0007/s43/metrics.json"
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "dda07f4449c7e6718303b7b71906ae0fcad5f43321d8dc0fbf4dd389cc87d8fa",
+     "manifest_sha256": "859aacbd76dc9051a128c4ac9b7bfe2b2bdfe51c74ebefd1a6db78d0bd168e6b",
      "metrics_sha256": "26d404e31819d1c15933281b617dafa05ed59ed1a5ed5086ad82227b97361c11",
-     "imported_at": "2026-10-06T19:20:25Z",
+     "imported_at": "2026-10-06T23:16:49Z",
      "by": "worker/h0004"
     },
-    "log_path": "outputs/E-0005/s43/train.log",
-    "curve_path": "outputs/E-0005/s43/curve.json",
-    "output_path": "outputs/E-0005/s43",
+    "log_path": "outputs/E-0007/s43/train.log",
+    "curve_path": "outputs/E-0007/s43/curve.json",
+    "output_path": "outputs/E-0007/s43",
     "nodes_used": 4,
     "walltime_used_s": 3140,
     "valid": true,
-    "experiment_id": "E-0005"
+    "experiment_id": "E-0007"
    },
    {
-    "id": "E-0006/s42",
+    "id": "E-0008/s42",
     "seed": 42,
-    "job_id": "demo-3489195",
+    "job_id": "demo-3488339",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -4673,12 +5625,12 @@
      "peak_mem_gb": 38.3542,
      "train_time_s": 2989.858
     },
-    "manifest_path": "outputs/E-0006/s42/manifest.json",
+    "manifest_path": "outputs/E-0008/s42/manifest.json",
     "manifest": {
-     "experiment_id": "E-0006",
+     "experiment_id": "E-0008",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "b63dd8e23189084c83b24e2fc2b68766eb2a4523",
+     "code_ref": "8140231db2882e73008e6ec8484fe09c99bb1acf",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4694,27 +5646,27 @@
      }
     },
     "evidence_paths": [
-     "outputs/E-0006/s42/metrics.json"
+     "outputs/E-0008/s42/metrics.json"
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "556412874e6c156eff4f0fa6159feb3473aba2bb93f473479a3e300c0fb034ae",
+     "manifest_sha256": "cc6c76e92227af21018db5d6bfd3480aafeb0fc9158cd43bc55816ce8541f74f",
      "metrics_sha256": "1c67221c2e2014751bba0423e91fb81a4ef1ed2dc413f8b5ee2f66d3b797ee87",
-     "imported_at": "2026-10-06T19:20:32Z",
+     "imported_at": "2026-10-06T23:16:57Z",
      "by": "worker/h0005"
     },
-    "log_path": "outputs/E-0006/s42/train.log",
-    "curve_path": "outputs/E-0006/s42/curve.json",
-    "output_path": "outputs/E-0006/s42",
+    "log_path": "outputs/E-0008/s42/train.log",
+    "curve_path": "outputs/E-0008/s42/curve.json",
+    "output_path": "outputs/E-0008/s42",
     "nodes_used": 4,
     "walltime_used_s": 3049,
     "valid": true,
-    "experiment_id": "E-0006"
+    "experiment_id": "E-0008"
    },
    {
-    "id": "E-0006/s43",
+    "id": "E-0008/s43",
     "seed": 43,
-    "job_id": "demo-3488045",
+    "job_id": "demo-3480636",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -4726,12 +5678,12 @@
      "peak_mem_gb": 38.3731,
      "train_time_s": 2978.174
     },
-    "manifest_path": "outputs/E-0006/s43/manifest.json",
+    "manifest_path": "outputs/E-0008/s43/manifest.json",
     "manifest": {
-     "experiment_id": "E-0006",
+     "experiment_id": "E-0008",
      "seed": 43,
      "attempt": 1,
-     "code_ref": "b63dd8e23189084c83b24e2fc2b68766eb2a4523",
+     "code_ref": "8140231db2882e73008e6ec8484fe09c99bb1acf",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4747,27 +5699,27 @@
      }
     },
     "evidence_paths": [
-     "outputs/E-0006/s43/metrics.json"
+     "outputs/E-0008/s43/metrics.json"
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "2d1a0bd63d66aac663a50c0f9fc06764a0f793944fa5e5ef76634e520189fa56",
+     "manifest_sha256": "a514c899d77a1de20478542fb2e2fc9598d47d4b39da1aebe31c5b85c222cd54",
      "metrics_sha256": "64fda824fa1f1c233b0ee7fcc77c5f32b86175fe6f0fa7a945d9bf1b8c04b0e2",
-     "imported_at": "2026-10-06T19:20:33Z",
+     "imported_at": "2026-10-06T23:16:58Z",
      "by": "worker/h0005"
     },
-    "log_path": "outputs/E-0006/s43/train.log",
-    "curve_path": "outputs/E-0006/s43/curve.json",
-    "output_path": "outputs/E-0006/s43",
+    "log_path": "outputs/E-0008/s43/train.log",
+    "curve_path": "outputs/E-0008/s43/curve.json",
+    "output_path": "outputs/E-0008/s43",
     "nodes_used": 4,
     "walltime_used_s": 3038,
     "valid": true,
-    "experiment_id": "E-0006"
+    "experiment_id": "E-0008"
    },
    {
-    "id": "E-0007/s42",
+    "id": "E-0009/s42",
     "seed": 42,
-    "job_id": "demo-3485582",
+    "job_id": "demo-3480519",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -4779,12 +5731,12 @@
      "peak_mem_gb": 31.9714,
      "train_time_s": 3042.1152
     },
-    "manifest_path": "outputs/E-0007/s42/manifest.json",
+    "manifest_path": "outputs/E-0009/s42/manifest.json",
     "manifest": {
-     "experiment_id": "E-0007",
+     "experiment_id": "E-0009",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "aaa83837038b1a360ffb6526857f884a2b7f4e0b",
+     "code_ref": "13876bf283176c0d54b7f3f62c0aaf665ae68dab",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4800,27 +5752,27 @@
      }
     },
     "evidence_paths": [
-     "outputs/E-0007/s42/metrics.json"
+     "outputs/E-0009/s42/metrics.json"
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "75d0528aff9ad8bcbd0c785c7f82ef81a2476c147ea7bdbf6444e329645061ed",
+     "manifest_sha256": "c3ec83751ed70fa5385f3c11345ff301059be53ded98a6c96399f360bffc8baf",
      "metrics_sha256": "08f8b3bb8e8e6b6fa0422b1a1b1747b1765950d03e1081e8a77188e8e633fcc3",
-     "imported_at": "2026-10-06T19:20:40Z",
+     "imported_at": "2026-10-06T23:17:06Z",
      "by": "worker/h0007"
     },
-    "log_path": "outputs/E-0007/s42/train.log",
-    "curve_path": "outputs/E-0007/s42/curve.json",
-    "output_path": "outputs/E-0007/s42",
+    "log_path": "outputs/E-0009/s42/train.log",
+    "curve_path": "outputs/E-0009/s42/curve.json",
+    "output_path": "outputs/E-0009/s42",
     "nodes_used": 4,
     "walltime_used_s": 3102,
     "valid": true,
-    "experiment_id": "E-0007"
+    "experiment_id": "E-0009"
    },
    {
-    "id": "E-0007/s43",
+    "id": "E-0009/s43",
     "seed": 43,
-    "job_id": "demo-3485454",
+    "job_id": "demo-3483115",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -4832,12 +5784,12 @@
      "peak_mem_gb": 31.9622,
      "train_time_s": 3031.7717
     },
-    "manifest_path": "outputs/E-0007/s43/manifest.json",
+    "manifest_path": "outputs/E-0009/s43/manifest.json",
     "manifest": {
-     "experiment_id": "E-0007",
+     "experiment_id": "E-0009",
      "seed": 43,
      "attempt": 1,
-     "code_ref": "aaa83837038b1a360ffb6526857f884a2b7f4e0b",
+     "code_ref": "13876bf283176c0d54b7f3f62c0aaf665ae68dab",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4853,22 +5805,22 @@
      }
     },
     "evidence_paths": [
-     "outputs/E-0007/s43/metrics.json"
+     "outputs/E-0009/s43/metrics.json"
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "35be4601a9ae8d3cb7a98f6daf57a30a60f8f792fc6686603fbe500dc743f58f",
+     "manifest_sha256": "5c638ee0b1118eb20be4f98726a33feb56bb19dd81b83dae2b0c93ee9e950dc2",
      "metrics_sha256": "b77b0ebf77632a00b66ec104af9b020d80c8e64ec1e78162351adc1e34ce4b68",
-     "imported_at": "2026-10-06T19:20:41Z",
+     "imported_at": "2026-10-06T23:17:07Z",
      "by": "worker/h0007"
     },
-    "log_path": "outputs/E-0007/s43/train.log",
-    "curve_path": "outputs/E-0007/s43/curve.json",
-    "output_path": "outputs/E-0007/s43",
+    "log_path": "outputs/E-0009/s43/train.log",
+    "curve_path": "outputs/E-0009/s43/curve.json",
+    "output_path": "outputs/E-0009/s43",
     "nodes_used": 4,
     "walltime_used_s": 3091,
     "valid": true,
-    "experiment_id": "E-0007"
+    "experiment_id": "E-0009"
    }
   ]
  },
@@ -4934,7 +5886,22 @@
     }
    },
    {
-    "source_id": "E-0005",
+    "source_id": "E-0006",
+    "target_id": "E-0005",
+    "role": "sota",
+    "n_paired": 3,
+    "delta_mean": 0.2389333333333307,
+    "delta_sd": 0.01908751773629369,
+    "deltas": {
+     "final_loss": 0.00046666666666668927,
+     "loss_auc": 0.02436666666666672,
+     "peak_mem_gb": -0.9846999999999989,
+     "train_time_s": -0.0013289655136810028
+    },
+    "passes_gate": true
+   },
+   {
+    "source_id": "E-0007",
     "target_id": "E-0001",
     "role": "sota",
     "n_paired": 2,
@@ -4949,7 +5916,7 @@
     "passes_gate": false
    },
    {
-    "source_id": "E-0005",
+    "source_id": "E-0007",
     "target_id": "E-0002",
     "role": "parent",
     "n_paired": 2,
@@ -4963,7 +5930,7 @@
     }
    },
    {
-    "source_id": "E-0006",
+    "source_id": "E-0008",
     "target_id": "E-0001",
     "role": "sota",
     "n_paired": 2,
@@ -4978,7 +5945,7 @@
     "passes_gate": false
    },
    {
-    "source_id": "E-0007",
+    "source_id": "E-0009",
     "target_id": "E-0001",
     "role": "sota",
     "n_paired": 2,
@@ -5131,31 +6098,31 @@
     "target_id": "H-0003"
    },
    {
-    "source_id": "D-0036",
-    "target_id": "H-0004"
-   },
-   {
-    "source_id": "D-0039",
-    "target_id": "H-0004"
-   },
-   {
     "source_id": "D-0040",
     "target_id": "H-0004"
    },
    {
-    "source_id": "D-0042",
-    "target_id": "H-0005"
+    "source_id": "D-0043",
+    "target_id": "H-0004"
+   },
+   {
+    "source_id": "D-0044",
+    "target_id": "H-0004"
    },
    {
     "source_id": "D-0046",
+    "target_id": "H-0005"
+   },
+   {
+    "source_id": "D-0050",
     "target_id": "H-0006"
    },
    {
-    "source_id": "D-0047",
+    "source_id": "D-0051",
     "target_id": "H-0006"
    },
    {
-    "source_id": "D-0049",
+    "source_id": "D-0053",
     "target_id": "H-0007"
    }
   ],
@@ -5207,15 +6174,15 @@
    },
    {
     "source_id": "DEC-0018",
-    "target_id": "E-0005"
+    "target_id": "E-0007"
    },
    {
     "source_id": "DEC-0019",
-    "target_id": "E-0005"
+    "target_id": "E-0007"
    },
    {
     "source_id": "DEC-0023",
-    "target_id": "D-0046"
+    "target_id": "D-0050"
    }
   ]
  }

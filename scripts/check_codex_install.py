@@ -130,7 +130,7 @@ def check(marketplace: Path, work: Path):
                  "effect_mode": "absolute", "minimum_practical_gain": 0.05, "aggregation": "paired_run_mean"}]}
             specs = doc("project/metric-spec.v1.json", "metric_spec", json.dumps(spec))
             protocol = doc("project/protocol.v1.json", "protocol",
-                           json.dumps({"version": 1, "eval_type": "real_gt", "pair_fields": ["seed"]}))
+                           json.dumps({"version": 1, "eval_type": "real_gt", "pair_fields": ["seed"], "profile": "screening"}))
             call("research_db", method="create_project", kwargs={"id": "P-native", "title": "Native installation smoke",
                   "metric_spec_doc_id": specs, "protocol_doc_id": protocol, "min_setup_doc_id": setup, "primary_metric": "accuracy", "metric_direction": "higher",
                   "metric_is_percent": True, "secondary_metrics": [], "seeds": [1, 2, 3]})

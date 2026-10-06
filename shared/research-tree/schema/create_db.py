@@ -21,7 +21,7 @@ from pathlib import Path
 
 from latticedb import Database, LatticeAlreadyExistsError
 
-SCHEMA_VERSION = 7
+SCHEMA_VERSION = 8
 SPEC_PATH = Path(__file__).with_name("research_tree.sql")
 DEFAULT_DB_PATH = Path("research_tree.db")
 
@@ -37,6 +37,7 @@ LABELS = {
     "decision": "Decision",
     "task": "Task",
     "evaluation": "Evaluation",
+    "obligation": "Obligation",
 }
 
 PROPERTY_INDEXES = [(table, "id") for table in LABELS if table != "meta"] + [
@@ -48,6 +49,7 @@ PROPERTY_INDEXES = [(table, "id") for table in LABELS if table != "meta"] + [
     ("task", "status"),
     ("branch", "status"),
     ("evaluation", "fingerprint"),
+    ("obligation", "fingerprint"),
 ]
 
 FTS_INDEXES = [
@@ -97,7 +99,8 @@ def create_db(db_path: Path) -> None:
 
 
 # Indexes each version added; upgrading creates the missing ones.
-ADDED_INDEXES = {7: [("evaluation", "id"), ("evaluation", "fingerprint")]}
+ADDED_INDEXES = {7: [("evaluation", "id"), ("evaluation", "fingerprint")],
+                 8: [("obligation", "id"), ("obligation", "fingerprint")]}
 
 
 def upgrade_db(db_path: Path) -> int:

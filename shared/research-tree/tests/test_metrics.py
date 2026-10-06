@@ -39,7 +39,11 @@ class SpecTest(unittest.TestCase):
                 metrics.check_metric_specs(bad)
 
     def test_protocol(self):
-        metrics.check_protocol({"version": 1, "eval_type": "synthetic_proxy", "pair_fields": ["seed", "split"]})
+        metrics.check_protocol({"version": 1, "eval_type": "synthetic_proxy", "pair_fields": ["seed", "split"],
+                                "profile": "screening"})
+        with self.assertRaisesRegex(MetricError, "at least 3 confirmation_seeds"):
+            metrics.check_protocol({"version": 1, "eval_type": "real_gt"})  # stage1_confirmed is the default
+        metrics.check_protocol({"version": 1, "eval_type": "real_gt", "confirmation_seeds": [1042, 1043, 1044]})
         with self.assertRaisesRegex(MetricError, "including seed"):
             metrics.check_protocol({"version": 1, "eval_type": "real_gt", "pair_fields": ["split"]})
         with self.assertRaisesRegex(MetricError, "eval_type"):

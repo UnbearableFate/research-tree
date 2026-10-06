@@ -29,8 +29,11 @@ ATTENTION_LABELS = {
     "usage_alert": "资源提醒", "awaiting_reply": "待RLD回执", "extend_seeds": "待扩展seed", "needs_rld": "需要RLD复核",
     "stale_harness": "框架已更换", "run_unknown": "作业状态未知", "curve_missing": "曲线缺失",
     "conclusion_outdated": "结论待更新", "task": "任务", "doc_integrity": "文档完整性", "cleanup_due": "待清理",
-    "cleanup_failed": "清理未完成", "evidence_stale": "证据已失效",
+    "cleanup_failed": "清理未完成", "evidence_stale": "证据已失效", "obligation_open": "未决问题",
+    "stall": "停滞待换向", "confirmation_required": "待独立确认",
 }
+DISPOSITION_LABELS = {"active": "继续投入", "paused": "暂停", "retired": "不再投入"}
+OUTCOME_LABELS = {"positive_signal": "正向信号", "negative_signal": "负向信号", "inconclusive": "不确定", "invalid": "无效"}
 VERIFICATION_LABELS = {"record_recomputed": "记录级重算", "artifact_imported": "产物级导入", "legacy_unverified": "旧记录（未核验）"}
 VERSION_RE = re.compile(r'<meta name="data-version" content="(\d+)">')
 
@@ -227,6 +230,9 @@ def collect(db_path: Path) -> dict:
             # GO eligibility from current evidence (research_db.get_eligibility), never from the cached labels
             "eligibility": (eligibility := reader.get_eligibility(h["id"])),
             "go": eligibility["eligible"],
+            "disposition": h.get("disposition") or ("retired" if h["status"] == "prunable" else "active"),
+            "outcome": eligibility.get("outcome"), "stage": eligibility.get("stage"),
+            "stall": h.get("stall_state") or "none", "direction": h.get("direction"),
             "worker": _worker(h),
         })
 
@@ -248,8 +254,19 @@ def collect(db_path: Path) -> dict:
         if latest and latest["verdict"] in ("no_gain", "beats_parent", "beats_sota") and latest["verdict"] != n["exp_status"]:
             attention.append({"kind": "conclusion_outdated", "id": n["id"],
                               "text": f"{n['id']} 最新判定为 {latest['verdict']}，节点结论仍为 {n['exp_status']}"})
+    for ob in reader.obligations(status="OPEN"):
+        attention.append({"kind": "obligation_open", "id": ob["about"],
+                          "text": f"{ob['id']}（{ob['severity']}，{ob['source']}）{ob['claim'][:100]}"
+                                  + ("；已从后续报告中消失，仍未解决" if ob.get("disappearance") else "")})
     for n in nodes:
         e = n["eligibility"]
+        if n["stall"] in ("structural", "human"):
+            attention.append({"kind": "stall", "id": n["id"],
+                              "text": f"{n['id']} 的子树连续多批没有新发现：须换机制、对照或暂停"
+                                      + ("；需要向用户报告" if n["stall"] == "human" else "")})
+        if e.get("stage") == "candidate_ready" and "CONFIRMATION_REQUIRED" in e["reasons"]:
+            attention.append({"kind": "confirmation_required", "id": n["id"],
+                              "text": f"{n['id']} 搜索结果过门槛（candidate_ready），GO 前需在确认 seed 上独立确认"})
         if e["evidence_state"] == "stale":
             attention.append({"kind": "evidence_stale", "id": n["id"],
                               "text": f"{n['id']} 的当前评估 {e['basis_evaluation_id']} 已不适用（{'、'.join(e['reasons'])}）："
@@ -326,7 +343,7 @@ def summary(data: dict, db_path: Path) -> dict:
         latest = n["latest"] and data["experiments"][n["latest"]]
         deltas = {c["role"]: c["delta_mean"] for c in latest["comparisons"]} if latest else {}
         nodes.append({k: n[k] for k in ("id", "title", "parent", "status", "exp_status", "novelty", "theory", "go",
-                                        "worker")}
+                                        "worker", "disposition", "outcome", "stage", "stall")}
                      | {"verdict": latest and latest["verdict"], "seeds": latest and len(latest["seeds"]),
                         "vs_sota": deltas.get("sota"), "vs_parent": deltas.get("parent", deltas.get("sota")),
                         "concluded_at": n["times"]["concluded_at"]})
@@ -587,6 +604,8 @@ const nodeRef = id => NODES[id] || id === P.id ? `<a href="#" data-node="${esc(i
 
 // ---- tree ----
 let selected = null;
+const OUTCOME_LABEL = {positive_signal: "正向信号", negative_signal: "负向信号", inconclusive: "不确定", invalid: "无效"};
+const DISPOSITION_LABEL = {active: "继续投入", paused: "暂停", retired: "不再投入"};
 function tree() {
   const kids = {};
   D.nodes.forEach(n => (kids[n.parent] = kids[n.parent] || []).push(n));
@@ -594,7 +613,7 @@ function tree() {
     const c = kids[n.id] || [];
     return `<li data-id="${esc(n.id)}" data-status="${esc(n.status)}" data-text="${esc((n.id + " " + n.title + " " + n.statement).toLowerCase())}">
       <span class="toggle">${c.length ? "▾" : ""}</span><span class="node" data-node="${esc(n.id)}">
-      <b>${esc(n.id)}</b> ${esc(n.title)} ${badge(n.status, "s-" + n.status)}${n.exp_status !== "todo" ? badge(n.exp_status, "v-" + n.exp_status) : ""}${n.go ? '<span class="badge go">GO候选</span>' : ""}
+      <b>${esc(n.id)}</b> ${esc(n.title)} ${badge(n.status, "s-" + n.status)}${n.exp_status !== "todo" ? badge(n.exp_status, "v-" + n.exp_status) : ""}${n.outcome ? `<span class="badge">${esc(OUTCOME_LABEL[n.outcome] || n.outcome)}</span>` : ""}${n.disposition !== "active" ? `<span class="badge">${esc(DISPOSITION_LABEL[n.disposition] || n.disposition)}</span>` : ""}${n.go ? '<span class="badge go">GO候选</span>' : n.stage === "candidate_ready" ? '<span class="badge">待确认候选</span>' : ""}
       ${deltaText(n)}</span>${c.length ? `<ul>${c.map(li).join("")}</ul>` : ""}</li>`;
   };
   document.getElementById("v-tree").innerHTML = `<div class="layout"><div class="panel tree">

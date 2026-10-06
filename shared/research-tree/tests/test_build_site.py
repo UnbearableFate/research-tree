@@ -153,6 +153,16 @@ class SummaryTest(Fixture):
         self.assertEqual([(a["id"], a["label"]) for a in stale], [(h, "证据已失效")])
         self.assertIn("HARNESS_CHANGED", stale[0]["text"])
 
+    def test_outcome_disposition_and_ledger_show(self):
+        h, exp = self.candidate()
+        self.rld.add_obligation(h, "code_review:RV-0001", "dead_metric", "the metric function is never called",
+                                "CRITICAL")
+        page = self.root / "site" / "index.html"
+        data = build_site.build(self.db, page)
+        node = next(n for n in data["nodes"] if n["id"] == h)
+        self.assertEqual((node["outcome"], node["disposition"], node["go"]), ("positive_signal", "active", False))
+        self.assertIn(("obligation_open", h), {(a["kind"], a["id"]) for a in data["attention"]})
+
 
 class MarkdownTest(unittest.TestCase):
     def test_subset(self):

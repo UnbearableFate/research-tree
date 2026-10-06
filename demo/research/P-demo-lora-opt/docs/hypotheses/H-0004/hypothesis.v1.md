@@ -1,5 +1,5 @@
 ---
-id: "D-0035"
+id: "D-0039"
 doc_type: "hypothesis"
 version: 1
 title: "子批次二阶矩 + 动量重标度"
@@ -7,7 +7,7 @@ summary: "按子批次方差重标度动量可减少噪声。"
 about: []
 author_role: "rld"
 author_id: "main"
-created_at: "2026-10-06T19:20:20Z"
+created_at: "2026-10-06T23:16:43Z"
 parent: "H-0001"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。

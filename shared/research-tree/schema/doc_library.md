@@ -114,7 +114,7 @@ created_at: 2026-10-03T10:21:00Z
 | `workflow` | RLD | 规则版本、模板、项目约定 |
 | `report` | RLD | 阶段总结、GO/NOT GO报告（第6、7节要求的内容） |
 | `metric_spec` | RLD | JSON：`{"version": 1, "primary": <主指标>, "metrics": [...]}`，每个指标 `name`、`direction`（higher/lower）、`input_unit`（run 报告的单位，如 fraction、percentage、seconds、gib）、`canonical_unit`（比较单位，如 percentage_point）、`effect_mode`（absolute 或 relative_to_reference_mean）、`minimum_practical_gain`、`aggregation`（paired_run_mean），可选 `allowed_regression`（保护指标允许的最大退化）、`valid_range`（输入单位的合法范围；fraction 默认 [0,1]、percentage 默认 [0,100]。百分数指标收到 0–1 的比例时默认范围查不出，需要时把 valid_range 收紧到实际可能的区间）、`relative_min_denominator`（相对效应必填）；指标恰为项目的主指标与其他比较指标。设为现行时接口校验 |
-| `protocol` | RLD | JSON：`{"version": 1, "eval_type": real_gt/synthetic_proxy/self_supervised_proxy/simulation_only/human_eval, "pair_fields": ["seed", ...], "match": {必须一致的设定}, "required_counts": {计数: 值}}`，可选 `gate_comparison`（">" 或 ">="，默认 ">"）、`min_pairs`、`require_artifact_import`、`description`。设为现行时接口校验 |
+| `protocol` | RLD | JSON：`{"version": 1, "eval_type": real_gt/synthetic_proxy/self_supervised_proxy/simulation_only/human_eval, "pair_fields": ["seed", ...], "match": {必须一致的设定}, "required_counts": {计数: 值}}`，可选 `gate_comparison`（">" 或 ">="，默认 ">"）、`min_pairs`、`require_artifact_import`、`description`；`profile`（`stage1_confirmed`（默认）：GO 需要独立确认；`screening`：搜索过门槛即 candidate_ready，GO 报告须写明未经独立确认）、`confirmation_seeds`（与搜索 seed 不重叠，至少 `min_confirmation_pairs` 个，默认 3）、`max_confirmation_candidates`、`independence_fields`（共享这些 manifest 字段的运行只算一次独立重复）。设为现行时接口校验 |
 | `config` | RLD（mod 代用户登记） | 项目目录 `research-tree.yaml` 的原文：开发与实验平台、资源预算、阶段1门槛、子代理模型；立项确认与每次 `/research-tree config apply` 时登记新版本 |
 
 ## 5. 写入权限
@@ -136,7 +136,8 @@ created_at: 2026-10-03T10:21:00Z
 | 节点worker的指派（`assign_worker`）与会话绑定（`bind_worker_session`） | 只有RLD（mod 在启动worker时自动绑定会话） |
 | 节点恢复文档的追加（`add_resume_docs`） | 节点的worker，或RLD |
 | 实验、运行、产物导入（`import_run_result`）、扩展seed（`extend_seeds`）、统计计算（`evaluate_experiment`，兼容入口 `record_verdict`）、实验依赖 | 实验owner worker，或RLD；节点已指派worker时，只有该worker能为它建实验 |
-| 撤回已有效的运行（`retract_run`）、历史判定的影子迁移（`migrate_evaluations`） | 只有RLD |
+| 撤回已有效的运行（`retract_run`）、历史判定的影子迁移（`migrate_evaluations`）、旧状态迁移（`migrate_states`）、投入处置（`decide_disposition`）、停滞计数（`note_findings`）、关闭未决问题（`resolve_obligation`、`waive_obligation`） | 只有RLD |
+| 登记未决问题（`add_obligation`、`reconcile_obligations`） | RLD 或 worker；STAT_MISMATCH 与 PAIRING_MISMATCH 由接口自动登记 |
 | 分支交还（`active → returned`） | 分支owner worker，或RLD |
 | 任务开始与交付 | 任务的assignee |
 
@@ -157,7 +158,11 @@ created_at: 2026-10-03T10:21:00Z
 - **用户放弃。** 节点在上限或权限内无法实验时，RLD上报用户；用户决定放弃后，UI登记描述该节点（`about`）的用户指令文档，RLD引用它即可把节点标为可消灭，无需实验。
 - **节点关键时间戳**由接口自动记录，调用者不能设置：创建（`created_at`）、首次开始验证（`started_at`）、首次实验即第一个运行提交（`first_experiment_at`）、首次统计判定（`first_result_at`）、首次判定优于SOTA（`beats_sota_at`）、完成即最近一次转为可拓展或可消灭（`concluded_at`，重新验证时清空）。首次类时间戳写入后不再改写。
 - **GO资格**（`get_eligibility`、`go_candidates`）只从 evaluation 计算，不读缓存标签：节点最新的 evaluation 仍适用（框架、协议、指标规范、SOTA及其评估都未变，引用的 run 未被撤回或重新提交）、不是 `legacy_unverified`、通过 SOTA 门槛与保护指标，且两项复核通过并绑定到同一代码版本。不满足时返回原因（HARNESS_CHANGED、BASELINE_CHANGED、PROTOCOL_CHANGED、METRIC_SPEC_CHANGED、RUN_RETRACTED、INPUT_CHANGED、RESULT_REVISION_PENDING、LEGACY_RESULT_UNVERIFIED、GATE_NOT_PASSED、GUARDRAIL_FAILED、RECHECK_PENDING、RECHECK_FAILED、RECHECK_STALE）。**GO**在写事务中重新检查资格（证据失效时 EVIDENCE_STALE）；已作出的 GO 是历史事实，后来的失效只改变当前资格，不改写项目状态，也不自动重开研究。**NOT GO**要求所有节点都可消灭；项目停止或恢复必须引用用户指令文档。
-- **GO / NOT GO 报告**须有 evidence 代码块，列出所依据的数字及来源。
+- **GO / NOT GO 报告**须有 evidence 代码块，列出所依据的数字及来源；NOT GO 报告还须有“未探索、工程失败、不确定、重复方向、明确反证、投入价值判断”各节。NOT GO 要求没有仍在投入的节点（投入处置为暂停或不再投入），清理未完成不阻挡决定。
+- **结论与投入处置**：每个 evaluation 带确定性的 `outcome`（正向信号、负向信号、不确定）；节点实验不再需要调用者给判定（给出时仍核对）。节点结论可为 inconclusive；达到 seed 上限可以停在不确定。基于不确定结果的状态或结论决定，决定文档须有“缺失证据”“下一实验”两节；连续两次不确定后新实验须写 `selection_rationale`。无提升不再强制剪枝；转为可消灭须引用证据，未做实验的节点只能由用户放弃。`decide_disposition` 记录继续、暂停或不再投入（理由、依据、暂停与不再投入的复议条件）。
+- **确认**：`create_experiment(stage=confirm)` 在协议的确认 seed 上运行：先是确认基线（kind baseline），再是节点冻结的候选代码（最近一次过门槛的搜索实验的代码）；协议为 stage1_confirmed 时，GO 资格需要同一代码的确认 evaluation 仍适用、过门槛与保护指标，且确认 seed 未被此前其他代码的确认用过（CONFIRMATION_REQUIRED / FAILED / REUSED / STALE）。
+- **未决问题与停滞**：节点或其实验、evaluation 上有 OPEN 的 obligation 时不是 GO 候选（OBLIGATION_OPEN）；`note_findings` 连续 `stall_structural_at` 批无新发现后子树进入 structural，同方向子节点被拒（STALL_STRUCTURAL），到 `stall_human_at` 批时返回需报告用户。
+- **任务验收**须给 `evidence_ids`，验收者不是执行者；`resume_package` 给出第一个未验收的任务。
 - **指标规范与协议**一起登记：有指标规范就必须有协议（评测类型标在每个 evaluation 上）；主指标的 `minimum_practical_gain` 等于项目的 `go_margin`，协议的 `min_pairs` 不小于 `gate_seeds`：门槛只写一处。
 - **协议与指标规范**在实验存在后更换须引用一份现行的用户指令文档（`update_project(..., user_instruction_doc_id)`）：这是用户的决定，不能由agent在看到结果后改口径；旧 evaluation 随之失效。有效运行事后被证明无效时，RLD 用 `retract_run` 撤回（记录保留，引用它的 evaluation 失效），之后可作为新 attempt 重新提交。
 

@@ -49,6 +49,7 @@ METRIC_SPECS = {"version": 1, "primary": "acc", "metrics": [
      "minimum_practical_gain": 0.0, "aggregation": "paired_run_mean"},
 ]}
 PROTOCOL = {"version": 1, "eval_type": "real_gt", "pair_fields": ["seed", "data_version"],
+            "profile": "stage1_confirmed", "confirmation_seeds": [1042, 1043, 1044], "max_confirmation_candidates": 2,
             "match": {"train_steps": 1000}, "required_counts": {"n_eval": 8000},
             "description": "（虚构示例）8个常识推理任务、1000步LoRA训练；按seed与数据版本配对"}
 def task_body(*contents: str, kind: str = "task_request") -> str:
@@ -114,7 +115,7 @@ class Demo:
         r = random.Random(f"{seed}-{json.dumps(effect, sort_keys=True)}")
         base = {"acc": 71.40, "final_loss": 0.912, "loss_auc": 1.284, "peak_mem_gb": 38.0, "train_time_s": 3000.0}
         noise = {"acc": 0.01, "final_loss": 0.002, "loss_auc": 0.005, "peak_mem_gb": 0.05, "train_time_s": 15.0}
-        seed_shift = {42: 0.0, 43: 0.05, 44: -0.03}[seed]
+        seed_shift = {42: 0.0, 43: 0.05, 44: -0.03}.get(seed, 0.01 * (seed % 7 - 3))
         return {k: round(base[k] + effect.get(k, 0.0) + (seed_shift if k == "acc" else 0) + r.gauss(0, noise[k]), 4)
                 for k in base}
 
@@ -260,7 +261,7 @@ class Demo:
             "3个seed均有效；结果见 baselines/E-0001/result.v1.md。", "12 node·h。", "无。", kind="task_delivery"),
             "框架与SOTA完成")
         w1.update_task(t_root, status="delivered", delivery_doc_id=delivery)
-        rld.update_task(t_root, status="accepted")
+        rld.update_task(t_root, status="accepted", evidence_ids=[sota, delivery])
         self.sota, self.harness = sota, harness
 
         # Cached related work.
@@ -386,7 +387,9 @@ class Demo:
             return "beats_parent" if parent["delta_mean"] > 0 else "no_gain"
 
         def conclude(h, exp, status, reason):
-            dd = self.decision(f"hypotheses/{h}/decisions/{status}.v1.md", f"{h} 结论", reason, h)
+            dd = self.decision(f"hypotheses/{h}/decisions/{status}.v1.md", f"{h} 结论",
+                               f"{reason}\n\n## 缺失证据\n\n第3个seed与更长训练下的结果（筛选只用了部分seed）。\n\n"
+                               "## 下一实验\n\n可拓展时在子节点补足；可消灭时不再投入，除非出现新的机制依据。\n", h)
             verdict = rld.get(exp)["verdict"]
             changes = {"experiment_status": verdict if verdict != "needs_rld" else status_for[h], "status": status}
             rld.decide(h, changes, reason, doc_id=dd, based_on=[exp])
@@ -428,6 +431,27 @@ class Demo:
         dd3 = self.decision(f"hypotheses/{h3}/decisions/expandable.v1.md", f"{h3} 可拓展",
                             "优于SOTA且两项复核通过；作为GO候选，同时可派生子节点。", h3)
         rld.decide(h3, {"status": "expandable"}, "优于SOTA且复核通过，可拓展", doc_id=dd3)
+        # Independent confirmation of the frozen candidate on unseen seeds (stage1_confirmed).
+        w_root = ResearchDB(db_path := self.root / "research_tree.db", "worker/root")
+        cb_design = self.doc(w_root, "baselines/confirm/design.v1.md", "experiment_design", "确认基线",
+                             "在确认 seed 1042–1044 上运行 BaseOpt-A，作为确认的参照。\n", "确认基线设计")
+        cbase = w_root.create_experiment("baseline", "BaseOpt-A（确认基线）", cb_design, self.harness, 4, 3600,
+                                         stage="confirm")
+        self.values[cbase] = self.finish_experiment(w_root, cbase, {}, nodes=4)
+        cb_result = self.doc(w_root, "baselines/confirm/result.v1.md", "experiment_result", "确认基线结果",
+                             "确认 seed 上的基线结果。\n" + self.evidence(cbase), "确认基线")
+        w_root.evaluate_experiment(cbase, cb_result)
+        c_design = self.doc(wk3, f"hypotheses/{h3}/experiments/confirm/design.v1.md", "experiment_design",
+                            f"{h3} 独立确认", f"冻结代码 {rld.get(e3)['code_ref'][:10]}，确认 seed 1042–1044。\n", "独立确认")
+        conf = wk3.create_experiment("method", "moment-balance（确认）", c_design, rld.get(e3)["code_ref"], 4, 3600,
+                                     hypothesis_id=h3, stage="confirm")
+        self.values[conf] = self.finish_experiment(wk3, conf, {"acc": 0.24, "peak_mem_gb": 1.0, "loss_auc": -0.02}, nodes=4)
+        cmps = [self.paired(self.values[conf], self.values[cbase], "sota", cbase)]
+        c_result = self.doc(wk3, f"hypotheses/{h3}/experiments/{conf}/result.v3.md", "experiment_result",
+                            f"{conf} 确认结果", f"确认 seed 上相对确认基线 Δacc {cmps[0]['delta_mean']:+.3f}。\n"
+                            + self.evidence(conf, cmps), f"{conf} 独立确认")
+        wk3.evaluate_experiment(conf, c_result)
+        del db_path
         # H-0004: child of H-0001 — no gain against the parent; pruned.
         h4 = node("子批次二阶矩 + 动量重标度", "按子批次方差重标度动量可减少噪声。", [lit[0], lit[1], lit[4]], parent=h1,
                   rationale="H-0001 的变体，检验噪声来源。")

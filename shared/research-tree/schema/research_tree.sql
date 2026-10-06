@@ -1,4 +1,4 @@
--- 研究假说树 LatticeDB 数据模型（schema_version 7，2026-10-06）
+-- 研究假说树 LatticeDB 数据模型（schema_version 8，2026-10-06）
 --
 -- 说明
 -- * LatticeDB 是属性图数据库（Cypher 查询），不执行 SQL。本文件用 SQL DDL 作为可读的
@@ -56,6 +56,8 @@ CREATE TABLE project (
     max_parallel_workers INTEGER,              -- 同时有任务在手的 worker 数上限；null 为不限
     alert_node_h        REAL,                  -- 累计用量提醒阈值（node·h）；超过时提醒用户，null 为不提醒
     config_doc_id       TEXT,                  -- 生效中的项目配置（research-tree.yaml 的登记版本）；以上预算与门槛取自它
+    stall_structural_at INTEGER NOT NULL DEFAULT 2,  -- 子树连续几批没有新发现即须换向（同方向子节点被拒）
+    stall_human_at      INTEGER NOT NULL DEFAULT 4,  -- 连续几批没有新发现即上报用户
     protocol_doc_id     TEXT,                  -- 现行实验协议（JSON 文档：评测类型、配对字段、必须一致的设定）
     metric_spec_doc_id  TEXT,                  -- 现行指标规范（JSON 文档：每个指标的方向、单位、效应、最小实际收益、保护阈值）
     -- 冻结的实验框架与统计代码（根节点 worker 实现，RLD 审核）
@@ -94,12 +96,21 @@ CREATE TABLE hypothesis (
                             'running',         -- 代码改进与实验进行中
                             'no_gain',         -- 无提升：各项指标都不优于父节点
                             'beats_parent',    -- 优于父节点
-                            'beats_sota'       -- 优于 SOTA：gate_seeds 个 seed，主指标效应超过最小实际收益（evaluation 重算）
+                            'beats_sota',      -- 优于 SOTA：gate_seeds 个 seed，主指标效应超过最小实际收益（evaluation 重算）
+                            'inconclusive'     -- 不确定：最新 evaluation 的 outcome 为 inconclusive（含达到 seed 上限仍接近门槛）
                         )),
     -- 实验优于 SOTA 后才由 RLD 复核；创建时的相关研究见 rel_references
     novelty_recheck     TEXT NOT NULL CHECK (novelty_recheck IN ('pending', 'pass', 'fail')),
     theory_recheck      TEXT NOT NULL CHECK (theory_recheck  IN ('pending', 'pass', 'fail')),
     priority            INTEGER NOT NULL DEFAULT 0,  -- 越大越优先；实验信号是第一推动因素
+    -- 投入处置（与执行生命周期、实验证据分开记录；plans/design 06 §3）
+    disposition         TEXT CHECK (disposition IN ('active', 'paused', 'retired')),  -- 空：旧记录，按 status 推断
+    disposition_reason  TEXT,
+    reconsider_when     TEXT,                  -- 复议条件
+    -- 停滞计数（06 §5）
+    direction           TEXT,                  -- 节点代表的研究方向（机制标签）；停滞的子树拒绝同方向的新子节点
+    new_findings_streak INTEGER,               -- 连续几批没有新发现
+    stall_state         TEXT CHECK (stall_state IN ('none', 'structural', 'human')),
     status_reason       TEXT,                  -- 当前状态的一句话理由；详细见最近 decision
     owner               TEXT NOT NULL,
     -- 节点的 worker：一个节点一个 worker 身份，从头负责到节点完成；会话丢失时用同一身份从恢复文档接手
@@ -142,6 +153,8 @@ CREATE TABLE experiment (
                         )),
     method_name         TEXT NOT NULL,
     design_doc_id       TEXT NOT NULL,         -- 实验设计文档
+    stage               TEXT CHECK (stage IN ('screen', 'replicate', 'confirm')),  -- 三级流程（06 §2.2）；空 = screen
+    selection_rationale TEXT,                  -- 为什么现在做、结果怎样改变下一步（同一 claim 多轮不确定后必填）
     result_doc_id       TEXT,                  -- 统计结果文档（冻结统计代码的输出与解读）
     code_ref            TEXT NOT NULL,         -- 运行的 git commit；打标签 exp/<实验ID>，分支删除后仍可追溯
     harness_ref         TEXT,                  -- 判定时核对通过的冻结框架版本
@@ -261,7 +274,11 @@ CREATE TABLE evaluation (
     result_doc_id       TEXT,
     metrics             JSON NOT NULL,         -- 每个指标：规范单位的逐 run 值、均值、SD（n=1 时为空并说明）
     comparisons         JSON,                  -- 每个比较（sota/parent）：配对数、每个指标的效应、gate 与保护指标
-    verdict             TEXT,                  -- 兼容期调用者给出的判定（经核对）
+    verdict             TEXT,                  -- 兼容期调用者给出的判定（经核对；新流程可为空）
+    outcome             TEXT CHECK (outcome IN ('positive_signal', 'negative_signal', 'inconclusive', 'invalid')),
+                                               -- 确定性结论：主指标相对参照的效应与最小实际收益（06 §2.1）
+    outcome_reason      TEXT,
+    stage               TEXT CHECK (stage IN ('screen', 'replicate', 'confirm')),
     gate_passed         BOOLEAN,               -- 与 SOTA 比较：配对数达标且主指标效应超过最小实际收益
     guardrails_passed   BOOLEAN,               -- 有 allowed_regression 的指标都没有超额退化
     eval_type           TEXT CHECK (eval_type IN (
@@ -282,6 +299,25 @@ CREATE TABLE evaluation (
     migrated            BOOLEAN,               -- 由 migrate_evaluations 为旧判定补记：只作历史，不支持新规则下的 GO
     created_by          TEXT NOT NULL,
     created_at          TEXT NOT NULL
+);
+
+-- 未决问题账本（06 §6）：复核发现、STAT_MISMATCH、协议不匹配、代码审查 CRITICAL 等；只追加
+CREATE TABLE obligation (
+    id                  TEXT PRIMARY KEY,      -- 例：OB-0003
+    about               TEXT NOT NULL,         -- 节点、实验或 evaluation 的 ID
+    source              TEXT NOT NULL,         -- 来源：review 文档 ID 或错误码
+    pattern             TEXT NOT NULL,         -- 来源内的问题类别
+    fingerprint         TEXT NOT NULL,         -- 来源类别 + 模式 + 证据片段的摘要；同一指纹再次出现不新增
+    severity            TEXT NOT NULL CHECK (severity IN ('CRITICAL', 'MAJOR', 'MINOR')),  -- 只升不降
+    status              TEXT NOT NULL CHECK (status IN ('OPEN', 'RESOLVED', 'WAIVED')),
+    claim               TEXT NOT NULL,
+    evidence_excerpt    TEXT,
+    history             JSON,                  -- 升级、重开、消失与重现的记录
+    resolution          JSON,                  -- RESOLVED：修复类型、证据文件与哈希、核验者
+    waiver              JSON,                  -- WAIVED：用户指令文档
+    disappearance       JSON,                  -- 从后续报告中消失（UNRESOLVED_DISAPPEARANCE），仍为 OPEN
+    created_at          TEXT NOT NULL,
+    updated_at          TEXT NOT NULL
 );
 
 -- 文档索引：正文在文档库，库中只存定位与摘要
@@ -321,7 +357,7 @@ CREATE TABLE decision (
     field               TEXT NOT NULL CHECK (field IN (
                             'status', 'experiment_status', 'novelty_recheck',
                             'theory_recheck', 'priority', 'project_status',
-                            'branch_status', 'run_validity'
+                            'branch_status', 'run_validity', 'disposition', 'findings'
                         )),
     from_value          TEXT,
     to_value            TEXT NOT NULL,
@@ -350,6 +386,8 @@ CREATE TABLE task (
     assignee_id         TEXT,
     request_doc_id      TEXT NOT NULL,         -- 委派说明文档
     delivery_doc_id     TEXT,                  -- 交付文档
+    accepted_by         TEXT,                  -- 验收者（不能是 assignee）
+    accepted_evidence   TEXT_LIST,             -- 验收依据：evaluation、决定或文档 ID（plans/design 13 §2.1 accept）
     created_at          TEXT NOT NULL,
     updated_at          TEXT NOT NULL
 );
