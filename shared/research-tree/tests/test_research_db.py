@@ -97,7 +97,8 @@ class Fixture(unittest.TestCase):
         self.n += 1
         return self.doc(actor or self.worker, f"results/r{self.n}.v1.md", "experiment_result")
 
-    def finish_runs(self, actor: ResearchDB, exp: str, nodes: int = 1, walltime_s: int = 600) -> None:
+    def finish_runs(self, actor: ResearchDB, exp: str, nodes: int = 1, walltime_s: int = 600,
+                    metric_value: float = 70.0) -> None:
         for seed in self.rld.get(exp)["seeds"]:
             run = f"{exp}/s{seed}"
             if self.rld.get(run) is None:
@@ -105,7 +106,7 @@ class Fixture(unittest.TestCase):
             if self.rld.get(run).get("valid"):
                 continue
             actor.update_run(run, exec_status="submitted")
-            actor.update_run(run, exec_status="succeeded", valid=True, metric_value=70.0,
+            actor.update_run(run, exec_status="succeeded", valid=True, metric_value=metric_value,
                              secondary={"final_loss": 1.0, "peak_mem_gb": 40.0},
                              nodes_used=nodes, walltime_used_s=walltime_s, output_path=f"outputs/{run}",
                              log_path=f"outputs/{run}/train.log")
@@ -154,6 +155,14 @@ class Fixture(unittest.TestCase):
 
     def evaluate(self, exp: str, verdict: str, sota=(0.3, 0.1, 0.1), parent=None) -> None:
         self.worker.record_verdict(exp, self.result_doc(), 70.3, 0.05, verdict, self.comparisons(exp, sota, parent))
+
+    def concluded(self, verdict: str, sota=(0.3, 0.1, 0.1), parent=None, hyp: str | None = None) -> tuple[str, str]:
+        h = hyp or self.hypothesis()
+        if hyp is None:
+            self.start(h)
+        exp = self.method(h)
+        self.evaluate(exp, verdict, sota=sota, parent=parent)
+        return h, exp
 
     def clean_all(self) -> None:
         """Every due cleanup, as its owner; the first call copies the project's cleanup script."""
@@ -451,14 +460,6 @@ class TightBudgetTest(Fixture):
 
 
 class DecisionTest(Fixture):
-    def concluded(self, verdict: str, sota=(0.3, 0.1, 0.1), parent=None, hyp: str | None = None) -> tuple[str, str]:
-        h = hyp or self.hypothesis()
-        if hyp is None:
-            self.start(h)
-        exp = self.method(h)
-        self.evaluate(exp, verdict, sota=sota, parent=parent)
-        return h, exp
-
     def test_status_follows_latest_verdict(self):
         h, exp = self.concluded("no_gain", sota=(-0.1, -0.1, -0.1))
         with self.assertRaisesRegex(ResearchDBError, "needs based_on the latest evaluated experiment"):
@@ -627,6 +628,69 @@ class DecisionTest(Fixture):
         resume = self.doc(self.rld, "instructions/resume.v1.md", "user_instruction")
         self.rld.decide("P-test", {"status": "active"}, "user resumes", doc_id=self.decision_doc(), based_on=[resume])
         self.rld.create_task("experiment", "worker", req, target_id=h)
+
+
+class KnownDefectTest(Fixture):
+    """M0 baseline (plans/design/00 §2.3): F01 and F02 as regression tests. Expected failures on the baseline;
+    M1 makes the numbers recomputed from the runs and GO eligibility bound to current evidence."""
+
+    @unittest.expectedFailure
+    def test_f01_summary_must_match_the_runs(self):  # M01
+        design = self.doc(self.worker, "exp/f01/design.v1.md", "experiment_design")
+        exp = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 60)
+        self.finish_runs(self.worker, exp)  # every run 70.0
+        with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH"):
+            self.worker.record_verdict(exp, self.result_doc(), 70.3, 0.0)  # the SD (0) is true
+        self.assertIsNone(self.rld.get(exp).get("evaluated_at"))
+
+    @unittest.expectedFailure
+    def test_f01_comparison_must_match_the_runs(self):  # M02
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h)  # every run 70.0, like the SOTA baseline's
+        claimed = self.comparisons(exp, (0.3, 0.0, 0.0))
+        claimed[0]["delta_sd"] = 0.0  # true, like the secondary deltas: only delta_mean is false
+        with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH"):
+            self.worker.record_verdict(exp, self.result_doc(), 70.0, 0.0, "beats_sota", claimed)
+        self.assertIsNone(self.rld.get(exp).get("evaluated_at"))
+        self.assertEqual(self.rld.edges("rel_compared_with", source_id=exp), [])
+
+    def go_candidate(self, new_harness: bool = True) -> str:
+        """A node that beats SOTA with numbers consistent with its runs (70.3 against 70.0 on every seed),
+        rechecked, then (new_harness) a new harness."""
+        h = self.hypothesis()
+        self.start(h)
+        self.n += 1
+        design = self.doc(self.worker, f"exp/m{self.n}/design.v1.md", "experiment_design")
+        exp = self.worker.create_experiment("method", "m", design, self.commit(), 1, 1800, hypothesis_id=h)
+        self.finish_runs(self.worker, exp, metric_value=70.3)
+        claimed = self.comparisons(exp, (0.3, 0.0, 0.0))
+        claimed[0]["delta_sd"] = 0.0
+        self.worker.record_verdict(exp, self.result_doc(), 70.3, 0.0, "beats_sota", claimed)
+        self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
+        novelty = self.doc(self.rld, f"h/{h}/novelty.v1.md", "novelty", about=(h,))
+        theory = self.doc(self.rld, f"h/{h}/theory.v1.md", "theory", about=(h,))
+        self.rld.decide(h, {"novelty_recheck": "pass", "theory_recheck": "pass"}, "rechecked",
+                        based_on=[novelty, theory])
+        if new_harness:
+            self.rld.update_project(harness_ref=self.commit({"harness/stats.py": "stats v2\n"}))
+        return h
+
+    def test_a_consistent_candidate_is_listed(self):  # the F02 tests' precondition, outside expectedFailure
+        h = self.go_candidate(new_harness=False)
+        self.assertEqual(self.rld.go_candidates(), [h])
+
+    @unittest.expectedFailure
+    def test_f02_a_new_harness_ends_go_candidacy(self):  # F02 (E01 in part)
+        self.go_candidate()
+        self.assertEqual(self.rld.go_candidates(), [])
+
+    @unittest.expectedFailure
+    def test_f02_a_new_harness_refuses_go(self):  # F02 (E01 in part)
+        self.go_candidate()
+        with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_STALE"):
+            self.rld.decide("P-test", {"status": "go"}, "GO", doc_id=self.doc(self.rld, "reports/go.v1.md", "report"))
+        self.assertEqual(self.rld.get("P-test")["status"], "active")
 
 
 class CleanupTest(Fixture):
