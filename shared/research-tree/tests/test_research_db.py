@@ -12,6 +12,8 @@ import textwrap
 import unittest
 from pathlib import Path
 
+from latticedb import Database
+
 REPO = Path(__file__).resolve().parent.parent
 
 
@@ -24,17 +26,35 @@ def load(name: str, path: Path):
 
 
 create_db = load("create_db", REPO / "schema" / "create_db.py")
+metrics_mod = load("metrics", REPO / "tools" / "metrics.py")
+MetricErrorAlias = metrics_mod.MetricError
 rdb = load("research_db", REPO / "tools" / "research_db.py")
 ResearchDB, ResearchDBError, PermissionDenied = rdb.ResearchDB, rdb.ResearchDBError, rdb.PermissionDenied
 
 SEEDS = [42, 43, 44]
 SECONDARY = ["final_loss", "peak_mem_gb"]
+METRICS = ["acc"] + SECONDARY
+BASE = {"acc": 70.0, "final_loss": 1.0, "peak_mem_gb": 40.0}  # every SOTA run
+SIGN = {"acc": 1, "final_loss": -1, "peak_mem_gb": -1}  # +1: higher is better
+SPECS = {"version": 1, "primary": "acc", "metrics": [
+    {"name": "acc", "direction": "higher", "input_unit": "percentage", "canonical_unit": "percentage_point",
+     "effect_mode": "absolute", "minimum_practical_gain": 0.05, "aggregation": "paired_run_mean",
+     "valid_range": [0, 100]},
+    {"name": "final_loss", "direction": "lower", "input_unit": "nats", "canonical_unit": "nats",
+     "effect_mode": "absolute", "minimum_practical_gain": 0.0, "aggregation": "paired_run_mean"},
+    {"name": "peak_mem_gb", "direction": "lower", "input_unit": "gib", "canonical_unit": "gib",
+     "effect_mode": "absolute", "minimum_practical_gain": 0.0, "aggregation": "paired_run_mean"},
+]}
+PROTOCOL = {"version": 1, "eval_type": "real_gt", "pair_fields": ["seed"]}
 
 
 class Fixture(unittest.TestCase):
-    """A project with a frozen harness and an evaluated SOTA baseline (0.5 node-hours per seed)."""
+    """A project with a metric specification, a protocol, a frozen harness and an evaluated SOTA baseline
+    (0.5 node-hours per seed). Every number the tests evaluate comes from the runs: a method experiment's runs
+    are the SOTA's (or a parent experiment's) values shifted by the effects the test names."""
 
     sota_nodes, sota_walltime_s = 1, 1800
+    specs_content, protocol_content = SPECS, PROTOCOL
 
     def setUp(self):
         self.tmp = tempfile.TemporaryDirectory()
@@ -45,6 +65,7 @@ class Fixture(unittest.TestCase):
         self.rld = ResearchDB(self.db, "rld/main")
         self.worker = ResearchDB(self.db, "worker/w1")
         self.n = 0
+        self.effects: dict[str, tuple[str, tuple]] = {}
 
         self.repo = Path(self.tmp.name) / "code"
         (self.repo / "harness").mkdir(parents=True)
@@ -52,8 +73,13 @@ class Fixture(unittest.TestCase):
         self.harness = self.commit({"harness/stats.py": "stats v1\n"})
 
         setup = self.doc(self.rld, "project/min-setup.v1.md", "min_setup")
+        self.specs = self.doc(self.rld, "project/metric-spec.v1.json", "metric_spec",
+                              body=json.dumps(self.specs_content))
+        self.protocol = self.doc(self.rld, "project/protocol.v1.json", "protocol",
+                                 body=json.dumps(self.protocol_content))
         self.rld.create_project("P-test", "test", setup, "acc", "higher", True, SECONDARY, SEEDS,
-                                repo_path=str(self.repo))
+                                repo_path=str(self.repo), metric_spec_doc_id=self.specs,
+                                protocol_doc_id=self.protocol)
         self.rld.update_project(harness_ref=self.harness, harness_paths=["harness"])
         self.literature = [self.doc(self.worker, f"literature/LIT-{i}.v1.md", "literature") for i in range(3)]
         self.sota = self.baseline(self.sota_nodes, self.sota_walltime_s)
@@ -78,12 +104,13 @@ class Fixture(unittest.TestCase):
         return self.git("rev-parse", "HEAD")
 
     def doc(self, actor: ResearchDB, path: str, doc_type: str, current: bool = True,
-            about: tuple[str, ...] = ()) -> str:
+            about: tuple[str, ...] = (), body: str | None = None) -> str:
         self.n += 1
         file = self.root / "docs" / path
         file.parent.mkdir(parents=True, exist_ok=True)
-        body = "".join(f"## {name}\n\n未知\n\n" for name in rdb.TASK_SECTIONS.get(doc_type, ()))
-        file.write_text(f"doc {self.n}\n\n{body}", encoding="utf-8")
+        if body is None:
+            body = f"doc {self.n}\n\n" + "".join(f"## {name}\n\n未知\n\n" for name in rdb.TASK_SECTIONS.get(doc_type, ()))
+        file.write_text(body, encoding="utf-8")
         doc_id = actor.register_document(path, doc_type, f"title {self.n}", about=list(about))
         if current:
             actor.set_document_current(doc_id)
@@ -93,12 +120,55 @@ class Fixture(unittest.TestCase):
         self.n += 1
         return self.doc(self.rld, f"decisions/d{self.n}.v1.md", "decision")
 
-    def result_doc(self, actor: ResearchDB | None = None) -> str:
+    def result_doc(self, actor: ResearchDB | None = None, exp: str | None = None, extra: list | None = None,
+                   cite_runs: bool = True) -> str:
+        """An experiment result citing its numbers from files, as every experiment result does: one number from a
+        file of its own, and (exp) each imported run's primary metric from that run's metrics file."""
         self.n += 1
-        return self.doc(actor or self.worker, f"results/r{self.n}.v1.md", "experiment_result")
+        source = self.root / "outputs" / "evidence" / f"r{self.n}.json"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text(json.dumps({"acc": 70.25}), encoding="utf-8")
+        claims = [{"id": "acc", "value": "70.25", "source": f"outputs/evidence/r{self.n}.json"}]
+        runs = [self.rld.get(f"{exp}/s{s}") for s in self.rld.get(exp)["seeds"]] if exp else []
+        if runs and all(r and r.get("metric_value") is not None for r in runs):
+            spec = next(m for m in self.specs_content["metrics"] if m["name"] == "acc")
+            mean = sum(metrics_mod.canonical(spec, r["metric_value"], r["id"]) for r in runs) / len(runs)
+            source.write_text(json.dumps({"acc": 70.25, "mean": round(mean, 9)}), encoding="utf-8")
+            claims.append({"id": "mean:acc", "value": repr(round(mean, 9)), "source": f"outputs/evidence/r{self.n}.json"})
+        for seed in (self.rld.get(exp)["seeds"] if exp and cite_runs else []):
+            run = self.rld.get(f"{exp}/s{seed}")
+            if run and run.get("evidence_paths"):
+                claims.append({"id": f"acc-s{seed}", "value": str(run["metric_value"]),
+                               "source": run["evidence_paths"][0]})
+        body = f"result {self.n}\n\n```evidence\n{json.dumps(claims + (extra or []))}\n```\n"
+        return self.doc(actor or self.worker, f"results/r{self.n}.v1.md", "experiment_result", body=body)
+
+    def report_doc(self, name: str) -> str:
+        """A GO / NOT GO report: it cites the numbers it rests on."""
+        self.n += 1
+        source = self.root / "outputs" / "evidence" / f"report{self.n}.json"
+        source.parent.mkdir(parents=True, exist_ok=True)
+        source.write_text(json.dumps({"delta": 0.3}), encoding="utf-8")
+        body = (f"report {self.n}\n\n```evidence\n"
+                f'[{{"id": "delta", "value": "0.3", "source": "outputs/evidence/report{self.n}.json"}}]\n```\n')
+        return self.doc(self.rld, f"reports/{name}-{self.n}.v1.md", "report", body=body)
+
+    def values_for(self, exp: str) -> dict:
+        """The values every run of exp reports: the SOTA's, or its reference's shifted by the effects (oriented,
+        positive = better)."""
+        if exp not in self.effects:
+            return dict(BASE)
+        ref, deltas = self.effects[exp]
+        base = self.values_for(ref)
+        return {k: base[k] + SIGN[k] * d for k, d in zip(METRICS, deltas)}
 
     def finish_runs(self, actor: ResearchDB, exp: str, nodes: int = 1, walltime_s: int = 600,
-                    metric_value: float = 70.0) -> None:
+                    metric_value: float | None = None, effect: tuple | None = None) -> None:
+        if effect is not None:
+            self.effects[exp] = effect
+        values = self.values_for(exp)
+        if metric_value is not None:
+            values["acc"] = metric_value
         for seed in self.rld.get(exp)["seeds"]:
             run = f"{exp}/s{seed}"
             if self.rld.get(run) is None:
@@ -106,8 +176,8 @@ class Fixture(unittest.TestCase):
             if self.rld.get(run).get("valid"):
                 continue
             actor.update_run(run, exec_status="submitted")
-            actor.update_run(run, exec_status="succeeded", valid=True, metric_value=metric_value,
-                             secondary={"final_loss": 1.0, "peak_mem_gb": 40.0},
+            actor.update_run(run, exec_status="succeeded", valid=True, metric_value=values["acc"],
+                             secondary={k: values[k] for k in SECONDARY},
                              nodes_used=nodes, walltime_used_s=walltime_s, output_path=f"outputs/{run}",
                              log_path=f"outputs/{run}/train.log")
 
@@ -116,7 +186,7 @@ class Fixture(unittest.TestCase):
         design = self.doc(self.worker, f"exp/b{self.n}/design.v1.md", "experiment_design")
         exp = self.worker.create_experiment("baseline", "sota", design, self.harness, nodes, walltime_s)
         self.finish_runs(self.worker, exp, nodes, walltime_s)
-        self.worker.record_verdict(exp, self.result_doc(), 70.0, 0.1)
+        self.worker.evaluate_experiment(exp, self.result_doc(exp=exp))
         return exp
 
     def hypothesis(self, parent: str | None = None) -> str:
@@ -134,15 +204,15 @@ class Fixture(unittest.TestCase):
                         doc_id=self.decision_doc())
 
     def method(self, hyp: str, n_seeds: int | None = None, code_ref: str | None = None) -> str:
+        """A node experiment with its runs not yet reported (evaluate or finish_runs reports them)."""
         self.n += 1
         design = self.doc(self.worker, f"exp/m{self.n}/design.v1.md", "experiment_design")
-        exp = self.worker.create_experiment("method", "m", design, code_ref or self.commit(), 1, 1800,
-                                            hypothesis_id=hyp, n_seeds=n_seeds)
-        self.finish_runs(self.worker, exp)
-        return exp
+        return self.worker.create_experiment("method", "m", design, code_ref or self.commit(), 1, 1800,
+                                             hypothesis_id=hyp, n_seeds=n_seeds)
 
     def comparisons(self, exp: str, sota: tuple[float, float, float], parent=None) -> list[dict]:
-        """sota: (primary, final_loss, peak_mem_gb) deltas; parent: (experiment, primary, ...); positive = better."""
+        """Claimed comparisons for record_verdict: sota (primary, final_loss, peak_mem_gb) deltas; parent:
+        (experiment, primary, ...); positive = better."""
         seeds = set(self.rld.get(exp)["seeds"])
         out = []
         for role, target, deltas in (("sota", self.sota, sota), ("parent", parent and parent[0], parent and parent[1:])):
@@ -150,11 +220,14 @@ class Fixture(unittest.TestCase):
                 continue
             paired = len(seeds & set(self.rld.get(target)["seeds"]))
             out.append({"target_id": target, "role": role, "n_paired": paired, "delta_mean": deltas[0],
-                        "delta_sd": 0.01, "deltas": dict(zip(SECONDARY, deltas[1:]))})
+                        "delta_sd": 0.0 if paired > 1 else None, "deltas": dict(zip(SECONDARY, deltas[1:]))})
         return out
 
-    def evaluate(self, exp: str, verdict: str, sota=(0.3, 0.1, 0.1), parent=None) -> None:
-        self.worker.record_verdict(exp, self.result_doc(), 70.3, 0.05, verdict, self.comparisons(exp, sota, parent))
+    def evaluate(self, exp: str, verdict: str, sota=(0.3, 0.1, 0.1), parent=None) -> dict:
+        """Report the runs not yet valid with the given effects (against SOTA, or (experiment, ...) against a
+        parent's experiment), then evaluate: the interface computes every number."""
+        self.finish_runs(self.worker, exp, effect=(parent[0], tuple(parent[1:])) if parent else (self.sota, sota))
+        return self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), verdict)
 
     def concluded(self, verdict: str, sota=(0.3, 0.1, 0.1), parent=None, hyp: str | None = None) -> tuple[str, str]:
         h = hyp or self.hypothesis()
@@ -164,12 +237,69 @@ class Fixture(unittest.TestCase):
         self.evaluate(exp, verdict, sota=sota, parent=parent)
         return h, exp
 
+    def candidate(self) -> tuple[str, str]:
+        """A node eligible for GO: beats SOTA, rechecked."""
+        h, exp = self.concluded("beats_sota")
+        self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
+        self.recheck_pass(h, exp)
+        self.assertEqual(self.rld.get_eligibility(h)["eligible"], True)
+        return h, exp
+
+    def recheck_pass(self, h: str, exp: str) -> None:
+        """Both rechecks pass, bound to the experiment they examined."""
+        novelty = self.doc(self.rld, f"h/{h}/novelty-{self.n}.v1.md", "novelty", about=(h,))
+        theory = self.doc(self.rld, f"h/{h}/theory-{self.n}.v1.md", "theory", about=(h,))
+        self.rld.decide(h, {"novelty_recheck": "pass", "theory_recheck": "pass"}, "rechecked",
+                        based_on=[novelty, theory, exp])
+
     def clean_all(self) -> None:
         """Every due cleanup, as its owner; the first call copies the project's cleanup script."""
         if not (Path(self.tmp.name) / rdb.CLEANUP_SCRIPT).exists():
             shutil.copyfile(rdb.CLEANUP_TEMPLATE, Path(self.tmp.name) / rdb.CLEANUP_SCRIPT)
         for due in self.rld.cleanup_due():
             ResearchDB(self.db, f"worker/{due['owner']}").run_cleanup(due["experiment_id"])
+
+    def manifest(self, exp: str, run_seed: int, values: dict | None = None, attempt: int = 1, **extra) -> str:
+        """What a runner writes for one attempt: metrics.json, a log and manifest.json (the path returned); extra
+        fields override the manifest's."""
+        seed = run_seed
+        run_dir = self.root / "outputs" / exp / f"s{seed}"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "metrics.json").write_text(json.dumps(values or self.values_for(exp)))
+        (run_dir / "train.log").write_text("log\n")
+        for name in extra.get("evidence_paths", []):
+            (run_dir / name).write_text("{}\n")
+        manifest = {"experiment_id": exp, "seed": seed, "attempt": attempt, "code_ref": self.rld.get(exp)["code_ref"],
+                    "exit_status": 0, "metrics_path": "metrics.json", "counts": {"n_val": 400},
+                    "data_version": "toy-v1", "config": {"lr": 0.05}, "env": {"python": "3.13"},
+                    "log_path": "train.log", "output_path": ".", "nodes_used": 1, "walltime_used_s": 600,
+                    "units": {m["name"]: m["input_unit"] for m in self.specs_content["metrics"]}, **extra}
+        (run_dir / "manifest.json").write_text(json.dumps(manifest))
+        return f"outputs/{exp}/s{seed}/manifest.json"
+
+    def imported(self, exp: str, effect: tuple | None = None, accept: bool = True, **extra) -> None:
+        """Every run of exp reported succeeded, imported through its manifest and (accept) made valid."""
+        if effect is not None:
+            self.effects[exp] = effect
+        for seed in self.rld.get(exp)["seeds"]:
+            run = f"{exp}/s{seed}"
+            if self.rld.get(run) is None:
+                self.worker.create_run(exp, seed)
+            self.worker.update_run(run, exec_status="submitted")
+            self.worker.update_run(run, exec_status="succeeded")
+            self.worker.import_run_result(run, 1, self.manifest(exp, seed, **extra))
+            if accept:
+                self.worker.update_run(run, valid=True)
+
+    def raw(self, entity_id: str, **props) -> None:
+        """Change stored properties directly in LatticeDB, bypassing the interface (tampering, old records)."""
+        with Database(self.db) as db, db.write() as txn:
+            tx = rdb._Tx(txn)
+            nid = tx.node_id(entity_id)
+            for key, value in props.items():
+                txn.set_property(nid, key, value)
+            tx.bump_meta()
+            txn.commit()
 
     def outputs(self, exp: str) -> None:
         """What a run writes: a log and metrics (evidence), final weights, optimizer state and a checkpoint."""
@@ -204,7 +334,7 @@ class ProjectTest(Fixture):
             self.rld.update_project(harness_paths=["../outside"])
         design = self.doc(self.worker, "exp/x/design.v1.md", "experiment_design")
         unevaluated = self.worker.create_experiment("baseline", "other", design, self.harness, 1, 60)
-        with self.assertRaisesRegex(ResearchDBError, r"not evaluated yet: .*record_verdict.*not yet valid: "
+        with self.assertRaisesRegex(ResearchDBError, r"not evaluated yet: .*evaluate_experiment.*not yet valid: "
                                     rf"{unevaluated}/s\d+ \(no run\).*exec_status planned -> submitted"):
             self.rld.update_project(sota_experiment_id=unevaluated)
         v2 = self.commit({"harness/stats.py": "stats v2\n"})
@@ -222,14 +352,21 @@ class ProjectTest(Fixture):
         rld = ResearchDB(db, "rld/main")
         (db.parent / "docs" / "s.v1.md").write_text("s", encoding="utf-8")
         setup = rld.register_document("s.v1.md", "min_setup", "s")
+        with self.assertRaisesRegex(ResearchDBError, "PROTOCOL_CHANGE_REQUIRED: a new project registers"):
+            rld.create_project("P-x", "x", setup, "acc", "higher", True, SECONDARY, SEEDS)
+        docs = {}
+        for kind, content in zip(("metric_spec", "protocol"), (SPECS, PROTOCOL)):
+            (db.parent / "docs" / f"{kind}.v1.json").write_text(json.dumps(content))
+            docs[f"{kind}_doc_id"] = rld.register_document(f"{kind}.v1.json", kind, kind)
+            rld.set_document_current(docs[f"{kind}_doc_id"])
         with self.assertRaisesRegex(ResearchDBError, "3 distinct"):
-            rld.create_project("P-x", "x", setup, "acc", "higher", True, SECONDARY, [1, 1, 2])
+            rld.create_project("P-x", "x", setup, "acc", "higher", True, SECONDARY, [1, 1, 2], **docs)
         with self.assertRaisesRegex(ResearchDBError, "must not repeat the primary"):
-            rld.create_project("P-x", "x", setup, "acc", "higher", True, ["acc"], SEEDS)
+            rld.create_project("P-x", "x", setup, "acc", "higher", True, ["acc"], SEEDS, **docs)
         with self.assertRaisesRegex(ResearchDBError, "must not look like another record"):
-            rld.create_project("T-x", "x", setup, "acc", "higher", True, SECONDARY, SEEDS)
+            rld.create_project("T-x", "x", setup, "acc", "higher", True, SECONDARY, SEEDS, **docs)
         # A project named like its directory / uv project.
-        self.assertEqual(rld.create_project("my-study", "x", setup, "acc", "higher", True, SECONDARY, SEEDS), "my-study")
+        self.assertEqual(rld.create_project("my-study", "x", setup, "acc", "higher", True, SECONDARY, SEEDS, **docs), "my-study")
         self.assertEqual(rld.get("my-study")["title"], "x")
 
 
@@ -395,50 +532,64 @@ class VerdictTest(Fixture):
         with self.assertRaisesRegex(ResearchDBError, "needs a code change"):
             self.evaluate(unchanged, "beats_sota")
         design = self.doc(self.worker, "exp/p.v1.md", "experiment_design")
-        partial = self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=self.h)
+        partial = self.worker.create_experiment("method", "m", design, self.commit({"m.txt": "x"}), 1, 60,
+                                                hypothesis_id=self.h)
+        self.worker.create_run(partial, SEEDS[0])
         with self.assertRaisesRegex(ResearchDBError, "needs a valid run for every seed"):
-            self.evaluate(partial, "beats_sota")
+            self.worker.evaluate_experiment(partial, self.result_doc(exp=partial), "beats_sota")
 
     def test_verdict_consistency(self):
-        three = self.method(self.h)
         cases = [
             ("no_gain", (0.3, 0.1, 0.1), "exactly when no metric is better"),
             ("beats_parent", (-0.1, -0.1, -0.1), "exactly when no metric is better"),
             ("close", (0.01, 0.0, 0.0), "must be conclusive"),
             ("beats_parent", (0.3, 0.0, 0.0), "the SOTA gate is passed"),
-            ("beats_sota", (0.05, 0.0, 0.0), "primary lead over 0.05"),  # equal to the margin is not a lead
+            ("beats_sota", (0.05, 0.0, 0.0), "primary lead over the minimum practical gain"),  # equal is no lead
             ("beats_parent", (0.0, 0.5, 0.0), "positive primary-metric difference"),
         ]
         for verdict, sota, message in cases:
+            exp = self.method(self.h)
             with self.subTest(verdict=verdict, sota=sota), self.assertRaisesRegex(ResearchDBError, message):
-                self.evaluate(three, verdict, sota=sota)
+                self.evaluate(exp, verdict, sota=sota)
+            self.assertIsNone(self.rld.get(exp).get("evaluated_at"))
+        three = self.method(self.h)
+        self.finish_runs(self.worker, three, effect=(self.sota, (0.0501, 0.0, -0.2)))
         with self.assertRaisesRegex(ResearchDBError, "comparisons must be exactly"):
-            self.worker.record_verdict(three, self.result_doc(), 70.0, None, "beats_sota", [])
-        bad = self.comparisons(three, (0.3, 0.1, 0.1))
+            self.worker.record_verdict(three, self.result_doc(exp=three), None, None, "beats_sota",
+                                       self.comparisons(three, (0.0501, 0.0, -0.2), parent=(self.sota, 0, 0, 0)))
+        bad = self.comparisons(three, (0.0501, 0.0, -0.2))
         bad[0]["n_paired"] = 2
-        with self.assertRaisesRegex(ResearchDBError, "pairs 3 seeds, not 2"):
-            self.worker.record_verdict(three, self.result_doc(), 70.0, None, "beats_sota", bad)
-        self.evaluate(three, "beats_sota", sota=(0.0501, 0.0, -0.2))
+        with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH: .*sota pairs 3 seeds, not 2"):
+            self.worker.record_verdict(three, self.result_doc(exp=three), 70.0501, None, "beats_sota", bad)
+        result = self.worker.record_verdict(three, self.result_doc(exp=three), 70.0501, 0.0, "beats_sota",
+                                            self.comparisons(three, (0.0501, 0.0, -0.2)))
         edge = self.rld.edges("rel_compared_with", source_id=three)[0]
-        self.assertEqual((edge["role"], edge["passes_gate"], edge["deltas"]),
-                         ("sota", True, {"final_loss": 0.0, "peak_mem_gb": -0.2}))
-        with self.assertRaisesRegex(ResearchDBError, "already evaluated"):
-            self.evaluate(three, "beats_sota")
+        self.assertEqual((edge["role"], edge["passes_gate"], edge["n_paired"]), ("sota", True, 3))
+        self.assertAlmostEqual(edge["delta_mean"], 0.0501, places=9)
+        self.assertAlmostEqual(edge["deltas"]["final_loss"], 0.0, places=9)
+        self.assertAlmostEqual(edge["deltas"]["peak_mem_gb"], -0.2, places=9)
+        self.assertTrue(result["created"])
+        with self.assertRaisesRegex(ResearchDBError, "already evaluated with these runs"):
+            self.worker.evaluate_experiment(three, self.result_doc(exp=three), "needs_rld")
 
     def test_fewer_seeds_cannot_beat_sota_and_extension(self):
         one = self.method(self.h, n_seeds=1)
         with self.assertRaisesRegex(ResearchDBError, "primary lead"):
             self.evaluate(one, "beats_sota", sota=(1.0, 0.0, 0.0))
-        self.evaluate(one, "no_gain", sota=(-0.2, 0.0, -0.1))
+        self.evaluate(one, "beats_parent", sota=(1.0, 0.0, 0.0))
+        self.assertIsNone(self.rld.get(one).get("metric_sd"))  # n=1: no SD, not 0
         with self.assertRaisesRegex(ResearchDBError, "extend to at most 3"):
             self.worker.extend_seeds(one, 4)
         self.worker.extend_seeds(one, 3)  # within the screening budget (3 seeds fit)
         record = self.rld.get(one)
-        self.assertEqual((record["seeds"], record.get("verdict")), (SEEDS, None))
+        self.assertEqual((record["seeds"], record.get("verdict"), record.get("evaluation_id")), (SEEDS, None, None))
         self.assertEqual(self.rld.edges("rel_compared_with", source_id=one), [])
         self.finish_runs(self.worker, one)
         self.evaluate(one, "beats_sota")
         self.assertEqual(self.rld.latest_result(self.h)["id"], one)
+        history = self.rld.evaluations(experiment_id=one)
+        self.assertEqual([e["result_revision"] for e in history], [1, 2])  # the 1-seed evaluation is kept
+        self.assertEqual(history[1]["supersedes_evaluation_id"], history[0]["id"])
 
 
 class TightBudgetTest(Fixture):
@@ -456,7 +607,7 @@ class TightBudgetTest(Fixture):
         self.evaluate(close, "close", sota=(0.01, 0.0, 0.0))
         self.worker.extend_seeds(close, 3)
         self.finish_runs(self.worker, close)
-        self.evaluate(close, "beats_sota")
+        self.evaluate(close, "beats_parent")  # 0.01 is below the minimum practical gain of 0.05
 
 
 class DecisionTest(Fixture):
@@ -551,18 +702,26 @@ class DecisionTest(Fixture):
         self.assertEqual(self.rld.children(h), [child])
         self.assertEqual(self.rld.get(self.hypothesis(parent="P-test"))["parent_id"], "P-test")  # the root by name
 
-    def test_child_compares_with_parent_result(self):
+    def test_child_compares_with_parent_result(self):  # E06
         parent, parent_exp = self.concluded("beats_parent", sota=(0.02, 0.0, 0.0))
         self.rld.decide(parent, {"experiment_status": "beats_parent", "status": "expandable"}, "keep",
                         doc_id=self.decision_doc(), based_on=[parent_exp])
         child = self.hypothesis(parent=parent)
         self.start(child)
         exp = self.method(child)
-        with self.assertRaisesRegex(ResearchDBError, "comparisons must be exactly"):
-            self.evaluate(exp, "beats_parent", sota=(0.02, 0.0, 0.0))
+        self.assertEqual((self.rld.get(exp)["parent_experiment_id"], self.rld.get(exp)["baseline_experiment_id"]),
+                         (parent_exp, self.sota))
+        # The parent's later experiment does not move the child's reference.
+        later = self.method(parent)
+        self.evaluate(later, "beats_parent", sota=(0.04, 0.0, 0.0))
         # better than SOTA on the primary metric, but no metric better than the parent: no gain
-        self.evaluate(exp, "no_gain", sota=(0.02, 0.0, 0.0), parent=(parent_exp, -0.01, 0.0, -0.1))
-        self.assertEqual({e["role"] for e in self.rld.edges("rel_compared_with", source_id=exp)}, {"sota", "parent"})
+        with self.assertRaisesRegex(ResearchDBError, "exactly when no metric is better"):
+            self.evaluate(exp, "beats_parent", parent=(parent_exp, -0.01, 0.0, -0.1))
+        self.evaluate(exp, "no_gain", parent=(parent_exp, -0.01, 0.0, -0.1))
+        edges = {e["role"]: e for e in self.rld.edges("rel_compared_with", source_id=exp)}
+        self.assertEqual({r: e["target_id"] for r, e in edges.items()}, {"sota": self.sota, "parent": parent_exp})
+        self.assertAlmostEqual(edges["parent"]["delta_mean"], -0.01, places=9)
+        self.assertAlmostEqual(edges["sota"]["delta_mean"], 0.01, places=9)
 
     def test_recheck_and_go(self):
         h, exp = self.concluded("beats_sota")
@@ -574,13 +733,17 @@ class DecisionTest(Fixture):
         unrelated = self.doc(self.rld, "notes/theory.v1.md", "theory")
         with self.assertRaisesRegex(ResearchDBError, "theory document about"):
             self.rld.decide(h, {"theory_recheck": "pass"}, "x", based_on=[unrelated])
-        with self.assertRaisesRegex(ResearchDBError, "GO needs"):
+        with self.assertRaisesRegex(ResearchDBError, "GO needs .*RECHECK_PENDING"):
             self.rld.decide("P-test", {"status": "go"}, "x", doc_id=self.decision_doc())
         theory = self.doc(self.rld, f"h/{h}/theory.v1.md", "theory", about=(h,))
+        with self.assertRaisesRegex(ResearchDBError, "needs based_on the experiment it rechecks"):
+            self.rld.decide(h, {"novelty_recheck": "pass", "theory_recheck": "pass"}, "rechecked",
+                            based_on=[novelty, theory])
         self.rld.decide(h, {"novelty_recheck": "pass", "theory_recheck": "pass"}, "rechecked",
-                        based_on=[novelty, theory])
+                        based_on=[novelty, theory, exp])
         self.assertEqual(self.rld.go_candidates(), [h])
-        self.rld.decide("P-test", {"status": "go"}, "GO", doc_id=self.doc(self.rld, "reports/go.v1.md", "report"))
+        self.assertTrue(self.rld.get_eligibility(h)["eligible"])
+        self.rld.decide("P-test", {"status": "go"}, "GO", doc_id=self.report_doc("go"))
         self.assertEqual((self.rld.get("P-test")["status"], self.rld.get(other)["status"]), ("go", "pending"))
 
     def test_recheck_failure_prunes(self):
@@ -608,7 +771,9 @@ class DecisionTest(Fixture):
         with self.assertRaisesRegex(ResearchDBError, "NOT GO comes after the cleanup"):
             self.rld.decide("P-test", {"status": "not_go"}, "NOT GO", doc_id=self.decision_doc())
         self.clean_all()
-        self.rld.decide("P-test", {"status": "not_go"}, "NOT GO", doc_id=self.decision_doc())
+        with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH: a NOT GO decision rests on a report"):
+            self.rld.decide("P-test", {"status": "not_go"}, "NOT GO", doc_id=self.decision_doc())
+        self.rld.decide("P-test", {"status": "not_go"}, "NOT GO", doc_id=self.report_doc("not-go"))
         with self.assertRaisesRegex(ResearchDBError, "user_instruction"):
             self.rld.decide("P-test", {"status": "active"}, "resume", doc_id=self.decision_doc())
 
@@ -631,27 +796,26 @@ class DecisionTest(Fixture):
 
 
 class KnownDefectTest(Fixture):
-    """M0 baseline (plans/design/00 §2.3): F01 and F02 as regression tests. Expected failures on the baseline;
-    M1 makes the numbers recomputed from the runs and GO eligibility bound to current evidence."""
+    """F01 and F02 (plans/design/00 §2.3), pinned as expected failures in M0 and fixed in M1: the numbers are
+    recomputed from the runs, and GO eligibility is bound to current evidence."""
 
-    @unittest.expectedFailure
     def test_f01_summary_must_match_the_runs(self):  # M01
         design = self.doc(self.worker, "exp/f01/design.v1.md", "experiment_design")
         exp = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 60)
         self.finish_runs(self.worker, exp)  # every run 70.0
         with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH"):
-            self.worker.record_verdict(exp, self.result_doc(), 70.3, 0.0)  # the SD (0) is true
+            self.worker.record_verdict(exp, self.result_doc(exp=exp), 70.3, 0.0)  # the SD (0) is true
         self.assertIsNone(self.rld.get(exp).get("evaluated_at"))
 
-    @unittest.expectedFailure
     def test_f01_comparison_must_match_the_runs(self):  # M02
         h = self.hypothesis()
         self.start(h)
-        exp = self.method(h)  # every run 70.0, like the SOTA baseline's
+        exp = self.method(h)
+        self.finish_runs(self.worker, exp)  # every run 70.0, like the SOTA baseline's
         claimed = self.comparisons(exp, (0.3, 0.0, 0.0))
         claimed[0]["delta_sd"] = 0.0  # true, like the secondary deltas: only delta_mean is false
         with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH"):
-            self.worker.record_verdict(exp, self.result_doc(), 70.0, 0.0, "beats_sota", claimed)
+            self.worker.record_verdict(exp, self.result_doc(exp=exp), 70.0, 0.0, "beats_sota", claimed)
         self.assertIsNone(self.rld.get(exp).get("evaluated_at"))
         self.assertEqual(self.rld.edges("rel_compared_with", source_id=exp), [])
 
@@ -666,12 +830,9 @@ class KnownDefectTest(Fixture):
         self.finish_runs(self.worker, exp, metric_value=70.3)
         claimed = self.comparisons(exp, (0.3, 0.0, 0.0))
         claimed[0]["delta_sd"] = 0.0
-        self.worker.record_verdict(exp, self.result_doc(), 70.3, 0.0, "beats_sota", claimed)
+        self.worker.record_verdict(exp, self.result_doc(exp=exp), 70.3, 0.0, "beats_sota", claimed)
         self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
-        novelty = self.doc(self.rld, f"h/{h}/novelty.v1.md", "novelty", about=(h,))
-        theory = self.doc(self.rld, f"h/{h}/theory.v1.md", "theory", about=(h,))
-        self.rld.decide(h, {"novelty_recheck": "pass", "theory_recheck": "pass"}, "rechecked",
-                        based_on=[novelty, theory])
+        self.recheck_pass(h, exp)
         if new_harness:
             self.rld.update_project(harness_ref=self.commit({"harness/stats.py": "stats v2\n"}))
         return h
@@ -680,17 +841,887 @@ class KnownDefectTest(Fixture):
         h = self.go_candidate(new_harness=False)
         self.assertEqual(self.rld.go_candidates(), [h])
 
-    @unittest.expectedFailure
     def test_f02_a_new_harness_ends_go_candidacy(self):  # F02 (E01 in part)
         self.go_candidate()
         self.assertEqual(self.rld.go_candidates(), [])
 
-    @unittest.expectedFailure
     def test_f02_a_new_harness_refuses_go(self):  # F02 (E01 in part)
         self.go_candidate()
         with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_STALE"):
-            self.rld.decide("P-test", {"status": "go"}, "GO", doc_id=self.doc(self.rld, "reports/go.v1.md", "report"))
+            self.rld.decide("P-test", {"status": "go"}, "GO", doc_id=self.report_doc("go"))
         self.assertEqual(self.rld.get("P-test")["status"], "active")
+
+
+class NumbersTest(Fixture):
+    """plans/design 11 §1.2: the statistics come from the runs (M01–M12)."""
+
+    def setUp(self):
+        super().setUp()
+        self.h = self.hypothesis()
+        self.start(self.h)
+
+    def test_m02_authoritative_delta_from_identical_runs(self):
+        exp = self.method(self.h)
+        self.finish_runs(self.worker, exp)  # identical to SOTA
+        result = self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "no_gain")
+        self.assertEqual(result["comparisons"]["sota"]["delta_mean"], 0.0)
+        self.assertEqual(result["verification_level"], "record_recomputed")
+
+    def test_m03_lower_is_better_is_oriented_by_the_spec(self):
+        exp = self.method(self.h)
+        self.finish_runs(self.worker, exp, effect=(self.sota, (0.3, 0.1, 0.0)))  # final_loss 0.9 < 1.0: better
+        claimed = self.comparisons(exp, (0.3, -0.1, 0.0))  # the opposite orientation
+        with self.assertRaisesRegex(ResearchDBError, r"STAT_MISMATCH: .*deltas.final_loss -0.1"):
+            self.worker.record_verdict(exp, self.result_doc(exp=exp), None, None, "beats_sota", claimed)
+        result = self.worker.record_verdict(exp, self.result_doc(exp=exp), None, None, "beats_sota",
+                                            self.comparisons(exp, (0.3, 0.1, 0.0)))
+        self.assertAlmostEqual(result["comparisons"]["sota"]["deltas"]["final_loss"], 0.1, places=9)
+
+    def test_m06_one_seed_has_no_sd(self):
+        one = self.method(self.h, n_seeds=1)
+        result = self.evaluate(one, "beats_parent", sota=(0.2, 0.0, 0.0))
+        self.assertIsNone(result["comparisons"]["sota"]["delta_sd"])
+        ev = self.rld.evaluations(experiment_id=one)[0]
+        self.assertEqual(ev["metrics"]["acc"]["sd_missing"], "n=1: no standard deviation")
+        self.assertIn("n=1: no standard deviation", ev["limitations"])
+        claimed_sd = self.method(self.h, n_seeds=1)
+        self.finish_runs(self.worker, claimed_sd, effect=(self.sota, (0.2, 0.0, 0.0)))
+        with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH: .*metric_sd 0.0"):
+            self.worker.record_verdict(claimed_sd, self.result_doc(exp=claimed_sd), None, 0.0, "beats_parent")
+
+    def test_m07_nonfinite_and_out_of_range_values(self):
+        exp = self.method(self.h, n_seeds=1)
+        run = f"{exp}/s42"
+        self.worker.create_run(exp, 42)
+        self.worker.update_run(run, exec_status="submitted")
+        common = dict(exec_status="succeeded", valid=True, secondary={"final_loss": 1.0, "peak_mem_gb": 40.0},
+                      nodes_used=1, walltime_used_s=60, log_path="outputs/x.log")
+        for value, code in ((float("nan"), "NONFINITE_METRIC"), (float("inf"), "NONFINITE_METRIC"),
+                            (170.0, "METRIC_UNIT_MISMATCH")):
+            with self.subTest(value=value), self.assertRaisesRegex(ResearchDBError, code):
+                self.worker.update_run(run, metric_value=value, **common)
+        self.assertIsNone(self.rld.get(run).get("valid"))
+
+    def test_m08_m12_pairing_and_protocol_fields(self):
+        protocol = self.doc(self.rld, "project/protocol.v2.json", "protocol", body=json.dumps(
+            {"version": 1, "eval_type": "real_gt", "pair_fields": ["seed", "data_version"],
+             "match": {"epochs": 30}, "required_counts": {"n_val": 400}}))
+        design = self.doc(self.worker, "exp/pb.v1.md", "experiment_design")
+        instruction = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0100.v1.md", "user_instruction")
+        with self.assertRaisesRegex(ResearchDBError, "PROTOCOL_CHANGE_REQUIRED"):
+            self.rld.update_project(protocol_doc_id=protocol)
+        self.rld.update_project(protocol_doc_id=protocol, user_instruction_doc_id=instruction)
+        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800)
+        self.imported(base, epochs=30)
+        self.worker.evaluate_experiment(base, self.result_doc(exp=base))
+        self.rld.update_project(sota_experiment_id=base)
+        # M12: a run trained with other settings does not join the comparison
+        exp = self.method(self.h, n_seeds=1)
+        self.worker.create_run(exp, 42)
+        self.worker.update_run(f"{exp}/s42", exec_status="submitted")
+        self.worker.update_run(f"{exp}/s42", exec_status="succeeded")
+        with self.assertRaisesRegex(ResearchDBError, "PAIRING_MISMATCH: .*epochs is 10"):
+            self.worker.import_run_result(f"{exp}/s42", 1, self.manifest(exp, 42, epochs=10))
+        with self.assertRaisesRegex(ResearchDBError, "PAIRING_MISMATCH: .*counts.n_val is 100"):
+            self.worker.import_run_result(f"{exp}/s42", 1, self.manifest(exp, 42, epochs=30, counts={"n_val": 100}))
+        # M08: the same seed on another data split is not a pair
+        self.worker.import_run_result(f"{exp}/s42", 1, self.manifest(exp, 42, epochs=30, data_version="toy-v2"))
+        self.worker.update_run(f"{exp}/s42", valid=True)
+        with self.assertRaisesRegex(ResearchDBError, r"PAIRING_MISMATCH: .*share seeds \[42\]"):
+            self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_parent")
+
+    def test_m10_m11_imports_and_evaluations_are_idempotent(self):
+        exp = self.method(self.h, n_seeds=1)
+        self.effects[exp] = (self.sota, (0.3, 0.1, 0.1))
+        run = f"{exp}/s42"
+        self.worker.create_run(exp, 42)
+        self.worker.update_run(run, exec_status="submitted")
+        with self.assertRaisesRegex(ResearchDBError, "report exec_status succeeded"):
+            self.worker.import_run_result(run, 1, self.manifest(exp, 42))
+        self.worker.update_run(run, exec_status="succeeded")
+        first = self.worker.import_run_result(run, 1, self.manifest(exp, 42))
+        self.assertTrue(first["imported"])
+        self.assertFalse(self.worker.import_run_result(run, 1, self.manifest(exp, 42))["imported"])  # M10
+        with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_CHANGED"):
+            self.worker.import_run_result(run, 1, self.manifest(exp, 42, values={**self.values_for(exp), "acc": 71}))
+        self.manifest(exp, 42)  # the original files again
+        with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH: .*was imported"):
+            self.worker.update_run(run, metric_value=99.0)
+        self.worker.update_run(run, valid=True)
+        record = self.rld.get(run)
+        self.assertEqual((record["metric_value"], record["manifest_path"]), (70.3, f"outputs/{exp}/s42/manifest.json"))
+        self.assertIn(f"outputs/{exp}/s42/metrics.json", record["evidence_paths"])
+        with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH: .*metrics.json is not cited"):
+            self.worker.evaluate_experiment(exp, self.result_doc(exp=exp, cite_runs=False), "beats_parent")
+        with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH: .*states no mean:acc"):
+            self.worker.evaluate_experiment(exp, self.result_doc(), "beats_parent")
+        stats = self.root / "outputs" / exp / "stats.json"  # the worker's own statistics output, mistaken
+        stats.write_text(json.dumps({"mean": 70.4}))
+        with self.assertRaisesRegex(ResearchDBError, r"STAT_MISMATCH: .*mean:acc '70.4' \(recomputed 70.3"):
+            self.worker.evaluate_experiment(exp, self.result_doc(exp=exp, extra=[
+                {"id": "mean:acc", "value": "70.4", "source": f"outputs/{exp}/stats.json"}]), "beats_parent")
+        doc = self.result_doc(exp=exp, extra=[{"id": "mean:acc", "value": "70.3",
+                                               "source": f"outputs/{exp}/s42/metrics.json"}])
+        a = self.worker.evaluate_experiment(exp, doc, "beats_parent")
+        b = self.worker.evaluate_experiment(exp, doc, "beats_parent")  # M11
+        self.assertEqual((a["evaluation_id"], a["created"], b["evaluation_id"], b["created"]),
+                         (a["evaluation_id"], True, a["evaluation_id"], False))
+        self.assertEqual(len(self.rld.evaluations(experiment_id=exp)), 1)
+        # the SOTA baseline's runs were not imported: record level only
+        self.assertEqual(a["verification_level"], "record_recomputed")
+
+    def test_import_checks_identity(self):
+        exp = self.method(self.h, n_seeds=1)
+        run = f"{exp}/s42"
+        self.worker.create_run(exp, 42)
+        self.worker.update_run(run, exec_status="submitted")
+        self.worker.update_run(run, exec_status="succeeded")
+        for extra, message in (({"seed": 43}, "seed is 43"), ({"exit_status": 1}, "exit_status is 1"),
+                               ({"code_ref": self.harness}, "is not the experiment's code"),
+                               ({"counts": {}}, "counts must give"), ({"metrics_path": "../../../../x.json"},
+                                                                     "outside the project directory|does not exist")):
+            with self.subTest(extra=extra), self.assertRaisesRegex(ResearchDBError, message):
+                self.worker.import_run_result(run, 1, self.manifest(exp, 42, **extra))
+        with self.assertRaisesRegex(ResearchDBError, "outside the project directory"):
+            self.worker.import_run_result(run, 1, "/etc/hostname")
+        with self.assertRaises(PermissionDenied):
+            ResearchDB(self.db, "worker/w2").import_run_result(run, 1, self.manifest(exp, 42))
+
+
+class UnitsTest(Fixture):
+    """M04, M05: inputs as fractions, compared in percentage points; a run reporting percent is refused."""
+
+    specs_content = {"version": 1, "primary": "acc", "metrics": [
+        {**SPECS["metrics"][0], "input_unit": "fraction", "valid_range": [0.0, 1.0], "minimum_practical_gain": 0.1},
+        *SPECS["metrics"][1:]]}
+
+    def setUp(self):  # a project whose primary metric is reported as a fraction; no SOTA yet
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name) / "research" / "P-test"
+        (self.root / "docs").mkdir(parents=True)
+        self.db = self.root / "research_tree.db"
+        create_db.create_db(self.db)
+        self.rld, self.worker, self.n, self.effects = ResearchDB(self.db, "rld/main"), ResearchDB(self.db, "worker/w1"), 0, {}
+        self.repo = Path(self.tmp.name) / "code"
+        (self.repo / "harness").mkdir(parents=True)
+        self.git("init", "-q", "-b", "main")
+        self.harness = self.commit({"harness/stats.py": "stats v1\n"})
+        setup = self.doc(self.rld, "project/min-setup.v1.md", "min_setup")
+        specs = self.doc(self.rld, "project/metric-spec.v1.json", "metric_spec", body=json.dumps(self.specs_content))
+        protocol = self.doc(self.rld, "project/protocol.v1.json", "protocol", body=json.dumps(PROTOCOL))
+        with self.assertRaisesRegex(ResearchDBError, "missing protocol_doc_id"):
+            self.rld.create_project("P-test", "test", setup, "acc", "higher", False, SECONDARY, SEEDS,
+                                    repo_path=str(self.repo), metric_spec_doc_id=specs, go_margin=0.1)
+        with self.assertRaisesRegex(ResearchDBError, "must equal the project's go_margin 0.05"):
+            self.rld.create_project("P-test", "test", setup, "acc", "higher", False, SECONDARY, SEEDS,
+                                    repo_path=str(self.repo), metric_spec_doc_id=specs, protocol_doc_id=protocol)
+        self.rld.create_project("P-test", "test", setup, "acc", "higher", False, SECONDARY, SEEDS,
+                                repo_path=str(self.repo), metric_spec_doc_id=specs, protocol_doc_id=protocol,
+                                go_margin=0.1)
+        self.rld.update_project(harness_ref=self.harness, harness_paths=["harness"])
+        self.literature = [self.doc(self.worker, f"literature/LIT-{i}.v1.md", "literature") for i in range(3)]
+
+    def test_m04_m05(self):
+        design = self.doc(self.worker, "exp/b.v1.md", "experiment_design")
+        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 600)
+        self.finish_runs(self.worker, base, metric_value=0.699)
+        self.worker.evaluate_experiment(base, self.result_doc(exp=base))
+        self.rld.update_project(sota_experiment_id=base)
+        self.assertAlmostEqual(self.rld.get(base)["metric_mean"], 69.9, places=9)  # canonical: percent
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h)
+        self.finish_runs(self.worker, exp, metric_value=0.701)
+        result = self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_sota")
+        self.assertAlmostEqual(result["comparisons"]["sota"]["delta_mean"], 0.2, places=9)  # M04: 0.2 points
+        mixed = self.method(h, n_seeds=1)
+        with self.assertRaisesRegex(ResearchDBError, "METRIC_UNIT_MISMATCH: .*70.1 is outside its valid range"):
+            self.finish_runs(self.worker, mixed, metric_value=70.1)  # M05: a percentage among fractions
+        unranged = json.loads(json.dumps(self.specs_content))
+        del unranged["metrics"][0]["valid_range"]
+        with self.assertRaisesRegex(MetricErrorAlias, "outside its valid range"):  # implied for fractions
+            metrics_mod.canonical(unranged["metrics"][0], 70.1, "r")
+
+
+class RelativeTest(Fixture):
+    """M09: a relative effect against a reference mean near zero is undefined, not a dropped seed."""
+
+    specs_content = {"version": 1, "primary": "acc", "metrics": [
+        {**SPECS["metrics"][0], "effect_mode": "relative_to_reference_mean", "relative_min_denominator": 1.0,
+         "valid_range": [-100, 100]}, *SPECS["metrics"][1:]]}
+
+    def test_m09(self):
+        design = self.doc(self.worker, "exp/z.v1.md", "experiment_design")
+        zero = self.worker.create_experiment("baseline", "zero", design, self.harness, 1, 600)
+        self.finish_runs(self.worker, zero, metric_value=0.5)
+        self.worker.evaluate_experiment(zero, self.result_doc(exp=zero))
+        self.rld.update_project(sota_experiment_id=zero)
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h)
+        self.finish_runs(self.worker, exp, metric_value=0.4)
+        with self.assertRaisesRegex(ResearchDBError, "RELATIVE_EFFECT_UNDEFINED: .*below relative_min_denominator"):
+            self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "no_gain")
+        self.assertEqual(len(self.rld.get(exp)["seeds"]), 3)  # nothing dropped; no result recorded
+        self.assertIsNone(self.rld.get(exp).get("evaluated_at"))
+
+
+class EligibilityTest(Fixture):
+    """plans/design 11 §1.3 (E01–E10): GO eligibility follows current evidence."""
+
+    def go(self) -> None:
+        self.rld.decide("P-test", {"status": "go"}, "GO", doc_id=self.report_doc("go"))
+
+    def test_e01_new_harness_history_kept(self):
+        h, exp = self.candidate()
+        self.go()
+        self.rld.update_project(harness_ref=self.commit({"harness/stats.py": "stats v2\n"}))
+        result = self.rld.get_eligibility(h)
+        self.assertEqual((result["eligible"], result["evidence_state"]), (False, "stale"))
+        self.assertIn("HARNESS_CHANGED", result["reasons"])
+        self.assertEqual(self.rld.get("P-test")["status"], "go")  # the historical GO stays a fact
+        self.assertEqual(self.rld.history("P-test")[-1]["to_value"], "go")
+
+    def test_e02_new_baseline_then_rescoring(self):
+        h, exp = self.candidate()
+        old = self.rld.get_eligibility(h)["basis_evaluation_id"]
+        tuned = self.baseline(1, 1800)
+        self.rld.update_project(sota_experiment_id=tuned)
+        self.assertIn("BASELINE_CHANGED", self.rld.get_eligibility(h)["reasons"])
+        with self.assertRaisesRegex(ResearchDBError, "rescoring is against the current SOTA"):
+            self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_sota", baseline_experiment_id=self.sota)
+        self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_sota", baseline_experiment_id=tuned)
+        result = self.rld.get_eligibility(h)
+        self.assertTrue(result["eligible"], result)
+        self.assertNotEqual(result["basis_evaluation_id"], old)
+        self.assertEqual([e["baseline_experiment_id"] for e in self.rld.evaluations(experiment_id=exp)],
+                         [self.sota, tuned])  # the earlier comparison is kept
+
+    def test_e03_code_change_needs_new_rechecks(self):
+        h, exp = self.candidate()
+        newer = self.method(h)
+        self.evaluate(newer, "beats_sota", sota=(0.4, 0.1, 0.1))
+        self.assertEqual(self.rld.get_eligibility(h)["reasons"], ["RECHECK_STALE"])
+        # a recheck of the new code is a new review: fail, then pass bound to the new experiment
+        novelty = self.doc(self.rld, f"h/{h}/novelty-b.v1.md", "novelty", about=(h,))
+        theory = self.doc(self.rld, f"h/{h}/theory-b.v1.md", "theory", about=(h,))
+        with self.assertRaisesRegex(ResearchDBError, "already 'pass'"):  # not without the new experiment
+            self.rld.decide(h, {"novelty_recheck": "pass"}, "again", based_on=[novelty, exp])
+        self.rld.decide(h, {"novelty_recheck": "pass", "theory_recheck": "pass"}, "rechecked the new code",
+                        based_on=[novelty, theory, newer])
+        self.assertTrue(self.rld.get_eligibility(h)["eligible"])
+
+    def test_e03_more_seeds_keep_the_rechecks(self):
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h, n_seeds=1)
+        self.evaluate(exp, "beats_parent", sota=(0.3, 0.1, 0.1))
+        self.worker.extend_seeds(exp, 3)
+        self.assertIn("RESULT_REVISION_PENDING", self.rld.get_eligibility(h)["reasons"])
+        self.finish_runs(self.worker, exp)
+        self.evaluate(exp, "beats_sota")
+        self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
+        self.recheck_pass(h, exp)
+        self.assertTrue(self.rld.get_eligibility(h)["eligible"])
+
+    def test_e04_retracted_run(self):
+        h, exp = self.candidate()
+        with self.assertRaises(PermissionDenied):
+            self.worker.retract_run(f"{exp}/s43", "wrong evaluator", self.decision_doc())
+        self.rld.retract_run(f"{exp}/s43", "the evaluator read the training split", self.decision_doc())
+        result = self.rld.get_eligibility(h)
+        self.assertEqual((result["eligible"], result["evidence_state"]), (False, "stale"))
+        self.assertIn("RUN_RETRACTED", result["reasons"])
+        run = self.rld.get(f"{exp}/s43")
+        self.assertEqual((run["valid"], run["metric_value"]), (False, 70.3))  # kept, no longer valid
+        self.assertEqual(self.rld.go_candidates(), [])
+        # resubmitted as a new attempt and evaluated again: current once more
+        self.worker.update_run(f"{exp}/s43", attempt=2, exec_status="planned")
+        self.finish_runs(self.worker, exp)
+        self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_sota")
+        self.assertTrue(self.rld.get_eligibility(h)["eligible"])
+
+    def test_e05_unrelated_changes_keep_eligibility(self):
+        h, exp = self.candidate()
+        before = self.rld.get_eligibility(h)
+        self.rld.update_hypothesis(h, title="renamed")
+        self.doc(self.rld, "workflow/page-style.v1.md", "workflow")
+        self.assertEqual(self.rld.get_eligibility(h), before)
+
+    def test_e07_e08_changes_while_computing(self):
+        h = self.hypothesis()
+        self.start(h)
+        other = self.hypothesis()
+        exp = self.method(h)
+        self.finish_runs(self.worker, exp, effect=(self.sota, (0.3, 0.1, 0.1)))
+        worker = ResearchDB(self.db, "worker/w1")
+        worker._after_compute = lambda: self.rld.update_hypothesis(other, title="unrelated")  # E08
+        worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_sota")
+        exp2 = self.method(h)
+        self.finish_runs(self.worker, exp2, effect=(self.sota, (0.3, 0.1, 0.1)))
+        protocol = self.doc(self.rld, "project/protocol.v3.json", "protocol",
+                            body=json.dumps({**PROTOCOL, "description": "fixed evaluator"}))
+        instruction = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0200.v1.md", "user_instruction")
+        worker._after_compute = lambda: self.rld.update_project(protocol_doc_id=protocol,
+                                                                user_instruction_doc_id=instruction)  # E07
+        with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_CHANGED"):
+            worker.evaluate_experiment(exp2, self.result_doc(exp=exp2), "beats_sota")
+        self.assertIsNone(self.rld.get(exp2).get("evaluated_at"))
+
+    def test_e09_cached_labels_do_not_make_a_candidate(self):
+        h = self.hypothesis()
+        self.start(h)
+        self.raw(h, experiment_status="beats_sota", novelty_recheck="pass", theory_recheck="pass")
+        self.assertEqual(self.rld.go_candidates(), [])
+        self.assertEqual(self.rld.get_eligibility(h)["reasons"], ["NO_EVALUATION"])
+        with self.assertRaisesRegex(ResearchDBError, "GO needs .*no node has an evaluation"):
+            self.go()
+
+    def test_e10_closed_project_is_not_reopened(self):
+        h, exp = self.candidate()
+        stop = self.doc(self.rld, "instructions/stop.v1.md", "user_instruction")
+        self.rld.decide("P-test", {"status": "stopped"}, "user stop", doc_id=self.decision_doc(), based_on=[stop])
+        self.rld.retract_run(f"{exp}/s42", "corrupted metrics file", self.decision_doc())
+        self.assertIn("RUN_RETRACTED", self.rld.get_eligibility(h)["reasons"])
+        self.assertEqual(self.rld.get("P-test")["status"], "stopped")
+        design = self.doc(self.worker, "exp/after.v1.md", "experiment_design")
+        with self.assertRaisesRegex(ResearchDBError, "is stopped: no new research work"):
+            self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h)
+
+    def test_guardrail_failure_blocks_go(self):  # U09, 04 §5
+        specs = json.loads(json.dumps(SPECS))
+        specs["metrics"][2]["allowed_regression"] = 1.0  # peak memory may grow by at most 1 GiB
+        doc = self.doc(self.rld, "project/metric-spec.v2.json", "metric_spec", body=json.dumps(specs))
+        instruction = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0300.v1.md", "user_instruction")
+        self.rld.update_project(metric_spec_doc_id=doc, user_instruction_doc_id=instruction)
+        with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_STALE: the sota reference"):
+            self.concluded("beats_sota", sota=(0.3, 0.1, -2.0))
+        self.worker.evaluate_experiment(self.sota, self.result_doc(exp=self.sota))  # the baseline under the new specification
+        h, exp = self.concluded("beats_sota", sota=(0.3, 0.1, -2.0))  # +2 GiB
+        ev = self.rld.evaluations(experiment_id=exp)[-1]
+        self.assertEqual((ev["gate_passed"], ev["guardrails_passed"]), (True, False))
+        self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
+        self.recheck_pass(h, exp)
+        self.assertEqual(self.rld.get_eligibility(h)["reasons"], ["GUARDRAIL_FAILED"])
+
+
+class ReviewFixesTest(Fixture):
+    """M1 review r1: protocol changes, rescoring, retraction records, basis choice, concurrency."""
+
+    def test_e01_e02_protocol_change_needs_runs_that_meet_it(self):
+        h, exp = self.candidate()
+        protocol = self.doc(self.rld, "project/protocol.v5.json", "protocol",
+                            body=json.dumps({**PROTOCOL, "match": {"epochs": 30}}))
+        instruction = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0500.v1.md", "user_instruction")
+        self.rld.update_project(protocol_doc_id=protocol, user_instruction_doc_id=instruction)
+        self.assertIn("PROTOCOL_CHANGED", self.rld.get_eligibility(h)["reasons"])
+        # the old runs carry no manifest with the newly fixed setting: no evaluation of them under it
+        with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_STALE: the sota reference"):
+            self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_sota")
+        with self.assertRaisesRegex(ResearchDBError, "PAIRING_MISMATCH: .*has no imported manifest"):
+            self.worker.evaluate_experiment(self.sota, self.result_doc(exp=self.sota))
+        self.assertFalse(self.rld.get_eligibility(h)["eligible"])
+        self.assertEqual(self.rld.go_candidates(), [])
+
+    def test_sticky_rescoring_and_basis(self):
+        h = self.hypothesis()
+        self.start(h)
+        one = self.method(h, n_seeds=1)
+        self.evaluate(one, "beats_parent", sota=(0.3, 0.1, 0.1))
+        tuned = self.baseline(1, 1800)
+        self.rld.update_project(sota_experiment_id=tuned)
+        self.worker.evaluate_experiment(one, self.result_doc(exp=one), "beats_parent", baseline_experiment_id=tuned)
+        self.worker.extend_seeds(one, 3)
+        self.finish_runs(self.worker, one)
+        self.worker.evaluate_experiment(one, self.result_doc(exp=one), "beats_sota")  # no baseline argument
+        self.assertEqual(self.rld.evaluations(experiment_id=one)[-1]["baseline_experiment_id"], tuned)
+        # the basis is the node's latest experiment's current evaluation, not the newest evaluation id
+        newer = self.method(h)
+        self.evaluate(newer, "beats_sota", sota=(0.4, 0.1, 0.1))
+        again = self.baseline(1, 1800)
+        self.rld.update_project(sota_experiment_id=again)
+        self.worker.evaluate_experiment(one, self.result_doc(exp=one), "beats_sota", baseline_experiment_id=again)
+        self.assertEqual(self.rld.get_eligibility(h)["experiment_id"], newer)
+
+    def test_retraction_is_a_decision(self):
+        h, exp = self.candidate()
+        doc = self.decision_doc()
+        basis = self.rld.get_eligibility(h)["basis_evaluation_id"]
+        self.rld.retract_run(f"{exp}/s42", "corrupted metrics file", doc)
+        record = self.rld.history(h)[-1]
+        self.assertEqual((record["field"], record["to_value"]), ("run_validity", f"{exp}/s42@1 retracted"))
+        self.assertEqual(set(record["based_on"]), {doc, basis})
+
+    def test_concurrent_identical_evaluations_write_once(self):
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h)
+        self.finish_runs(self.worker, exp, effect=(self.sota, (0.3, 0.1, 0.1)))
+        doc = self.result_doc(exp=exp)
+        first = ResearchDB(self.db, "worker/w1")
+        first._after_compute = lambda: ResearchDB(self.db, "worker/w1").evaluate_experiment(exp, doc, "beats_sota")
+        self.assertFalse(first.evaluate_experiment(exp, doc, "beats_sota")["created"])
+        self.assertEqual(len(self.rld.evaluations(experiment_id=exp)), 1)
+
+    def test_eval_type_missing(self):
+        h, exp = self.candidate()
+        self.raw("P-test", protocol_doc_id=None)  # a project that lost its protocol
+        self.worker.evaluate_experiment(self.sota, self.result_doc(exp=self.sota))
+        self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_sota", baseline_experiment_id=self.sota)
+        self.assertIn("EVAL_TYPE_MISSING", self.rld.get_eligibility(h)["reasons"])
+
+    def test_no_self_citation(self):
+        path = self.root / "docs" / "results" / "self.v1.md"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text('acc "0.9"\n```evidence\n[{"id": "a", "value": "0.9", "source": "docs/results/self.v1.md"}]\n```\n')
+        doc = self.worker.register_document("results/self.v1.md", "experiment_result", "r")
+        with self.assertRaisesRegex(ResearchDBError, "path_missing"):
+            self.worker.set_document_current(doc)
+
+
+class ArtifactImportTest(Fixture):
+    """04 §2 P0-B: every participating run imported gives artifact_imported; a protocol may require it."""
+
+    def test_artifact_level(self):
+        design = self.doc(self.worker, "exp/ai.v1.md", "experiment_design")
+        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800)
+        self.imported(base)
+        self.worker.evaluate_experiment(base, self.result_doc(exp=base))
+        self.rld.update_project(sota_experiment_id=base)
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h)
+        self.imported(exp, effect=(base, (0.3, 0.1, 0.1)))
+        result = self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_sota")
+        self.assertEqual(result["verification_level"], "artifact_imported")
+        ev = self.rld.evaluations(experiment_id=exp)[-1]
+        self.assertEqual(ev["parser_version"], metrics_mod.PARSER_VERSION)
+        self.assertIn(f"outputs/{exp}/s42/metrics.json", ev["artifact_refs"])
+        self.assertIn(f"outputs/{base}/s42/metrics.json", ev["artifact_refs"])
+
+    def test_required_import(self):
+        protocol = self.doc(self.rld, "project/protocol.v7.json", "protocol",
+                            body=json.dumps({**PROTOCOL, "require_artifact_import": True}))
+        instruction = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0700.v1.md", "user_instruction")
+        self.rld.update_project(protocol_doc_id=protocol, user_instruction_doc_id=instruction)
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h, n_seeds=1)
+        with self.assertRaisesRegex(ResearchDBError, "the protocol requires imported results"):
+            self.finish_runs(self.worker, exp)
+        self.imported(exp, effect=(self.sota, (0.3, 0.1, 0.1)))
+        # the SOTA's runs were reported, not imported: no comparison with them under this protocol
+        with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_STALE|PROTOCOL_CHANGE_REQUIRED: the protocol requires imported"):
+            self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_parent")
+        with self.assertRaisesRegex(ResearchDBError, "PROTOCOL_CHANGE_REQUIRED: the protocol requires imported"):
+            self.worker.evaluate_experiment(self.sota, self.result_doc(exp=self.sota))
+
+
+class GateTieTest(Fixture):
+    """05 §2.3: the protocol's '>' or '>=' decides a tie, not binary rounding (0.701 x 100 - 0.699 x 100)."""
+
+    def test_tie(self):
+        spec = {**SPECS["metrics"][0], "input_unit": "fraction", "valid_range": [0, 1], "minimum_practical_gain": 0.2}
+        self.assertFalse(metrics_mod.passes(0.701 * 100 - 0.699 * 100, 0.2, ">"))
+        self.assertTrue(metrics_mod.passes(0.701 * 100 - 0.699 * 100, 0.2, ">="))
+        e = metrics_mod.effect(spec, [metrics_mod.canonical(spec, 0.701, "r")], [metrics_mod.canonical(spec, 0.699, "r")])
+        self.assertTrue(metrics_mod.passes(e["delta_mean"], 0.2, ">="))
+        self.assertFalse(metrics_mod.passes(e["delta_mean"], 0.2, ">"))
+
+
+class ReportAndRetractionTest(Fixture):
+    def test_go_report_claims_are_verified(self):
+        h, exp = self.candidate()
+        fake = self.root / "docs" / "decisions" / "go.v1.md"
+        fake.parent.mkdir(parents=True, exist_ok=True)
+        fake.write_text('```evidence\n[{"id": "d", "value": "9.99", "source": "outputs/none.json"}]\n```\n')
+        doc = self.rld.register_document("decisions/go.v1.md", "decision", "go")
+        self.rld.set_document_current(doc)  # a decision document's claims are not checked when it is frozen
+        with self.assertRaisesRegex(ResearchDBError, "is a decision document"):
+            self.rld.decide("P-test", {"status": "go"}, "GO", doc_id=doc)
+        self.rld.decide("P-test", {"status": "go"}, "GO", doc_id=self.report_doc("go"))
+
+    def test_retracted_attempt_stays_invalid(self):
+        h, exp = self.candidate()
+        self.rld.retract_run(f"{exp}/s42", "wrong split", self.decision_doc())
+        with self.assertRaisesRegex(ResearchDBError, "was retracted"):
+            self.worker.update_run(f"{exp}/s42", valid=True)
+        self.worker.update_run(f"{exp}/s42", attempt=2, exec_status="planned")
+
+
+class FinalReviewTest(Fixture):
+    """M1 final review: gate stated once, preview, statistics version, manifest reuse, retraction links."""
+
+    def test_preview_matches_the_evaluation(self):
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h)
+        self.finish_runs(self.worker, exp, effect=(self.sota, (0.3, 0.1, 0.1)))
+        preview = ResearchDB(self.db, "ui/ui").preview_evaluation(exp)
+        self.assertAlmostEqual(preview["metrics"]["acc"]["mean"], 70.3, places=9)
+        self.assertAlmostEqual(preview["comparisons"]["sota"]["effects"]["acc"], 0.3, places=9)
+        self.assertEqual(self.rld.evaluations(experiment_id=exp), [])  # nothing recorded
+        self.assertIn("preview_evaluation", rdb.READ_METHODS)
+
+    def test_statistics_version_change(self):
+        h, exp = self.candidate()
+        saved = metrics_mod.STATISTICS_VERSION
+        rdb.metrics.STATISTICS_VERSION = "rt-stats-2"
+        try:
+            self.assertIn("STATISTICS_CHANGED", self.rld.get_eligibility(h)["reasons"])
+        finally:
+            rdb.metrics.STATISTICS_VERSION = saved
+
+    def test_imported_runs_meet_a_later_protocol(self):
+        design = self.doc(self.worker, "exp/mr.v1.md", "experiment_design")
+        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800)
+        self.imported(base, epochs=30)
+        self.worker.evaluate_experiment(base, self.result_doc(exp=base))
+        self.rld.update_project(sota_experiment_id=base)
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h)
+        self.imported(exp, effect=(base, (0.3, 0.1, 0.1)), epochs=30)
+        protocol = self.doc(self.rld, "project/protocol.v8.json", "protocol",
+                            body=json.dumps({**PROTOCOL, "match": {"epochs": 30}}))
+        instruction = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0800.v1.md", "user_instruction")
+        self.rld.update_project(protocol_doc_id=protocol, user_instruction_doc_id=instruction)
+        self.worker.evaluate_experiment(base, self.result_doc(exp=base))  # no re-run: the manifests record epochs
+        result = self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_sota")
+        self.assertTrue(result["gate_passed"])
+
+    def test_retracting_a_baseline_run_links_the_node_evaluations(self):
+        h, exp = self.candidate()
+        node_ev = self.rld.get(exp)["evaluation_id"]
+        self.rld.retract_run(f"{self.sota}/s42", "baseline evaluator bug", self.decision_doc())
+        decision = [d for d in self.rld.history("P-test") if d["field"] == "run_validity"][-1]
+        self.assertIn(node_ev, decision["based_on"])
+        self.assertIn("RUN_RETRACTED", self.rld.get_eligibility(h)["reasons"])
+
+
+class FrozenSetTest(Fixture):
+    """M1 final review r4: the frozen file set, documents edited in place, glob sources."""
+
+    def test_narrowing_the_harness_paths_ends_eligibility(self):
+        h, exp = self.candidate()
+        self.rld.update_project(harness_paths=["harness/stats.py"])
+        result = self.rld.get_eligibility(h)
+        self.assertIn("HARNESS_CHANGED", result["reasons"])
+        self.assertIsNone(self.rld.get("P-test").get("sota_experiment_id"))  # the SOTA is run again
+
+    def test_documents_edited_in_place_are_refused(self):
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h)
+        self.finish_runs(self.worker, exp, effect=(self.sota, (0.3, 0.1, 0.1)))
+        doc = self.result_doc(exp=exp)
+        path = self.root / "docs" / self.rld.get(doc)["path"]
+        path.write_text(path.read_text() + "\nedited after it became current\n")
+        with self.assertRaisesRegex(ResearchDBError, "no longer matches its recorded hash"):
+            self.worker.evaluate_experiment(exp, doc, "beats_sota")
+
+    def test_glob_sources_name_files(self):
+        (self.root / "outputs" / "a").mkdir(parents=True, exist_ok=True)
+        (self.root / "outputs" / "a" / "x.json").write_text('{"v": 0.123}')
+        for source, status in (("outputs/**/*.json", "path_missing"), ("outputs/a/*.json", "verified")):
+            got = rdb.claims_check.check_claim("0.123", source, self.root, self.root)["status"]
+            self.assertEqual(got, status, source)
+
+    def test_percentage_metrics_declare_their_range(self):
+        bad = {**SPECS, "metrics": [{k: v for k, v in SPECS["metrics"][0].items() if k != "valid_range"},
+                                    *SPECS["metrics"][1:]]}
+        with self.assertRaisesRegex(MetricErrorAlias, "a percentage metric declares valid_range"):
+            metrics_mod.check_metric_specs(bad)
+
+
+class UnitMixTest(Fixture):
+    """M05 in both directions: a fraction among percentages is refused at import and at comparison."""
+
+    def test_reverse_mix(self):
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h, n_seeds=1)
+        self.finish_runs(self.worker, exp, metric_value=0.703)  # inside [0, 100], but a fraction
+        with self.assertRaisesRegex(ResearchDBError, "METRIC_UNIT_MISMATCH: the compared runs: acc values range from 0.703"):
+            self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_parent")
+        other = self.method(h, n_seeds=1)
+        self.worker.create_run(other, 42)
+        self.worker.update_run(f"{other}/s42", exec_status="submitted")
+        self.worker.update_run(f"{other}/s42", exec_status="succeeded")
+        with self.assertRaisesRegex(ResearchDBError, "METRIC_UNIT_MISMATCH: .*declares units"):
+            self.worker.import_run_result(f"{other}/s42", 1, self.manifest(other, 42, units={"acc": "fraction"}))
+        self.assertTrue(metrics_mod.passes(-0.0, 0.0, ">="))
+        self.assertFalse(metrics_mod.passes(-4e-10, 0.0, ">="))  # no absolute rounding at the gate
+
+
+class ReviewSixTest(Fixture):
+    def test_one_fraction_among_percentages(self):
+        design = self.doc(self.worker, "exp/mix.v1.md", "experiment_design")
+        mixed = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800)
+        for seed, value in zip(SEEDS, (69.9, 69.9, 0.699)):
+            self.worker.create_run(mixed, seed)
+            self.worker.update_run(f"{mixed}/s{seed}", exec_status="submitted")
+            self.worker.update_run(f"{mixed}/s{seed}", exec_status="succeeded", valid=True, metric_value=value,
+                                   secondary={"final_loss": 1.0, "peak_mem_gb": 40.0}, nodes_used=1,
+                                   walltime_used_s=60, log_path="x.log")
+        with self.assertRaisesRegex(ResearchDBError, "METRIC_UNIT_MISMATCH: E-0002: acc values range from 0.699 to 69.9"):
+            self.worker.evaluate_experiment(mixed, self.result_doc(exp=mixed))
+
+    def test_eval_type_limit_is_carried(self):
+        protocol = self.doc(self.rld, "project/protocol.v9.json", "protocol",
+                            body=json.dumps({**PROTOCOL, "eval_type": "synthetic_proxy"}))
+        instruction = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0900.v1.md", "user_instruction")
+        self.rld.update_project(protocol_doc_id=protocol, user_instruction_doc_id=instruction)
+        self.worker.evaluate_experiment(self.sota, self.result_doc(exp=self.sota))
+        ev = self.rld.evaluations(experiment_id=self.sota)[-1]
+        self.assertEqual(ev["eval_type"], "synthetic_proxy")
+        self.assertTrue(any("proxy agreement only" in x for x in ev["limitations"]))
+
+    def test_protocol_match_values_are_scalars(self):
+        with self.assertRaisesRegex(MetricErrorAlias, "match values are scalars"):
+            metrics_mod.check_protocol({**PROTOCOL, "match": {"layers": [1, 2]}})
+
+
+class GateStatedOnceTest(unittest.TestCase):
+    def test_go_margin_follows_the_specification(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "research" / "P-g"
+            (root / "docs").mkdir(parents=True)
+            db = root / "research_tree.db"
+            create_db.create_db(db)
+            rld = ResearchDB(db, "rld/main")
+            docs = {}
+            (root / "docs" / "s.v1.md").write_text("s")
+            setup = rld.register_document("s.v1.md", "min_setup", "s")
+            for kind, content in zip(("metric_spec", "protocol"), (SPECS, PROTOCOL)):
+                (root / "docs" / f"{kind}.v1.json").write_text(json.dumps(content))
+                docs[f"{kind}_doc_id"] = rld.register_document(f"{kind}.v1.json", kind, kind)
+                rld.set_document_current(docs[f"{kind}_doc_id"])
+            rld.create_project("P-g", "g", setup, "acc", "higher", True, SECONDARY, SEEDS, **docs)
+            with self.assertRaisesRegex(ResearchDBError, "METRIC_UNIT_MISMATCH: .*must equal the project's go_margin 0.1"):
+                rld.update_project(go_margin=0.1)  # e.g. config apply at confirmation
+            with self.assertRaisesRegex(ResearchDBError, "METRIC_UNIT_MISMATCH: .*must equal the project's go_margin 0.2"):
+                rld.update_project(go_margin=0.2, metric_spec_doc_id=docs["metric_spec_doc_id"])
+
+
+class SchemaUpgradeTest(unittest.TestCase):
+    """10 §2.5: a database of the previous schema is refused for writing until upgraded; reads still work."""
+
+    def test_v6_database(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp) / "research" / "P-old"
+            (root / "docs").mkdir(parents=True)
+            db = root / "research_tree.db"
+            create_db.create_db(db)
+            with Database(db) as d, d.write() as txn:  # what version 6 wrote
+                txn.set_property(txn.get_nodes_by_label("Meta")[0], "schema_version", 6)
+                txn.commit()
+            rld = ResearchDB(db, "rld/main")
+            self.assertEqual(rld.find("project"), [])
+            setup = root / "docs" / "s.v1.md"
+            setup.write_text("x")
+            with self.assertRaisesRegex(ResearchDBError, "schema_version 6.*--upgrade"):
+                rld.register_document("s.v1.md", "min_setup", "s")
+            self.assertEqual(create_db.upgrade_db(db), 6)
+            rld.register_document("s.v1.md", "min_setup", "s")
+            self.assertEqual(create_db.upgrade_db(db), 7)  # nothing more to do
+            self.assertEqual(rdb.SCHEMA_VERSION, create_db.SCHEMA_VERSION)
+
+
+class V6MigrationTest(Fixture):
+    """10 §2: a database shaped like schema 6 (evaluated experiments, no evaluations, no specification), upgraded
+    and migrated."""
+
+    def test_upgrade_and_migrate(self):
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h)
+        self.evaluate(exp, "beats_sota")
+        with Database(self.db) as d, d.write() as txn:  # what version 6 left behind
+            for ev in txn.get_nodes_by_label("Evaluation"):
+                for edge in txn.get_outgoing_edges(ev):
+                    txn.delete_edge(ev, edge.target_id, edge.edge_type)
+                txn.delete_node(ev)
+            tx = rdb._Tx(txn)
+            for e in (exp, self.sota):
+                txn.set_property(tx.node_id(e), "evaluation_id", None)
+            txn.set_property(tx.node_id("P-test"), "metric_spec_doc_id", None)
+            txn.set_property(tx.node_id("P-test"), "protocol_doc_id", None)
+            txn.set_property(txn.get_nodes_by_label("Meta")[0], "schema_version", 6)
+            txn.commit()
+        with self.assertRaisesRegex(ResearchDBError, "schema_version 6"):
+            self.rld.migrate_evaluations(dry_run=False)
+        self.assertEqual(create_db.upgrade_db(self.db), 6)
+        report = self.rld.migrate_evaluations(dry_run=False)
+        self.assertEqual(sorted(r["experiment_id"] for r in report["recorded"]), sorted([exp, self.sota]))
+        ev = self.rld.evaluations(experiment_id=exp)[-1]
+        self.assertEqual((ev["verification_level"], ev["migrated"]), ("legacy_unverified", True))
+        self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
+        self.recheck_pass(h, exp)
+        self.assertIn("LEGACY_RESULT_UNVERIFIED", self.rld.get_eligibility(h)["reasons"])
+
+
+class DocumentNumbersTest(Fixture):
+    """05 §2.4: an experiment result's numbers must appear in the files it cites."""
+
+    def write(self, name: str, body: str) -> str:
+        path = self.root / "docs" / "results" / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(body)
+        return self.worker.register_document(f"results/{name}", "experiment_result", "r")
+
+    def test_result_claims(self):
+        (self.root / "outputs").mkdir(exist_ok=True)
+        (self.root / "outputs" / "m.json").write_text('{"accuracy": 0.9075}')
+        none = self.write("a.v1.md", "acc 0.9075\n")
+        with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH: .*cites no numbers"):
+            self.worker.set_document_current(none)
+        wrong = self.write("b.v1.md", '```evidence\n[{"id": "acc", "value": "0.91", "source": "outputs/m.json"}]\n```\n')
+        with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH: .*acc '0.91' in 'outputs/m.json': value_not_found"):
+            self.worker.set_document_current(wrong)
+        missing = self.write("c.v1.md", '```evidence\n[{"id": "acc", "value": "0.9075", "source": "outputs/n.json"}]\n```\n')
+        with self.assertRaisesRegex(ResearchDBError, "path_missing"):
+            self.worker.set_document_current(missing)
+        outside = self.write("d.v1.md", '```evidence\n[{"id": "h", "value": "1", "source": "/etc/hostname"}]\n```\n')
+        with self.assertRaisesRegex(ResearchDBError, "path_missing"):
+            self.worker.set_document_current(outside)
+        good = self.write("e.v1.md", '```evidence\n[{"id": "acc", "value": "0.9075", "source": "outputs/m.json"}]\n```\n')
+        self.worker.set_document_current(good)
+        self.assertEqual(self.rld.get(good)["status"], "current")
+
+    def test_report_claims_checked_when_present(self):
+        (self.root / "outputs").mkdir(exist_ok=True)
+        (self.root / "outputs" / "m.json").write_text('{"delta": 0.21}')
+        plain = self.doc(self.rld, "reports/plain.v1.md", "report")  # no block: a narrative report
+        self.assertEqual(self.rld.get(plain)["status"], "current")
+        path = self.root / "docs" / "reports" / "go.v1.md"
+        path.write_text('GO\n```evidence\n[{"id": "d", "value": "0.3", "source": "outputs/m.json"}]\n```\n')
+        doc = self.rld.register_document("reports/go.v1.md", "report", "go")
+        with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH"):
+            self.rld.set_document_current(doc)
+
+    def test_metric_spec_and_protocol_documents_are_checked(self):
+        bad = self.root / "docs" / "project" / "metric-spec.v9.json"
+        bad.write_text(json.dumps({"version": 1, "primary": "acc", "metrics": [{"name": "acc"}]}))
+        doc = self.rld.register_document("project/metric-spec.v9.json", "metric_spec", "bad")
+        with self.assertRaisesRegex(ResearchDBError, "METRIC_UNIT_MISMATCH: metric acc: missing"):
+            self.rld.set_document_current(doc)
+        wrong = self.doc(self.rld, "project/metric-spec.v8.json", "metric_spec",
+                         body=json.dumps({**SPECS, "metrics": SPECS["metrics"][:2]}))
+        instruction = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0400.v1.md", "user_instruction")
+        with self.assertRaisesRegex(ResearchDBError, "must specify exactly the project's metrics"):
+            self.rld.update_project(metric_spec_doc_id=wrong, user_instruction_doc_id=instruction)
+        proto = self.root / "docs" / "project" / "protocol.v9.json"
+        proto.write_text(json.dumps({"version": 1, "eval_type": "vibes"}))
+        doc = self.rld.register_document("project/protocol.v9.json", "protocol", "bad")
+        with self.assertRaisesRegex(ResearchDBError, "PROTOCOL_CHANGE_REQUIRED: protocol eval_type"):
+            self.rld.set_document_current(doc)
+
+
+class LegacyTest(Fixture):
+    """10 §2: a project without a metric specification, and evaluations recorded before evaluations existed."""
+
+    def test_legacy_project_and_migration(self):
+        project = self.rld.get("P-test")
+        self.raw("P-test", metric_spec_doc_id=None, protocol_doc_id=None)  # an old project: no documents
+        self.worker.evaluate_experiment(self.sota, self.result_doc(exp=self.sota))  # its baseline, evaluated the old way
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h)
+        self.finish_runs(self.worker, exp, effect=(self.sota, (0.3, 0.1, 0.1)))
+        with self.assertRaisesRegex(ResearchDBError, "deltas must give a number for each of"):
+            self.worker.record_verdict(exp, self.result_doc(exp=exp), None, None, "beats_sota",
+                                       [{**self.comparisons(exp, (0.3, 0.1, 0.1))[0], "deltas": {"final_loss": 0.1}}])
+        self.worker.record_verdict(exp, self.result_doc(exp=exp), None, None, "beats_sota", self.comparisons(exp, (0.3, 9.0, 9.0)))
+        ev = self.rld.evaluations(experiment_id=exp)[-1]
+        self.assertEqual(ev["verification_level"], "legacy_unverified")
+        self.assertEqual(self.rld.edges("rel_compared_with", source_id=exp)[0]["deltas"],
+                         {"final_loss": 9.0, "peak_mem_gb": 9.0})  # the caller's: no direction is known
+        self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
+        self.recheck_pass(h, exp)
+        self.assertEqual(self.rld.get_eligibility(h)["reasons"], ["LEGACY_RESULT_UNVERIFIED"])
+        self.assertTrue(project["metric_spec_doc_id"])  # what the raw change removed
+
+    def test_shadow_migration(self):
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h)
+        self.evaluate(exp, "beats_sota")
+        h2 = self.hypothesis()
+        self.start(h2)
+        bad = self.method(h2)
+        self.evaluate(bad, "beats_sota")
+        # Records written before evaluations existed: no evaluation, and one with a summary its runs do not give.
+        for e in (exp, bad, self.sota):
+            self.raw(e, evaluation_id=None)
+        self.raw(bad, metric_mean=71.5)
+        report = self.rld.migrate_evaluations()
+        self.assertEqual(sorted(report["consistent"]), sorted([exp, self.sota]))
+        self.assertEqual([m["experiment_id"] for m in report["mismatched"]], [bad])
+        self.assertIn("STAT_MISMATCH", report["mismatched"][0]["error"])
+        self.assertEqual(report["recorded"], [])  # dry run
+        done = self.rld.migrate_evaluations(dry_run=False)
+        self.assertEqual(sorted(r["experiment_id"] for r in done["recorded"]), sorted([exp, self.sota]))
+        self.assertEqual(self.rld.get(bad)["metric_mean"], 71.5)  # nothing recorded for it, nothing changed
+        self.assertTrue(self.rld.get(exp)["evaluation_id"].startswith("EV-"))
+        migrated = self.rld.evaluations(experiment_id=exp)[-1]
+        self.assertEqual(migrated["baseline_evaluation_id"], self.rld.get(self.sota)["evaluation_id"])  # in order
+        self.assertTrue(migrated["migrated"])
+        reasons = self.rld.get_eligibility(h)["reasons"]
+        self.assertIn("LEGACY_RESULT_UNVERIFIED", reasons)
+        self.assertNotIn("BASELINE_CHANGED", reasons)
+        self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_sota")  # evaluated again under the new rules
+        self.assertNotIn("LEGACY_RESULT_UNVERIFIED", self.rld.get_eligibility(h)["reasons"])
+        with self.assertRaises(PermissionDenied):
+            self.worker.migrate_evaluations()
+
+
+class EvidenceCleanupTest(Fixture):
+    """K08: files an evaluation is recomputed from are evidence; the cleanup may not delete them."""
+
+    def test_k08(self):
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h, n_seeds=1)
+        self.imported(exp, effect=(self.sota, (0.3, 0.1, 0.1)), evidence_paths=["predictions.jsonl"])
+        run_dir = self.root / "outputs" / exp / "s42"
+        self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_parent")
+        shutil.copyfile(rdb.CLEANUP_TEMPLATE, Path(self.tmp.name) / rdb.CLEANUP_SCRIPT)
+        script = Path(self.tmp.name) / rdb.CLEANUP_SCRIPT
+        for name in ("predictions.jsonl", "metrics.json", "manifest.json"):
+            script.write_text(textwrap.dedent(f"""\
+                import json, sys
+                request = json.load(sys.stdin)
+                run = request["runs"][0]
+                items = [{{"run": run["run"], "path": run["output_dir"] + "/{name}", "class": "predictions", "bytes": 1}}]
+                print(json.dumps({{"items": items if sys.argv[1] == "plan" else []}}))
+                """))
+            with self.subTest(name=name), self.assertRaisesRegex(ResearchDBError, "holds evidence"):
+                self.worker.run_cleanup(exp)
+        self.assertTrue((run_dir / "predictions.jsonl").exists())
+
+    def test_cited_sources_are_evidence(self):
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h, n_seeds=1)
+        self.finish_runs(self.worker, exp, effect=(self.sota, (0.3, 0.1, 0.1)))
+        run_dir = self.root / "outputs" / exp / "s42"
+        run_dir.mkdir(parents=True, exist_ok=True)
+        (run_dir / "scores.tmp").write_text('{"acc": 70.3}')  # a statistics output named like scratch
+        doc = self.result_doc(exp=exp, extra=[{"id": "acc-s42", "value": "70.3", "source": f"outputs/{exp}/s42/scores.tmp"}])
+        self.worker.evaluate_experiment(exp, doc, "beats_parent")
+        shutil.copyfile(rdb.CLEANUP_TEMPLATE, Path(self.tmp.name) / rdb.CLEANUP_SCRIPT)
+        self.assertEqual(self.worker.run_cleanup(exp, dry_run=True)["items"], [])  # the template leaves it
+        (Path(self.tmp.name) / rdb.CLEANUP_SCRIPT).write_text(textwrap.dedent("""\
+            import json, sys
+            request = json.load(sys.stdin)
+            run = request["runs"][0]
+            items = [{"run": run["run"], "path": run["output_dir"] + "/scores.tmp", "class": "scratch", "bytes": 1}]
+            print(json.dumps({"items": items if sys.argv[1] == "plan" else []}))
+            """))
+        with self.assertRaisesRegex(ResearchDBError, "holds evidence"):
+            self.worker.run_cleanup(exp)
+        self.assertTrue((run_dir / "scores.tmp").exists())
 
 
 class CleanupTest(Fixture):

@@ -255,6 +255,13 @@ def apply_config(cwd: Path, actor: str, words: str | None = None, require_projec
         raise TreeError(f"experiments exist, so {', '.join(locked)} can no longer change; set them back in "
                         f"{CONFIG_NAME} to {', '.join(f'{k}={project[k]!r}' for k in locked)}")
 
+    if project is not None and changes:
+        try:  # before anything is registered: a refused change leaves the configuration in effect as it was
+            rld.check_project_changes(**changes)
+        except ResearchDBError as exc:
+            raise TreeError(f"{CONFIG_NAME} cannot take effect: {exc}. A new go_margin or gate_seeds needs a metric "
+                            "specification (and protocol) that state the same gate; the RLD registers those first, "
+                            "then apply again") from None
     registered = marker.get("config")
     new_version = registered is None or (root / "docs" / registered["path"]).read_text(encoding="utf-8") != text
     if new_version:

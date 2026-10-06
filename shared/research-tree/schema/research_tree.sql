@@ -1,4 +1,4 @@
--- 研究假说树 LatticeDB 数据模型（schema_version 6，2026-10-04）
+-- 研究假说树 LatticeDB 数据模型（schema_version 7，2026-10-06）
 --
 -- 说明
 -- * LatticeDB 是属性图数据库（Cypher 查询），不执行 SQL。本文件用 SQL DDL 作为可读的
@@ -16,7 +16,9 @@
 --     hypothesis.experiment_status  节点的实验结论（取自最新实验的统计判定）
 --     hypothesis.*_recheck     新颖性、理论正确性复核；只在实验优于 SOTA 后由 RLD 进行
 --     run.exec_status / valid  单个 seed 的作业执行状态与工程验收
---     experiment.verdict       冻结统计代码对该实验给出的判定
+--     experiment.verdict       冻结统计代码对该实验给出的判定（数字由接口从 run 重算，见 evaluation）
+--     evaluation               一次统计计算：绑定输入 run/attempt、代码与框架版本、协议、指标规范与参照；
+--                              科学内容不就地修改，新的计算追加新记录（plans/design 05 §3）
 --     decision                 每次状态变更的审计记录（追加，不修改）
 
 -- 元数据（单例）
@@ -44,7 +46,7 @@ CREATE TABLE project (
     metric_direction    TEXT NOT NULL CHECK (metric_direction IN ('higher', 'lower')),
     metric_is_percent   BOOLEAN NOT NULL,      -- true：门槛按百分点绝对差；false：按相对差
     secondary_metrics   TEXT_LIST NOT NULL,    -- 综合比较的其他指标，例：final_loss、loss_auc、peak_mem_gb、train_time_s
-    go_margin           REAL NOT NULL DEFAULT 0.05,  -- 优于 SOTA 的最小主指标优势
+    go_margin           REAL NOT NULL DEFAULT 0.05,  -- 优于 SOTA 的最小主指标优势；有指标规范时等于主指标的 minimum_practical_gain
     gate_seeds          INTEGER NOT NULL DEFAULT 3,  -- 判定“优于 SOTA”所需 seed 数，也是每个实验的 seed 上限
     seeds               INTEGER_LIST NOT NULL, -- 统一 seed 顺序，长度 = gate_seeds；实验按前缀使用
     screen_budget_node_h REAL NOT NULL DEFAULT 10,  -- 筛选预算；seed 数按 SOTA 首个 seed 的成本计算
@@ -54,6 +56,8 @@ CREATE TABLE project (
     max_parallel_workers INTEGER,              -- 同时有任务在手的 worker 数上限；null 为不限
     alert_node_h        REAL,                  -- 累计用量提醒阈值（node·h）；超过时提醒用户，null 为不提醒
     config_doc_id       TEXT,                  -- 生效中的项目配置（research-tree.yaml 的登记版本）；以上预算与门槛取自它
+    protocol_doc_id     TEXT,                  -- 现行实验协议（JSON 文档：评测类型、配对字段、必须一致的设定）
+    metric_spec_doc_id  TEXT,                  -- 现行指标规范（JSON 文档：每个指标的方向、单位、效应、最小实际收益、保护阈值）
     -- 冻结的实验框架与统计代码（根节点 worker 实现，RLD 审核）
     repo_path           TEXT,                  -- 代码仓库根；节点分支与框架核对都在这里
     harness_ref         TEXT,                  -- 冻结版本的 git commit；更换后须重跑 SOTA
@@ -90,7 +94,7 @@ CREATE TABLE hypothesis (
                             'running',         -- 代码改进与实验进行中
                             'no_gain',         -- 无提升：各项指标都不优于父节点
                             'beats_parent',    -- 优于父节点
-                            'beats_sota'       -- 优于 SOTA：gate_seeds 个 seed，主指标领先超过 go_margin
+                            'beats_sota'       -- 优于 SOTA：gate_seeds 个 seed，主指标效应超过最小实际收益（evaluation 重算）
                         )),
     -- 实验优于 SOTA 后才由 RLD 复核；创建时的相关研究见 rel_references
     novelty_recheck     TEXT NOT NULL CHECK (novelty_recheck IN ('pending', 'pass', 'fail')),
@@ -122,7 +126,8 @@ CREATE TABLE hypothesis (
     --   status='prunable'   ⇒ experiment_status='no_gain'，或某项复核为 'fail'，或引用一份描述本节点的
     --                          现行用户指令文档（无法实验、用户决定放弃；此时可从任何状态转入）
     --   评估字段只在 status='verifying' 时改变；任何变更都在同一事务写入 decision
-    --   GO 候选 = beats_sota 且两项复核均为 'pass'（查询派生，不单独存字段）
+    --   GO 资格由 evaluation 计算（get_eligibility）：最新 evaluation 仍适用、过门槛与保护指标，两项复核为 'pass'
+    --   且绑定到该 evaluation 的代码；不读 experiment_status 等缓存字段
 );
 
 -- 实验：一个代码版本在若干 seed 上的评估；每个 seed 的作业由 run 记录
@@ -140,6 +145,9 @@ CREATE TABLE experiment (
     result_doc_id       TEXT,                  -- 统计结果文档（冻结统计代码的输出与解读）
     code_ref            TEXT NOT NULL,         -- 运行的 git commit；打标签 exp/<实验ID>，分支删除后仍可追溯
     harness_ref         TEXT,                  -- 判定时核对通过的冻结框架版本
+    baseline_experiment_id TEXT,               -- 创建时固定的 SOTA 参照（节点实验）；之后父节点或 SOTA 变化不改它
+    parent_experiment_id TEXT,                 -- 创建时固定的父节点参照（父节点最新已判定的方法实验）
+    evaluation_id       TEXT,                  -- 当前的 evaluation（可重建的缓存；历史 evaluation 保留）
     config_path         TEXT,
     keep                TEXT_LIST,             -- 判定后仍保留的产物类别（例：final_weights），登记实验时声明
     keep_reason         TEXT,                  -- 声明保留的理由（哪个后续实验要用这些产物）
@@ -151,11 +159,11 @@ CREATE TABLE experiment (
                             'no_gain',         -- 各项指标都不优于父节点
                             'close',           -- 差不多：扩展到 gate_seeds 个 seed 再判定
                             'beats_parent',    -- 主指标优于父节点
-                            'beats_sota',      -- gate_seeds 个 seed、主指标领先 SOTA 超过 go_margin
+                            'beats_sota',      -- gate_seeds 个 seed、主指标效应超过最小实际收益（接口重算）
                             'needs_rld'        -- 统计代码无法判定，交 RLD
                         )),                    -- 基线实验为空；扩展 seed 后清空，待重新判定
-    metric_mean         REAL,                  -- 判定所用 seed 的主指标均值
-    metric_sd           REAL,
+    metric_mean         REAL,                  -- 判定所用 seed 的主指标均值（规范单位，接口从 run 重算）
+    metric_sd           REAL,                  -- 方法自身的样本 SD；n=1 时为空
     owner               TEXT NOT NULL,         -- 执行 worker
     created_at          TEXT NOT NULL,
     evaluated_at        TEXT
@@ -213,6 +221,8 @@ CREATE TABLE run (
                             'succeeded', 'failed', 'cancelled', 'unknown'
                         )),
     valid               BOOLEAN,               -- 该 seed 是否通过工程验收；为 true 时下列实测值必须齐全
+    retracted_at        TEXT,                  -- 有效 run 事后被证明无效（retract_run）的时间；引用它的 evaluation 失效
+    retracted_reason    TEXT,
     invalid_reason      TEXT,                  -- valid 为 false 时必填：验收不通过的原因（引用日志）
     attempts            JSON,                  -- 重新提交前各次 attempt 的记录，键为 attempt 编号；由接口写入
     metric_value        REAL,                  -- 最终主指标
@@ -223,7 +233,55 @@ CREATE TABLE run (
     log_path            TEXT,
     output_path         TEXT,
     started_at          TEXT,
-    finished_at         TEXT
+    finished_at         TEXT,
+    -- 产物导入（import_run_result）：冻结解析器从 manifest 读出的指标与身份
+    manifest_path       TEXT,                  -- 运行 manifest（JSON），相对研究根目录
+    manifest            JSON,                  -- manifest 中配对与协议核对用的字段（seed、数据版本、计数等）
+    evidence_paths      TEXT_LIST,             -- 重算所需的最小证据（指标文件、原始评分材料）；清理不得删除
+    import_record       JSON                   -- 解析器版本、文件哈希、导入时间与执行者；同一 attempt 重复导入幂等
+);
+
+-- 统计计算记录：由接口从登记的 run 重算，调用者不能提供权威数字
+CREATE TABLE evaluation (
+    id                  TEXT PRIMARY KEY,      -- 例：EV-0012
+    experiment_id       TEXT NOT NULL,         -- edge: EVALUATES
+    result_revision     INTEGER NOT NULL,      -- 该实验的第几次计算
+    run_attempt_refs    TEXT_LIST NOT NULL,    -- 参与计算的 run 与 attempt，例：E-0002/s42@1
+    input_revisions     JSON NOT NULL,         -- 每个 run 参与计算的数值与导入哈希
+    pair_keys           JSON,                  -- 每个比较实际配对的键
+    method_code_ref     TEXT NOT NULL,
+    harness_ref         TEXT NOT NULL,
+    harness_paths       TEXT_LIST,             -- 当时冻结的框架文件集合；更改即失效
+    protocol_doc_id     TEXT,
+    metric_spec_doc_id  TEXT,                  -- 为空：兼容规范（旧项目，legacy_unverified）
+    baseline_experiment_id TEXT,
+    baseline_evaluation_id TEXT,
+    parent_experiment_id TEXT,
+    parent_evaluation_id TEXT,
+    result_doc_id       TEXT,
+    metrics             JSON NOT NULL,         -- 每个指标：规范单位的逐 run 值、均值、SD（n=1 时为空并说明）
+    comparisons         JSON,                  -- 每个比较（sota/parent）：配对数、每个指标的效应、gate 与保护指标
+    verdict             TEXT,                  -- 兼容期调用者给出的判定（经核对）
+    gate_passed         BOOLEAN,               -- 与 SOTA 比较：配对数达标且主指标效应超过最小实际收益
+    guardrails_passed   BOOLEAN,               -- 有 allowed_regression 的指标都没有超额退化
+    eval_type           TEXT CHECK (eval_type IN (
+                            'real_gt', 'synthetic_proxy', 'self_supervised_proxy', 'simulation_only', 'human_eval'
+                        )),
+    limitations         TEXT_LIST,
+    verification_level  TEXT NOT NULL CHECK (verification_level IN (
+                            'record_recomputed',   -- 从登记的 run 数值重算
+                            'artifact_imported',   -- 全部 run 经 manifest 与冻结解析器导入
+                            'legacy_unverified'    -- 没有指标规范的旧项目：只能查看，不支持新规则下的 GO
+                        )),
+    artifact_refs       TEXT_LIST,
+    statistics_version  TEXT NOT NULL,
+    parser_version      TEXT,
+    inputs_digest       TEXT NOT NULL,         -- 输入与依据（run、参照、代码、框架、协议、规范）的摘要
+    fingerprint         TEXT NOT NULL,         -- inputs_digest 加判定与结果文档；相同的重复计算返回同一条记录
+    supersedes_evaluation_id TEXT,
+    migrated            BOOLEAN,               -- 由 migrate_evaluations 为旧判定补记：只作历史，不支持新规则下的 GO
+    created_by          TEXT NOT NULL,
+    created_at          TEXT NOT NULL
 );
 
 -- 文档索引：正文在文档库，库中只存定位与摘要
@@ -237,7 +295,9 @@ CREATE TABLE document (
                             'experiment_design', 'experiment_result',
                             'decision',
                             'user_instruction', 'task_request', 'task_delivery',
-                            'workflow', 'report', 'config', 'other'
+                            'workflow', 'report', 'config',
+                            'protocol', 'metric_spec',
+                            'other'
                         )),
     title               TEXT NOT NULL,
     summary             TEXT,                  -- ≤ 300 字的摘要，供消息引用和 HTML 预览
@@ -261,7 +321,7 @@ CREATE TABLE decision (
     field               TEXT NOT NULL CHECK (field IN (
                             'status', 'experiment_status', 'novelty_recheck',
                             'theory_recheck', 'priority', 'project_status',
-                            'branch_status'
+                            'branch_status', 'run_validity'
                         )),
     from_value          TEXT,
     to_value            TEXT NOT NULL,
@@ -304,12 +364,12 @@ CREATE TABLE rel_compared_with (               -- edge: COMPARED_WITH（experime
     target_id           TEXT NOT NULL,         -- 父节点最新已判定实验，或 SOTA 实验
     role                TEXT NOT NULL CHECK (role IN ('parent', 'sota')),
     n_paired            INTEGER NOT NULL,      -- 同 seed 配对数 = 两个实验 seed 的交集大小
-    delta_mean          REAL NOT NULL,         -- 主指标配对差均值，按优劣方向折算，正值 = 更好；百分比指标为
-                                               -- 百分点差，其他指标为相对百分比差 (m-b)/|b|*100
+    delta_mean          REAL NOT NULL,         -- 主指标的效应，按优劣方向折算，正值 = 更好；按指标规范为规范单位的
+                                               -- 配对差均值，或相对参照均值的比例（旧项目：百分点差或相对百分比差）
     delta_sd            REAL,
     deltas              JSON NOT NULL,         -- 其他指标的配对差均值（同样正值 = 更好），键 = secondary_metrics
-    passes_gate         BOOLEAN,               -- 写入代码计算：role='sota' 时 n_paired = gate_seeds 且
-                                               -- delta_mean > go_margin
+    passes_gate         BOOLEAN,               -- 接口计算：role='sota' 时 n_paired >= gate_seeds（或协议 min_pairs）且
+                                               -- 主指标效应超过 minimum_practical_gain（比较方式由协议定）
     PRIMARY KEY (source_id, target_id, role)
 );
 
@@ -355,7 +415,7 @@ CREATE TABLE rel_supersedes (                  -- edge: SUPERSEDES（新 documen
 );
 
 -- 决定的依据
-CREATE TABLE rel_based_on (                    -- edge: BASED_ON（decision → experiment/document）
+CREATE TABLE rel_based_on (                    -- edge: BASED_ON（decision → experiment/document/evaluation）
     source_id           TEXT NOT NULL,
     target_id           TEXT NOT NULL,
     PRIMARY KEY (source_id, target_id)
@@ -364,7 +424,7 @@ CREATE TABLE rel_based_on (                    -- edge: BASED_ON（decision → 
 -- ---------------------------------------------------------------------------
 -- 索引（LatticeDB 属性索引 / 全文索引）
 -- ---------------------------------------------------------------------------
--- 属性索引：所有 label 的 id；hypothesis.status、hypothesis.project_id、
+-- 属性索引：所有 label 的 id；evaluation.fingerprint；hypothesis.status、hypothesis.project_id、
 --           experiment.project_id、experiment.verdict、document.path、task.status、
 --           branch.status
 --           （以边保存的关系通过边遍历查询，不建属性索引）

@@ -1,5 +1,5 @@
 ---
-id: "D-0039"
+id: "D-0041"
 doc_type: "hypothesis"
 version: 1
 title: "Kronecker因子对角近似"
@@ -7,7 +7,7 @@ summary: "对Kronecker预条件取对角近似，在低秩上以低成本获得�
 about: []
 author_role: "rld"
 author_id: "main"
-created_at: "2026-10-04T13:37:11Z"
+created_at: "2026-10-06T19:20:28Z"
 parent: "P-demo-lora-opt"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
@@ -18,7 +18,7 @@ parent: "P-demo-lora-opt"
 
 ## 创建理由
 
-参考：D-0011, D-0012, D-0013。文献D的近似未在LoRA上评测。
+参考：D-0013, D-0014, D-0015。文献D的近似未在LoRA上评测。
 
 ## 计划的代码改动
 

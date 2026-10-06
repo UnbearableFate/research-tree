@@ -61,6 +61,7 @@ class BuildSiteTest(Fixture):
         self.assertIn("&lt;script&gt;alert(1)&lt;/script&gt;", html_)
 
     def test_attention_items(self):
+        self.finish_runs(self.worker, self.exp)
         one = self.method(self.h, n_seeds=1)
         self.evaluate(one, "close", sota=(0.01, 0.0, 0.0))
         doc = self.rld.get(self.h)["doc_id"]
@@ -129,12 +130,28 @@ class SummaryTest(Fixture):
                              capture_output=True, text=True, check=True)
         data = json.loads(out.stdout)
         node = data["nodes"][0]
-        self.assertEqual((node["id"], node["verdict"], node["seeds"], node["vs_sota"]), (h, "beats_sota", 3, 0.3))
+        self.assertEqual((node["id"], node["verdict"], node["seeds"]), (h, "beats_sota", 3))
+        self.assertAlmostEqual(node["vs_sota"], 0.3, places=9)
         self.assertEqual(data["counts"]["status"], {"verifying": 1})
         self.assertIn(str((self.root / "docs" / self.rld.get(node_doc := self.rld.get(h)["doc_id"])["path"]).resolve()),
                       data["guards"]["frozen_docs"], node_doc)
         self.assertEqual(data["guards"]["harness"], [str(Path(self.tmp.name) / "wt" / h / "harness")])
         self.assertTrue(any(a["kind"] == "conclusion_outdated" for a in data["attention"]))
+
+    def test_go_follows_eligibility_and_stale_evidence_shows(self):  # E01, K07-like display
+        h, exp = self.concluded("beats_sota")
+        self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
+        self.recheck_pass(h, exp)
+        page = self.root / "site" / "index.html"
+        data = build_site.build(self.db, page)
+        self.assertTrue(next(n for n in data["nodes"] if n["id"] == h)["go"])
+        self.assertEqual(data["experiments"][exp]["evaluation"]["level"], "记录级重算")
+        self.rld.update_project(harness_ref=self.commit({"harness/stats.py": "stats v2\n"}))
+        data = build_site.build(self.db, page)
+        self.assertFalse(next(n for n in data["nodes"] if n["id"] == h)["go"])
+        stale = [a for a in data["attention"] if a["kind"] == "evidence_stale"]
+        self.assertEqual([(a["id"], a["label"]) for a in stale], [(h, "证据已失效")])
+        self.assertIn("HARNESS_CHANGED", stale[0]["text"])
 
 
 class MarkdownTest(unittest.TestCase):

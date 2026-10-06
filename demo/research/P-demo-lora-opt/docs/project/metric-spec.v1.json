@@ -1,0 +1,58 @@
+{
+ "version": 1,
+ "primary": "acc",
+ "metrics": [
+  {
+   "name": "acc",
+   "direction": "higher",
+   "input_unit": "percentage",
+   "canonical_unit": "percentage_point",
+   "effect_mode": "absolute",
+   "minimum_practical_gain": 0.05,
+   "aggregation": "paired_run_mean",
+   "valid_range": [
+    0,
+    100
+   ]
+  },
+  {
+   "name": "final_loss",
+   "direction": "lower",
+   "input_unit": "nats",
+   "canonical_unit": "nats",
+   "effect_mode": "absolute",
+   "minimum_practical_gain": 0.0,
+   "aggregation": "paired_run_mean"
+  },
+  {
+   "name": "loss_auc",
+   "direction": "lower",
+   "input_unit": "raw",
+   "canonical_unit": "raw",
+   "effect_mode": "absolute",
+   "minimum_practical_gain": 0.0,
+   "aggregation": "paired_run_mean"
+  },
+  {
+   "name": "peak_mem_gb",
+   "direction": "lower",
+   "input_unit": "gib",
+   "canonical_unit": "gib",
+   "effect_mode": "absolute",
+   "minimum_practical_gain": 0.0,
+   "allowed_regression": 2.0,
+   "aggregation": "paired_run_mean"
+  },
+  {
+   "name": "train_time_s",
+   "direction": "lower",
+   "input_unit": "seconds",
+   "canonical_unit": "seconds",
+   "effect_mode": "relative_to_reference_mean",
+   "relative_min_denominator": 1.0,
+   "allowed_regression": 0.1,
+   "minimum_practical_gain": 0.0,
+   "aggregation": "paired_run_mean"
+  }
+ ]
+}

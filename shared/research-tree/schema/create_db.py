@@ -8,6 +8,7 @@ property is a column of its table, so this file and the spec cannot drift.
 
 Usage:
     python schema/create_db.py [DB_PATH]
+    python schema/create_db.py --upgrade DB_PATH     # an existing database, after a backup
 """
 
 from __future__ import annotations
@@ -18,9 +19,9 @@ import sys
 from datetime import datetime, timezone
 from pathlib import Path
 
-from latticedb import Database
+from latticedb import Database, LatticeAlreadyExistsError
 
-SCHEMA_VERSION = 6
+SCHEMA_VERSION = 7
 SPEC_PATH = Path(__file__).with_name("research_tree.sql")
 DEFAULT_DB_PATH = Path("research_tree.db")
 
@@ -35,6 +36,7 @@ LABELS = {
     "document": "Document",
     "decision": "Decision",
     "task": "Task",
+    "evaluation": "Evaluation",
 }
 
 PROPERTY_INDEXES = [(table, "id") for table in LABELS if table != "meta"] + [
@@ -45,6 +47,7 @@ PROPERTY_INDEXES = [(table, "id") for table in LABELS if table != "meta"] + [
     ("document", "path"),
     ("task", "status"),
     ("branch", "status"),
+    ("evaluation", "fingerprint"),
 ]
 
 FTS_INDEXES = [
@@ -93,10 +96,48 @@ def create_db(db_path: Path) -> None:
             txn.commit()
 
 
+# Indexes each version added; upgrading creates the missing ones.
+ADDED_INDEXES = {7: [("evaluation", "id"), ("evaluation", "fingerprint")]}
+
+
+def upgrade_db(db_path: Path) -> int:
+    """Bring an existing database to SCHEMA_VERSION in place (plans/design 10 §2.5): back the research directory up
+    first and stop every writer. Only additions: new labels get their indexes, schema_version is raised; no
+    record is rewritten (old evaluations are recorded afterwards by research_db migrate_evaluations). Returns the
+    version found."""
+    check_spec(spec_columns(SPEC_PATH))
+    if not db_path.exists():
+        raise SystemExit(f"database not found: {db_path}")
+    with Database(db_path) as db:
+        with db.read() as txn:
+            meta = txn.get_nodes_by_label(LABELS["meta"])
+            found = txn.get_property(meta[0], "schema_version")
+        if found > SCHEMA_VERSION:
+            raise SystemExit(f"{db_path} is schema_version {found}, newer than this plugin's {SCHEMA_VERSION}")
+        for version in range(found + 1, SCHEMA_VERSION + 1):
+            for table, prop in ADDED_INDEXES.get(version, []):
+                try:
+                    db.create_node_property_index(LABELS[table], prop)
+                except LatticeAlreadyExistsError:
+                    pass
+        if found < SCHEMA_VERSION:
+            with db.write() as txn:
+                meta = txn.get_nodes_by_label(LABELS["meta"])
+                txn.set_property(meta[0], "schema_version", SCHEMA_VERSION)
+                txn.set_property(meta[0], "updated_at", datetime.now(timezone.utc).isoformat())
+                txn.commit()
+    return found
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("db_path", nargs="?", type=Path, default=DEFAULT_DB_PATH)
+    parser.add_argument("--upgrade", action="store_true", help="upgrade an existing database to this schema version")
     args = parser.parse_args(argv)
+    if args.upgrade:
+        found = upgrade_db(args.db_path)
+        print(f"upgraded {args.db_path} from schema_version {found} to {SCHEMA_VERSION}")
+        return 0
     create_db(args.db_path)
     print(f"created {args.db_path} (schema_version={SCHEMA_VERSION})")
     return 0

@@ -150,9 +150,9 @@ flowchart TD
 | 阶段 | 发生什么 | 留下什么证据 |
 |---|---|---|
 | **立项规划** | Leader 阅读计划、检索相关研究，建立初始假说与根节点任务，向用户请求确认 | 目标、最小实验设定、相关研究、立项计划 |
-| **建立基线** | 根节点 worker 实现训练、评测与统计代码，实际运行统一 seed 的 SOTA 基线；Leader 审核后冻结 | 框架版本、基线运行、原始指标和统计结果 |
+| **建立基线** | 根节点 worker 实现训练、评测与统计代码，实际运行统一 seed 的 SOTA 基线；Leader 审核后冻结；立项时登记指标规范（方向、单位、最小实际收益、保护阈值）与实验协议（评测类型、配对字段） | 框架版本、基线运行、原始指标和统计结果 |
 | **验证假说** | 每个节点的 worker 在自己的分支或 worktree 中实现改动，按预算运行筛选实验 | 代码版本、实验设定、run/job ID、结果与交付文档 |
-| **比较与迭代** | 使用冻结的统计代码与父节点、SOTA 比较；Leader 决定补充 seed、拓展或剪枝 | 实验判定、节点状态和决定理由 |
+| **比较与迭代** | 运行结果经 manifest 导入；接口按指标规范从 run 重算均值、SD、与父节点和 SOTA 的配对效应、门槛与保护指标，记为版本化的 evaluation（调用者不提供权威数字）；Leader 决定补充 seed、拓展或剪枝 | evaluation、实验判定、节点状态和决定理由 |
 | **复核与结项** | 优于 SOTA 后复核公平性、新颖性与理论正确性；满足条件时作出 GO 或 NOT GO 判断 | 复核记录、最终报告、进度页面与未完成项 |
 
 ### 假说树如何组织
@@ -175,7 +175,7 @@ flowchart TD
 - **用户要求暂停、停止或修改目标时**：按用户指令调整，并核对在途作业与任务。
 - **进入阶段 2 前**：由用户确定大规模实验的范围与预算。
 
-**阶段 1 GO** 要求至少一个节点在全部统一 seed 上达到优于 SOTA 的门槛，并通过新颖性与理论正确性复核。它是继续研究的筛选信号，不等同于统计显著性或可发表结论。
+**阶段 1 GO** 要求至少一个节点的当前 evaluation 仍然适用（框架、协议、指标规范、基线与所用 run 都未变）、在全部统一 seed 上达到优于 SOTA 的门槛并满足保护指标，且新颖性与理论正确性复核绑定到该实验的代码版本（`get_eligibility` 计算，不读缓存标签）。它是继续研究的筛选信号，不等同于统计显著性或可发表结论。结果文档中的数字须在 evidence 代码块中注明来源文件，由接口核对。
 
 **项目 NOT GO** 要求所有候选节点都有排除依据，且 Leader 无法提出值得验证的新节点。预算不足、工程失败、作业仍在运行或结果缺失，都不能单独作为 NOT GO 的依据。Leader 按规则作出科学判断后直接报告，无需用户再次批准该判断。
 
@@ -224,7 +224,7 @@ Claude 版提供内嵌窗口、面板和状态栏；Codex 版使用独立终端�
 | `stage1.min_related_work` | 每个假说至少引用的相关研究数 | `3` |
 | `models.ui` / `models.worker` | 子代理的模型与 effort | `inherit` / 模型默认 |
 
-`go_margin` 按指标的优劣方向计算：百分比指标使用百分点的绝对差，其他指标使用相对差。`gate_seeds` 和 `go_margin` 在第一个实验登记后不能再修改。
+`go_margin` 按指标的优劣方向计算：百分比指标使用百分点的绝对差，其他指标使用相对差。登记了指标规范（`docs/project/metric-spec.v1.json`）的项目以规范中主指标的 `minimum_practical_gain` 为门槛，单位与方向逐指标声明。`gate_seeds` 和 `go_margin` 在第一个实验登记后不能再修改；之后更换指标规范或协议须引用用户指令，旧 evaluation 随之失效。
 
 **配置何时生效：**立项确认前，文件修改用于当前规划；确认时登记为生效版本。确认后须运行 `config apply`，插件会生成 `docs/project/config.vN.yaml`、记录用户指令并更新项目记录。新启动的子代理使用现行配置，活跃 worker 由 Leader 转告变更。
 
@@ -300,6 +300,15 @@ claude plugin test dist/claude/plugins/research-tree
 ```
 
 安装检查使用隔离的配置目录。会话检查使用真实 Codex CLI 和本地确定性 Responses 服务，验证 worker 启动、排队、恢复与独立 UI；不调用付费模型，也不代替对真实模型研究质量的评估。`--evidence` 需要一个尚不存在的目录。
+
+**升级旧项目的数据库**（schema_version 6 → 7）：新版插件拒绝写入旧版本的数据库（读取仍可用）。先停止所有会话并备份研究目录，然后：
+
+```bash
+.venv/bin/python <插件目录>/schema/create_db.py --upgrade research/<项目ID>/research_tree.db
+.venv/bin/python <插件目录>/tools/research_db.py --db research/<项目ID>/research_tree.db --actor rld/main migrate_evaluations '{"dry_run": true}'
+```
+
+`migrate_evaluations` 从登记的运行重算旧判定并与记录对照，一致的补记为 evaluation（只作历史，标为旧记录，不支持新规则下的 GO），不一致的列出待核对；不重跑任何实验，也不改动已记录的结果。之后用 `evaluate_experiment` 在新规则下重新计算需要的实验，并补登指标规范与协议（`update_project` 引用用户指令）。
 
 重新生成虚构示例：
 

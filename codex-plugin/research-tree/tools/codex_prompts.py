@@ -21,8 +21,16 @@ Research Leader 是用户现有的主会话。不要创建另一个Leader或自�
 文档目录：{project['root']}/docs。
 用 update_task 认领已指派给你的任务；只在任务规定的分支/worktree改代码并提交。
 根节点实现框架与baselines；其他节点不改冻结框架和统计代码。
-实验、运行和判定通过 research_db 登记；运行按 planned→submitted→succeeded 推进，设为有效时附 log_path 或 output_path，
-验收不通过时设 valid=false 并写 invalid_reason。record_verdict 之后立即 run_cleanup(experiment_id) 清理产物，交付前完成；
+实验、运行和判定通过 research_db 登记，不编造数字：均值、SD、配对差值与门槛由接口从 run 重算。运行按 planned→submitted→succeeded
+推进；运行写出指标文件（JSON，按指标名给出输入单位的数值）与 manifest.json（experiment_id、seed、attempt、code_ref、exit_status、
+metrics_path、units（每个指标的输入单位）、counts、data_version、config、env 及协议要求的字段、log_path、output_path、nodes_used、walltime_used_s；
+重评分所需的原始评分材料如逐样本预测列在 evidence_paths，清理不会删除），
+用 import_run_result(run_id, attempt, manifest_path) 导入，核对计数、loss 与日志后 update_run(valid=true)；验收不通过时设
+valid=false 并写 invalid_reason。不能导入时才在 update_run 直接写 metric_value、secondary。全部 seed 有效后
+evaluate_experiment(experiment_id, result_doc_id, verdict)（基线不给判定）；结果文档用 ```evidence 代码块列出每个数字及来源文件
+（[{"id","value","source"}]，路径相对研究根目录），设为现行时逐项核对；每个已导入 run 的指标文件都要引用，汇总数字（可先用 preview_evaluation 只读预览接口将算出的数字，写入统计文件后引用）用保留编号
+mean:<指标>（主指标均值必填）、sd:<指标>、delta:<sota|parent>:<指标>，计算时与接口重算值核对。evaluate_experiment 之后立即 run_cleanup(experiment_id)
+清理产物（日志、曲线、manifest、指标文件为证据，保留），交付前完成；
 后续实验要用这些产物时在 create_experiment 用 keep 与 keep_reason 声明。错误如实报告，工程失败不当科学结论。
 重要中间结论写版本化文档并 add_resume_docs。交付写 tasks/<任务ID>/delivery.vN.md（章节：实际改动与版本、运行与产物、
 验证结果、资源观测、未完成与未知项；内容见规则第4节），register_document、
@@ -60,8 +68,13 @@ def planning(project, conf):
 先读计划原文与 {ROOT / 'rules/research-tree-rules.md'}。规划期间不启动worker、不提交作业。
 计划中写着“由 RLD 决定。”的部分（如模型、训练与评测数据集、基线、评测、实验范围、验收要求）由你提出具体方案，在立项计划中写明，经用户确认后执行。
 模型和数据集一律写 Hugging Face Hub 上的正式 ID（数据集加 config 与 split，需要时加 revision）；不在 Hub 上的写明路径与来源。
-1. 写并登记 goal 与 min_setup 文档；模型、数据、训练量、主指标方向、其他指标、统一seed与框架规则明确。
-2. create_project 使用本项目ID {project['project_id']}、真实git仓库路径、配置中的预算与门槛；接口参数先查 help。
+1. 写并登记 goal 与 min_setup 文档；模型、数据、训练量、评测类型（同协议 eval_type）及其结论上限、主指标方向、其他指标、统一seed与框架规则明确，基线家族写明合理调参机会、训练量与数据处理。再写并登记两份 JSON：
+project/metric-spec.v1.json（{{"version":1,"primary":主指标,"metrics":[每个指标的 name、direction、input_unit、canonical_unit、
+effect_mode、minimum_practical_gain、aggregation=paired_run_mean，可选 allowed_regression、valid_range、relative_min_denominator]}}，
+指标恰为主指标与其他指标）与 project/protocol.v1.json（{{"version":1,"eval_type":real_gt|synthetic_proxy|self_supervised_proxy|simulation_only|human_eval,"pair_fields":["seed",...],
+"match":{{...}},"required_counts":{{...}}}}）。
+2. create_project 使用本项目ID {project['project_id']}、真实git仓库路径、metric_spec_doc_id 与 protocol_doc_id、配置中的预算与门槛；
+接口参数先查 help。
 3. 为每个初始假说检索相关研究，缓存原文并登记引用与假说文档，create_hypothesis 不指定parent_id，全部直属根节点。
 4. 根节点只放 baselines；写任务请求（章节：任务与节点、问题与预测、干预与对照、范围与权限、资源与预算、验收与停止条件、
 交付；内容见规则第4节），覆盖框架、统计代码、按框架输出调整项目目录的 research-tree-cleanup.py 和SOTA/其他基线，

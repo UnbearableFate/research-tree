@@ -1,0 +1,15 @@
+{
+ "version": 1,
+ "eval_type": "real_gt",
+ "pair_fields": [
+  "seed",
+  "data_version"
+ ],
+ "match": {
+  "train_steps": 1000
+ },
+ "required_counts": {
+  "n_eval": 8000
+ },
+ "description": "（虚构示例）8个常识推理任务、1000步LoRA训练；按seed与数据版本配对"
+}

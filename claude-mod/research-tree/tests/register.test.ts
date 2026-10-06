@@ -284,3 +284,19 @@ test('a UI run that replied, or was interrupted, is not retried', async () => {
   expect(window()).toEqual(['已回答', '（UI 被中断）'])
   expect([spawns.length, prompts.length]).toEqual([0, 0])
 })
+
+
+test('a prompt refused while a hook still holds the turn is submitted again, not lost', async () => {
+  const { host, prompts, window } = uiHost({})
+  let refusals = 2
+  const h = host as unknown as { prompt: { submit: (input: { text: string }) => Promise<void> } }
+  const submit = h.prompt.submit
+  h.prompt.submit = async input => {
+    if (refusals-- > 0) throw new Error('prompt.submit: called from a command.run hook, it would wait on the turn this hook is holding')
+    return submit(input)
+  }
+  internals.submitLater(host, { text: '用户确认立项计划' })
+  await new Promise(resolve => setTimeout(resolve, 10))
+  expect(prompts).toEqual(['用户确认立项计划'])
+  expect(window()).toEqual([])
+})

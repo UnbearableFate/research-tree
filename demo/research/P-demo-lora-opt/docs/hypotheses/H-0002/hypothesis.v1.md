@@ -1,5 +1,5 @@
 ---
-id: "D-0019"
+id: "D-0021"
 doc_type: "hypothesis"
 version: 1
 title: "正交化LoRA更新"
@@ -7,7 +7,7 @@ summary: "对LoRA因子更新做正交化可改善条件数，提高精度。"
 about: []
 author_role: "rld"
 author_id: "main"
-created_at: "2026-10-04T13:37:08Z"
+created_at: "2026-10-06T19:20:01Z"
 parent: "P-demo-lora-opt"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
@@ -18,7 +18,7 @@ parent: "P-demo-lora-opt"
 
 ## 创建理由
 
-参考：D-0009, D-0011, D-0012。文献C在全参数上有效，低秩情形未被检验。
+参考：D-0011, D-0013, D-0014。文献C在全参数上有效，低秩情形未被检验。
 
 ## 计划的代码改动
 

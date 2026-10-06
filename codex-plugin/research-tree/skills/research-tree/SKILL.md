@@ -66,6 +66,11 @@ Do not use native `spawn_agent` to evade the plugin's ownership, confirmation or
 
 Review worker delivery documents, results and code. Freeze the root harness and statistics, establish
 SOTA, then proceed through the hypothesis/experiment/verdict/decision workflows in the shared rules.
+Statistics are never supplied by an agent: runs are imported through their manifests (`import_run_result`)
+or reported per run, and `evaluate_experiment` recomputes means, SDs, paired effects, the gate and guardrails
+into an evaluation record. Result documents cite each number in an `evidence` block that is checked against the
+cited files. GO eligibility comes from `get_eligibility` (current evaluation, gate, guardrails, rechecks bound
+to the evaluated code), never from cached labels.
 
 ## User communication
 

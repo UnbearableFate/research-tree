@@ -19,6 +19,7 @@ import codex_hook
 import codex_mcp
 import research_tree
 from codex_runtime import Runtime
+from metrics import minimal_documents
 from research_db import READ_METHODS, TASK_SECTIONS
 from codex_state import lock_busy, locked, read_json, write_json
 
@@ -33,7 +34,13 @@ class AdapterTest(unittest.TestCase):
         self.runtime = Runtime(self.cwd)
         self.db = self.runtime.db()
         setup = self.doc("project/min-setup.v1.md", "min_setup")
-        self.db.create_project("P-test", "test", setup, "accuracy", "higher", True, [], [1, 2, 3])
+        docs = {}
+        for kind, content in zip(("metric_spec", "protocol"), minimal_documents("accuracy", "higher", [])):
+            path = self.runtime.root / "docs" / "project" / f"{kind}.v1.json"
+            path.write_text(json.dumps(content), encoding="utf-8")
+            docs[f"{kind}_doc_id"] = self.db.register_document(f"project/{kind}.v1.json", kind, kind)
+            self.db.set_document_current(docs[f"{kind}_doc_id"])
+        self.db.create_project("P-test", "test", setup, "accuracy", "higher", True, [], [1, 2, 3], **docs)
         self.plan = self.doc("project/reports/init-plan.v1.md", "report")
         request = self.doc("tasks/T-0001/request.v1.md", "task_request")
         self.task = self.db.create_task("harness", "worker", request, target_id="P-test")
@@ -176,6 +183,8 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         self.assertTrue(any("worker/root" in x for x in execs[0]))
         self.assertIn("resume", execs[1])
         self.assertFalse(any("bypass" in arg for call in calls for arg in call))
+        # a background session cannot answer approval prompts: the plugin's own MCP server is pre-approved
+        self.assertIn('mcp_servers.research_tree.default_tools_approval_mode="approve"', execs[0])
 
     def test_worker_failure_is_visible_and_does_not_look_delivered(self):
         self.confirm()

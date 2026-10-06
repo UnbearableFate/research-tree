@@ -15,6 +15,7 @@ sys.path.insert(0, str(REPO / "tools"))
 
 from latticedb import Database  # noqa: E402
 from research_db import ResearchDB  # noqa: E402
+import metrics  # noqa: E402
 
 PLAN = """# 低秩优化器研究计划
 
@@ -217,8 +218,24 @@ class ResearchTreeTest(unittest.TestCase):
         (root / "docs" / "project" / "min-setup.v1.md").write_text("setup\n", encoding="utf-8")
         setup = rld.register_document("project/min-setup.v1.md", "min_setup", "setup")
         rld.set_document_current(setup)
-        rld.create_project("P-demo", "demo", setup, "acc", "higher", True, ["loss"], [7, 8, 9])
+        docs = {}
+        for kind, content in zip(("metric_spec", "protocol"), metrics.minimal_documents("acc", "higher", ["loss"])):
+            (root / "docs" / "project" / f"{kind}.v1.json").write_text(json.dumps(content), encoding="utf-8")
+            docs[f"{kind}_doc_id"] = rld.register_document(f"project/{kind}.v1.json", kind, kind)
+            rld.set_document_current(docs[f"{kind}_doc_id"])
+        rld.create_project("P-demo", "demo", setup, "acc", "higher", True, ["loss"], [7, 8, 9], **docs)
 
+        # A gate that disagrees with the registered metric specification is refused before anything is registered.
+        registered_before = json.loads((self.cwd / ".research-tree.json").read_text())["config"]
+        config.write_text(config.read_text(encoding="utf-8").replace("go_margin: 0.05", "go_margin: 0.2"),
+                          encoding="utf-8")
+        code, out = self.run_tool("config", "apply", "--words", "/research-tree config apply")
+        self.assertEqual(code, 2)
+        self.assertIn("must equal the project's go_margin 0.2", out["error"])
+        self.assertEqual(json.loads((self.cwd / ".research-tree.json").read_text())["config"], registered_before)
+        self.assertEqual(rld.get("P-demo")["go_margin"], 0.05)
+        config.write_text(config.read_text(encoding="utf-8").replace("go_margin: 0.2", "go_margin: 0.05"),
+                          encoding="utf-8")
         config.write_text(config.read_text(encoding="utf-8")
                           .replace("walltime: 1h", "walltime: 1h30m")
                           .replace("max_parallel_workers: null", "max_parallel_workers: 2")

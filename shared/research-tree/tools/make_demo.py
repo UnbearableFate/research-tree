@@ -34,6 +34,23 @@ SEEDS = [42, 43, 44]
 SECONDARY = ["final_loss", "loss_auc", "peak_mem_gb", "train_time_s"]
 # Orientation for paired deltas: +1 when higher is better.
 SIGN = {"acc": 1, "final_loss": -1, "loss_auc": -1, "peak_mem_gb": -1, "train_time_s": -1}
+# The project's metric specification (plans/design 04 §3): how the interface recomputes every comparison.
+METRIC_SPECS = {"version": 1, "primary": "acc", "metrics": [
+    {"name": "acc", "direction": "higher", "input_unit": "percentage", "canonical_unit": "percentage_point",
+     "effect_mode": "absolute", "minimum_practical_gain": 0.05, "aggregation": "paired_run_mean", "valid_range": [0, 100]},
+    {"name": "final_loss", "direction": "lower", "input_unit": "nats", "canonical_unit": "nats",
+     "effect_mode": "absolute", "minimum_practical_gain": 0.0, "aggregation": "paired_run_mean"},
+    {"name": "loss_auc", "direction": "lower", "input_unit": "raw", "canonical_unit": "raw",
+     "effect_mode": "absolute", "minimum_practical_gain": 0.0, "aggregation": "paired_run_mean"},
+    {"name": "peak_mem_gb", "direction": "lower", "input_unit": "gib", "canonical_unit": "gib",
+     "effect_mode": "absolute", "minimum_practical_gain": 0.0, "allowed_regression": 2.0, "aggregation": "paired_run_mean"},
+    {"name": "train_time_s", "direction": "lower", "input_unit": "seconds", "canonical_unit": "seconds",
+     "effect_mode": "relative_to_reference_mean", "relative_min_denominator": 1.0, "allowed_regression": 0.10,
+     "minimum_practical_gain": 0.0, "aggregation": "paired_run_mean"},
+]}
+PROTOCOL = {"version": 1, "eval_type": "real_gt", "pair_fields": ["seed", "data_version"],
+            "match": {"train_steps": 1000}, "required_counts": {"n_eval": 8000},
+            "description": "（虚构示例）8个常识推理任务、1000步LoRA训练；按seed与数据版本配对"}
 def task_body(*contents: str, kind: str = "task_request") -> str:
     """A task request's or delivery's text: its required sections, in order, with these contents."""
     return "".join(f"## {name}\n\n{text}\n\n" for name, text in zip(TASK_SECTIONS[kind], contents, strict=True))
@@ -68,9 +85,15 @@ class Demo:
 
     def doc(self, actor: ResearchDB, path: str, doc_type: str, title: str, body: str, summary: str,
             about: tuple[str, ...] = (), parent: str | None = None) -> str:
-        """Write, register (draft), add the front matter with the assigned id, then make it current."""
+        """Write, register (draft), add the front matter with the assigned id, then make it current. JSON documents
+        (metric specification, protocol) are written as they are."""
         file = self.docs / path
         file.parent.mkdir(parents=True, exist_ok=True)
+        if path.endswith(".json"):
+            file.write_text(body, encoding="utf-8")
+            doc_id = actor.register_document(path, doc_type, title, summary=summary, about=list(about))
+            actor.set_document_current(doc_id)
+            return doc_id
         file.write_text(FICTION + body, encoding="utf-8")
         doc_id = actor.register_document(path, doc_type, title, summary=summary, about=list(about))
         record = self.rld.get(doc_id)
@@ -115,27 +138,41 @@ class Demo:
                 values[seed] = {"acc": self.rld.get(run)["metric_value"], **self.rld.get(run)["secondary"]}
                 continue
             v = self.run_values(effect, seed)
-            curve_rel = f"outputs/{exp}/s{seed}/curve.json"
-            (self.root / curve_rel).parent.mkdir(parents=True, exist_ok=True)
-            (self.root / curve_rel).write_text(json.dumps(self.curve(v, seed)), encoding="utf-8")
+            run_dir = self.root / "outputs" / exp / f"s{seed}"
+            run_dir.mkdir(parents=True, exist_ok=True)
+            (run_dir / "curve.json").write_text(json.dumps(self.curve(v, seed)), encoding="utf-8")
+            (run_dir / "train.log").write_text(f"（虚构）{exp} seed {seed}: done\n", encoding="utf-8")
+            (run_dir / "metrics.json").write_text(json.dumps(v), encoding="utf-8")
+            attempt = self.rld.get(run)["attempt"]
+            # What the runner writes beside the outputs; the interface's frozen parser imports it.
+            (run_dir / "manifest.json").write_text(json.dumps({
+                "experiment_id": exp, "seed": seed, "attempt": attempt, "code_ref": record["code_ref"],
+                "exit_status": 0, "metrics_path": "metrics.json", "counts": {"n_train": 2000, "n_eval": 8000},
+                "data_version": "commonsense-mix-v1（虚构）", "train_steps": 1000, "config": {"lora_rank": 16},
+                "env": {"cluster": "demo（虚构）"}, "log_path": "train.log", "curve_path": "curve.json",
+                "output_path": ".", "nodes_used": nodes, "walltime_used_s": int(v["train_time_s"]) + 60,
+                "units": {m["name"]: m["input_unit"] for m in METRIC_SPECS["metrics"]}},
+                ensure_ascii=False), encoding="utf-8")
             actor.update_run(run, exec_status="submitted", started_at="2026-10-03T12:00:00Z")
-            actor.update_run(run, exec_status="succeeded", valid=True, metric_value=v["acc"],
-                             secondary={k: v[k] for k in SECONDARY}, nodes_used=nodes,
-                             walltime_used_s=int(v["train_time_s"]) + 60, curve_path=curve_rel,
-                             log_path=f"outputs/{exp}/s{seed}/train.log", output_path=f"outputs/{exp}/s{seed}",
-                             finished_at="2026-10-03T13:00:00Z")
+            actor.update_run(run, exec_status="succeeded", finished_at="2026-10-03T13:00:00Z")
+            actor.import_run_result(run, attempt, f"outputs/{exp}/s{seed}/manifest.json")
+            actor.update_run(run, valid=True)
             values[seed] = v
         return values
 
     def paired(self, mine: dict, theirs: dict, role: str, target: str) -> dict:
+        """The comparison as the metric specification defines it (the frozen statistics rule reads it to pick a
+        verdict; the interface recomputes and checks every number): absolute differences, train time relative to
+        the reference mean."""
         seeds = sorted(set(mine) & set(theirs))
         diffs = {k: [SIGN[k] * (mine[s][k] - theirs[s][k]) for s in seeds] for k in SIGN}
-        # Primary metric is a percentage: absolute points. Others: relative percent difference.
-        rel = {k: [100 * d / abs(theirs[s][k]) for d, s in zip(diffs[k], seeds)] for k in SECONDARY}
-        mean = lambda xs: round(sum(xs) / len(xs), 4)
-        sd = lambda xs: round(math.sqrt(sum((x - mean(xs)) ** 2 for x in xs) / (len(xs) - 1)), 4) if len(xs) > 1 else None
+        mean = lambda xs: sum(xs) / len(xs)
+        sd = lambda xs: math.sqrt(sum((x - mean(xs)) ** 2 for x in xs) / (len(xs) - 1)) if len(xs) > 1 else None
+        deltas = {k: mean(diffs[k]) for k in SECONDARY if k != "train_time_s"}
+        ref_time = mean([theirs[s]["train_time_s"] for s in seeds])
+        deltas["train_time_s"] = -(mean([mine[s]["train_time_s"] for s in seeds]) - ref_time) / ref_time
         return {"target_id": target, "role": role, "n_paired": len(seeds), "delta_mean": mean(diffs["acc"]),
-                "delta_sd": sd(diffs["acc"]), "deltas": {k: mean(rel[k]) for k in SECONDARY}}
+                "delta_sd": sd(diffs["acc"]), "deltas": deltas}
 
     # -- the story ----------------------------------------------------------------
 
@@ -164,8 +201,11 @@ class Demo:
             "| 数据 | 常识推理混合训练集2K条（虚构） |\n| 训练 | LoRA秩16，1000步 |\n"
             "| 评测 | 8个常识推理任务平均精度 |\n| 主指标 | acc（百分比，越高越好） |\n"
             "| 其他指标 | final_loss、loss_auc、peak_mem_gb、train_time_s（均越低越好） |\n"
-            "| seeds | 42, 43, 44 |\n| 单次运行上限 | 8 nodes × 1 h；筛选预算 10 node·h |\n\n"
-            "## 冻结框架与判定规则\n\n- 框架文件：`harness/`\n- 配对比较按seed；百分比主指标取百分点差，其他指标取相对百分比差，正值为更好\n"
+            "| seeds | 42, 43, 44 |\n| 单次运行上限 | 8 nodes × 1 h；筛选预算 10 node·h |\n"
+            "| 评测类型 | real_gt（数据集自带标签；可作完整性能声明） |\n\n"
+            "## 冻结框架与判定规则\n\n- 框架文件：`harness/`\n- 指标规范见 `project/metric-spec.v1.json`：acc 取百分点差，final_loss、loss_auc、"
+            "peak_mem_gb 取差值，train_time_s 取相对SOTA均值的比例；正值为更好；peak_mem_gb 允许退化 2 GiB，train_time_s 允许 10%\n"
+            "- 协议见 `project/protocol.v1.json`：按seed与数据版本配对，训练1000步，评测8000条\n"
             "- 无提升：相对父节点所有指标都不更好\n- 优于父节点：主指标更好\n- 优于SOTA：3个seed，主指标领先超过0.05个百分点\n"
             "- 需要RLD复核：主指标持平（|Δ|≤0.02）但其他指标有明显取舍\n- 差不多：seed不足3个且主指标领先在0.02–0.10之间\n")
         setup = self.doc(rld, "project/min-setup.v1.md", "min_setup", "最小实验设定与判定规则", setup_body,
@@ -178,8 +218,13 @@ class Demo:
         config = rld.register_document("project/config.v1.yaml", "config", "项目配置",
                                        summary="research-tree.yaml：开发与实验平台、资源预算、阶段1门槛、子代理模型")
         rld.set_document_current(config)
+        specs = self.doc(rld, "project/metric-spec.v1.json", "metric_spec", "指标规范",
+                         json.dumps(METRIC_SPECS, ensure_ascii=False, indent=1), "主指标acc（百分点）与4个次指标的方向、单位与保护阈值")
+        protocol = self.doc(rld, "project/protocol.v1.json", "protocol", "实验协议",
+                            json.dumps(PROTOCOL, ensure_ascii=False, indent=1), "real_gt；按seed与数据版本配对；1000步")
         rld.create_project(PROJECT_ID, "虚构示例：LoRA优化器方法发现", setup, "acc", "higher", True, SECONDARY,
                            SEEDS, goal_doc_id=goal, repo_path=str(self.code), config_doc_id=config,
+                           metric_spec_doc_id=specs, protocol_doc_id=protocol,
                            **project_config.db_fields(project_config.parse(config_text)))
 
         # Root node (baselines): harness and SOTA baseline by the root's worker, reviewed and frozen by RLD.
@@ -205,9 +250,9 @@ class Demo:
         self.values = {sota: self.finish_experiment(w1, sota, {}, nodes=4)}
         accs = [v["acc"] for v in self.values[sota].values()]
         sota_result = self.doc(w1, "baselines/E-0001/result.v1.md", "experiment_result", "SOTA基线结果",
-                               "| seed | acc |\n|---|---|\n" + "".join(f"| {s} | {v['acc']} |\n" for s, v in self.values[sota].items()),
-                               f"BaseOpt-A 均值 {sum(accs) / 3:.2f}")
-        w1.record_verdict(sota, sota_result, round(sum(accs) / 3, 4), 0.04)
+                               "| seed | acc |\n|---|---|\n" + "".join(f"| {s} | {v['acc']} |\n" for s, v in self.values[sota].items())
+                               + self.evidence(sota), f"BaseOpt-A 均值 {sum(accs) / 3:.2f}")
+        w1.evaluate_experiment(sota, sota_result)
         w1.run_cleanup(sota)
         rld.update_project(sota_experiment_id=sota)
         delivery = self.doc(w1, "tasks/T-0001/delivery.v1.md", "task_delivery", "根节点交付", task_body(
@@ -297,16 +342,31 @@ class Demo:
         verdict = verdict_fn(cmps)
         accs = [v["acc"] for v in self.values[exp].values()]
         mean = sum(accs) / len(accs)
-        table = "| 比较 | 配对seed | Δacc | " + " | ".join(f"Δ{k}%" for k in SECONDARY) + " |\n|---|---|---|" + "---|" * len(SECONDARY) + "\n"
+        table = "| 比较 | 配对seed | Δacc | " + " | ".join(f"Δ{k}" for k in SECONDARY) + " |\n|---|---|---|" + "---|" * len(SECONDARY) + "\n"
         table += "".join(f"| {c['role']} {c['target_id']} | {c['n_paired']} | {c['delta_mean']:+.3f} | "
-                         + " | ".join(f"{c['deltas'][k]:+.2f}" for k in SECONDARY) + " |\n" for c in cmps)
+                         + " | ".join(f"{c['deltas'][k]:+.3f}" for k in SECONDARY) + " |\n" for c in cmps)
         result = self.doc(worker, f"hypotheses/{h}/experiments/{exp}/result.v{len(self.rld.get(exp)['seeds'])}.md",
                           "experiment_result", f"{exp} 统计结果",
-                          f"## 判定：{verdict}\n\n均值 acc {mean:.3f}，seeds {sorted(self.values[exp])}\n\n{table}",
-                          f"{exp} 判定 {verdict}")
-        worker.record_verdict(exp, result, round(mean, 4), None, verdict, cmps)
+                          f"## 判定：{verdict}\n\n均值 acc {mean:.3f}，seeds {sorted(self.values[exp])}（train_time_s 为相对SOTA均值的比例，"
+                          f"其余为差值；正值更好）\n\n{table}" + self.evidence(exp, cmps), f"{exp} 判定 {verdict}")
+        worker.evaluate_experiment(exp, result, verdict)
         worker.run_cleanup(exp)
         return exp, verdict
+
+    def evidence(self, exp: str, cmps: list | None = None) -> str:
+        """The result document's evidence block: each seed's primary metric from its metrics file, and the summary
+        the frozen statistics code wrote (outputs/<exp>/stats.json) under the ids the interface checks against its
+        own recomputation (mean:<metric>, delta:<role>:<metric>)."""
+        claims = [{"id": f"acc-s{seed}", "value": str(v["acc"]), "source": f"outputs/{exp}/s{seed}/metrics.json"}
+                  for seed, v in sorted(self.values[exp].items())]
+        accs = [v["acc"] for v in self.values[exp].values()]
+        stats = {"mean:acc": round(sum(accs) / len(accs), 6)}
+        for c in cmps or []:
+            stats[f"delta:{c['role']}:acc"] = round(c["delta_mean"], 6)
+            stats.update({f"delta:{c['role']}:{k}": round(v, 6) for k, v in c["deltas"].items()})
+        (self.root / "outputs" / exp / "stats.json").write_text(json.dumps(stats), encoding="utf-8")
+        claims += [{"id": k, "value": repr(v), "source": f"outputs/{exp}/stats.json"} for k, v in stats.items()]
+        return "\n## 数字来源\n\n```evidence\n" + json.dumps(claims, ensure_ascii=False) + "\n```\n"
 
     def story(self, rld: ResearchDB, ui: ResearchDB, instr: str) -> None:
         lit, node, start, experiment = self.lit, self.node, self.start, self.experiment
@@ -364,7 +424,7 @@ class Demo:
                        "未被直接覆盖", about=(h3,))
         theo = self.doc(rld, f"hypotheses/{h3}/theory.v1.md", "theory", f"{h3} 理论复核",
                         "## 核对\n\n尺度平衡使A、B因子的有效学习率一致；与实验中loss_auc改善一致。\n", "推导核对无误", about=(h3,))
-        rld.decide(h3, {"novelty_recheck": "pass", "theory_recheck": "pass"}, "复核通过", based_on=[nov, theo])
+        rld.decide(h3, {"novelty_recheck": "pass", "theory_recheck": "pass"}, "复核通过", based_on=[nov, theo, e3])
         dd3 = self.decision(f"hypotheses/{h3}/decisions/expandable.v1.md", f"{h3} 可拓展",
                             "优于SOTA且两项复核通过；作为GO候选，同时可派生子节点。", h3)
         rld.decide(h3, {"status": "expandable"}, "优于SOTA且复核通过，可拓展", doc_id=dd3)

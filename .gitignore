@@ -11,3 +11,5 @@ demo/code/
 demo/worktrees/
 demo/research/*/outputs/
 demo/research/*/cache/
+# Editor swap files.
+*.swp

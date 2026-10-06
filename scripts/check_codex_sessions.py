@@ -62,6 +62,7 @@ def main():
     sys.path.insert(0, str(plugin / "tools"))
     import research_tree
     from codex_runtime import Runtime
+    from metrics import minimal_documents
     from research_db import TASK_SECTIONS
     from codex_state import read_json, write_json, lock_busy
 
@@ -102,7 +103,12 @@ supports_websockets = false
         return ident
 
     setup = document("project/min-setup.v1.md", "min_setup")
-    db.create_project("P-cli", "fixture", setup, "acc", "higher", True, [], [1, 2, 3])
+    docs = {}
+    for kind, content in zip(("metric_spec", "protocol"), minimal_documents("acc", "higher", [])):
+        (runtime.root / "docs" / "project" / f"{kind}.v1.json").write_text(json.dumps(content))
+        docs[f"{kind}_doc_id"] = db.register_document(f"project/{kind}.v1.json", kind, kind)
+        db.set_document_current(docs[f"{kind}_doc_id"])
+    db.create_project("P-cli", "fixture", setup, "acc", "higher", True, [], [1, 2, 3], **docs)
     document("project/reports/init-plan.v1.md", "report")
     task = db.create_task("harness", "worker", document("tasks/T-0001/request.v1.md", "task_request"), target_id="P-cli")
     runtime.post({"type": "confirm_request", "text": "Fixture confirmation", "docs": ["project/reports/init-plan.v1.md"]})

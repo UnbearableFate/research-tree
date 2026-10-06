@@ -30,6 +30,7 @@ import argparse
 import hashlib
 import inspect
 import json
+import math
 import os
 import re
 import shutil
@@ -45,10 +46,17 @@ from typing import Any, Iterator
 
 from latticedb import Database, LatticeDatabaseLockedError
 
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import evidence as claims_check  # noqa: E402
+import metrics  # noqa: E402
+from metrics import MetricError  # noqa: E402
+
 SPEC_PATH = Path(__file__).resolve().parent.parent / "schema" / "research_tree.sql"
 # The project's own cleanup script (in the project directory, beside research-tree.yaml), copied from this template.
 CLEANUP_SCRIPT = "research-tree-cleanup.py"
 CLEANUP_TEMPLATE = Path(__file__).resolve().parent.parent / "schema" / "cleanup.template.py"
+# The database layout this interface writes (schema/create_db.py SCHEMA_VERSION; a test keeps them equal).
+SCHEMA_VERSION = 7
 OPEN_ATTEMPTS = 40
 OPEN_RETRY_DELAY_S = 0.25
 
@@ -62,9 +70,10 @@ ID_PREFIX = {
     "document": "D",
     "decision": "DEC",
     "task": "T",
+    "evaluation": "EV",
 }
 TABLE_OF_PREFIX = {prefix: table for table, prefix in ID_PREFIX.items()}
-ENTITY_ID_RE = re.compile(r"^(P|H|E|BR|D|DEC|T)-[A-Za-z0-9_.-]+$")
+ENTITY_ID_RE = re.compile(r"^(P|H|E|EV|BR|D|DEC|T)-[A-Za-z0-9_.-]+$")
 # A project may also be named like its directory / uv project (`my-study`), as long as it does not look like
 # another record's id.
 PROJECT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_.-]*$")
@@ -81,6 +90,7 @@ EDGE_COLUMNS = {
     ("run", "experiment_id"): ("experiment",),
     ("decision", "target_id"): ("hypothesis", "project", "branch"),
     ("task", "target_id"): ("hypothesis", "project", "experiment"),
+    ("evaluation", "experiment_id"): ("experiment",),
 }
 
 ENTITY_TABLES = tuple(ID_PREFIX) + ("run",)
@@ -91,7 +101,7 @@ REL_ENDPOINTS = {
     "rel_related": (("hypothesis",), ("hypothesis",)),
     "rel_describes": (("document",), ENTITY_TABLES),
     "rel_supersedes": (("document",), ("document",)),
-    "rel_based_on": (("decision",), ("experiment", "document")),
+    "rel_based_on": (("decision",), ("experiment", "document", "evaluation")),
 }
 
 # Document columns -> allowed doc_type of the referenced document.
@@ -99,6 +109,11 @@ DOC_REF_TYPES = {
     ("project", "goal_doc_id"): ("goal",),
     ("project", "min_setup_doc_id"): ("min_setup",),
     ("project", "config_doc_id"): ("config",),
+    ("project", "protocol_doc_id"): ("protocol",),
+    ("project", "metric_spec_doc_id"): ("metric_spec",),
+    ("evaluation", "protocol_doc_id"): ("protocol",),
+    ("evaluation", "metric_spec_doc_id"): ("metric_spec",),
+    ("evaluation", "result_doc_id"): ("experiment_result",),
     ("hypothesis", "doc_id"): ("hypothesis",),
     ("experiment", "design_doc_id"): ("experiment_design",),
     ("experiment", "result_doc_id"): ("experiment_result",),
@@ -118,6 +133,8 @@ DOC_AUTHORS = {
     "workflow": ("rld",),
     "report": ("rld",),
     "config": ("rld",),
+    "protocol": ("rld",),
+    "metric_spec": ("rld",),
     "task_request": ("rld",),
     "user_instruction": ("ui", "rld"),
     "literature": ("worker", "assistant", "rld"),
@@ -163,6 +180,8 @@ TASK_TRANSITIONS = {  # status -> {to_status: role allowed to make the change}
 GATE_FIELDS = ("primary_metric", "metric_direction", "metric_is_percent", "secondary_metrics", "go_margin",
                "gate_seeds", "seeds")
 RUN_MEASUREMENTS = ("metric_value", "secondary", "nodes_used", "walltime_used_s")
+# What import_run_result writes besides the measurements; kept per attempt like them.
+IMPORT_FIELDS = ("manifest_path", "manifest", "evidence_paths", "import_record")
 # The '## ' sections a task's request and delivery documents must have: what a delegation and its result hand over.
 TASK_SECTIONS = {
     "task_request": ("任务与节点", "问题与预测", "干预与对照", "范围与权限", "资源与预算", "验收与停止条件", "交付"),
@@ -171,10 +190,13 @@ TASK_SECTIONS = {
 RESEARCH_TASK_KINDS = ("harness", "literature", "experiment", "analysis")
 FINAL_EXEC = ("succeeded", "failed", "cancelled")
 # What one attempt of a run records; kept in run.attempts when the run is resubmitted.
-ATTEMPT_FIELDS = ("job_id", "exec_status", "valid", "invalid_reason", "curve_path", "log_path", "output_path",
-                  "started_at", "finished_at") + RUN_MEASUREMENTS
+REPORTED_FIELDS = ("job_id", "exec_status", "valid", "invalid_reason", "curve_path", "log_path", "output_path",
+                   "started_at", "finished_at")
+ATTEMPT_FIELDS = REPORTED_FIELDS + RUN_MEASUREMENTS + IMPORT_FIELDS + ("retracted_at", "retracted_reason")
 # Settings from the project configuration (research-tree.yaml) besides the caps and gates above.
 LIMIT_FIELDS = ("max_parallel_workers", "alert_node_h", "config_doc_id")
+# The documents evaluations are computed under (plans/design/04): protocol and metric specification.
+EVIDENCE_DOC_FIELDS = ("protocol_doc_id", "metric_spec_doc_id")
 
 class ResearchDBError(Exception):
     pass
@@ -182,6 +204,23 @@ class ResearchDBError(Exception):
 
 class PermissionDenied(ResearchDBError):
     pass
+
+
+class CodedError(ResearchDBError):
+    """A refusal with one of the stable error codes of plans/design/10 §1.6 (STAT_MISMATCH, EVIDENCE_STALE, ...)."""
+
+    def __init__(self, code: str, message: str):
+        super().__init__(f"{code}: {message}")
+        self.code = code
+
+
+@contextmanager
+def _coded() -> Iterator[None]:
+    """metrics.MetricError as a CodedError of this interface."""
+    try:
+        yield
+    except MetricError as exc:
+        raise CodedError(exc.code, str(exc).split(": ", 1)[1]) from None
 
 
 # ---------------------------------------------------------------------------
@@ -472,6 +511,15 @@ class ResearchDB:
     def _writer(self) -> Iterator[_Tx]:
         with self._open(write=True) as db, db.write() as txn:
             tx = _Tx(txn)
+            meta = txn.get_nodes_by_label("Meta")
+            version = txn.get_property(meta[0], "schema_version") if meta else None
+            if version != SCHEMA_VERSION:
+                raise ResearchDBError(
+                    f"{self.db_path} has schema_version {version}, this plugin writes version {SCHEMA_VERSION}: "
+                    + ("back up the research directory, run `python <plugin>/schema/create_db.py --upgrade "
+                       f"{self.db_path}`, then migrate_evaluations (dry_run first)" if isinstance(version, int)
+                       and version < SCHEMA_VERSION else "use the plugin version that wrote it")
+                    + "; reading still works")
             yield tx
             tx.bump_meta()
             txn.commit()
@@ -567,10 +615,16 @@ class ResearchDB:
         """The project record (the tree's root): comparison setup and caps; rld only, once per database."""
         self._require_role("rld")
         self._only_fields(optional, ("goal_doc_id", "go_margin", "gate_seeds", "screen_budget_node_h",
-                                     "min_related_work", "max_nodes", "max_walltime_s", "repo_path") + LIMIT_FIELDS)
+                                     "min_related_work", "max_nodes", "max_walltime_s", "repo_path")
+                          + LIMIT_FIELDS + EVIDENCE_DOC_FIELDS)
         if table_of(id) != "project":
             raise ResearchDBError(f"project id {id!r} must be letters, digits, _ . - and must not look like another "
                                   "record's id (H-, E-, BR-, D-, DEC-, T-)")
+        missing = [k for k in EVIDENCE_DOC_FIELDS if not optional.get(k)]
+        if missing:
+            raise CodedError("PROTOCOL_CHANGE_REQUIRED", f"a new project registers its metric specification and "
+                                                         f"protocol documents first; missing {', '.join(missing)} "
+                                                         "(see doc_library: metric_spec, protocol)")
         record = {
             "id": id, "title": title, "min_setup_doc_id": min_setup_doc_id, "primary_metric": primary_metric,
             "metric_direction": metric_direction, "metric_is_percent": metric_is_percent,
@@ -582,6 +636,8 @@ class ResearchDB:
         with self._writer() as tx:
             if tx.ids("project"):
                 raise ResearchDBError("this database already has a project")
+            self._check_evidence_docs(tx, {"gate_seeds": SPEC["project"].columns["gate_seeds"].default,
+                                           "go_margin": SPEC["project"].columns["go_margin"].default, **record})
             return self._insert(tx, "project", record)
 
     def _check_comparison_setup(self, project: dict) -> None:
@@ -596,14 +652,18 @@ class ResearchDB:
         if len(set(names)) != len(names) or project["primary_metric"] in names:
             raise ResearchDBError("secondary_metrics must be distinct and must not repeat the primary metric")
 
-    def update_project(self, **changes) -> None:
-        """Title, documents, stage, budgets and caps, the frozen harness, the SOTA baseline; comparison
-        settings (GATE_FIELDS) only until the first experiment exists. A new harness clears the SOTA baseline,
-        which must then be re-run and re-evaluated."""
+    def update_project(self, user_instruction_doc_id: str | None = None, **changes) -> None:
+        """Title, documents, stage, budgets and caps, the frozen harness, the SOTA baseline, the protocol and metric
+        specification documents; comparison settings (GATE_FIELDS) only until the first experiment exists. A new
+        harness clears the SOTA baseline, which must then be re-run and re-evaluated. Once experiments exist, a new
+        protocol_doc_id or metric_spec_doc_id needs user_instruction_doc_id (a current user_instruction: the user
+        decided the change, never an agent after seeing results); evaluations under the old ones stop supporting
+        GO."""
         self._require_role("rld")
         self._only_fields(changes, ("title", "goal_doc_id", "min_setup_doc_id", "stage", "min_related_work",
                                     "screen_budget_node_h", "max_nodes", "max_walltime_s", "repo_path",
-                                    "harness_ref", "harness_paths", "sota_experiment_id") + GATE_FIELDS + LIMIT_FIELDS)
+                                    "harness_ref", "harness_paths", "sota_experiment_id")
+                          + GATE_FIELDS + LIMIT_FIELDS + EVIDENCE_DOC_FIELDS)
         with self._writer() as tx:
             project = self._project(tx)
             if set(changes) & set(GATE_FIELDS):
@@ -611,6 +671,18 @@ class ResearchDB:
                     raise ResearchDBError(f"{GATE_FIELDS} are fixed once experiments exist")
                 self._check_comparison_setup({**project, **changes})
             final = {**project, **changes}
+            if final.get("metric_spec_doc_id") and set(changes) & (set(GATE_FIELDS) | set(EVIDENCE_DOC_FIELDS)):
+                self._check_evidence_docs(tx, final)  # the gate is stated once: project and specification agree
+            if any(k in changes and changes[k] != project.get(k) for k in EVIDENCE_DOC_FIELDS):
+                if tx.ids("experiment"):
+                    instruction = user_instruction_doc_id and tx.get(user_instruction_doc_id)
+                    if not instruction or (instruction.get("doc_type"), instruction.get("status")) != (
+                            "user_instruction", "current"):
+                        raise CodedError("PROTOCOL_CHANGE_REQUIRED",
+                                         "experiments exist: a new protocol or metric specification is the user's "
+                                         "decision; pass user_instruction_doc_id, the current user_instruction "
+                                         "document that records it")
+                self._check_evidence_docs(tx, final)
             if {"max_parallel_workers", "alert_node_h"} & set(changes):
                 self._check_comparison_setup(final)
             if {"repo_path", "harness_ref", "harness_paths"} & set(changes):
@@ -623,8 +695,9 @@ class ResearchDB:
                 if resolved is None:
                     raise ResearchDBError(f"{final['harness_ref']} is not a commit in {final['repo_path']}")
                 changes["harness_ref"] = final["harness_ref"] = resolved
-                if resolved != project.get("harness_ref") and project.get("sota_experiment_id"):
-                    changes.setdefault("sota_experiment_id", None)
+                frozen_set = sorted(final["harness_paths"]) != sorted(project.get("harness_paths") or [])
+                if (resolved != project.get("harness_ref") or frozen_set) and project.get("sota_experiment_id"):
+                    changes.setdefault("sota_experiment_id", None)  # a new frozen harness: the SOTA is run again
             sota = changes.get("sota_experiment_id")
             if sota is not None:
                 exp = tx.require(sota, ("experiment",))
@@ -633,15 +706,85 @@ class ResearchDB:
                 if not exp.get("evaluated_at"):
                     invalid = _invalid_runs(tx, exp)
                     raise ResearchDBError(
-                        f"{sota} is not evaluated yet: its owner (or rld) calls record_verdict(experiment_id, "
-                        "result_doc_id, metric_mean, metric_sd) with no verdict, as baselines record metrics only, "
+                        f"{sota} is not evaluated yet: its owner (or rld) calls evaluate_experiment(experiment_id, "
+                        "result_doc_id) with no verdict, as baselines record metrics only, "
                         "once every seed has a valid run" + (f"; not yet valid: {invalid}. {VALID_RUN_HOW}" if invalid else ""))
                 if exp.get("harness_ref") != final.get("harness_ref"):
                     raise ResearchDBError(
                         f"{sota} was evaluated with harness {str(exp.get('harness_ref'))[:10]}, but the frozen harness is "
                         f"{str(final.get('harness_ref'))[:10]}: run the baseline again with the frozen harness "
-                        "(create_experiment kind=baseline, then its runs and record_verdict) and set that experiment")
+                        "(create_experiment kind=baseline, then its runs and evaluate_experiment) and set that experiment")
             self._update(tx, project["id"], changes)
+
+    def check_project_changes(self, **changes) -> None:
+        """Refuse, without writing, project changes the gate rules would refuse (config apply checks before it
+        registers a new configuration version): comparison settings and their agreement with the metric
+        specification and protocol."""
+        with self.reader() as tx:
+            project = self._project(tx)
+            final = {**project, **changes}
+            if set(changes) & set(GATE_FIELDS):
+                self._check_comparison_setup(final)
+            if final.get("metric_spec_doc_id") and set(changes) & (set(GATE_FIELDS) | set(EVIDENCE_DOC_FIELDS)):
+                self._check_evidence_docs(tx, final)
+
+    def _check_evidence_docs(self, tx: _Tx, project: dict) -> None:
+        """The metric specification fits the project's metrics (same primary and direction, a spec for every
+        secondary metric); the protocol is well formed. Both are current documents."""
+        for key in EVIDENCE_DOC_FIELDS:
+            if project.get(key) and tx.require(project[key], ("document",))["status"] != "current":
+                raise ResearchDBError(f"{key}: {project[key]} is not current; set_document_current first")
+        if project.get("metric_spec_doc_id"):
+            specs = self._json_doc(tx, project["metric_spec_doc_id"], "metric_spec")
+            with _coded():
+                metrics.check_metric_specs(specs)
+            names = {s["name"] for s in specs["metrics"]}
+            primary = metrics.spec_by_name(specs)[specs["primary"]]
+            wanted = {project["primary_metric"], *project["secondary_metrics"]}
+            if specs["primary"] != project["primary_metric"] or primary["direction"] != project["metric_direction"] \
+                    or names != wanted:
+                raise CodedError("METRIC_UNIT_MISMATCH",
+                                 f"{project['metric_spec_doc_id']} must specify exactly the project's metrics "
+                                 f"{sorted(wanted)} with primary {project['primary_metric']} "
+                                 f"({project['metric_direction']} is better); it has {sorted(names)}, primary "
+                                 f"{specs['primary']} ({primary['direction']})")
+            if not project.get("protocol_doc_id"):
+                raise CodedError("PROTOCOL_CHANGE_REQUIRED", "a project with a metric specification also registers a "
+                                                             "protocol (protocol_doc_id): its evaluation type labels "
+                                                             "every evaluation")
+            if primary["minimum_practical_gain"] != project.get("go_margin"):
+                raise CodedError("METRIC_UNIT_MISMATCH",
+                                 f"the primary metric's minimum_practical_gain {primary['minimum_practical_gain']} "
+                                 f"must equal the project's go_margin {project.get('go_margin')} (stage1.go_margin "
+                                 "in research-tree.yaml): one SOTA gate, stated once")
+        if project.get("protocol_doc_id"):
+            with _coded():
+                protocol = metrics.check_protocol(self._json_doc(tx, project["protocol_doc_id"], "protocol"))
+            if protocol.get("min_pairs") is not None and protocol["min_pairs"] < project["gate_seeds"]:
+                raise CodedError("PROTOCOL_CHANGE_REQUIRED", f"min_pairs {protocol['min_pairs']} is below gate_seeds "
+                                                             f"{project['gate_seeds']}")
+
+    def _json_doc(self, tx: _Tx, doc_id: str, doc_type: str) -> dict:
+        """A JSON document's content; a frozen document must still match its recorded hash."""
+        doc = tx.require(doc_id, ("document",))
+        if doc["doc_type"] != doc_type:
+            raise ResearchDBError(f"{doc_id} is a {doc['doc_type']} document, expected {doc_type}")
+        path = self.docs_root / doc["path"]
+        if not path.is_file() or (doc.get("sha256") and sha256_file(path) != doc["sha256"]):
+            raise ResearchDBError(f"{doc_id} ({doc['path']}) is missing or no longer matches its recorded hash")
+        try:
+            return json.loads(path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise ResearchDBError(f"{doc_id} ({doc['path']}) is not JSON: {exc}") from None
+
+    def _specs(self, tx: _Tx, project: dict) -> dict:
+        """The project's metric specification, or the compatibility one for a project without it."""
+        if project.get("metric_spec_doc_id"):
+            return self._json_doc(tx, project["metric_spec_doc_id"], "metric_spec")
+        return metrics.legacy_specs(project)
+
+    def _protocol(self, tx: _Tx, project: dict) -> dict | None:
+        return self._json_doc(tx, project["protocol_doc_id"], "protocol") if project.get("protocol_doc_id") else None
 
     # -- hypotheses -------------------------------------------------------------
 
@@ -700,7 +843,8 @@ class ResearchDB:
 
     def decide(self, target_id: str, changes: dict, reason: str, doc_id: str | None = None,
                based_on: list[str] | tuple[str, ...] = ()) -> list[str]:
-        """Change hypothesis state or project status; one decision record per field.
+        """Change hypothesis state or project status; one decision record per field. A GO or NOT GO rests on a report
+        (doc_id) that lists the numbers it relies on, with their source files, in an ```evidence block.
 
         Hypothesis fields: status, experiment_status, novelty_recheck, theory_recheck, priority.
         Project field: status.
@@ -710,7 +854,7 @@ class ResearchDB:
             raise ResearchDBError("a decision needs a reason")
         with self._writer() as tx:
             target = tx.require(target_id, ("hypothesis", "project"))
-            evidence = [tx.require(i, ("experiment", "document")) for i in based_on]
+            evidence = [tx.require(i, ("experiment", "document", "evaluation")) for i in based_on]
             for item in evidence:
                 if item["_table"] == "document" and item["status"] != "current":
                     raise ResearchDBError(f"based_on: {item['id']} is {item['status']}, expected current")
@@ -752,7 +896,12 @@ class ResearchDB:
             raise ResearchDBError(f"hypothesis decisions change {allowed}; got {sorted(changes)}")
         for field_name, value in changes.items():
             if hyp.get(field_name) == value:
-                raise ResearchDBError(f"{hyp['id']}.{field_name} is already {value!r}")
+                latest = self._latest_evaluated(tx, hyp["id"])
+                rebinding = (field_name in RECHECK_FIELDS and value == "pass" and latest is not None
+                             and latest["id"] in {e["id"] for e in evidence}
+                             and not self._recheck_bound(tx, hyp["id"], field_name, latest))
+                if not rebinding:  # a pass of a recheck may be renewed for new code, nothing else repeats
+                    raise ResearchDBError(f"{hyp['id']}.{field_name} is already {value!r}")
 
         old_status = hyp["status"]
         new_status = changes.get("status", old_status)
@@ -787,6 +936,14 @@ class ResearchDB:
             ):
                 raise ResearchDBError(f"{field_name}={changes[field_name]} needs based_on a current {dimension} "
                                       f"document about {hyp['id']}")
+            if changes[field_name] == "pass":
+                # A recheck is bound to the code it examined: it stays valid while the evaluation basis has the
+                # same code (more seeds), not after the method changes (plans/design 07 §3).
+                latest = self._latest_evaluated(tx, hyp["id"])
+                if latest is None or latest["id"] not in {e["id"] for e in evidence}:
+                    raise ResearchDBError(f"{field_name}=pass needs based_on the experiment it rechecks: "
+                                          f"{hyp['id']}'s latest evaluated experiment "
+                                          f"{latest and latest['id']}")
 
         if new_status == "pending" and (final["experiment_status"] != "todo"
                                         or any(final[f] != "pending" for f in RECHECK_FIELDS)):
@@ -836,8 +993,20 @@ class ResearchDB:
         if doc_id is None:
             raise ResearchDBError("a project status change needs a report or decision document (doc_id)")
         hypotheses = [tx.get(i) for i in tx.ids("hypothesis")]
-        if new == "go" and not any(_is_go_candidate(h) for h in hypotheses):
-            raise ResearchDBError("GO needs a node that beats SOTA and passed both rechecks")
+        if new == "go":
+            # Checked again inside this write: no earlier snapshot or cached label stands for current evidence.
+            results = [self._eligibility(tx, project, h) for h in hypotheses]
+            if not any(r["eligible"] for r in results):
+                detail = "; ".join(f"{r['hypothesis_id']}: {', '.join(r['reasons'])}" for r in results
+                                   if r["basis_evaluation_id"]) or "no node has an evaluation"
+                message = ("GO needs a node whose current evaluation passes the SOTA gate and guardrails, with both "
+                           f"rechecks bound to that evaluation's code ({detail})")
+                based = [r for r in results if r["basis_evaluation_id"]]
+                if any(r["evidence_state"] == "stale" for r in results):
+                    raise CodedError("EVIDENCE_STALE", message)
+                if based and all("LEGACY_RESULT_UNVERIFIED" in r["reasons"] for r in based):
+                    raise CodedError("LEGACY_RESULT_UNVERIFIED", message)
+                raise ResearchDBError(message)
         if new == "not_go":
             open_nodes = [h["id"] for h in hypotheses if h["status"] != "prunable"]
             if open_nodes:
@@ -846,6 +1015,19 @@ class ResearchDB:
             if waiting:
                 raise ResearchDBError(f"NOT GO comes after the cleanup; still due: {', '.join(waiting)} (their owners "
                                       "run run_cleanup)")
+        if new in ("go", "not_go"):
+            report = tx.require(doc_id, ("document",))
+            self._require_unchanged(report)
+            claims = claims_check.document_claims((self.docs_root / report["path"]).read_text(encoding="utf-8"))
+            if report["doc_type"] != "report" or not claims:
+                raise CodedError("STAT_MISMATCH", f"a {new.upper().replace('_', ' ')} decision rests on a report that "
+                                                  f"cites its numbers in an ```evidence block; {doc_id} is a "
+                                                  f"{report['doc_type']} document" + ("" if claims else " without one"))
+            bad = [r for r in claims_check.check_batch(claims, self.db_path.parent, self.project_dir,
+                                                       forbidden=self.docs_root)["results"] if r["status"] != "verified"]
+            if bad:
+                raise CodedError("STAT_MISMATCH", f"{doc_id}: numbers not found in their sources: " + "; ".join(
+                    f"{r.get('id', '?')} {r.get('value')!r}: {r['status']}" for r in bad[:10]))
         if new in ("stopped", "active") and not any(
             e["_table"] == "document" and e["doc_type"] == "user_instruction" for e in evidence
         ):
@@ -894,11 +1076,23 @@ class ResearchDB:
             resolved = _git_commit(project["repo_path"], code_ref)
             if resolved is None:
                 raise ResearchDBError(f"code_ref {code_ref} is not a commit in {project['repo_path']}")
+            # The references a node experiment is compared with are fixed now (plans/design 05 §3.2): later
+            # experiments of the parent or a new SOTA do not move them.
+            refs = {}
+            if hypothesis_id is not None:
+                refs["baseline_experiment_id"] = project.get("sota_experiment_id")
+                parent = node.get("parent_id")
+                if parent and table_of(parent) == "hypothesis":
+                    latest = self._latest_evaluated(tx, parent)
+                    if latest is None:
+                        raise ResearchDBError(f"parent {parent} has no experiment evaluated with the current harness: "
+                                              "the comparison reference is fixed when the experiment is created")
+                    refs["parent_experiment_id"] = latest["id"]
             return self._insert(tx, "experiment", {
                 "id": tx.next_id("experiment"), "project_id": project["id"], "hypothesis_id": hypothesis_id,
                 "kind": kind, "method_name": method_name, "design_doc_id": design_doc_id, "code_ref": resolved,
                 "seeds": project["seeds"][:n], "nodes": nodes, "walltime_s": walltime_s,
-                "owner": optional.pop("owner", None) or self.agent, **optional,
+                "owner": optional.pop("owner", None) or self.agent, **refs, **optional,
             })
 
     def _check_usage_alert(self, tx: _Tx, project: dict) -> None:
@@ -945,7 +1139,7 @@ class ResearchDB:
                 raise ResearchDBError("seeds beyond the screening budget need verdict close or beats_parent, or rld")
             self._update(tx, experiment_id, {
                 "seeds": project["seeds"][:n_seeds], "verdict": None, "metric_mean": None, "metric_sd": None,
-                "result_doc_id": None, "harness_ref": None, "evaluated_at": None,
+                "result_doc_id": None, "harness_ref": None, "evaluated_at": None, "evaluation_id": None,
             })
             tx.unlink_all("rel_compared_with", experiment_id)
 
@@ -972,12 +1166,12 @@ class ResearchDB:
         exec_status moves planned -> submitted -> running -> succeeded, failed or cancelled (submitted may go straight
         to a final state; unknown when the scheduler cannot tell). metric_value and secondary are a succeeded run's
         results. valid=true accepts a succeeded run with all four measurements and its log_path or output_path, and
-        freezes it; record_verdict needs a valid run for every seed. valid=false needs invalid_reason.
+        freezes it; evaluate_experiment needs a valid run for every seed. valid=false needs invalid_reason.
 
         A run whose attempt failed or was cancelled, or succeeded but was marked invalid, is resubmitted by raising
         attempt by one together with exec_status planned/submitted. The finished attempt is kept in attempts (its
         usage still counts) and the run starts over."""
-        self._only_fields(changes, ATTEMPT_FIELDS[:-len(RUN_MEASUREMENTS)] + ("attempt",) + RUN_MEASUREMENTS)
+        self._only_fields(changes, REPORTED_FIELDS + ("attempt",) + RUN_MEASUREMENTS)
         with self._writer() as tx:
             project = self._project(tx)
             run = tx.require(run_id, ("run",))
@@ -1004,6 +1198,15 @@ class ResearchDB:
             if new != "succeeded" and any(changes.get(k) is not None for k in ("metric_value", "secondary")):
                 raise ResearchDBError(f"metric_value and secondary are a succeeded run's results; {run_id} is {new}: "
                                       "report exec_status succeeded first or in the same call")
+            if run.get("retracted_at") and not retry:
+                raise ResearchDBError(f"{run_id} attempt {run['attempt']} was retracted ({run.get('retracted_reason')}); "
+                                      "resubmit it as a new attempt (attempt + 1 with exec_status planned or submitted)")
+            if run.get("import_record") and not retry:
+                for field in ("metric_value", "secondary"):
+                    if field in changes and changes[field] != run.get(field):
+                        raise CodedError("STAT_MISMATCH", f"{run_id}.{field} was imported from "
+                                                          f"{run.get('manifest_path')} as {run.get(field)!r}; it is "
+                                                          "not reported again")
             final = {**run, **changes}
             if final.get("valid") is False and not (final.get("invalid_reason") or "").strip():
                 raise ResearchDBError("valid=false needs invalid_reason: what failed acceptance, citing the log")
@@ -1019,6 +1222,14 @@ class ResearchDB:
                     raise ResearchDBError(f"secondary must give a number for each of {project['secondary_metrics']}")
                 if final["nodes_used"] > project["max_nodes"] or final["walltime_used_s"] > project["max_walltime_s"]:
                     raise ResearchDBError("recorded usage exceeds the per-run cap")
+                protocol = self._protocol(tx, project)
+                if (protocol or {}).get("require_artifact_import") and not final.get("import_record"):
+                    raise ResearchDBError(f"the protocol requires imported results: import_run_result({run_id}, "
+                                          f"{final['attempt']}, <manifest>) before valid=true")
+                with _coded():
+                    metrics.run_values(self._specs(tx, project), {**final, "id": run_id},
+                                       [n for n in [project["primary_metric"], *project["secondary_metrics"]]
+                                        if n in metrics.spec_by_name(self._specs(tx, project))])
             self._update(tx, run_id, changes)
             exp = tx.get(run["experiment_id"])
             if new == "submitted" and exp.get("hypothesis_id"):
@@ -1033,35 +1244,226 @@ class ResearchDB:
         if self.role != "rld" and record["owner"] != self.agent:
             raise PermissionDenied(f"{record['id']} belongs to {record['owner']}")
 
-    # -- verdicts -------------------------------------------------------------------
+    # -- run results ----------------------------------------------------------------
 
-    def record_verdict(self, experiment_id: str, result_doc_id: str, metric_mean: float,
-                       metric_sd: float | None = None, verdict: str | None = None,
-                       comparisons: list[dict] | tuple[dict, ...] = ()) -> None:
-        """Record the frozen statistics code's output for all seeds of an experiment.
+    def import_run_result(self, run_id: str, attempt: int, manifest_path: str) -> dict:
+        """Import one attempt's results through its manifest (plans/design 05 §2.2): the frozen parser reads the
+        metrics file the manifest names and checks identity (experiment, seed, attempt, code version), exit
+        status, finite values in their valid range, counts, and the protocol's required settings. The values
+        become the run's metric_value and secondary; the metrics file and declared evidence files are kept from
+        cleanup. The experiment's owner (or rld), on a run reported succeeded; validity is still decided with
+        update_run(valid=...). Importing the same attempt again with the same files changes nothing.
 
-        comparisons: [{"target_id", "role": "parent"|"sota", "n_paired", "delta_mean", "delta_sd", "deltas"}],
-        deltas oriented so that positive is better. Node experiments compare with SOTA and, below the top
-        level, with the parent node's latest evaluated experiment. Baselines record no verdict.
-        Every seed needs a valid run first (update_run: exec_status succeeded, valid true, measurements).
-        """
+        Manifest (JSON; paths relative to the manifest's directory or absolute inside the project):
+          {"experiment_id", "seed", "attempt", "code_ref", "exit_status": 0, "metrics_path",
+           "counts": {"n_val": 400, ...}, "data_version", "config": {...} or path, "env": {...},
+           optional "evidence_paths", "log_path", "curve_path", "output_path", "nodes_used", "walltime_used_s",
+           and any key the protocol pairs on or requires}.
+        The metrics file is a JSON object with the project's metrics by name, in their input units."""
+        with self.reader() as tx:
+            project = self._project(tx)
+            run = tx.require(run_id, ("run",))
+            exp = tx.require(run["experiment_id"], ("experiment",))
+            self._require_owner(exp)
+            specs, protocol = self._specs(tx, project), self._protocol(tx, project)
+        if attempt != run["attempt"]:
+            raise CodedError("EVIDENCE_CHANGED", f"{run_id} is at attempt {run['attempt']}, not {attempt}")
+        if run["exec_status"] != "succeeded":
+            raise ResearchDBError(f"{run_id} is {run['exec_status']}: report exec_status succeeded (update_run) "
+                                  "before importing its results")
+        manifest_file = self._inside_project(manifest_path, self.db_path.parent, "manifest_path")
+        manifest = _read_json(manifest_file, "manifest")
+        if not isinstance(manifest, dict):
+            raise ResearchDBError(f"{manifest_file} must hold a JSON object")
+        base = manifest_file.parent
+        problems = []
+        for key, want in (("experiment_id", exp["id"]), ("seed", run["seed"]), ("attempt", attempt)):
+            if manifest.get(key) != want:
+                problems.append(f"{key} is {manifest.get(key)!r}, expected {want!r}")
+        code = manifest.get("code_ref")
+        if not isinstance(code, str) or _git_commit(project["repo_path"], code) != exp["code_ref"]:
+            problems.append(f"code_ref {code!r} is not the experiment's code {exp['code_ref'][:10]}")
+        if manifest.get("exit_status") not in (0, "succeeded"):
+            problems.append(f"exit_status is {manifest.get('exit_status')!r}, not 0")
+        counts = manifest.get("counts")
+        if not isinstance(counts, dict) or not counts or not all(
+                isinstance(v, int) and not isinstance(v, bool) and v > 0 for v in counts.values()):
+            problems.append("counts must give the positive numbers of training/evaluation items actually used")
+            counts = {}
+        for name, want in ((protocol or {}).get("required_counts") or {}).items():
+            if counts.get(name) != want:
+                problems.append(f"counts.{name} is {counts.get(name)!r}, the protocol requires {want}")
+        for key in ("data_version", "config", "env"):
+            if manifest.get(key) in (None, "", {}):
+                problems.append(f"{key} is missing")
+        if problems:
+            raise CodedError("PAIRING_MISMATCH" if any("protocol" in x for x in problems) else "STAT_MISMATCH",
+                             f"{manifest_file.name} does not describe {run_id}@{attempt}: " + "; ".join(problems))
+        for key, want in ((protocol or {}).get("match") or {}).items():
+            if manifest.get(key) != want:
+                raise CodedError("PAIRING_MISMATCH", f"{manifest_file.name}: {key} is {manifest.get(key)!r}, "
+                                                     f"the protocol fixes {want!r}; this run cannot join the comparison")
+        metrics_file = self._inside_project(manifest.get("metrics_path"), base, "metrics_path")
+        values = _read_json(metrics_file, "metrics file")
+        if not isinstance(values, dict):
+            raise ResearchDBError(f"{metrics_file} must hold a JSON object of metric values")
+        units = manifest.get("units")
+        by_spec = metrics.spec_by_name(specs)
+        declared = [n for n in [project["primary_metric"], *project["secondary_metrics"]] if n in by_spec
+                    and not specs.get("legacy")]
+        if declared and (not isinstance(units, dict) or any(units.get(n) != by_spec[n]["input_unit"] for n in declared)):
+            raise CodedError("METRIC_UNIT_MISMATCH", f"{manifest_file.name} declares units {units!r}; the metric "
+                                                     "specification reads "
+                                                     f"{ {n: by_spec[n]['input_unit'] for n in declared} } "
+                                                     "(the runner states each metric's unit in the manifest)")
+        names = [project["primary_metric"], *project["secondary_metrics"]]
+        by_name = by_spec
+        with _coded():
+            for name in names:
+                if name not in values:
+                    raise ResearchDBError(f"{metrics_file.name} has no {name}")
+                if name in by_name:
+                    metrics.canonical(by_name[name], values[name], f"{run_id}@{attempt}")
+                elif not (metrics.is_number(values[name]) and math.isfinite(values[name])):
+                    raise MetricError("NONFINITE_METRIC", f"{run_id}@{attempt}: {name} is {values[name]!r}")
+            for key in (protocol or {}).get("pair_fields", []):
+                if key != "seed" and not isinstance(manifest.get(key), (str, int, float, bool)):
+                    raise MetricError("PAIRING_MISMATCH", f"{manifest_file.name} lacks {key} (a scalar), a pair "
+                                                          "field of the protocol")
+        evidence_files = [metrics_file] + [self._inside_project(e, base, "evidence_paths")
+                                           for e in manifest.get("evidence_paths") or []]
+        record = {"parser_version": metrics.PARSER_VERSION, "manifest_sha256": sha256_file(manifest_file),
+                  "metrics_sha256": sha256_file(metrics_file), "imported_at": now_utc(),
+                  "by": f"{self.role}/{self.agent}"}
+        # every scalar field of the manifest is kept, so a later protocol can be checked against it without a re-run
+        kept = {k: v for k, v in manifest.items() if isinstance(v, (str, int, float, bool)) and k != "counts"}
+        changes = {
+            "metric_value": values[project["primary_metric"]],
+            "secondary": {k: values[k] for k in project["secondary_metrics"]},
+            "manifest_path": self._research_rel(manifest_file), "manifest": {**kept, "counts": counts},
+            "evidence_paths": [self._research_rel(f) for f in evidence_files], "import_record": record,
+        }
+        for key in ("log_path", "curve_path", "output_path"):
+            if manifest.get(key):
+                changes[key] = self._research_rel(self._inside_project(manifest[key], base, key, exists=False))
+        for key in ("nodes_used", "walltime_used_s"):
+            if isinstance(manifest.get(key), int) and not isinstance(manifest[key], bool):
+                changes[key] = manifest[key]
         with self._writer() as tx:
+            current = tx.require(run_id, ("run",))
+            if current["attempt"] != attempt or current["exec_status"] != "succeeded":
+                raise CodedError("EVIDENCE_CHANGED", f"{run_id} changed while its results were read; import again")
+            previous = current.get("import_record")
+            if previous:
+                same = (previous["manifest_sha256"], previous["metrics_sha256"]) == (
+                    record["manifest_sha256"], record["metrics_sha256"])
+                if not same:
+                    raise CodedError("EVIDENCE_CHANGED", f"{run_id}@{attempt} was imported from other files "
+                                                         f"({current.get('manifest_path')}); an attempt is imported once")
+                return {"run_id": run_id, "attempt": attempt, "imported": False, "import_record": previous}
+            for key in ("metric_value", "secondary", "nodes_used", "walltime_used_s"):
+                if current.get(key) is not None and key in changes and current[key] != changes[key]:
+                    if current.get("valid") is True or key in ("metric_value", "secondary"):
+                        raise CodedError("STAT_MISMATCH", f"{run_id} already records {key}={current[key]!r}; "
+                                                          f"its metrics file says {changes[key]!r}")
+            if current.get("valid") is True:  # a valid run is frozen: only the import fields are added
+                changes = {k: v for k, v in changes.items() if k in IMPORT_FIELDS}
+            self._update(tx, run_id, changes)
+            return {"run_id": run_id, "attempt": attempt, "imported": True, "import_record": record,
+                    "metrics": {k: values[k] for k in names}}
+
+    def retract_run(self, run_id: str, reason: str, doc_id: str) -> None:
+        """A valid run later shown to be invalid (a wrong evaluator, corrupted data, ...): rld only, with a current
+        decision or report document. The run keeps its record and becomes invalid; every evaluation that used it
+        stops supporting GO. The run may then be resubmitted as a new attempt."""
+        self._require_role("rld")
+        if not reason.strip():
+            raise ResearchDBError("retracting a run needs a reason")
+        with self._writer() as tx:
+            run = tx.require(run_id, ("run",))
+            if run.get("valid") is not True:
+                raise ResearchDBError(f"{run_id} is not a valid run (valid {run.get('valid')})")
+            self._check_refs(tx, "decision", {"doc_id": doc_id}, current_docs=True)
+            now = now_utc()
+            tx.set(run_id, {"valid": False, "invalid_reason": f"retracted: {reason} ({doc_id})",
+                            "retracted_at": now, "retracted_reason": reason})
+            exp = tx.get(run["experiment_id"])
+            decision_id = tx.next_id("decision")
+            self._insert(tx, "decision", {
+                "id": decision_id, "target_id": exp.get("hypothesis_id") or self._project(tx)["id"],
+                "field": "run_validity", "from_value": f"{run_id}@{run['attempt']} valid",
+                "to_value": f"{run_id}@{run['attempt']} retracted", "reason": reason, "doc_id": doc_id,
+                "decided_by": self.agent, "decided_at": now,
+            })
+            ref = f"{run_id}@{run['attempt']}"
+            affected = [v for v in tx.ids("evaluation") if ref in (tx.get(v).get("run_attempt_refs") or [])]
+            for target in [doc_id, *affected]:
+                tx.link("rel_based_on", decision_id, target)
+
+    def _inside_project(self, path: Any, base: Path, what: str, exists: bool = True) -> Path:
+        if not isinstance(path, str) or not path:
+            raise ResearchDBError(f"{what} is missing")
+        resolved = Path(os.path.realpath(path if os.path.isabs(path) else base / path))
+        if not resolved.is_relative_to(Path(os.path.realpath(self.project_dir))):
+            raise ResearchDBError(f"{what} {path} is outside the project directory")
+        if exists and not resolved.is_file():
+            raise ResearchDBError(f"{what} {path} does not exist")
+        return resolved
+
+    def _research_rel(self, path: Path) -> str:
+        """A path relative to the research root when it lies inside it (the form runs record), else absolute."""
+        root = Path(os.path.realpath(self.db_path.parent))
+        return str(path.relative_to(root)) if path.is_relative_to(root) else str(path)
+
+    # -- evaluations ----------------------------------------------------------------
+
+    def evaluate_experiment(self, experiment_id: str, result_doc_id: str, verdict: str | None = None,
+                            protocol_id: str | None = None, baseline_experiment_id: str | None = None) -> dict:
+        """Compute an experiment's statistics from its registered runs and record them as an evaluation
+        (plans/design 05 §2–3): means and sample SDs per metric in canonical units, and for node experiments the
+        paired effects against the references fixed at creation (SOTA baseline, and the parent's experiment below
+        the top level), the SOTA gate (minimum practical gain of the primary metric over the required pairs) and
+        the guardrails (allowed regressions). No number is taken from the caller. Every seed needs a valid run.
+
+        verdict: node experiments still name one (no_gain, close, beats_parent, beats_sota, needs_rld); it must
+        agree with the computed comparisons. Baselines record metrics only. protocol_id, when given, must be the
+        project's current protocol. baseline_experiment_id rescores against the current SOTA when it changed since
+        the experiment was created: a new evaluation, the earlier one stays. The same inputs again return the
+        same evaluation. The result document cites its numbers in an ```evidence block (checked against files)."""
+        return self._evaluate(experiment_id, result_doc_id, verdict, protocol_id, baseline_experiment_id, None)
+
+    def record_verdict(self, experiment_id: str, result_doc_id: str, metric_mean: float | None = None,
+                       metric_sd: float | None = None, verdict: str | None = None,
+                       comparisons: list[dict] | tuple[dict, ...] = ()) -> dict:
+        """Compatibility entry of evaluate_experiment: the statistics are recomputed from the runs and the numbers
+        given here are only cross-checked (STAT_MISMATCH when they differ beyond the decimals given). comparisons:
+        [{"target_id", "role": "parent"|"sota", "n_paired", "delta_mean", "delta_sd", "deltas"}], effects oriented so
+        that positive is better. Every seed needs a valid run first (update_run: exec_status succeeded, valid true,
+        measurements)."""
+        expected = {"metric_mean": metric_mean, "metric_sd": metric_sd, "comparisons": list(comparisons)}
+        return self._evaluate(experiment_id, result_doc_id, verdict, None, None, expected)
+
+    # Called between the computation (outside the write lock) and the write; tests use it to change the database.
+    _after_compute = None
+
+    def _evaluate(self, experiment_id: str, result_doc_id: str, verdict: str | None, protocol_id: str | None,
+                  baseline_id: str | None, expected: dict | None) -> dict:
+        with self.reader() as tx:
             project = self._project(tx)
             exp = tx.require(experiment_id, ("experiment",))
             self._require_owner(exp)
-            if exp.get("evaluated_at"):
-                raise ResearchDBError(f"{experiment_id} is already evaluated; extend its seeds or start a new experiment")
             invalid = _invalid_runs(tx, exp)
             if invalid:
                 raise ResearchDBError(f"{experiment_id} needs a valid run for every seed; not yet: {invalid}. "
                                       f"{VALID_RUN_HOW}")
             self._check_harness(project, exp)
             self._check_refs(tx, "experiment", {"result_doc_id": result_doc_id}, current_docs=True)
-            self._check_values("experiment", {"verdict": verdict, "metric_mean": metric_mean, "metric_sd": metric_sd})
-
-            edges = []
+            self._check_values("experiment", {"verdict": verdict})
+            if protocol_id is not None and protocol_id != project.get("protocol_doc_id"):
+                raise CodedError("PROTOCOL_CHANGE_REQUIRED", f"{protocol_id} is not the project's current protocol "
+                                                             f"({project.get('protocol_doc_id')})")
             if exp["kind"] == "baseline":
-                if verdict is not None or comparisons:
+                if verdict is not None or (expected and expected["comparisons"]) or baseline_id:
                     raise ResearchDBError("a baseline records metrics only, no verdict or comparisons")
             else:
                 branch = self._branch_of(tx, exp["hypothesis_id"])
@@ -1069,17 +1471,441 @@ class ResearchDB:
                     raise ResearchDBError(f"{experiment_id} ran the branch base; a node needs a code change")
                 if verdict is None:
                     raise ResearchDBError("a node experiment needs a verdict")
-                edges = self._check_comparisons(tx, project, exp, comparisons)
+            refs = self._references(tx, project, exp, baseline_id)
+            signature = self._signature(tx, project, exp, refs)
+            with _coded():
+                computed = self._compute(tx, project, exp, refs)
+            if expected is not None:
+                self._cross_check(computed, expected, exp)
+            self._check_result_claims(tx, exp, result_doc_id, computed)
+            edges = computed["edges"]
+            if exp["kind"] != "baseline":
                 self._check_verdict(project, exp, verdict, edges)
-            self._update(tx, experiment_id, {
-                "verdict": verdict, "metric_mean": metric_mean, "metric_sd": metric_sd,
-                "result_doc_id": result_doc_id, "harness_ref": project["harness_ref"], "evaluated_at": now_utc(),
-            })
-            if exp.get("hypothesis_id"):
-                self._stamp_once(tx, exp["hypothesis_id"], "first_result_at")
-            for edge in edges:
-                tx.link("rel_compared_with", experiment_id, edge["target_id"],
-                        {k: v for k, v in edge.items() if k != "target_id" and v is not None})
+            fingerprint = hashlib.sha256(json.dumps({"inputs": signature["inputs_digest"], "verdict": verdict,
+                                                     "result_doc_id": result_doc_id},
+                                                    sort_keys=True).encode()).hexdigest()
+            if exp.get("evaluated_at"):
+                old = tx.get(exp["evaluation_id"]) if exp.get("evaluation_id") else None
+                if old is None:
+                    raise ResearchDBError(f"{experiment_id} is already evaluated; extend its seeds or start a new "
+                                          "experiment (migrate_evaluations records an evaluation for it)")
+                if old["fingerprint"] == fingerprint:  # the same inputs again: the same evaluation
+                    return {"evaluation_id": old["id"], "created": False, **computed["public"]}
+                if old["inputs_digest"] == signature["inputs_digest"] and not old.get("migrated"):
+                    raise ResearchDBError(f"{experiment_id} is already evaluated with these runs ({old['id']}, verdict "
+                                          f"{old.get('verdict')}); extend its seeds or start a new experiment")
+        if self._after_compute is not None:
+            self._after_compute()
+        with self._writer() as tx:
+            project = self._project(tx)
+            exp = tx.require(experiment_id, ("experiment",))
+            try:
+                refs_now = self._references(tx, project, exp, baseline_id)
+            except CodedError as exc:
+                raise CodedError("EVIDENCE_CHANGED", f"the references of {experiment_id} changed while it was "
+                                                     f"computed ({exc}); evaluate again") from None
+            if self._signature(tx, project, exp, refs_now) != signature:
+                raise CodedError("EVIDENCE_CHANGED", f"the runs, references, protocol or harness of {experiment_id} "
+                                                     "changed while it was computed; evaluate again")
+            current = tx.get(exp["evaluation_id"]) if exp.get("evaluation_id") else None
+            if current is not None and current["fingerprint"] == fingerprint:  # written meanwhile by the same call
+                return {"evaluation_id": current["id"], "created": False, **computed["public"]}
+            if current is not None and current["inputs_digest"] == signature["inputs_digest"] \
+                    and not current.get("migrated"):
+                raise ResearchDBError(f"{experiment_id} was evaluated with these runs meanwhile ({current['id']}, "
+                                      f"verdict {current.get('verdict')})")
+            ev_id = self._record_evaluation(tx, project, exp, refs, signature, computed, verdict, result_doc_id,
+                                            fingerprint)
+            return {"evaluation_id": ev_id, "created": True, **computed["public"]}
+
+    def _record_evaluation(self, tx: _Tx, project: dict, exp: dict, refs: dict, signature: dict, computed: dict,
+                           verdict: str | None, result_doc_id: str | None, fingerprint: str,
+                           migrated: bool = False) -> str:
+        """Write one evaluation and make it the experiment's current one (migrated: the experiment's recorded
+        result stays as it was)."""
+        experiment_id = exp["id"]
+        history = self._evaluations_of(tx, experiment_id)
+        previous = history[-1]["id"] if history else None
+        ev_id = tx.next_id("evaluation")
+        revision = len(history) + 1
+        self._insert(tx, "evaluation", {
+            "id": ev_id, "experiment_id": experiment_id, "result_revision": revision,
+            "run_attempt_refs": signature["run_attempt_refs"], "input_revisions": signature["inputs"],
+            "pair_keys": computed["pair_keys"], "method_code_ref": exp["code_ref"],
+            "harness_ref": project.get("harness_ref"), "harness_paths": sorted(project.get("harness_paths") or []),
+            "protocol_doc_id": project.get("protocol_doc_id"),
+            "metric_spec_doc_id": project.get("metric_spec_doc_id"),
+            "baseline_experiment_id": refs.get("sota"), "baseline_evaluation_id": refs.get("sota_evaluation"),
+            "parent_experiment_id": refs.get("parent"), "parent_evaluation_id": refs.get("parent_evaluation"),
+            "result_doc_id": result_doc_id, "metrics": computed["metrics"], "comparisons": computed["comparisons"],
+            "verdict": verdict, "gate_passed": computed["gate_passed"],
+            "guardrails_passed": computed["guardrails_passed"], "eval_type": computed["eval_type"],
+            "limitations": computed["limitations"], "verification_level": computed["verification_level"],
+            "artifact_refs": computed["artifact_refs"], "statistics_version": metrics.STATISTICS_VERSION,
+            "parser_version": metrics.PARSER_VERSION if computed["verification_level"] == "artifact_imported" else None,
+            "fingerprint": fingerprint, "inputs_digest": signature["inputs_digest"],
+            "supersedes_evaluation_id": previous, "created_by": f"{self.role}/{self.agent}",
+            "migrated": True if migrated else None,
+        })
+        if migrated:
+            tx.set(experiment_id, {"evaluation_id": ev_id})
+            return ev_id
+        primary = computed["metrics"][computed["primary"]]
+        self._update(tx, experiment_id, {
+            "verdict": verdict, "metric_mean": primary["mean"], "metric_sd": primary["sd"],
+            "result_doc_id": result_doc_id, "harness_ref": project["harness_ref"], "evaluated_at": now_utc(),
+            "evaluation_id": ev_id,
+        })
+        if exp.get("hypothesis_id"):
+            self._stamp_once(tx, exp["hypothesis_id"], "first_result_at")
+        tx.unlink_all("rel_compared_with", experiment_id)
+        for edge in computed["edges"]:
+            tx.link("rel_compared_with", experiment_id, edge["target_id"],
+                    {k: v for k, v in edge.items() if k != "target_id" and v is not None})
+        return ev_id
+
+    def migrate_evaluations(self, dry_run: bool = True) -> dict:
+        """Shadow comparison for experiments evaluated before evaluations existed (plans/design 10 §2.2 B–C):
+        recompute each from its registered runs and compare with its recorded mean, SD and comparisons. With
+        dry_run=false the consistent ones get an evaluation bound to the harness they were evaluated with; the
+        inconsistent ones are only listed. rld only. Nothing is re-run and no recorded result changes."""
+        self._require_role("rld")
+        report = {"consistent": [], "mismatched": [], "recorded": []}
+        planned = []
+        with self.reader() as tx:
+            project = self._project(tx)
+            # references (baselines) first, so that dependants bind to their evaluations
+            order = sorted((tx.get(i) for i in tx.ids("experiment")),
+                           key=lambda e: (e["kind"] != "baseline", int(e["id"].split("-")[1])))
+            for exp in order:
+                if not exp.get("evaluated_at") or exp.get("evaluation_id"):
+                    continue
+                edges = tx.edges("rel_compared_with", source=exp["id"])
+                refs = {e["role"]: e["target_id"] for e in edges}
+                for role in ("sota", "parent"):
+                    if role in refs:
+                        refs[f"{role}_evaluation"] = tx.get(refs[role]).get("evaluation_id")
+                then = {**project, "harness_ref": exp.get("harness_ref")}
+                try:
+                    with _coded():
+                        computed = self._compute(tx, then, exp, refs)
+                    self._cross_check(computed, {
+                        "metric_mean": exp.get("metric_mean"), "metric_sd": exp.get("metric_sd"),
+                        "comparisons": [{k: e.get(k) for k in ("target_id", "role", "n_paired", "delta_mean",
+                                                               "delta_sd", "deltas")} for e in edges]}, exp)
+                except ResearchDBError as exc:
+                    report["mismatched"].append({"experiment_id": exp["id"], "error": str(exc)})
+                    continue
+                signature = self._signature(tx, then, exp, refs)
+                planned.append((exp["id"], refs, signature, computed))
+                report["consistent"].append(exp["id"])
+        if dry_run:
+            return report
+        with self._writer() as tx:
+            project = self._project(tx)
+            for exp_id, refs, signature, computed in planned:
+                exp = tx.get(exp_id)
+                then = {**project, "harness_ref": exp.get("harness_ref")}
+                for role in ("sota", "parent"):  # bind to the references' evaluations, migrated just before
+                    if role in refs:
+                        refs[f"{role}_evaluation"] = tx.get(refs[role]).get("evaluation_id")
+                if exp.get("evaluation_id"):
+                    continue
+                planned_inputs = signature["inputs"]
+                signature = self._signature(tx, then, exp, refs)
+                if signature["inputs"] != planned_inputs:  # its runs changed since the comparison: not now
+                    report["mismatched"].append({"experiment_id": exp_id, "error": "EVIDENCE_CHANGED: runs changed"})
+                    continue
+                fingerprint = hashlib.sha256(json.dumps({"inputs": signature["inputs_digest"],
+                                                         "verdict": exp.get("verdict"),
+                                                         "result_doc_id": exp.get("result_doc_id")},
+                                                        sort_keys=True).encode()).hexdigest()
+                ev_id = self._record_evaluation(tx, then, exp, refs, signature, computed, exp.get("verdict"),
+                                                exp.get("result_doc_id"), fingerprint, migrated=True)
+                report["recorded"].append({"experiment_id": exp_id, "evaluation_id": ev_id,
+                                           "verification_level": computed["verification_level"]})
+        return report
+
+    def _evaluations_of(self, tx: _Tx, experiment_id: str) -> list[dict]:
+        rows = tx.query("MATCH (v:Evaluation)-[:EVALUATES]->(e:Experiment {id: $id}) RETURN v.id AS id", id=experiment_id)
+        return sorted((tx.get(r["id"]) for r in rows), key=lambda v: v["result_revision"])
+
+    def preview_evaluation(self, experiment_id: str, baseline_experiment_id: str | None = None) -> dict:
+        """What evaluate_experiment would compute now, without recording anything: the means, SDs, paired effects,
+        gate and guardrails, so that the result document can state them (mean:<metric>, delta:<role>:<metric>)
+        before the evaluation. Read-only."""
+        with self.reader() as tx:
+            project = self._project(tx)
+            exp = tx.require(experiment_id, ("experiment",))
+            invalid = _invalid_runs(tx, exp)
+            if invalid:
+                raise ResearchDBError(f"{experiment_id} needs a valid run for every seed; not yet: {invalid}")
+            refs = self._references(tx, project, exp, baseline_experiment_id)
+            with _coded():
+                computed = self._compute(tx, project, exp, refs)
+        return {"experiment_id": experiment_id, "references": {k: v for k, v in refs.items() if v},
+                "metrics": {n: {k: m[k] for k in ("n", "mean", "sd", "unit")} for n, m in computed["metrics"].items()},
+                "comparisons": {r: {"target_id": c["target_id"], "n_paired": c["n_paired"],
+                                    "effects": {n: e.get("delta_mean") for n, e in c["metrics"].items()},
+                                    "passes_gate": c.get("passes_gate"), "guardrails": c["guardrails"]}
+                                for r, c in computed["comparisons"].items()},
+                "verification_level": computed["verification_level"], "limitations": computed["limitations"]}
+
+    def _references(self, tx: _Tx, project: dict, exp: dict, baseline_id: str | None) -> dict:
+        """The experiments a node experiment is compared with: fixed at creation (older experiments: the SOTA and
+        the parent's latest evaluated experiment). baseline_id rescores against the current SOTA."""
+        if exp["kind"] == "baseline":
+            return {}
+        refs = {}
+        sota = exp.get("baseline_experiment_id") or project.get("sota_experiment_id")
+        history = self._evaluations_of(tx, exp["id"])
+        if history and history[-1].get("baseline_experiment_id"):  # a rescoring sticks to its new baseline
+            sota = history[-1]["baseline_experiment_id"]
+        if baseline_id is not None:
+            if baseline_id != project.get("sota_experiment_id"):
+                raise ResearchDBError(f"rescoring is against the current SOTA baseline "
+                                      f"{project.get('sota_experiment_id')}, not {baseline_id}")
+            sota = baseline_id
+        if not sota:
+            raise ResearchDBError("no SOTA baseline is set for the current harness")
+        refs["sota"] = sota
+        parent = tx.get(exp["hypothesis_id"])["parent_id"]
+        if table_of(parent) == "hypothesis":
+            ref = (exp.get("parent_experiment_id") or (history[-1].get("parent_experiment_id") if history else None)
+                   or (self._latest_evaluated(tx, parent) or {}).get("id"))
+            if ref is None:
+                raise ResearchDBError(f"parent {parent} has no experiment evaluated with the current harness")
+            refs["parent"] = ref
+        for role in ("sota", "parent"):
+            if role in refs:
+                target = tx.require(refs[role], ("experiment",))
+                if not target.get("evaluated_at"):
+                    raise ResearchDBError(f"the {role} reference {refs[role]} is not evaluated")
+                refs[f"{role}_evaluation"] = target.get("evaluation_id")
+                ref_ev = tx.get(target["evaluation_id"]) if target.get("evaluation_id") else None
+                if ref_ev is not None and not ref_ev.get("migrated") and any(
+                        ref_ev.get(k) != project.get(k) for k in ("protocol_doc_id", "metric_spec_doc_id")):
+                    raise CodedError("EVIDENCE_STALE", f"the {role} reference {refs[role]} was evaluated under another "
+                                                       "protocol or metric specification; evaluate it again (its runs "
+                                                       "must meet the current protocol) before comparing with it")
+        return refs
+
+    def _signature(self, tx: _Tx, project: dict, exp: dict, refs: dict) -> dict:
+        """What an evaluation rests on: each participating run's attempt and values, the references and their
+        evaluations, the code, harness, protocol and metric specification. Compared again inside the write."""
+        inputs, attempt_refs = {}, []
+        for exp_id in [exp["id"]] + [refs[r] for r in ("sota", "parent") if r in refs]:
+            seeds = exp["seeds"] if exp_id == exp["id"] else tx.require(exp_id, ("experiment",))["seeds"]
+            for seed in seeds:
+                run = tx.get(f"{exp_id}/s{seed}")
+                if run is None:
+                    continue
+                inputs[run["id"]] = {k: run.get(k) for k in ("attempt", "valid", "metric_value", "secondary",
+                                                             "retracted_at")}
+                inputs[run["id"]]["import"] = (run.get("import_record") or {}).get("metrics_sha256")
+                if exp_id == exp["id"] or run.get("valid") is True:
+                    attempt_refs.append(f"{run['id']}@{run['attempt']}")
+        context = {"code_ref": exp["code_ref"], "seeds": exp["seeds"], "harness_ref": project.get("harness_ref"),
+                   "harness_paths": sorted(project.get("harness_paths") or []),
+                   "protocol_doc_id": project.get("protocol_doc_id"),
+                   "metric_spec_doc_id": project.get("metric_spec_doc_id"), "refs": refs,
+                   "statistics_version": metrics.STATISTICS_VERSION}
+        digest = hashlib.sha256(json.dumps({"inputs": inputs, **context}, sort_keys=True).encode()).hexdigest()
+        return {"inputs": inputs, "run_attempt_refs": sorted(attempt_refs), "context": context,
+                "inputs_digest": digest}
+
+    def _compute(self, tx: _Tx, project: dict, exp: dict, refs: dict) -> dict:
+        specs, protocol = self._specs(tx, project), self._protocol(tx, project)
+        names = [project["primary_metric"], *project["secondary_metrics"]]
+        legacy = bool(specs.get("legacy"))
+        runs = [tx.get(f"{exp['id']}/s{s}") for s in exp["seeds"]]
+        by_name = metrics.spec_by_name(specs)
+        per_metric = {}
+        for name in names:
+            if name not in by_name:
+                continue
+            values = [metrics.run_values(specs, r, [name])[name] for r in runs]
+            metrics.check_unit_mix(by_name[name], values, exp["id"])
+            per_metric[name] = {**metrics.summary(values), "unit": by_name[name]["canonical_unit"],
+                                "seeds": [r["seed"] for r in runs]}
+        limitations = []
+        if legacy:
+            limitations.append("legacy metric specification: secondary metrics have no recorded direction and "
+                               "their deltas are the caller's, not recomputed")
+        if len(runs) == 1:
+            limitations.append("n=1: no standard deviation")
+        comparisons, edges, pair_keys = {}, [], {}
+        gate_passed = guardrails_passed = None
+        primary = specs["primary"]
+        threshold = by_name[primary]["minimum_practical_gain"]
+        comparison = (protocol or {}).get("gate_comparison", ">")
+        min_pairs = (protocol or {}).get("min_pairs") or project["gate_seeds"]
+        for role in ("sota", "parent"):
+            if role not in refs:
+                continue
+            target = tx.require(refs[role], ("experiment",))
+            ref_runs = [r for r in (tx.get(f"{target['id']}/s{s}") for s in target["seeds"])
+                        if r is not None and r.get("valid") is True]
+            cmp = metrics.compare(specs, protocol, runs, ref_runs, names)
+            if cmp["unpaired_same_seed"]:
+                raise MetricError("PAIRING_MISMATCH", f"{exp['id']} and {target['id']} share seeds "
+                                                      f"{cmp['unpaired_same_seed']} whose protocol fields differ")
+            if cmp["n_paired"] == 0:
+                raise MetricError("PAIRING_MISMATCH", f"{exp['id']} has no run paired with {target['id']}")
+            effect = cmp["metrics"][primary]
+            if effect.get("undefined"):
+                raise MetricError(effect["undefined"], f"{primary} against {target['id']}: {effect['reason']}; "
+                                                       "the protocol must say how to compare it")
+            for name, e in cmp["metrics"].items():
+                if e.get("undefined"):
+                    limitations.append(f"{name} against {target['id']}: {e['undefined']} ({e['reason']})")
+            guard = metrics.guardrails(specs, cmp)
+            entry = {"target_id": target["id"], "n_paired": cmp["n_paired"], "metrics": cmp["metrics"],
+                     "delta_mean": effect["delta_mean"], "delta_sd": effect.get("delta_sd"),
+                     "deltas": {n: cmp["metrics"][n]["delta_mean"] for n in project["secondary_metrics"]
+                                if n in cmp["metrics"]},
+                     "guardrails": guard}
+            if role == "sota":
+                entry["passes_gate"] = cmp["n_paired"] >= min_pairs and metrics.passes(
+                    effect["delta_mean"], threshold, comparison)
+                gate_passed = entry["passes_gate"]
+                guardrails_passed = all(g["passed"] for g in guard.values())
+            comparisons[role] = entry
+            pair_keys[role] = cmp["pair_keys"]
+            edges.append({"target_id": target["id"], "role": role, "n_paired": cmp["n_paired"],
+                          "delta_mean": effect["delta_mean"], "delta_sd": effect.get("delta_sd"),
+                          "deltas": dict(entry["deltas"]), "passes_gate": entry.get("passes_gate")})
+        participating = runs + [r for role in ("sota", "parent") if role in refs
+                                for r in (tx.get(f"{refs[role]}/s{s}") for s in tx.get(refs[role])["seeds"])
+                                if r is not None and r.get("valid") is True]
+        self._check_protocol_runs(protocol, participating)
+        imported = all(r.get("import_record") for r in participating)
+        level = "legacy_unverified" if legacy else ("artifact_imported" if imported else "record_recomputed")
+        if (protocol or {}).get("require_artifact_import") and level != "artifact_imported":
+            missing = sorted(r["id"] for r in participating if not r.get("import_record"))
+            raise MetricError("PROTOCOL_CHANGE_REQUIRED", f"the protocol requires imported results; not imported: "
+                                                          f"{missing}")
+        ceiling = metrics.EVAL_TYPE_LIMITS.get((protocol or {}).get("eval_type"))
+        if ceiling:
+            limitations.append(ceiling)
+        public = {"verification_level": level, "metric_mean": per_metric.get(primary, {}).get("mean"),
+                  "metric_sd": per_metric.get(primary, {}).get("sd"), "gate_passed": gate_passed,
+                  "guardrails_passed": guardrails_passed,
+                  "comparisons": {r: {k: c[k] for k in ("target_id", "n_paired", "delta_mean", "delta_sd", "deltas")}
+                                  | ({"passes_gate": c["passes_gate"]} if "passes_gate" in c else {})
+                                  for r, c in comparisons.items()}}
+        return {"metrics": per_metric, "comparisons": comparisons, "edges": edges, "pair_keys": pair_keys,
+                "gate_passed": gate_passed, "guardrails_passed": guardrails_passed, "primary": primary,
+                "secondary": list(project["secondary_metrics"]),
+                "eval_type": (protocol or {}).get("eval_type"), "limitations": limitations, "legacy": legacy,
+                "verification_level": level,
+                "artifact_refs": sorted({p for r in participating for p in (r.get("evidence_paths") or [])}),
+                "public": public}
+
+    def _check_protocol_runs(self, protocol: dict | None, runs: list[dict]) -> None:
+        """Every run in a comparison meets the current protocol: its imported manifest has the settings the protocol
+        fixes and the counts it requires. A protocol that fixes any is met only by imported runs."""
+        match = (protocol or {}).get("match") or {}
+        counts = (protocol or {}).get("required_counts") or {}
+        if not (match or counts):
+            return
+        for run in runs:
+            manifest = run.get("manifest")
+            if not manifest:
+                raise MetricError("PAIRING_MISMATCH", f"{run['id']} has no imported manifest, but the protocol fixes "
+                                                      f"{sorted(match) + sorted(counts)}; import it (import_run_result)")
+            wrong = [f"{k}={manifest.get(k)!r} (protocol {v!r})" for k, v in match.items() if manifest.get(k) != v]
+            wrong += [f"counts.{k}={(manifest.get('counts') or {}).get(k)!r} (protocol {v})" for k, v in counts.items()
+                      if (manifest.get("counts") or {}).get(k) != v]
+            if wrong:
+                raise MetricError("PAIRING_MISMATCH", f"{run['id']} does not meet the current protocol: "
+                                                      f"{', '.join(wrong)}; it cannot join this comparison")
+
+    def _check_result_claims(self, tx: _Tx, exp: dict, result_doc_id: str, computed: dict) -> None:
+        """The result document of an evaluation speaks about this experiment: it cites every imported run's metrics
+        file, and the summary numbers it states under the reserved claim ids (mean:<metric>, sd:<metric>,
+        delta:<role>:<metric>) agree with the recomputed ones."""
+        doc = tx.require(result_doc_id, ("document",))
+        self._require_unchanged(doc)
+        claims = claims_check.document_claims((self.docs_root / doc["path"]).read_text(encoding="utf-8")) or []
+        cited = set()
+        for c in claims:
+            if isinstance(c, dict) and isinstance(c.get("source"), str):
+                src = c["source"]
+                cited.add(os.path.realpath(src if os.path.isabs(src) else self.db_path.parent / src))
+        problems = []
+        primary = f"mean:{computed['primary']}"
+        if not any(isinstance(c, dict) and c.get("id") == primary for c in claims):
+            problems.append(f"it states no {primary} (the primary metric's mean, checked against the recomputed one)")
+        for seed in exp["seeds"]:
+            run = tx.get(f"{exp['id']}/s{seed}")
+            files = [self._research_path(p) for p in (run.get("evidence_paths") or [])[:1]]
+            if files and files[0] not in cited:
+                problems.append(f"{run['id']}'s metrics file {run['evidence_paths'][0]} is not cited")
+        for c in claims:
+            if not isinstance(c, dict) or not isinstance(c.get("id"), str):
+                continue
+            parts = c["id"].split(":")
+            value = None
+            if len(parts) == 2 and parts[0] in ("mean", "sd") and parts[1] in computed["metrics"]:
+                value = computed["metrics"][parts[1]][parts[0]]
+            elif len(parts) == 3 and parts[0] == "delta" and parts[1] in computed["comparisons"]:
+                value = computed["comparisons"][parts[1]]["metrics"].get(parts[2], {}).get("delta_mean")
+            else:
+                continue
+            if not metrics.matches_text(str(c.get("value")), value):
+                problems.append(f"{c['id']} {c.get('value')!r} (recomputed {value})")
+        if problems:
+            raise CodedError("STAT_MISMATCH", f"result document {result_doc_id} ({doc['path']}) does not match "
+                                              f"{exp['id']}: {'; '.join(problems)}")
+
+    def _cross_check(self, computed: dict, expected: dict, exp: dict) -> None:
+        """Numbers given by a caller of record_verdict against the recomputed ones (STAT_MISMATCH)."""
+        problems = []
+        primary = computed["metrics"].get(computed["primary"], {})
+        for key, value in (("metric_mean", primary.get("mean")), ("metric_sd", primary.get("sd"))):
+            if expected[key] is not None and not metrics.matches_given(expected[key], value):
+                problems.append(f"{key} {expected[key]} (recomputed {value})")
+        given = expected["comparisons"]
+        if given:
+            roles = {}
+            for cmp in given:
+                if not isinstance(cmp, dict) or set(cmp) - {"target_id", "role", "n_paired", "delta_mean",
+                                                            "delta_sd", "deltas"}:
+                    raise ResearchDBError(f"malformed comparison {cmp!r}")
+                roles[cmp.get("role")] = cmp
+            want = {r: c["target_id"] for r, c in computed["comparisons"].items()}
+            if {r: c.get("target_id") for r, c in roles.items()} != want or len(roles) != len(given):
+                raise ResearchDBError(f"comparisons must be exactly {want} (role -> target experiment)")
+            for role, cmp in roles.items():
+                mine = computed["comparisons"][role]
+                if cmp.get("n_paired") != mine["n_paired"]:
+                    problems.append(f"{role} pairs {mine['n_paired']} seeds, not {cmp.get('n_paired')}")
+                for field in ("delta_mean", "delta_sd"):
+                    if cmp.get(field) is not None and not metrics.matches_given(cmp[field], mine[field]):
+                        problems.append(f"{role} {field} {cmp[field]} (recomputed {mine[field]})")
+                deltas = cmp.get("deltas")
+                if deltas is not None:
+                    if not isinstance(deltas, dict):
+                        raise ResearchDBError(f"{role} deltas must be an object")
+                    for name, value in deltas.items():
+                        if computed["legacy"] and name not in mine["deltas"]:
+                            if not (_type_ok(value, "REAL") and math.isfinite(value)):
+                                problems.append(f"{role} deltas.{name} is not a number")
+                            continue
+                        if name not in mine["deltas"] or not metrics.matches_given(value, mine["deltas"][name]):
+                            problems.append(f"{role} deltas.{name} {value} (recomputed {mine['deltas'].get(name)})")
+                    if computed["legacy"]:  # secondary deltas without a known direction: the caller's
+                        if set(deltas) != set(computed["secondary"]):
+                            raise ResearchDBError(f"deltas must give a number for each of {computed['secondary']}")
+                        mine["deltas"] = {**deltas, **mine["deltas"]}
+                        for edge in computed["edges"]:
+                            if edge["role"] == role:
+                                edge["deltas"] = dict(mine["deltas"])
+        if problems:
+            raise CodedError("STAT_MISMATCH", f"{exp['id']}: the numbers given differ from the ones recomputed from "
+                                              f"its runs: {'; '.join(problems)}. The interface computes them; pass "
+                                              "none, or call evaluate_experiment")
 
     def _check_harness(self, project: dict, exp: dict) -> None:
         repo, harness = project["repo_path"], project["harness_ref"]
@@ -1088,48 +1914,11 @@ class ResearchDB:
         if not _git_ok(repo, "diff", "--quiet", harness, exp["code_ref"], "--", *project["harness_paths"]):
             raise ResearchDBError(f"{exp['id']}: the harness/statistics files differ from the frozen harness")
 
-    def _check_comparisons(self, tx: _Tx, project: dict, exp: dict, comparisons) -> list[dict]:
-        sota_id = project.get("sota_experiment_id")
-        if not sota_id:
-            raise ResearchDBError("no SOTA baseline is set for the current harness")
-        expected = {"sota": sota_id}
-        parent = tx.get(exp["hypothesis_id"])["parent_id"]
-        if table_of(parent) == "hypothesis":
-            reference = self._latest_evaluated(tx, parent)
-            if reference is None:
-                raise ResearchDBError(f"parent {parent} has no experiment evaluated with the current harness")
-            expected["parent"] = reference["id"]
-        given = {}
-        for cmp in comparisons:
-            if not isinstance(cmp, dict) or set(cmp) - {"target_id", "role", "n_paired", "delta_mean", "delta_sd", "deltas"}:
-                raise ResearchDBError(f"malformed comparison {cmp!r}")
-            given[cmp.get("role")] = cmp
-        if {r: c.get("target_id") for r, c in given.items()} != expected or len(given) != len(comparisons):
-            raise ResearchDBError(f"comparisons must be exactly {expected} (role -> target experiment)")
-        edges = []
-        for role, cmp in given.items():
-            target = tx.require(cmp["target_id"], ("experiment",))
-            edge = {k: cmp.get(k) for k in ("target_id", "role", "n_paired", "delta_mean", "delta_sd", "deltas")}
-            edge["passes_gate"] = None
-            self._check_values("rel_compared_with", {k: v for k, v in edge.items() if k != "target_id"})
-            if any(edge[k] is None for k in ("n_paired", "delta_mean", "deltas")):
-                raise ResearchDBError(f"{role} comparison needs n_paired, delta_mean and deltas")
-            paired = len(set(exp["seeds"]) & set(target["seeds"]))
-            if edge["n_paired"] != paired or paired == 0:
-                raise ResearchDBError(f"{role} comparison pairs {paired} seeds, not {edge['n_paired']}")
-            if set(edge["deltas"]) != set(project["secondary_metrics"]) or not all(
-                _type_ok(v, "REAL") for v in edge["deltas"].values()
-            ):
-                raise ResearchDBError(f"deltas must give a number for each of {project['secondary_metrics']}")
-            if role == "sota":
-                edge["passes_gate"] = paired == project["gate_seeds"] and edge["delta_mean"] > project["go_margin"]
-            edges.append(edge)
-        return edges
-
     def _check_verdict(self, project: dict, exp: dict, verdict: str, edges: list[dict]) -> None:
         by_role = {e["role"]: e for e in edges}
         parent = by_role.get("parent", by_role["sota"])  # top-level nodes compare with SOTA as their parent
-        no_better = parent["delta_mean"] <= 0 and all(v <= 0 for v in parent["deltas"].values())
+        # an effect that could not be computed (None) does not count as better
+        no_better = parent["delta_mean"] <= 0 and all(v is None or v <= 0 for v in parent["deltas"].values())
         full = len(exp["seeds"]) == project["gate_seeds"]
         if (verdict == "no_gain") != no_better:
             raise ResearchDBError("verdict no_gain applies exactly when no metric is better than the parent")
@@ -1140,7 +1929,8 @@ class ResearchDB:
         gate = by_role["sota"]["passes_gate"]
         if verdict == "beats_sota" and not gate:
             raise ResearchDBError(
-                f"beats_sota needs {project['gate_seeds']} paired seeds and a primary lead over {project['go_margin']}"
+                f"beats_sota needs {project['gate_seeds']} paired seeds and a primary lead over the minimum practical "
+                "gain (the metric specification's; go_margin without one)"
             )
         if gate and verdict not in ("beats_sota", "needs_rld"):
             raise ResearchDBError("the SOTA gate is passed; the verdict is beats_sota or needs_rld")
@@ -1238,9 +2028,45 @@ class ResearchDB:
             self._require_author(doc)
             if doc["status"] != "draft":
                 raise ResearchDBError(f"{doc_id} is {doc['status']}, not draft")
+            self._check_content(doc)
             digest = sha256_file(self.docs_root / doc["path"])
             self._update(tx, doc_id, {"status": "current", "sha256": digest})
             return digest
+
+    def _require_unchanged(self, doc: dict) -> None:
+        path = self.docs_root / doc["path"]
+        if doc["status"] != "draft" and (not path.is_file() or sha256_file(path) != doc.get("sha256")):
+            raise ResearchDBError(f"{doc['id']} ({doc['path']}) no longer matches its recorded hash: a frozen document "
+                                  "is not edited in place; write a new version")
+
+    def _check_content(self, doc: dict) -> None:
+        """What is checked before a document is frozen: a metric specification or protocol is well formed; the
+        numbers an experiment result (or a report with an evidence block) cites appear in the files it cites."""
+        path = self.docs_root / doc["path"]
+        if doc["doc_type"] in ("metric_spec", "protocol"):
+            if not doc["path"].endswith(".json"):
+                raise ResearchDBError(f"a {doc['doc_type']} document is JSON (.v<N>.json)")
+            content = _read_json(path, doc["doc_type"])
+            with _coded():
+                (metrics.check_metric_specs if doc["doc_type"] == "metric_spec" else metrics.check_protocol)(content)
+        if doc["doc_type"] not in ("experiment_result", "report"):
+            return
+        claims = claims_check.document_claims(path.read_text(encoding="utf-8"))
+        if claims is None:
+            if doc["doc_type"] == "experiment_result":
+                raise CodedError("STAT_MISMATCH", f"{doc['id']} ({doc['path']}) cites no numbers: an experiment "
+                                                  "result lists each number it reports with its source file in an "
+                                                  "```evidence block, e.g. [{\"id\": \"acc-s42\", \"value\": "
+                                                  "\"0.9075\", \"source\": \"outputs/E-0002/s42/metrics.json\"}]")
+            return
+        if not claims:
+            raise CodedError("STAT_MISMATCH", f"{doc['id']}: the evidence block lists no claim")
+        checked = claims_check.check_batch(claims, self.db_path.parent, self.project_dir, forbidden=self.docs_root)
+        bad = [r for r in checked["results"] if r["status"] != "verified"]
+        if bad:
+            raise CodedError("STAT_MISMATCH", f"{doc['id']} ({doc['path']}): numbers not found in their sources: " +
+                             "; ".join(f"{r.get('id', '?')} {r.get('value')!r} in {r.get('source')!r}: {r['status']}"
+                                       for r in bad[:10]))
 
     def supersede_document(self, old_id: str, new_id: str) -> None:
         """Mark a current document superseded by a newer current one of the same doc_type."""
@@ -1457,6 +2283,7 @@ class ResearchDB:
             runs = runs_of.get(exp["id"], [])
             if not runs or any(r["exec_status"] not in FINAL_EXEC for r in runs):
                 continue
+            cited = self._cited_sources(tx, exp.get("result_doc_id"))
             hyp = hyps.get(exp.get("hypothesis_id"))
             passes = exp.get("cleanup") or {}
             last = passes[max(passes, key=int)] if passes else None
@@ -1469,8 +2296,12 @@ class ResearchDB:
             for run in sorted(runs, key=lambda r: r["seed"]):
                 attempts = [(run["attempt"], run)] + [(int(n), a) for n, a in (run.get("attempts") or {}).items()]
                 for n, a in sorted(attempts, key=lambda x: x[0]):
-                    entries.append({"run": f"{run['id']}@{n}", "output_dir": self._research_path(a.get("output_path")),
-                                    "evidence": [p for p in (self._research_path(a.get(k)) for k in ("log_path", "curve_path")) if p]})
+                    # evidence: the log and curve, the manifest and what an evaluation is recomputed from
+                    kept = [a.get(k) for k in ("log_path", "curve_path", "manifest_path")] + list(a.get("evidence_paths") or [])
+                    out_dir = self._research_path(a.get("output_path"))
+                    entries.append({"run": f"{run['id']}@{n}", "output_dir": out_dir,
+                                    "evidence": [p for p in (self._research_path(k) for k in kept) if p]
+                                    + [c for c in cited if out_dir and Path(c).is_relative_to(out_dir)]})
             uncovered = any(e["run"] not in covered for e in entries)
             if exp.get("evaluated_at") and uncovered:
                 reason = "statistics recorded"
@@ -1484,6 +2315,16 @@ class ResearchDB:
                         "reason": reason, "keep": keep, "runs": entries})
         return due
 
+    def _cited_sources(self, tx: _Tx, doc_id: str | None) -> list[str]:
+        """The files a result document cites as sources: evidence, whatever their names."""
+        doc = tx.get(doc_id) if doc_id else None
+        path = self.docs_root / doc["path"] if doc else None
+        if path is None or not path.is_file():
+            return []
+        claims = claims_check.document_claims(path.read_text(encoding="utf-8")) or []
+        return [os.path.realpath(c["source"] if os.path.isabs(c["source"]) else self.db_path.parent / c["source"])
+                for c in claims if isinstance(c, dict) and isinstance(c.get("source"), str)]
+
     def _research_path(self, path: str | None) -> str | None:
         """A recorded path as an absolute one: relative paths are relative to the research root (research/<id>/)."""
         if not path:
@@ -1492,7 +2333,7 @@ class ResearchDB:
 
     def run_cleanup(self, experiment_id: str, dry_run: bool = False) -> dict:
         """Clean a due experiment's outputs with the project's research-tree-cleanup.py: its owner (or rld), right
-        after record_verdict and before delivering. The script plans what to delete; every item must lie inside
+        after evaluate_experiment and before delivering. The script plans what to delete; every item must lie inside
         its run's output directory, hold no evidence (log, curve) and be of a class the experiment does not keep.
         Then the script deletes them and the result is recorded in the experiment's cleanup ledger. dry_run
         returns the checked plan only. A missing script is first copied from the plugin's template."""
@@ -1502,7 +2343,7 @@ class ResearchDB:
             entry = next((d for d in self._cleanup_due(tx) if d["experiment_id"] == experiment_id), None)
         if entry is None:
             raise ResearchDBError(f"{experiment_id} has no cleanup due: it is due once its statistics are recorded "
-                                  "(record_verdict) and all its runs are finished")
+                                  "(evaluate_experiment) and all its runs are finished")
         script = self.project_dir / CLEANUP_SCRIPT
         if not script.is_file():
             shutil.copyfile(CLEANUP_TEMPLATE, script)
@@ -1682,9 +2523,127 @@ class ResearchDB:
         return sorted(records, key=lambda d: (d["decided_at"], int(d["id"].split("-")[1])))
 
     def go_candidates(self) -> list[str]:
-        """Hypotheses that beat SOTA and passed both rechecks."""
+        """Hypotheses eligible for GO now (get_eligibility): current evidence that passes the gate and guardrails,
+        and both rechecks bound to that evidence's code."""
         with self.reader() as tx:
-            return [i for i in tx.ids("hypothesis") if _is_go_candidate(tx.get(i))]
+            project = self._project(tx)
+            return [i for i in tx.ids("hypothesis") if self._eligibility(tx, project, tx.get(i))["eligible"]]
+
+    def get_eligibility(self, hypothesis_id: str, protocol_id: str | None = None) -> dict:
+        """Whether a hypothesis may support GO now, computed from its evaluations, never from cached labels
+        (plans/design 05 §3.3): {eligible, basis_evaluation_id, experiment_id, evidence_state (none, current,
+        stale), reasons, verification_level, gate_passed, guardrails_passed}. The basis is the node's latest
+        evaluation; reasons name what is missing or no longer applies (HARNESS_CHANGED, BASELINE_CHANGED,
+        PROTOCOL_CHANGED, METRIC_SPEC_CHANGED, RUN_RETRACTED, INPUT_CHANGED, RESULT_REVISION_PENDING,
+        LEGACY_RESULT_UNVERIFIED, GATE_NOT_PASSED, GUARDRAIL_FAILED, RECHECK_PENDING, RECHECK_FAILED,
+        RECHECK_STALE)."""
+        with self.reader() as tx:
+            return self._eligibility(tx, self._project(tx), tx.require(hypothesis_id, ("hypothesis",)), protocol_id)
+
+    def evaluations(self, experiment_id: str | None = None, hypothesis_id: str | None = None) -> list[dict]:
+        """Evaluation records (all, of one experiment, or of a hypothesis's experiments), oldest first."""
+        with self.reader() as tx:
+            if experiment_id:
+                exp_ids = [tx.require(experiment_id, ("experiment",))["id"]]
+            elif hypothesis_id:
+                exp_ids = [r["id"] for r in tx.query("MATCH (e:Experiment)-[:TESTS]->(h:Hypothesis {id: $id}) "
+                                                     "RETURN e.id AS id", id=hypothesis_id)]
+            else:
+                exp_ids = tx.ids("experiment")
+            out = [ev for e in exp_ids for ev in self._evaluations_of(tx, e)]
+        for ev in out:
+            ev.pop("_table", None)
+        return sorted(out, key=lambda v: int(v["id"].split("-")[1]))
+
+    def _eligibility(self, tx: _Tx, project: dict, hyp: dict, protocol_id: str | None = None) -> dict:
+        exps = [r["id"] for r in tx.query("MATCH (e:Experiment)-[:TESTS]->(h:Hypothesis {id: $id}) "
+                                          "RETURN e.id AS id", id=hyp["id"])]
+        evals = [ev for e in exps for ev in self._evaluations_of(tx, e)
+                 if tx.get(e)["kind"] == "method"]
+        out = {"hypothesis_id": hyp["id"], "eligible": False, "basis_evaluation_id": None, "experiment_id": None,
+               "evidence_state": "none", "reasons": ["NO_EVALUATION"], "verification_level": None,
+               "gate_passed": None, "guardrails_passed": None}
+        if not evals:
+            return out
+        latest = max((tx.get(e) for e in exps if tx.get(e)["kind"] == "method" and self._evaluations_of(tx, e)),
+                     key=lambda e: int(e["id"].split("-")[1]))
+        history = self._evaluations_of(tx, latest["id"])
+        basis = next((v for v in history if v["id"] == latest.get("evaluation_id")), history[-1])
+        reasons = self._stale_reasons(tx, project, basis)
+        if protocol_id is not None and protocol_id != basis.get("protocol_doc_id"):
+            reasons.append("PROTOCOL_CHANGED")
+        state = "stale" if reasons else "current"
+        if basis["verification_level"] == "legacy_unverified" or basis.get("migrated"):
+            reasons.append("LEGACY_RESULT_UNVERIFIED")
+        elif not basis.get("eval_type"):
+            reasons.append("EVAL_TYPE_MISSING")
+        if not basis.get("gate_passed"):
+            reasons.append("GATE_NOT_PASSED")
+        if basis.get("guardrails_passed") is False:
+            reasons.append("GUARDRAIL_FAILED")
+        basis_exp = tx.get(basis["experiment_id"])
+        for key in RECHECK_FIELDS:
+            if hyp[key] == "fail":
+                reasons.append("RECHECK_FAILED")
+            elif hyp[key] != "pass":
+                reasons.append("RECHECK_PENDING")
+            elif not self._recheck_bound(tx, hyp["id"], key, basis_exp):
+                reasons.append("RECHECK_STALE")
+        reasons = list(dict.fromkeys(reasons))
+        return {**out, "eligible": not reasons, "basis_evaluation_id": basis["id"],
+                "experiment_id": basis["experiment_id"], "evidence_state": state, "reasons": reasons,
+                "verification_level": basis["verification_level"], "gate_passed": basis.get("gate_passed"),
+                "guardrails_passed": basis.get("guardrails_passed")}
+
+    def _stale_reasons(self, tx: _Tx, project: dict, ev: dict) -> list[str]:
+        """Why an evaluation no longer applies to the current project (plans/design 05 §3.4)."""
+        reasons = []
+        if ev["harness_ref"] != project.get("harness_ref") or (
+                ev.get("harness_paths") is not None and ev["harness_paths"] != sorted(project.get("harness_paths") or [])):
+            reasons.append("HARNESS_CHANGED")
+        if ev.get("protocol_doc_id") != project.get("protocol_doc_id"):
+            reasons.append("PROTOCOL_CHANGED")
+        if ev.get("metric_spec_doc_id") != project.get("metric_spec_doc_id"):
+            reasons.append("METRIC_SPEC_CHANGED")
+        if ev.get("baseline_experiment_id"):
+            baseline = tx.get(ev["baseline_experiment_id"])
+            base_ev = tx.get(baseline["evaluation_id"]) if baseline.get("evaluation_id") else None
+            if ev["baseline_experiment_id"] != project.get("sota_experiment_id") or (
+                    baseline.get("evaluation_id") and baseline["evaluation_id"] != ev.get("baseline_evaluation_id")) or (
+                    base_ev is not None and self._stale_reasons(tx, project, {**base_ev, "baseline_experiment_id": None})):
+                reasons.append("BASELINE_CHANGED")
+        if ev.get("statistics_version") != metrics.STATISTICS_VERSION or (
+                ev.get("verification_level") == "artifact_imported" and ev.get("parser_version") != metrics.PARSER_VERSION):
+            reasons.append("STATISTICS_CHANGED")
+        exp = tx.get(ev["experiment_id"])
+        if exp.get("evaluation_id") != ev["id"]:
+            reasons.append("RESULT_REVISION_PENDING")
+        for ref in ev.get("run_attempt_refs") or []:
+            run_id, _, attempt = ref.rpartition("@")
+            run = tx.get(run_id)
+            if run is None or run.get("retracted_at") and run["attempt"] == int(attempt):
+                reasons.append("RUN_RETRACTED")
+            elif run["attempt"] != int(attempt):
+                reasons.append("RUN_RETRACTED" if any(a.get("retracted_at") for a in (run.get("attempts") or {}).values())
+                               else "INPUT_CHANGED")
+            elif run.get("valid") is not True:
+                reasons.append("RUN_RETRACTED")
+        return list(dict.fromkeys(reasons))
+
+    def _recheck_bound(self, tx: _Tx, hyp_id: str, field: str, basis_exp: dict) -> bool:
+        """The latest decision setting a recheck to pass rests on an experiment with the basis's code."""
+        rows = tx.query("MATCH (d:Decision)-[:DECIDES]->(h:Hypothesis {id: $id}) RETURN d.id AS id", id=hyp_id)
+        decisions = sorted((tx.get(r["id"]) for r in rows if tx.get(r["id"])["field"] == field),
+                           key=lambda d: int(d["id"].split("-")[1]))
+        if not decisions or decisions[-1]["to_value"] != "pass":
+            return False
+        for edge in tx.edges("rel_based_on", source=decisions[-1]["id"]):
+            target = tx.get(edge["target_id"])
+            if target["_table"] == "evaluation":
+                target = tx.get(target["experiment_id"])
+            if target["_table"] == "experiment" and target["code_ref"] == basis_exp["code_ref"]:
+                return True
+        return False
 
     def export_snapshot(self) -> dict:
         """Everything in the database as JSON-ready data, for HTML generation and the git snapshot."""
@@ -1713,6 +2672,13 @@ def _git_ok(repo: str, *args: str) -> bool:
 
 VALID_RUN_HOW = ("A run becomes valid with update_run: exec_status planned -> submitted (-> running) -> succeeded, "
                  "then valid=true with metric_value, secondary, nodes_used and walltime_used_s.")
+
+
+def _read_json(path: Path, what: str) -> Any:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ResearchDBError(f"{what} {path} cannot be read as JSON: {exc}") from None
 
 
 def _invalid_runs(tx: _Tx, exp: dict) -> str:
@@ -1783,17 +2749,14 @@ def default_worker_id(node_id: str, table: str) -> str:
     return "root" if table == "project" else re.sub(r"[^A-Za-z0-9_.]", "", node_id).lower()
 
 
-def _is_go_candidate(hyp: dict) -> bool:
-    return hyp["experiment_status"] == "beats_sota" and all(hyp[f] == "pass" for f in RECHECK_FIELDS)
-
-
 # ---------------------------------------------------------------------------
 # CLI
 # ---------------------------------------------------------------------------
 
 # The methods that only read: the UI's and any reader's whole interface.
 READ_METHODS = ("help", "get", "find", "edges", "children", "history", "go_candidates", "latest_result",
-                "screen_seed_count", "export_snapshot", "verify_document", "resume_package", "cleanup_due")
+                "screen_seed_count", "export_snapshot", "verify_document", "resume_package", "cleanup_due",
+                "get_eligibility", "evaluations", "preview_evaluation")
 
 CLI_METHODS = sorted(
     name for name in vars(ResearchDB) if not name.startswith("_") and callable(getattr(ResearchDB, name))
@@ -1836,7 +2799,10 @@ def main(argv: list[str] | None = None) -> int:
         if isinstance(exc, TypeError) and args.method in CLI_METHODS:
             error += (f"; {args.method}{_parameters(getattr(ResearchDB, args.method))}"
                       f' (help {{"method": "{args.method}"}} describes it)')
-        print(json.dumps({"ok": False, "error": error}, ensure_ascii=False))
+        out = {"ok": False, "error": error}
+        if getattr(exc, "code", None):
+            out["code"] = exc.code
+        print(json.dumps(out, ensure_ascii=False))
         return 2
     print(json.dumps({"ok": True, "result": result}, ensure_ascii=False))
     return 0

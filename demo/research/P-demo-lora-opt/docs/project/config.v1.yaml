@@ -29,7 +29,8 @@ budget:
 # 阶段1的判定门槛。第一个实验登记之后不能再改。
 stage1:
   gate_seeds: 3               # 判定“优于SOTA”所需的 seed 数，也是每个实验的 seed 上限
-  go_margin: 0.05             # 主指标领先 SOTA 的最小幅度：百分比指标为百分点的绝对差，其他指标为相对差
+  go_margin: 0.05             # 主指标领先 SOTA 的最小幅度，等于指标规范中主指标的 minimum_practical_gain（规范单位：
+                              # 百分比指标为百分点的绝对差；相对效应为相对参照均值的比例）
   min_related_work: 3         # 创建节点时至少引用的相关研究文档数
 
 # 子代理使用的模型。model 为 inherit（与主会话相同）、当前宿主支持的别名或完整模型 ID；

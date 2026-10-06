@@ -17,7 +17,8 @@ const CONFIG_FILE = 'research-tree.yaml'
 const ALERT_KIND = 'usage_alert'
 // The host's longest wait for one process (process.run accepts 1..600000 ms).
 const MAX_PROCESS_MS = 600_000
-const READ_ONLY = /^(help|get|find|edges|children|history|go_candidates|latest_result|screen_seed_count|export_snapshot|verify_document|resume_package|cleanup_due)$/
+// research_db.READ_METHODS (a test keeps the two equal)
+const READ_ONLY = /^(help|get|find|edges|children|history|go_candidates|latest_result|screen_seed_count|export_snapshot|verify_document|resume_package|cleanup_due|get_eligibility|evaluations|preview_evaluation)$/
 
 const summaryRef = { plugin: 'research-tree', key: 'summary' } as const
 const errorRef = { plugin: 'research-tree', key: 'error' } as const
@@ -536,7 +537,7 @@ function uiPrompt(pluginRoot: string, project: ResearchProject, run: string, pyt
 3. 不派发、暂停或重分配worker，不替RLD作研究决定，不修改研究数据库、文档库和代码。
 4. 用中文简洁回复，说明哪些是已记录的事实、哪些是你的理解。
 
-在项目目录 ${dir} 运行命令。查询研究数据库只用 query（只读：get、find、edges、children、history、latest_result、go_candidates、screen_seed_count、resume_package、help）：
+在项目目录 ${dir} 运行命令。查询研究数据库只用 query（只读：get、find、edges、children、history、latest_result、go_candidates、get_eligibility、evaluations、screen_seed_count、resume_package、help）：
   ${tool('research_tree.py')} query get '{"entity_id": "H-0001"}'
 
 处理每条用户消息时按下面的顺序判断，选第一条符合的：
@@ -578,9 +579,10 @@ function workerPrompt(conf: ResearchConfig | null | undefined): string {
 - 只在认领的任务范围内工作：先读取任务（get）和请求文档，再用 update_task 把任务改为 in_progress。
 - 代码改动只在任务指定的仓库分支或worktree中进行并提交；除根节点框架任务外，不改动冻结的实验框架与统计代码。
 - 测试、训练、推理等工作按下面“开发与实验平台”的规定运行；规定没有覆盖、又可能占用大量资源的操作，先问RLD。
-- 实验、运行与判定只通过 research_db 登记（create_experiment、create_run、update_run、record_verdict），不编造数字；工程失败如实记录，不当作科学结论。单次运行上限和累计用量提醒由 research_db 检查，被拒绝时交RLD，不绕过。
-- 每个 seed 的运行：create_run 后用 update_run 把 exec_status 从 planned 推进到 submitted（running）再到 succeeded，在 succeeded 时写入 valid=true 和 metric_value、secondary、nodes_used、walltime_used_s 以及 output_path（运行的输出目录）和 log_path；验收不通过时设 valid=false 并写 invalid_reason。全部 seed 有效后由实验 owner 调用 record_verdict（基线只记指标，不给判定）。
-- record_verdict 之后立即调用 run_cleanup(experiment_id) 清理该实验的产物（权重、checkpoint 等，证据保留），不必请示；交付前必须完成。后续实验要用这些产物（例如在其权重上继续训练）时，在 create_experiment 时用 keep 与 keep_reason 声明，事后无法恢复。清理什么由项目目录的 research-tree-cleanup.py 决定，可按项目的输出调整它。
+- 实验、运行与判定只通过 research_db 登记（create_experiment、create_run、update_run、import_run_result、evaluate_experiment），不编造数字：均值、SD、配对差值和是否过门槛都由接口从登记的 run 重算，你不提供权威数字；工程失败如实记录，不当作科学结论。单次运行上限和累计用量提醒由 research_db 检查，被拒绝时交RLD，不绕过。
+- 每个 seed 的运行：create_run 后用 update_run 把 exec_status 从 planned 推进到 submitted（running）再到 succeeded。运行写出指标文件（JSON，按指标名给出输入单位的数值）与 manifest.json（experiment_id、seed、attempt、code_ref、exit_status、metrics_path、units（每个指标的输入单位，与指标规范一致）、counts、data_version、config、env，以及协议要求的字段与 log_path、output_path、nodes_used、walltime_used_s；重评分所需的原始评分材料如逐样本预测列在 evidence_paths，清理不会删除它们），用 import_run_result(run_id, attempt, manifest_path) 导入；核对有效计数、loss 与日志后再 update_run(valid=true)，验收不通过时设 valid=false 并写 invalid_reason。不能导入时才在 update_run 中直接写 metric_value、secondary（记录级，核验等级更低）。
+- 全部 seed 有效后由实验 owner 调用 evaluate_experiment(experiment_id, result_doc_id, verdict)（基线不给判定）。结果文档用一个 \`\`\`evidence 代码块列出文中每个数字及其来源文件（[{"id", "value", "source"}]，路径相对研究根目录），设为现行时接口逐项核对，找不到即拒绝（STAT_MISMATCH）；每个已导入 run 的指标文件都要引用，汇总数字（可先用 preview_evaluation 只读预览接口将算出的数字，写入统计文件后引用）用保留编号 mean:<指标>（主指标均值必填）、sd:<指标>、delta:<sota|parent>:<指标>，evaluate_experiment 时与重算值核对。
+- evaluate_experiment 之后立即调用 run_cleanup(experiment_id) 清理该实验的产物（权重、checkpoint 等；日志、曲线、manifest 与指标文件是证据，保留），不必请示；交付前必须完成。后续实验要用这些产物（例如在其权重上继续训练）时，在 create_experiment 时用 keep 与 keep_reason 声明，事后无法恢复。清理什么由项目目录的 research-tree-cleanup.py 决定，可按项目的输出调整它。
 - 不确定 research_db 的方法或参数时调用 method="help"（kwargs {"method": "<方法名>"} 看完整说明），不要猜；按错误信息改正。
 - 交付：写 tasks/<任务ID>/delivery.v1.md，章节为“实际改动与版本、运行与产物、验证结果、资源观测、未完成与未知项”（各章节内容见规则第4节），登记并设为现行，再 update_task(status=delivered, delivery_doc_id)；最终回复只给简短说明和文档引用。
 - 不自行改变研究目标、选择新的研究分支或接管他人任务；范围变化交RLD。
@@ -609,8 +611,8 @@ ${budgetText(view)}
 ${platformText(view?.effective)}
 
 请作为 Research Leader 完成立项规划。本阶段不要启动 worker，也不要提交任何作业：
-1. 读原文。写 docs/project/goal.v1.md（研究目标）和 docs/project/min-setup.v1.md（最小实验设定：模型、数据、训练量、评测、主指标及优劣方向、其他比较指标、${view?.effective.stage1.gate_seeds ?? 3}个统一seed、计划的实验框架与判定规则；单次运行上限、筛选预算与门槛照抄上面的项目配置）；用 research_db 登记（register_document）并设为现行。原文的预算或门槛与项目配置不一致时，在立项计划中指出，请用户改配置文件，不要自行取舍。
-2. create_project：id 为 ${project.project_id}，repo_path 为本项目代码仓库的绝对路径（原文未给出就在 ${project.root}/../.. 下合适的位置新建 git 仓库）；预算与门槛参数取自项目配置（${fields}），其余参数取自最小实验设定。
+1. 读原文。写 docs/project/goal.v1.md（研究目标）和 docs/project/min-setup.v1.md（最小实验设定：模型、数据、训练量、评测与评测类型（同协议的 eval_type）及其结论上限、主指标及优劣方向、其他比较指标、每个基线家族的合理调参机会、训练量与数据处理、${view?.effective.stage1.gate_seeds ?? 3}个统一seed、计划的实验框架与判定规则；单次运行上限、筛选预算与门槛照抄上面的项目配置）；再写两份 JSON 文档：docs/project/metric-spec.v1.json（指标规范：{"version": 1, "primary": 主指标, "metrics": [每个指标的 name、direction、input_unit、canonical_unit、effect_mode、minimum_practical_gain、aggregation（paired_run_mean），可选 allowed_regression、valid_range、relative_min_denominator]}，指标必须恰为主指标与其他比较指标）和 docs/project/protocol.v1.json（实验协议：{"version": 1, "eval_type": real_gt|synthetic_proxy|self_supervised_proxy|simulation_only|human_eval, "pair_fields": ["seed", ...], "match": {必须一致的设定}, "required_counts": {...}}）。都用 research_db 登记（register_document）并设为现行。原文的预算或门槛与项目配置不一致时，在立项计划中指出，请用户改配置文件，不要自行取舍。
+2. create_project：id 为 ${project.project_id}，repo_path 为本项目代码仓库的绝对路径（原文未给出就在 ${project.root}/../.. 下合适的位置新建 git 仓库），metric_spec_doc_id 与 protocol_doc_id 为上面两份文档；预算与门槛参数取自项目配置（${fields}），其余参数取自最小实验设定。
 3. 为原文中的每个初始假说检索并缓存相关研究（docs/literature/，每个节点至少${view?.effective.stage1.min_related_work ?? 3}篇，原文缓存到 cache/literature/），写假说文档（创建理由、计划的代码改动、实验计划），create_hypothesis 建初始节点（状态为待验证）。所有初始假说都不指定 parent_id：它们都是根节点的直接子节点、彼此平级，即使原文暗示了先后或包含关系也不在初始假说之间建立父子关系（只有验证完成、可拓展的节点才能派生子节点）。
 4. 根节点只存放 baselines：写 docs/tasks/T-0001/request.v1.md（章节为“任务与节点、问题与预测、干预与对照、范围与权限、资源与预算、验收与停止条件、交付”，内容见规则第4节），说明要实现的实验骨架与统计代码、按框架的输出调整项目目录的清理脚本 research-tree-cleanup.py（哪些文件是可删的权重、checkpoint 等），以及要运行的SOTA与其他基线方案；create_task(kind=harness, assignee_role=worker)，先不指派。
 5. 写 docs/project/reports/init-plan.v1.md 汇总以上（目标、设定、初始节点、基线与根节点方案、预计资源），登记并设为现行，然后调用 post_to_ui(type=confirm_request, docs=["project/reports/init-plan.v1.md"]) 请用户在研究对话窗口确认。
@@ -624,7 +626,7 @@ function startPrompt(project: ResearchProject, confirmation: { doc_id: string; p
 
 const WORKFLOW = `## research-tree 工作流（由 research-tree mod 注入）
 - 研究项目的状态、节点、实验、判定和决定都在当前目录 research/<项目ID>/ 的 LatticeDB 研究数据库里；只能通过 ${'`'}${TOOL}${'`'} 工具（或 tools/research_db.py）读写，不要直接改数据库文件。
-- 实验优先：每个节点都要有实质性代码改动和实验；节点结论跟随冻结统计代码的判定（无提升→可消灭，优于父节点→可拓展，优于SOTA→RLD复核新颖性与理论正确性）。
+- 实验优先：每个节点都要有实质性代码改动和实验；统计数字由 research_db 从 run 重算并记为 evaluation，节点结论跟随判定（无提升→可消灭，优于父节点→可拓展，优于SOTA→RLD复核新颖性与理论正确性，复核 based_on 所复核的实验）。GO 资格看 get_eligibility：只有当前仍适用的 evaluation（框架、协议、指标规范、基线、run 都未变）过门槛与保护指标、且复核绑定到同一代码时才可 GO。
 - 搜索树的根节点只存放 baselines（冻结框架、SOTA与其他基线实验）；用户的初始假说都是根节点的直接子节点；只有验证完成、可拓展的节点才能派生子节点。
 - 已生效的文档不可修改，改动写新版本；节点代码中不能改动冻结框架。
 - 不确定 research_db 的方法或参数时，先调用 method="help"（kwargs {"method": "<方法名>"} 看完整说明），不要猜；接口拒绝时按错误信息改正，不要绕过。
@@ -640,13 +642,21 @@ const WORKFLOW = `## research-tree 工作流（由 research-tree mod 注入）
 /** Queues a prompt for the main session (the RLD). The engine refuses $.prompt.submit inside the hooks that
  *  hold a turn (command.run, tool.call, ...), so it is submitted from a timer once the hook has returned; the
  *  prompt then runs as soon as the session is idle. */
-function submitLater($: EngineInterface, prompt: { text: string }): void {
-  $.clock.after(0, () => {
+function submitLater($: EngineInterface, prompt: { text: string }, attempt = 1): void {
+  // The timer can fire while the hook is still awaiting (it holds the turn until it returns): the host then
+  // refuses the submission; try again shortly, a few times, before telling the person.
+  $.clock.after(attempt === 1 ? 0 : 500 * attempt, () => {
     void $.prompt.submit(prompt).catch(err => {
-      void say($, 'note', `未能把消息交给 RLD：${err instanceof Error ? err.message : String(err)}`)
+      const message = err instanceof Error ? err.message : String(err)
+      if (attempt < SUBMIT_ATTEMPTS && /holding|later event|hook/i.test(message)) {
+        submitLater($, prompt, attempt + 1)
+        return
+      }
+      void say($, 'note', `未能把消息交给 RLD：${message}`)
     })
   })
 }
+const SUBMIT_ATTEMPTS = 8
 
 // Window log writes, one after another: each rewrites messages/window.jsonl whole (the plugin file system has no
 // append), so two at once would lose a line or reuse an id.
@@ -928,9 +938,10 @@ export const register: Register = (on, options) => {
       name: 'research_db',
       description:
         'Call one method of the research database API (tools/research_db.py) on the research project of the ' +
-        'current directory: reads (get, find, edges, children, history, go_candidates, latest_result, ' +
-        'screen_seed_count, export_snapshot) and writes (register_document, set_document_current, create_project, ' +
-        'create_hypothesis, create_task, create_experiment, update_run, record_verdict, decide, ...). The API ' +
+        'current directory: reads (get, find, edges, children, history, go_candidates, get_eligibility, ' +
+        'evaluations, latest_result, screen_seed_count, export_snapshot) and writes (register_document, ' +
+        'set_document_current, create_project, create_hypothesis, create_task, create_experiment, update_run, ' +
+        'import_run_result, evaluate_experiment, decide, ...). The API recomputes every statistic from the runs, ' +
         'enforces the workflow rules and permissions and answers JSON {ok, result} or {ok: false, error}. ' +
         'method "help" lists every method with its parameters; help with kwargs {"method": "<name>"} gives one ' +
         "method's full description. Call it instead of guessing a method or its arguments.",
@@ -1295,6 +1306,6 @@ function registerProgressPane(on: Parameters<Register>[0], cfg: Config): void {
 }
 
 export const internals = {
-  guardReason, writesDatabase, writesConfig, researchCalls, subagentCallBlock, statusText, statusLine, workerBlock, parseInit, workerNode, workerActor, parallelBlock,
+  submitLater, guardReason, writesDatabase, writesConfig, researchCalls, subagentCallBlock, statusText, statusLine, workerBlock, parseInit, workerNode, workerActor, parallelBlock,
   workerPrompt, platformText, uiPrompt, configCommand, prepareCommand, carryOutUi,
 }

@@ -1,0 +1,5222 @@
+{
+ "meta": {
+  "schema_version": 7,
+  "data_version": 257,
+  "updated_at": "2026-10-06T19:20:44Z"
+ },
+ "tables": {
+  "project": [
+   {
+    "id": "P-demo-lora-opt",
+    "title": "虚构示例：LoRA优化器方法发现",
+    "min_setup_doc_id": "D-0003",
+    "primary_metric": "acc",
+    "metric_direction": "higher",
+    "metric_is_percent": true,
+    "secondary_metrics": [
+     "final_loss",
+     "loss_auc",
+     "peak_mem_gb",
+     "train_time_s"
+    ],
+    "seeds": [
+     42,
+     43,
+     44
+    ],
+    "stage": "stage1",
+    "status": "active",
+    "owner": "main",
+    "goal_doc_id": "D-0002",
+    "repo_path": "code",
+    "config_doc_id": "D-0004",
+    "metric_spec_doc_id": "D-0005",
+    "protocol_doc_id": "D-0006",
+    "max_nodes": 8,
+    "max_walltime_s": 3600,
+    "screen_budget_node_h": 10,
+    "gate_seeds": 3,
+    "go_margin": 0.05,
+    "min_related_work": 3,
+    "resume_doc_ids": [
+     "D-0003",
+     "D-0002",
+     "D-0007",
+     "D-0010"
+    ],
+    "created_at": "2026-10-06T19:19:44Z",
+    "updated_at": "2026-10-06T19:19:51Z",
+    "worker_id": "root",
+    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "harness_paths": [
+     "harness"
+    ],
+    "sota_experiment_id": "E-0001"
+   }
+  ],
+  "hypothesis": [
+   {
+    "id": "H-0001",
+    "project_id": "P-demo-lora-opt",
+    "title": "子批次二阶矩预条件",
+    "statement": "用未裁剪的微批次梯度平方替代全批次二阶矩，可改善LoRA更新方向。",
+    "doc_id": "D-0016",
+    "status": "expandable",
+    "experiment_status": "beats_parent",
+    "novelty_recheck": "pending",
+    "theory_recheck": "pending",
+    "priority": 0,
+    "owner": "main",
+    "resume_doc_ids": [
+     "D-0016"
+    ],
+    "created_at": "2026-10-06T19:19:54Z",
+    "updated_at": "2026-10-06T19:20:00Z",
+    "worker_id": "h0001",
+    "concluded_at": "2026-10-06T19:20:00Z",
+    "started_at": "2026-10-06T19:19:56Z",
+    "status_reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
+    "first_experiment_at": "2026-10-06T19:19:58Z",
+    "first_result_at": "2026-10-06T19:20:00Z",
+    "parent_id": "P-demo-lora-opt"
+   },
+   {
+    "id": "H-0002",
+    "project_id": "P-demo-lora-opt",
+    "title": "正交化LoRA更新",
+    "statement": "对LoRA因子更新做正交化可改善条件数，提高精度。",
+    "doc_id": "D-0021",
+    "status": "prunable",
+    "experiment_status": "no_gain",
+    "novelty_recheck": "pending",
+    "theory_recheck": "pending",
+    "priority": 0,
+    "owner": "main",
+    "resume_doc_ids": [
+     "D-0021"
+    ],
+    "created_at": "2026-10-06T19:20:01Z",
+    "updated_at": "2026-10-06T19:20:07Z",
+    "worker_id": "h0002",
+    "concluded_at": "2026-10-06T19:20:07Z",
+    "started_at": "2026-10-06T19:20:03Z",
+    "status_reason": "所有指标都不优于SOTA，按规则消灭。",
+    "first_experiment_at": "2026-10-06T19:20:05Z",
+    "first_result_at": "2026-10-06T19:20:07Z",
+    "parent_id": "P-demo-lora-opt"
+   },
+   {
+    "id": "H-0003",
+    "project_id": "P-demo-lora-opt",
+    "title": "子批次二阶矩 + 因子尺度平衡",
+    "statement": "在子批次二阶矩基础上平衡A、B因子尺度，可进一步提升精度。",
+    "doc_id": "D-0027",
+    "status": "expandable",
+    "experiment_status": "beats_sota",
+    "novelty_recheck": "pass",
+    "theory_recheck": "pass",
+    "priority": 0,
+    "owner": "main",
+    "resume_doc_ids": [
+     "D-0027"
+    ],
+    "created_at": "2026-10-06T19:20:09Z",
+    "updated_at": "2026-10-06T19:20:19Z",
+    "worker_id": "h0003",
+    "concluded_at": "2026-10-06T19:20:19Z",
+    "started_at": "2026-10-06T19:20:10Z",
+    "status_reason": "优于SOTA且复核通过，可拓展",
+    "first_experiment_at": "2026-10-06T19:20:12Z",
+    "first_result_at": "2026-10-06T19:20:14Z",
+    "beats_sota_at": "2026-10-06T19:20:17Z",
+    "parent_id": "H-0001"
+   },
+   {
+    "id": "H-0004",
+    "project_id": "P-demo-lora-opt",
+    "title": "子批次二阶矩 + 动量重标度",
+    "statement": "按子批次方差重标度动量可减少噪声。",
+    "doc_id": "D-0035",
+    "status": "prunable",
+    "experiment_status": "no_gain",
+    "novelty_recheck": "pending",
+    "theory_recheck": "pending",
+    "priority": 0,
+    "owner": "main",
+    "resume_doc_ids": [
+     "D-0035"
+    ],
+    "created_at": "2026-10-06T19:20:20Z",
+    "updated_at": "2026-10-06T19:20:26Z",
+    "worker_id": "h0004",
+    "concluded_at": "2026-10-06T19:20:26Z",
+    "started_at": "2026-10-06T19:20:22Z",
+    "status_reason": "相对父节点各项指标都不更好，按规则消灭。",
+    "first_experiment_at": "2026-10-06T19:20:24Z",
+    "first_result_at": "2026-10-06T19:20:25Z",
+    "parent_id": "H-0001"
+   },
+   {
+    "id": "H-0005",
+    "project_id": "P-demo-lora-opt",
+    "title": "Kronecker因子对角近似",
+    "statement": "对Kronecker预条件取对角近似，在低秩上以低成本获得二阶信息。",
+    "doc_id": "D-0041",
+    "status": "verifying",
+    "experiment_status": "running",
+    "novelty_recheck": "pending",
+    "theory_recheck": "pending",
+    "priority": 0,
+    "owner": "main",
+    "resume_doc_ids": [
+     "D-0041",
+     "D-0053"
+    ],
+    "created_at": "2026-10-06T19:20:29Z",
+    "updated_at": "2026-10-06T19:20:30Z",
+    "worker_id": "h0005",
+    "started_at": "2026-10-06T19:20:30Z",
+    "status_reason": "开始代码改进与实验",
+    "first_experiment_at": "2026-10-06T19:20:31Z",
+    "first_result_at": "2026-10-06T19:20:34Z",
+    "parent_id": "P-demo-lora-opt"
+   },
+   {
+    "id": "H-0006",
+    "project_id": "P-demo-lora-opt",
+    "title": "完整Kronecker二阶预条件",
+    "statement": "对每层使用完整Kronecker因子预条件。",
+    "doc_id": "D-0045",
+    "status": "prunable",
+    "experiment_status": "todo",
+    "novelty_recheck": "pending",
+    "theory_recheck": "pending",
+    "priority": 0,
+    "owner": "main",
+    "resume_doc_ids": [
+     "D-0045"
+    ],
+    "created_at": "2026-10-06T19:20:34Z",
+    "updated_at": "2026-10-06T19:20:35Z",
+    "concluded_at": "2026-10-06T19:20:35Z",
+    "status_reason": "用户决定放弃（超出单次运行上限）",
+    "parent_id": "P-demo-lora-opt"
+   },
+   {
+    "id": "H-0007",
+    "project_id": "P-demo-lora-opt",
+    "title": "8-bit优化器状态",
+    "statement": "以8-bit存储优化器状态，在精度不变时显著降低显存。",
+    "doc_id": "D-0048",
+    "status": "verifying",
+    "experiment_status": "running",
+    "novelty_recheck": "pending",
+    "theory_recheck": "pending",
+    "priority": 0,
+    "owner": "main",
+    "resume_doc_ids": [
+     "D-0048"
+    ],
+    "created_at": "2026-10-06T19:20:36Z",
+    "updated_at": "2026-10-06T19:20:38Z",
+    "worker_id": "h0007",
+    "started_at": "2026-10-06T19:20:38Z",
+    "status_reason": "开始代码改进与实验",
+    "first_experiment_at": "2026-10-06T19:20:40Z",
+    "first_result_at": "2026-10-06T19:20:43Z",
+    "parent_id": "P-demo-lora-opt"
+   },
+   {
+    "id": "H-0008",
+    "project_id": "P-demo-lora-opt",
+    "title": "自适应秩分配",
+    "statement": "按层的子批次方差分配LoRA秩，可在同等参数量下提升精度。",
+    "doc_id": "D-0052",
+    "status": "pending",
+    "experiment_status": "todo",
+    "novelty_recheck": "pending",
+    "theory_recheck": "pending",
+    "priority": 0,
+    "owner": "main",
+    "resume_doc_ids": [
+     "D-0052"
+    ],
+    "created_at": "2026-10-06T19:20:44Z",
+    "updated_at": "2026-10-06T19:20:44Z",
+    "parent_id": "H-0003"
+   }
+  ],
+  "experiment": [
+   {
+    "id": "E-0001",
+    "project_id": "P-demo-lora-opt",
+    "kind": "baseline",
+    "method_name": "BaseOpt-A（虚构SOTA）",
+    "design_doc_id": "D-0008",
+    "code_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "seeds": [
+     42,
+     43,
+     44
+    ],
+    "nodes": 4,
+    "walltime_s": 3600,
+    "owner": "root",
+    "created_at": "2026-10-06T19:19:47Z",
+    "metric_mean": 71.40016666666666,
+    "metric_sd": 0.0415175063477257,
+    "result_doc_id": "D-0009",
+    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "evaluated_at": "2026-10-06T19:19:50Z",
+    "evaluation_id": "EV-0001",
+    "cleanup": {
+     "1": {
+      "at": "2026-10-06T19:19:51Z",
+      "by": "worker/root",
+      "reason": "statistics recorded",
+      "kept": [],
+      "freed_bytes": 0,
+      "unlocated": [],
+      "items": [],
+      "covered": [
+       "E-0001/s42@1",
+       "E-0001/s43@1",
+       "E-0001/s44@1"
+      ],
+      "failed": 0
+     }
+    }
+   },
+   {
+    "id": "E-0002",
+    "project_id": "P-demo-lora-opt",
+    "kind": "method",
+    "method_name": "subbatch-moment",
+    "design_doc_id": "D-0018",
+    "code_ref": "0a34213ca488fb0a71c93e953b73f9b114f28683",
+    "seeds": [
+     42,
+     43
+    ],
+    "nodes": 4,
+    "walltime_s": 3600,
+    "owner": "h0001",
+    "baseline_experiment_id": "E-0001",
+    "created_at": "2026-10-06T19:19:57Z",
+    "verdict": "beats_parent",
+    "metric_mean": 71.58189999999999,
+    "metric_sd": 0.023334523779156954,
+    "result_doc_id": "D-0019",
+    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "evaluated_at": "2026-10-06T19:20:00Z",
+    "evaluation_id": "EV-0002",
+    "cleanup": {
+     "1": {
+      "at": "2026-10-06T19:20:00Z",
+      "by": "worker/h0001",
+      "reason": "statistics recorded",
+      "kept": [],
+      "freed_bytes": 0,
+      "unlocated": [],
+      "items": [],
+      "covered": [
+       "E-0002/s42@1",
+       "E-0002/s43@1"
+      ],
+      "failed": 0
+     }
+    },
+    "hypothesis_id": "H-0001"
+   },
+   {
+    "id": "E-0003",
+    "project_id": "P-demo-lora-opt",
+    "kind": "method",
+    "method_name": "orthogonal-update",
+    "design_doc_id": "D-0023",
+    "code_ref": "88c7c6eb4d52a3826a8fac51f559de0f18de34cd",
+    "seeds": [
+     42,
+     43
+    ],
+    "nodes": 4,
+    "walltime_s": 3600,
+    "owner": "h0002",
+    "baseline_experiment_id": "E-0001",
+    "created_at": "2026-10-06T19:20:04Z",
+    "verdict": "no_gain",
+    "metric_mean": 71.1753,
+    "metric_sd": 0.034082546853187526,
+    "result_doc_id": "D-0024",
+    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "evaluated_at": "2026-10-06T19:20:07Z",
+    "evaluation_id": "EV-0003",
+    "cleanup": {
+     "1": {
+      "at": "2026-10-06T19:20:07Z",
+      "by": "worker/h0002",
+      "reason": "statistics recorded",
+      "kept": [],
+      "freed_bytes": 0,
+      "unlocated": [],
+      "items": [],
+      "covered": [
+       "E-0003/s42@1",
+       "E-0003/s43@1"
+      ],
+      "failed": 0
+     }
+    },
+    "hypothesis_id": "H-0002"
+   },
+   {
+    "id": "E-0004",
+    "project_id": "P-demo-lora-opt",
+    "kind": "method",
+    "method_name": "moment-balance",
+    "design_doc_id": "D-0029",
+    "code_ref": "c434993c829927243b6fdb05afceb0ad556d7e2b",
+    "seeds": [
+     42,
+     43,
+     44
+    ],
+    "nodes": 4,
+    "walltime_s": 3600,
+    "owner": "h0003",
+    "baseline_experiment_id": "E-0001",
+    "parent_experiment_id": "E-0002",
+    "created_at": "2026-10-06T19:20:12Z",
+    "verdict": "beats_sota",
+    "metric_mean": 71.64136666666667,
+    "metric_sd": 0.03925892679803191,
+    "result_doc_id": "D-0031",
+    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "evaluated_at": "2026-10-06T19:20:17Z",
+    "evaluation_id": "EV-0005",
+    "cleanup": {
+     "1": {
+      "at": "2026-10-06T19:20:15Z",
+      "by": "worker/h0003",
+      "reason": "statistics recorded",
+      "kept": [],
+      "freed_bytes": 0,
+      "unlocated": [],
+      "items": [],
+      "covered": [
+       "E-0004/s42@1",
+       "E-0004/s43@1"
+      ],
+      "failed": 0
+     },
+     "2": {
+      "at": "2026-10-06T19:20:17Z",
+      "by": "worker/h0003",
+      "reason": "statistics recorded",
+      "kept": [],
+      "freed_bytes": 0,
+      "unlocated": [],
+      "items": [],
+      "covered": [
+       "E-0004/s42@1",
+       "E-0004/s43@1",
+       "E-0004/s44@1"
+      ],
+      "failed": 0
+     }
+    },
+    "hypothesis_id": "H-0003"
+   },
+   {
+    "id": "E-0005",
+    "project_id": "P-demo-lora-opt",
+    "kind": "method",
+    "method_name": "momentum-rescale",
+    "design_doc_id": "D-0037",
+    "code_ref": "98f362f1348945401690914d1121cd20c56019ee",
+    "seeds": [
+     42,
+     43
+    ],
+    "nodes": 4,
+    "walltime_s": 3600,
+    "owner": "h0004",
+    "baseline_experiment_id": "E-0001",
+    "parent_experiment_id": "E-0002",
+    "created_at": "2026-10-06T19:20:23Z",
+    "verdict": "no_gain",
+    "metric_mean": 71.43705,
+    "metric_sd": 0.045749808742760974,
+    "result_doc_id": "D-0038",
+    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "evaluated_at": "2026-10-06T19:20:25Z",
+    "evaluation_id": "EV-0006",
+    "cleanup": {
+     "1": {
+      "at": "2026-10-06T19:20:26Z",
+      "by": "worker/h0004",
+      "reason": "statistics recorded",
+      "kept": [],
+      "freed_bytes": 0,
+      "unlocated": [],
+      "items": [],
+      "covered": [
+       "E-0005/s42@1",
+       "E-0005/s43@1"
+      ],
+      "failed": 0
+     }
+    },
+    "hypothesis_id": "H-0004"
+   },
+   {
+    "id": "E-0006",
+    "project_id": "P-demo-lora-opt",
+    "kind": "method",
+    "method_name": "kron-diag",
+    "design_doc_id": "D-0043",
+    "code_ref": "b63dd8e23189084c83b24e2fc2b68766eb2a4523",
+    "seeds": [
+     42,
+     43
+    ],
+    "nodes": 4,
+    "walltime_s": 3600,
+    "owner": "h0005",
+    "baseline_experiment_id": "E-0001",
+    "created_at": "2026-10-06T19:20:31Z",
+    "verdict": "close",
+    "metric_mean": 71.48580000000001,
+    "metric_sd": 0.028708535316172238,
+    "result_doc_id": "D-0044",
+    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "evaluated_at": "2026-10-06T19:20:34Z",
+    "evaluation_id": "EV-0007",
+    "cleanup": {
+     "1": {
+      "at": "2026-10-06T19:20:34Z",
+      "by": "worker/h0005",
+      "reason": "statistics recorded",
+      "kept": [],
+      "freed_bytes": 0,
+      "unlocated": [],
+      "items": [],
+      "covered": [
+       "E-0006/s42@1",
+       "E-0006/s43@1"
+      ],
+      "failed": 0
+     }
+    },
+    "hypothesis_id": "H-0005"
+   },
+   {
+    "id": "E-0007",
+    "project_id": "P-demo-lora-opt",
+    "kind": "method",
+    "method_name": "state-8bit",
+    "design_doc_id": "D-0050",
+    "code_ref": "aaa83837038b1a360ffb6526857f884a2b7f4e0b",
+    "seeds": [
+     42,
+     43
+    ],
+    "nodes": 4,
+    "walltime_s": 3600,
+    "owner": "h0007",
+    "baseline_experiment_id": "E-0001",
+    "created_at": "2026-10-06T19:20:39Z",
+    "verdict": "needs_rld",
+    "metric_mean": 71.4312,
+    "metric_sd": 0.024890158697768755,
+    "result_doc_id": "D-0051",
+    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "evaluated_at": "2026-10-06T19:20:43Z",
+    "evaluation_id": "EV-0008",
+    "cleanup": {
+     "1": {
+      "at": "2026-10-06T19:20:43Z",
+      "by": "worker/h0007",
+      "reason": "statistics recorded",
+      "kept": [],
+      "freed_bytes": 0,
+      "unlocated": [],
+      "items": [],
+      "covered": [
+       "E-0007/s42@1",
+       "E-0007/s43@1"
+      ],
+      "failed": 0
+     }
+    },
+    "hypothesis_id": "H-0007"
+   }
+  ],
+  "branch": [
+   {
+    "id": "BR-0001",
+    "repo_path": "code",
+    "name": "node/H-0001",
+    "base_ref": "main",
+    "base_commit": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "worktree_path": "worktrees/H-0001",
+    "owner": "h0001",
+    "status": "active",
+    "created_at": "2026-10-06T19:19:55Z",
+    "hypothesis_id": "H-0001"
+   },
+   {
+    "id": "BR-0002",
+    "repo_path": "code",
+    "name": "node/H-0002",
+    "base_ref": "main",
+    "base_commit": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "owner": "main",
+    "status": "deleted",
+    "created_at": "2026-10-06T19:20:02Z",
+    "head_commit": "88c7c6eb4d52a3826a8fac51f559de0f18de34cd",
+    "returned_at": "2026-10-06T19:20:08Z",
+    "closed_at": "2026-10-06T19:20:08Z",
+    "hypothesis_id": "H-0002"
+   },
+   {
+    "id": "BR-0003",
+    "repo_path": "code",
+    "name": "node/H-0003",
+    "base_ref": "node/H-0001",
+    "base_commit": "0a34213ca488fb0a71c93e953b73f9b114f28683",
+    "worktree_path": "worktrees/H-0003",
+    "owner": "h0003",
+    "status": "active",
+    "created_at": "2026-10-06T19:20:10Z",
+    "hypothesis_id": "H-0003"
+   },
+   {
+    "id": "BR-0004",
+    "repo_path": "code",
+    "name": "node/H-0004",
+    "base_ref": "node/H-0001",
+    "base_commit": "0a34213ca488fb0a71c93e953b73f9b114f28683",
+    "owner": "main",
+    "status": "deleted",
+    "created_at": "2026-10-06T19:20:21Z",
+    "head_commit": "98f362f1348945401690914d1121cd20c56019ee",
+    "returned_at": "2026-10-06T19:20:27Z",
+    "closed_at": "2026-10-06T19:20:28Z",
+    "hypothesis_id": "H-0004"
+   },
+   {
+    "id": "BR-0005",
+    "repo_path": "code",
+    "name": "node/H-0005",
+    "base_ref": "main",
+    "base_commit": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "worktree_path": "worktrees/H-0005",
+    "owner": "h0005",
+    "status": "active",
+    "created_at": "2026-10-06T19:20:29Z",
+    "hypothesis_id": "H-0005"
+   },
+   {
+    "id": "BR-0006",
+    "repo_path": "code",
+    "name": "node/H-0007",
+    "base_ref": "main",
+    "base_commit": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "worktree_path": "worktrees/H-0007",
+    "owner": "h0007",
+    "status": "active",
+    "created_at": "2026-10-06T19:20:37Z",
+    "hypothesis_id": "H-0007"
+   }
+  ],
+  "document": [
+   {
+    "id": "D-0001",
+    "path": "instructions/UI-0001.v1.md",
+    "version": 1,
+    "doc_type": "user_instruction",
+    "title": "立项：寻找可发表的LoRA优化器改进",
+    "summary": "立项指令（虚构）",
+    "status": "current",
+    "author_role": "ui",
+    "author_id": "ui",
+    "created_at": "2026-10-06T19:19:42Z",
+    "sha256": "eed5c05f807924cad4cc796bfac9fb9ea77da1ae34aeec62b721173b240031eb"
+   },
+   {
+    "id": "D-0002",
+    "path": "project/goal.v1.md",
+    "version": 1,
+    "doc_type": "goal",
+    "title": "研究目标",
+    "summary": "LoRA优化器方法发现（虚构）",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:19:43Z",
+    "sha256": "89f7c8a0363a03280519cbaf3d65475372f7559cc7a7c25d663707d2a31667a7"
+   },
+   {
+    "id": "D-0003",
+    "path": "project/min-setup.v1.md",
+    "version": 1,
+    "doc_type": "min_setup",
+    "title": "最小实验设定与判定规则",
+    "summary": "0.5B模型、1000步、8任务均值；冻结框架与判定规则",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:19:43Z",
+    "sha256": "c59056424fd8cab86913493c33216183689baedd34148de3536e9cb5d3c3f43c"
+   },
+   {
+    "id": "D-0004",
+    "path": "project/config.v1.yaml",
+    "version": 1,
+    "doc_type": "config",
+    "title": "项目配置",
+    "summary": "research-tree.yaml：开发与实验平台、资源预算、阶段1门槛、子代理模型",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:19:43Z",
+    "sha256": "edb52c028be9b6482a3453c7290a40dc514da5f232974ef00facb08398f18603"
+   },
+   {
+    "id": "D-0005",
+    "path": "project/metric-spec.v1.json",
+    "version": 1,
+    "doc_type": "metric_spec",
+    "title": "指标规范",
+    "summary": "主指标acc（百分点）与4个次指标的方向、单位与保护阈值",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:19:44Z",
+    "sha256": "45cb4bf064c2622c7e6623d14d33f1d0f1a94e9db3ba46ae5c9da59a44584237"
+   },
+   {
+    "id": "D-0006",
+    "path": "project/protocol.v1.json",
+    "version": 1,
+    "doc_type": "protocol",
+    "title": "实验协议",
+    "summary": "real_gt；按seed与数据版本配对；1000步",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:19:44Z",
+    "sha256": "1a74a4859379292c2418f377e4a2e4acb526bc2ed4647bc06db01567cada286a"
+   },
+   {
+    "id": "D-0007",
+    "path": "tasks/T-0001/request.v1.md",
+    "version": 1,
+    "doc_type": "task_request",
+    "title": "根节点：实现实验框架并运行SOTA",
+    "summary": "根节点框架任务",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:19:47Z",
+    "sha256": "6b61dd719f44ada8884f60ed6e4abdbfa49ed05eadb029df2b7df8180b61698d"
+   },
+   {
+    "id": "D-0008",
+    "path": "baselines/E-0001/design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "SOTA基线 BaseOpt-A",
+    "summary": "SOTA基线设计",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "root",
+    "created_at": "2026-10-06T19:19:47Z",
+    "sha256": "48c83d1e1f899420d3cf91892c64c5fe36414918b91782a5eca15cfcfbfc9286"
+   },
+   {
+    "id": "D-0009",
+    "path": "baselines/E-0001/result.v1.md",
+    "version": 1,
+    "doc_type": "experiment_result",
+    "title": "SOTA基线结果",
+    "summary": "BaseOpt-A 均值 71.40",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "root",
+    "created_at": "2026-10-06T19:19:50Z",
+    "sha256": "05412fb9a921bbdbfa624bfec300a0ea5198f363b8095e952e86067b308ad034"
+   },
+   {
+    "id": "D-0010",
+    "path": "tasks/T-0001/delivery.v1.md",
+    "version": 1,
+    "doc_type": "task_delivery",
+    "title": "根节点交付",
+    "summary": "框架与SOTA完成",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "root",
+    "created_at": "2026-10-06T19:19:51Z",
+    "sha256": "003717c0202bd0fe8383ce7af1a9d5f0c99b010f45a6f179850300b7259a8707"
+   },
+   {
+    "id": "D-0011",
+    "path": "literature/LIT-0001.v1.md",
+    "version": 1,
+    "doc_type": "literature",
+    "title": "子批次梯度统计用于自适应预条件（虚构文献A）",
+    "summary": "用微批次梯度平方估计二阶矩",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "lit",
+    "created_at": "2026-10-06T19:19:52Z",
+    "sha256": "fb7d4b9ea229904dae7b5a08a26abdf7a60d3158228684b31506aa0159900e77"
+   },
+   {
+    "id": "D-0012",
+    "path": "literature/LIT-0002.v1.md",
+    "version": 1,
+    "doc_type": "literature",
+    "title": "低秩适配中的因子不平衡（虚构文献B）",
+    "summary": "LoRA的A、B因子尺度失衡导致有效学习率偏差",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "lit",
+    "created_at": "2026-10-06T19:19:52Z",
+    "sha256": "12efe91fa8fefc6cc459719b6b53fc505ba898f632f52d8ac66fbbc7a258d2dd"
+   },
+   {
+    "id": "D-0013",
+    "path": "literature/LIT-0003.v1.md",
+    "version": 1,
+    "doc_type": "literature",
+    "title": "正交化更新在矩阵参数上的作用（虚构文献C）",
+    "summary": "对更新做正交化可改善条件数",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "lit",
+    "created_at": "2026-10-06T19:19:53Z",
+    "sha256": "fc7633e5b27b1c9c1d6d589ce8946caa87873f10f4e85df9af3d2db11a687afd"
+   },
+   {
+    "id": "D-0014",
+    "path": "literature/LIT-0004.v1.md",
+    "version": 1,
+    "doc_type": "literature",
+    "title": "Kronecker因子预条件的近似（虚构文献D）",
+    "summary": "用对角或低秩近似降低Kronecker预条件成本",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "lit",
+    "created_at": "2026-10-06T19:19:53Z",
+    "sha256": "491e4a3f37881376d3b6555775dd81b0c026ed407bb60d125e9912ce1d7396e4"
+   },
+   {
+    "id": "D-0015",
+    "path": "literature/LIT-0005.v1.md",
+    "version": 1,
+    "doc_type": "literature",
+    "title": "优化器状态低比特压缩（虚构文献E）",
+    "summary": "8-bit状态在多数任务上精度损失可忽略",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "lit",
+    "created_at": "2026-10-06T19:19:53Z",
+    "sha256": "1ed4aeee33ea04b7e13e27e59b7260c922bc8c9d39aa71b0ed95af05a1fd8533"
+   },
+   {
+    "id": "D-0016",
+    "path": "hypotheses/H-0001/hypothesis.v1.md",
+    "version": 1,
+    "doc_type": "hypothesis",
+    "title": "子批次二阶矩预条件",
+    "summary": "用未裁剪的微批次梯度平方替代全批次二阶矩，可改善LoRA更新方向。",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:19:54Z",
+    "sha256": "3de4a6313a1eee2b4745c49630afe325513c1aa9c15d5c3e08faf6608f802efa"
+   },
+   {
+    "id": "D-0017",
+    "path": "hypotheses/H-0001/decisions/start.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0001 开始验证",
+    "summary": "H-0001 开始验证",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:19:55Z",
+    "sha256": "d5df0d271ed2f86070af0654c11ae5fa5e22950760e4af5e9791968562476af7"
+   },
+   {
+    "id": "D-0018",
+    "path": "hypotheses/H-0001/experiments/subbatch-246/design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "H-0001 实验设计",
+    "summary": "subbatch-moment",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0001",
+    "created_at": "2026-10-06T19:19:56Z",
+    "sha256": "708ad8a565859e6a427baeae27cb58d662852cfff94ba80496cf51a4d3d694e0"
+   },
+   {
+    "id": "D-0019",
+    "path": "hypotheses/H-0001/experiments/E-0002/result.v2.md",
+    "version": 2,
+    "doc_type": "experiment_result",
+    "title": "E-0002 统计结果",
+    "summary": "E-0002 判定 beats_parent",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0001",
+    "created_at": "2026-10-06T19:19:59Z",
+    "sha256": "b650251badb69e96dbfcdd97a597093e0dfffd39cba86e547c6071e1f373c653"
+   },
+   {
+    "id": "D-0020",
+    "path": "hypotheses/H-0001/decisions/expandable.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0001 结论",
+    "summary": "H-0001 结论",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:20:00Z",
+    "sha256": "f89be652e35c822d27cff663a905db11d7645914662be5c285c102fd8ef91f42"
+   },
+   {
+    "id": "D-0021",
+    "path": "hypotheses/H-0002/hypothesis.v1.md",
+    "version": 1,
+    "doc_type": "hypothesis",
+    "title": "正交化LoRA更新",
+    "summary": "对LoRA因子更新做正交化可改善条件数，提高精度。",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:20:01Z",
+    "sha256": "b7a1d378b07b199c5081b79906250912940a2b36ace9fa713ee9b306edbc7f04"
+   },
+   {
+    "id": "D-0022",
+    "path": "hypotheses/H-0002/decisions/start.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0002 开始验证",
+    "summary": "H-0002 开始验证",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:20:02Z",
+    "sha256": "9b6df8bcafc529f3e52afd5b8f5cea20cfd7090fca65d23591f4bc43d7cffa79"
+   },
+   {
+    "id": "D-0023",
+    "path": "hypotheses/H-0002/experiments/orthogon-735/design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "H-0002 实验设计",
+    "summary": "orthogonal-update",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0002",
+    "created_at": "2026-10-06T19:20:04Z",
+    "sha256": "968c30b268d3df3218b5601ea31daa4cedc894ae62cf94298793c4fe259aa894"
+   },
+   {
+    "id": "D-0024",
+    "path": "hypotheses/H-0002/experiments/E-0003/result.v2.md",
+    "version": 2,
+    "doc_type": "experiment_result",
+    "title": "E-0003 统计结果",
+    "summary": "E-0003 判定 no_gain",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0002",
+    "created_at": "2026-10-06T19:20:06Z",
+    "sha256": "caff2b5e9382f7da1535f47ea4ee47de473bff4cbd0dc39bcdf437557d574db2"
+   },
+   {
+    "id": "D-0025",
+    "path": "hypotheses/H-0002/decisions/prunable.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0002 结论",
+    "summary": "H-0002 结论",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:20:07Z",
+    "sha256": "1c9b03ea495add50e4f3e6d58b8456fd8751c7716c0936eca30281663f534eab"
+   },
+   {
+    "id": "D-0026",
+    "path": "hypotheses/H-0002/decisions/branch-deleted.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0002 分支处置",
+    "summary": "H-0002 分支处置",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:20:08Z",
+    "sha256": "eb7ffbce64c2dbadea1a469622278b98bee24d37c3cf4641bf37890ab3464280"
+   },
+   {
+    "id": "D-0027",
+    "path": "hypotheses/H-0003/hypothesis.v1.md",
+    "version": 1,
+    "doc_type": "hypothesis",
+    "title": "子批次二阶矩 + 因子尺度平衡",
+    "summary": "在子批次二阶矩基础上平衡A、B因子尺度，可进一步提升精度。",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:20:09Z",
+    "sha256": "9713346348272bdb5537a347bd2d884c69279016a50a42d30a2fd92df3720ed2"
+   },
+   {
+    "id": "D-0028",
+    "path": "hypotheses/H-0003/decisions/start.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0003 开始验证",
+    "summary": "H-0003 开始验证",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:20:10Z",
+    "sha256": "ce1f9ca76b7aa4d25cd031321ad9c03f2cc225b92cc1747bf93eb805bb4ff907"
+   },
+   {
+    "id": "D-0029",
+    "path": "hypotheses/H-0003/experiments/moment-b-118/design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "H-0003 实验设计",
+    "summary": "moment-balance",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0003",
+    "created_at": "2026-10-06T19:20:11Z",
+    "sha256": "5a904746d12de596cc5be4b6588a2aa047f6112503ced325ac54ec080e36fd75"
+   },
+   {
+    "id": "D-0030",
+    "path": "hypotheses/H-0003/experiments/E-0004/result.v2.md",
+    "version": 2,
+    "doc_type": "experiment_result",
+    "title": "E-0004 统计结果",
+    "summary": "E-0004 判定 beats_parent",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0003",
+    "created_at": "2026-10-06T19:20:14Z",
+    "sha256": "ea014749113ee592ccb0bfdbf71566e26680540a85821bd93305a257b3a97bfe"
+   },
+   {
+    "id": "D-0031",
+    "path": "hypotheses/H-0003/experiments/E-0004/result.v3.md",
+    "version": 3,
+    "doc_type": "experiment_result",
+    "title": "E-0004 统计结果",
+    "summary": "E-0004 判定 beats_sota",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0003",
+    "created_at": "2026-10-06T19:20:16Z",
+    "sha256": "ed1ef67bf07898e0bf065834c4281fde08e93e157d89e6ec705416563aca6151"
+   },
+   {
+    "id": "D-0032",
+    "path": "hypotheses/H-0003/novelty.v1.md",
+    "version": 1,
+    "doc_type": "novelty",
+    "title": "H-0003 新颖性复核",
+    "summary": "未被直接覆盖",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:20:18Z",
+    "sha256": "250406bda92c248741928d957ff65baf950e37aa7745991b2850afdb392381d4"
+   },
+   {
+    "id": "D-0033",
+    "path": "hypotheses/H-0003/theory.v1.md",
+    "version": 1,
+    "doc_type": "theory",
+    "title": "H-0003 理论复核",
+    "summary": "推导核对无误",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:20:18Z",
+    "sha256": "34501eef654efe0c2978486aaf9083a632ff73964bbcafb2405266107de451aa"
+   },
+   {
+    "id": "D-0034",
+    "path": "hypotheses/H-0003/decisions/expandable.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0003 可拓展",
+    "summary": "H-0003 可拓展",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:20:19Z",
+    "sha256": "7ec27b6bea6a5ce67bd2151afcfe1638e78dfd7f1204b38ce4b5907f16a41cb5"
+   },
+   {
+    "id": "D-0035",
+    "path": "hypotheses/H-0004/hypothesis.v1.md",
+    "version": 1,
+    "doc_type": "hypothesis",
+    "title": "子批次二阶矩 + 动量重标度",
+    "summary": "按子批次方差重标度动量可减少噪声。",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:20:20Z",
+    "sha256": "9c0c616c3513f916715ab96fc5bb942ee50ebc260fd30e3cca7793e4c36905e7"
+   },
+   {
+    "id": "D-0036",
+    "path": "hypotheses/H-0004/decisions/start.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0004 开始验证",
+    "summary": "H-0004 开始验证",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:20:21Z",
+    "sha256": "d68e7bb68ed7b0a1092682bf8cc183bd4d4df834e6587efce2f308c43e6ef029"
+   },
+   {
+    "id": "D-0037",
+    "path": "hypotheses/H-0004/experiments/momentum-874/design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "H-0004 实验设计",
+    "summary": "momentum-rescale",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0004",
+    "created_at": "2026-10-06T19:20:23Z",
+    "sha256": "19ee1830d005881fb0b4e8735280d69e59a5cbde90952e13c69d3d7aa794da1e"
+   },
+   {
+    "id": "D-0038",
+    "path": "hypotheses/H-0004/experiments/E-0005/result.v2.md",
+    "version": 2,
+    "doc_type": "experiment_result",
+    "title": "E-0005 统计结果",
+    "summary": "E-0005 判定 no_gain",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0004",
+    "created_at": "2026-10-06T19:20:25Z",
+    "sha256": "fc948f9ea75b5234c1eb39ee85af54e5ac6aae6760c7b6b97db1dc6c830b47d5"
+   },
+   {
+    "id": "D-0039",
+    "path": "hypotheses/H-0004/decisions/prunable.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0004 结论",
+    "summary": "H-0004 结论",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:20:26Z",
+    "sha256": "73031b0d36c1532f355a971fa6a247cb9e00ffa0e9e8cf1cf79b9e557075cc5f"
+   },
+   {
+    "id": "D-0040",
+    "path": "hypotheses/H-0004/decisions/branch-deleted.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0004 分支处置",
+    "summary": "H-0004 分支处置",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:20:27Z",
+    "sha256": "e7bd52ecb7a76a0cd16094aa9334cba9cc0530d3f1320869b6729ec937a6d1c3"
+   },
+   {
+    "id": "D-0041",
+    "path": "hypotheses/H-0005/hypothesis.v1.md",
+    "version": 1,
+    "doc_type": "hypothesis",
+    "title": "Kronecker因子对角近似",
+    "summary": "对Kronecker预条件取对角近似，在低秩上以低成本获得二阶信息。",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:20:28Z",
+    "sha256": "7f3c2f09d4d3d1d6046ccdffcde87cea76e8c763ca9565497f3c9521fc9d410e"
+   },
+   {
+    "id": "D-0042",
+    "path": "hypotheses/H-0005/decisions/start.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0005 开始验证",
+    "summary": "H-0005 开始验证",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:20:30Z",
+    "sha256": "dfcf1ad70e1170a2bc4c7c83293e43fede74f14872f766b691828a85039c2eb9"
+   },
+   {
+    "id": "D-0043",
+    "path": "hypotheses/H-0005/experiments/kron-dia-330/design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "H-0005 实验设计",
+    "summary": "kron-diag",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0005",
+    "created_at": "2026-10-06T19:20:31Z",
+    "sha256": "bcdbe116f7fa5ca546b6ec34a75f508524450faedc8964d1ef0072e532fed9d4"
+   },
+   {
+    "id": "D-0044",
+    "path": "hypotheses/H-0005/experiments/E-0006/result.v2.md",
+    "version": 2,
+    "doc_type": "experiment_result",
+    "title": "E-0006 统计结果",
+    "summary": "E-0006 判定 close",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0005",
+    "created_at": "2026-10-06T19:20:33Z",
+    "sha256": "a3e166a5dcfff353ade4e9bbd25154402c8e72deb02a13bd1af9c4632a8774fa"
+   },
+   {
+    "id": "D-0045",
+    "path": "hypotheses/H-0006/hypothesis.v1.md",
+    "version": 1,
+    "doc_type": "hypothesis",
+    "title": "完整Kronecker二阶预条件",
+    "summary": "对每层使用完整Kronecker因子预条件。",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:20:34Z",
+    "sha256": "4bc5a373831d2ad4d724cbea4c52f4bae2b4caf80fa74e63c84ad48263dce268"
+   },
+   {
+    "id": "D-0046",
+    "path": "instructions/UI-0002.v1.md",
+    "version": 1,
+    "doc_type": "user_instruction",
+    "title": "放弃H-0006",
+    "summary": "用户决定放弃H-0006",
+    "status": "current",
+    "author_role": "ui",
+    "author_id": "ui",
+    "created_at": "2026-10-06T19:20:35Z",
+    "sha256": "b82cb9dbefccfe2e7ab89571a30525164d70ba15e96e8153808aba10f3def060"
+   },
+   {
+    "id": "D-0047",
+    "path": "hypotheses/H-0006/decisions/infeasible.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0006 无法在上限内实验",
+    "summary": "H-0006 无法在上限内实验",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:20:35Z",
+    "sha256": "b517e466991cdf6567c8855a40f0ab04d381513e08adbb14216119d37d283114"
+   },
+   {
+    "id": "D-0048",
+    "path": "hypotheses/H-0007/hypothesis.v1.md",
+    "version": 1,
+    "doc_type": "hypothesis",
+    "title": "8-bit优化器状态",
+    "summary": "以8-bit存储优化器状态，在精度不变时显著降低显存。",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:20:36Z",
+    "sha256": "65ab85340f61a136be72fc8141d4557cb46ec12756d6bc612a148e96482d6b05"
+   },
+   {
+    "id": "D-0049",
+    "path": "hypotheses/H-0007/decisions/start.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0007 开始验证",
+    "summary": "H-0007 开始验证",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:20:37Z",
+    "sha256": "344f0b7fdf38f11108008740f39162a58e5e7cf908a5fb28ba652420314f236c"
+   },
+   {
+    "id": "D-0050",
+    "path": "hypotheses/H-0007/experiments/state-8b-411/design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "H-0007 实验设计",
+    "summary": "state-8bit",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0007",
+    "created_at": "2026-10-06T19:20:39Z",
+    "sha256": "e17b799e2b3678f190063390515194ebaeab59e5ed7f52b83aa70d136fdd7d7b"
+   },
+   {
+    "id": "D-0051",
+    "path": "hypotheses/H-0007/experiments/E-0007/result.v2.md",
+    "version": 2,
+    "doc_type": "experiment_result",
+    "title": "E-0007 统计结果",
+    "summary": "E-0007 判定 needs_rld",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0007",
+    "created_at": "2026-10-06T19:20:42Z",
+    "sha256": "1e62b55a6bbd868409845c0c0f7456048a1f17c740305282daf1f65e55d4c214"
+   },
+   {
+    "id": "D-0052",
+    "path": "hypotheses/H-0008/hypothesis.v1.md",
+    "version": 1,
+    "doc_type": "hypothesis",
+    "title": "自适应秩分配",
+    "summary": "按层的子批次方差分配LoRA秩，可在同等参数量下提升精度。",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:20:43Z",
+    "sha256": "1254089d15505aef31c088ed50a4ec47102c033329b9e12e28690fbfa57f1c83"
+   },
+   {
+    "id": "D-0053",
+    "path": "tasks/T-0002/request.v1.md",
+    "version": 1,
+    "doc_type": "task_request",
+    "title": "H-0005 扩展到3个seed",
+    "summary": "扩展seed",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-06T19:20:44Z",
+    "sha256": "b94dfb8ad3805f526e8a61e2573be5afedd4c84f00eddbb7df4660e35aa67bbd"
+   }
+  ],
+  "decision": [
+   {
+    "id": "DEC-0001",
+    "field": "experiment_status",
+    "from_value": "todo",
+    "to_value": "running",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0017",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:19:56Z",
+    "target_id": "H-0001"
+   },
+   {
+    "id": "DEC-0002",
+    "field": "status",
+    "from_value": "pending",
+    "to_value": "verifying",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0017",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:19:56Z",
+    "target_id": "H-0001"
+   },
+   {
+    "id": "DEC-0003",
+    "field": "experiment_status",
+    "from_value": "running",
+    "to_value": "beats_parent",
+    "reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
+    "doc_id": "D-0020",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:20:00Z",
+    "target_id": "H-0001"
+   },
+   {
+    "id": "DEC-0004",
+    "field": "status",
+    "from_value": "verifying",
+    "to_value": "expandable",
+    "reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
+    "doc_id": "D-0020",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:20:00Z",
+    "target_id": "H-0001"
+   },
+   {
+    "id": "DEC-0005",
+    "field": "experiment_status",
+    "from_value": "todo",
+    "to_value": "running",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0022",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:20:03Z",
+    "target_id": "H-0002"
+   },
+   {
+    "id": "DEC-0006",
+    "field": "status",
+    "from_value": "pending",
+    "to_value": "verifying",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0022",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:20:03Z",
+    "target_id": "H-0002"
+   },
+   {
+    "id": "DEC-0007",
+    "field": "experiment_status",
+    "from_value": "running",
+    "to_value": "no_gain",
+    "reason": "所有指标都不优于SOTA，按规则消灭。",
+    "doc_id": "D-0025",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:20:07Z",
+    "target_id": "H-0002"
+   },
+   {
+    "id": "DEC-0008",
+    "field": "status",
+    "from_value": "verifying",
+    "to_value": "prunable",
+    "reason": "所有指标都不优于SOTA，按规则消灭。",
+    "doc_id": "D-0025",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:20:07Z",
+    "target_id": "H-0002"
+   },
+   {
+    "id": "DEC-0009",
+    "field": "branch_status",
+    "from_value": "returned",
+    "to_value": "deleted",
+    "reason": "无提升，删除分支（实验提交已打标签）。",
+    "doc_id": "D-0026",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:20:08Z",
+    "target_id": "BR-0002"
+   },
+   {
+    "id": "DEC-0010",
+    "field": "experiment_status",
+    "from_value": "todo",
+    "to_value": "running",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0028",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:20:10Z",
+    "target_id": "H-0003"
+   },
+   {
+    "id": "DEC-0011",
+    "field": "status",
+    "from_value": "pending",
+    "to_value": "verifying",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0028",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:20:10Z",
+    "target_id": "H-0003"
+   },
+   {
+    "id": "DEC-0012",
+    "field": "experiment_status",
+    "from_value": "running",
+    "to_value": "beats_sota",
+    "reason": "3个seed判定",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:20:17Z",
+    "target_id": "H-0003"
+   },
+   {
+    "id": "DEC-0013",
+    "field": "novelty_recheck",
+    "from_value": "pending",
+    "to_value": "pass",
+    "reason": "复核通过",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:20:18Z",
+    "target_id": "H-0003"
+   },
+   {
+    "id": "DEC-0014",
+    "field": "theory_recheck",
+    "from_value": "pending",
+    "to_value": "pass",
+    "reason": "复核通过",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:20:18Z",
+    "target_id": "H-0003"
+   },
+   {
+    "id": "DEC-0015",
+    "field": "status",
+    "from_value": "verifying",
+    "to_value": "expandable",
+    "reason": "优于SOTA且复核通过，可拓展",
+    "doc_id": "D-0034",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:20:19Z",
+    "target_id": "H-0003"
+   },
+   {
+    "id": "DEC-0016",
+    "field": "experiment_status",
+    "from_value": "todo",
+    "to_value": "running",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0036",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:20:22Z",
+    "target_id": "H-0004"
+   },
+   {
+    "id": "DEC-0017",
+    "field": "status",
+    "from_value": "pending",
+    "to_value": "verifying",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0036",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:20:22Z",
+    "target_id": "H-0004"
+   },
+   {
+    "id": "DEC-0018",
+    "field": "experiment_status",
+    "from_value": "running",
+    "to_value": "no_gain",
+    "reason": "相对父节点各项指标都不更好，按规则消灭。",
+    "doc_id": "D-0039",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:20:26Z",
+    "target_id": "H-0004"
+   },
+   {
+    "id": "DEC-0019",
+    "field": "status",
+    "from_value": "verifying",
+    "to_value": "prunable",
+    "reason": "相对父节点各项指标都不更好，按规则消灭。",
+    "doc_id": "D-0039",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:20:26Z",
+    "target_id": "H-0004"
+   },
+   {
+    "id": "DEC-0020",
+    "field": "branch_status",
+    "from_value": "returned",
+    "to_value": "deleted",
+    "reason": "无提升，删除分支。",
+    "doc_id": "D-0040",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:20:28Z",
+    "target_id": "BR-0004"
+   },
+   {
+    "id": "DEC-0021",
+    "field": "experiment_status",
+    "from_value": "todo",
+    "to_value": "running",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0042",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:20:30Z",
+    "target_id": "H-0005"
+   },
+   {
+    "id": "DEC-0022",
+    "field": "status",
+    "from_value": "pending",
+    "to_value": "verifying",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0042",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:20:30Z",
+    "target_id": "H-0005"
+   },
+   {
+    "id": "DEC-0023",
+    "field": "status",
+    "from_value": "pending",
+    "to_value": "prunable",
+    "reason": "用户决定放弃（超出单次运行上限）",
+    "doc_id": "D-0047",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:20:35Z",
+    "target_id": "H-0006"
+   },
+   {
+    "id": "DEC-0024",
+    "field": "experiment_status",
+    "from_value": "todo",
+    "to_value": "running",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0049",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:20:38Z",
+    "target_id": "H-0007"
+   },
+   {
+    "id": "DEC-0025",
+    "field": "status",
+    "from_value": "pending",
+    "to_value": "verifying",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0049",
+    "decided_by": "main",
+    "decided_at": "2026-10-06T19:20:38Z",
+    "target_id": "H-0007"
+   }
+  ],
+  "task": [
+   {
+    "id": "T-0001",
+    "kind": "harness",
+    "status": "accepted",
+    "assignee_role": "worker",
+    "assignee_id": "root",
+    "request_doc_id": "D-0007",
+    "created_at": "2026-10-06T19:19:47Z",
+    "updated_at": "2026-10-06T19:19:51Z",
+    "delivery_doc_id": "D-0010",
+    "target_id": "P-demo-lora-opt"
+   },
+   {
+    "id": "T-0002",
+    "kind": "experiment",
+    "status": "in_progress",
+    "assignee_role": "worker",
+    "assignee_id": "h0005",
+    "request_doc_id": "D-0053",
+    "created_at": "2026-10-06T19:20:44Z",
+    "updated_at": "2026-10-06T19:20:44Z",
+    "target_id": "H-0005"
+   }
+  ],
+  "evaluation": [
+   {
+    "id": "EV-0001",
+    "result_revision": 1,
+    "run_attempt_refs": [
+     "E-0001/s42@1",
+     "E-0001/s43@1",
+     "E-0001/s44@1"
+    ],
+    "input_revisions": {
+     "E-0001/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3907,
+      "secondary": {
+       "final_loss": 0.9142,
+       "loss_auc": 1.2773,
+       "peak_mem_gb": 38.0428,
+       "train_time_s": 2983.973
+      },
+      "retracted_at": null,
+      "import": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0"
+     },
+     "E-0001/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4456,
+      "secondary": {
+       "final_loss": 0.9124,
+       "loss_auc": 1.2831,
+       "peak_mem_gb": 37.901,
+       "train_time_s": 2997.7651
+      },
+      "retracted_at": null,
+      "import": "e0386148c42cd8ea61da0ad1f7042b2a8c6d507bd344ae53b0883aec634c6708"
+     },
+     "E-0001/s44": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3642,
+      "secondary": {
+       "final_loss": 0.9107,
+       "loss_auc": 1.2825,
+       "peak_mem_gb": 37.9461,
+       "train_time_s": 3021.8327
+      },
+      "retracted_at": null,
+      "import": "82a37fc2e7493d2ccaf8c64f8226df791347a939461908f55cf910abdecba6c9"
+     }
+    },
+    "pair_keys": {},
+    "method_code_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "harness_paths": [
+     "harness"
+    ],
+    "protocol_doc_id": "D-0006",
+    "metric_spec_doc_id": "D-0005",
+    "result_doc_id": "D-0009",
+    "metrics": {
+     "acc": {
+      "n": 3,
+      "mean": 71.40016666666666,
+      "values": [
+       71.3907,
+       71.4456,
+       71.3642
+      ],
+      "sd": 0.0415175063477257,
+      "unit": "percentage_point",
+      "seeds": [
+       42,
+       43,
+       44
+      ]
+     },
+     "final_loss": {
+      "n": 3,
+      "mean": 0.9124333333333333,
+      "values": [
+       0.9142,
+       0.9124,
+       0.9107
+      ],
+      "sd": 0.0017502380790433729,
+      "unit": "nats",
+      "seeds": [
+       42,
+       43,
+       44
+      ]
+     },
+     "loss_auc": {
+      "n": 3,
+      "mean": 1.2809666666666668,
+      "values": [
+       1.2773,
+       1.2831,
+       1.2825
+      ],
+      "sd": 0.003189566323708087,
+      "unit": "raw",
+      "seeds": [
+       42,
+       43,
+       44
+      ]
+     },
+     "peak_mem_gb": {
+      "n": 3,
+      "mean": 37.963300000000004,
+      "values": [
+       38.0428,
+       37.901,
+       37.9461
+      ],
+      "sd": 0.0724478433081327,
+      "unit": "gib",
+      "seeds": [
+       42,
+       43,
+       44
+      ]
+     },
+     "train_time_s": {
+      "n": 3,
+      "mean": 3001.1902666666665,
+      "values": [
+       2983.973,
+       2997.7651,
+       3021.8327
+      ],
+      "sd": 19.160846694322576,
+      "unit": "seconds",
+      "seeds": [
+       42,
+       43,
+       44
+      ]
+     }
+    },
+    "comparisons": {},
+    "eval_type": "real_gt",
+    "limitations": [],
+    "verification_level": "artifact_imported",
+    "artifact_refs": [
+     "outputs/E-0001/s42/metrics.json",
+     "outputs/E-0001/s43/metrics.json",
+     "outputs/E-0001/s44/metrics.json"
+    ],
+    "statistics_version": "rt-stats-1",
+    "parser_version": "rt-manifest-1",
+    "fingerprint": "35164bd02113ad191faeb278f6bc472ec7b5d8382968dc850d3302935ebf3720",
+    "inputs_digest": "1c007297f9c2580181e1a779c0b9469e2385129a47a4e0e67b0bc34e6f8208c4",
+    "created_by": "worker/root",
+    "created_at": "2026-10-06T19:19:50Z",
+    "experiment_id": "E-0001"
+   },
+   {
+    "id": "EV-0002",
+    "result_revision": 1,
+    "run_attempt_refs": [
+     "E-0001/s42@1",
+     "E-0001/s43@1",
+     "E-0001/s44@1",
+     "E-0002/s42@1",
+     "E-0002/s43@1"
+    ],
+    "input_revisions": {
+     "E-0002/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.5654,
+      "secondary": {
+       "final_loss": 0.9121,
+       "loss_auc": 1.2774,
+       "peak_mem_gb": 39.1613,
+       "train_time_s": 3004.0644
+      },
+      "retracted_at": null,
+      "import": "c1ddce2e7874bc5212c02641714c12dc46094fb9b2cd61cff8ec3242c80ad6d4"
+     },
+     "E-0002/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.5984,
+      "secondary": {
+       "final_loss": 0.9158,
+       "loss_auc": 1.2793,
+       "peak_mem_gb": 39.1537,
+       "train_time_s": 3007.4259
+      },
+      "retracted_at": null,
+      "import": "71bc44ef6e279a3d37ce2edbf2c7cd86a90ed79d42c42848b6efbb37f9753420"
+     },
+     "E-0001/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3907,
+      "secondary": {
+       "final_loss": 0.9142,
+       "loss_auc": 1.2773,
+       "peak_mem_gb": 38.0428,
+       "train_time_s": 2983.973
+      },
+      "retracted_at": null,
+      "import": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0"
+     },
+     "E-0001/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4456,
+      "secondary": {
+       "final_loss": 0.9124,
+       "loss_auc": 1.2831,
+       "peak_mem_gb": 37.901,
+       "train_time_s": 2997.7651
+      },
+      "retracted_at": null,
+      "import": "e0386148c42cd8ea61da0ad1f7042b2a8c6d507bd344ae53b0883aec634c6708"
+     },
+     "E-0001/s44": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3642,
+      "secondary": {
+       "final_loss": 0.9107,
+       "loss_auc": 1.2825,
+       "peak_mem_gb": 37.9461,
+       "train_time_s": 3021.8327
+      },
+      "retracted_at": null,
+      "import": "82a37fc2e7493d2ccaf8c64f8226df791347a939461908f55cf910abdecba6c9"
+     }
+    },
+    "pair_keys": {
+     "sota": [
+      "seed=42/data_version=commonsense-mix-v1（虚构）",
+      "seed=43/data_version=commonsense-mix-v1（虚构）"
+     ]
+    },
+    "method_code_ref": "0a34213ca488fb0a71c93e953b73f9b114f28683",
+    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "harness_paths": [
+     "harness"
+    ],
+    "protocol_doc_id": "D-0006",
+    "metric_spec_doc_id": "D-0005",
+    "baseline_experiment_id": "E-0001",
+    "baseline_evaluation_id": "EV-0001",
+    "result_doc_id": "D-0019",
+    "metrics": {
+     "acc": {
+      "n": 2,
+      "mean": 71.58189999999999,
+      "values": [
+       71.5654,
+       71.5984
+      ],
+      "sd": 0.023334523779156954,
+      "unit": "percentage_point",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "final_loss": {
+      "n": 2,
+      "mean": 0.91395,
+      "values": [
+       0.9121,
+       0.9158
+      ],
+      "sd": 0.002616295090390173,
+      "unit": "nats",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "loss_auc": {
+      "n": 2,
+      "mean": 1.27835,
+      "values": [
+       1.2774,
+       1.2793
+      ],
+      "sd": 0.0013435028842544493,
+      "unit": "raw",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "peak_mem_gb": {
+      "n": 2,
+      "mean": 39.1575,
+      "values": [
+       39.1613,
+       39.1537
+      ],
+      "sd": 0.005374011537015285,
+      "unit": "gib",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "train_time_s": {
+      "n": 2,
+      "mean": 3005.74515,
+      "values": [
+       3004.0644,
+       3007.4259
+      ],
+      "sd": 2.376939444958564,
+      "unit": "seconds",
+      "seeds": [
+       42,
+       43
+      ]
+     }
+    },
+    "comparisons": {
+     "sota": {
+      "target_id": "E-0001",
+      "n_paired": 2,
+      "metrics": {
+       "acc": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "percentage_point",
+        "deltas": [
+         0.1747000000000014,
+         0.15279999999999916
+        ],
+        "delta_mean": 0.16375000000000028,
+        "delta_sd": 0.015485638507986982
+       },
+       "final_loss": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "nats",
+        "deltas": [
+         0.0020999999999999908,
+         -0.0033999999999999586
+        ],
+        "delta_mean": -0.0006499999999999839,
+        "delta_sd": 0.0038890872965259755
+       },
+       "loss_auc": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "raw",
+        "deltas": [
+         -9.999999999998899e-05,
+         0.0037999999999998035
+        ],
+        "delta_mean": 0.0018499999999999073,
+        "delta_sd": 0.0027577164466273886
+       },
+       "peak_mem_gb": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "gib",
+        "deltas": [
+         -1.1184999999999974,
+         -1.2526999999999973
+        ],
+        "delta_mean": -1.1855999999999973,
+        "delta_sd": 0.09489373003523459
+       },
+       "train_time_s": {
+        "n_paired": 2,
+        "effect_mode": "relative_to_reference_mean",
+        "unit": "fraction",
+        "delta_mean": -0.004973838623927701,
+        "delta_sd": null,
+        "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
+       }
+      },
+      "delta_mean": 0.16375000000000028,
+      "delta_sd": 0.015485638507986982,
+      "deltas": {
+       "final_loss": -0.0006499999999999839,
+       "loss_auc": 0.0018499999999999073,
+       "peak_mem_gb": -1.1855999999999973,
+       "train_time_s": -0.004973838623927701
+      },
+      "guardrails": {
+       "peak_mem_gb": {
+        "allowed_regression": 2.0,
+        "effect": -1.1855999999999973,
+        "passed": true
+       },
+       "train_time_s": {
+        "allowed_regression": 0.1,
+        "effect": -0.004973838623927701,
+        "passed": true
+       }
+      },
+      "passes_gate": false
+     }
+    },
+    "verdict": "beats_parent",
+    "gate_passed": false,
+    "guardrails_passed": true,
+    "eval_type": "real_gt",
+    "limitations": [],
+    "verification_level": "artifact_imported",
+    "artifact_refs": [
+     "outputs/E-0001/s42/metrics.json",
+     "outputs/E-0001/s43/metrics.json",
+     "outputs/E-0001/s44/metrics.json",
+     "outputs/E-0002/s42/metrics.json",
+     "outputs/E-0002/s43/metrics.json"
+    ],
+    "statistics_version": "rt-stats-1",
+    "parser_version": "rt-manifest-1",
+    "fingerprint": "e28216318bfa12a7baea85d31bd9d65245fad418edfe92cc0df3f20a1c22315f",
+    "inputs_digest": "8513788fc028b6b84f6e1ae8e7b176c78813bc9286026734bac01e087d7938c0",
+    "created_by": "worker/h0001",
+    "created_at": "2026-10-06T19:20:00Z",
+    "experiment_id": "E-0002"
+   },
+   {
+    "id": "EV-0003",
+    "result_revision": 1,
+    "run_attempt_refs": [
+     "E-0001/s42@1",
+     "E-0001/s43@1",
+     "E-0001/s44@1",
+     "E-0003/s42@1",
+     "E-0003/s43@1"
+    ],
+    "input_revisions": {
+     "E-0003/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.1512,
+      "secondary": {
+       "final_loss": 0.9258,
+       "loss_auc": 1.3088,
+       "peak_mem_gb": 38.5906,
+       "train_time_s": 3118.1007
+      },
+      "retracted_at": null,
+      "import": "86701fb69bdedba6fa5fb18ffb8a22c7b22e6021cf97589c24bde87cdac3cb4c"
+     },
+     "E-0003/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.1994,
+      "secondary": {
+       "final_loss": 0.9213,
+       "loss_auc": 1.3025,
+       "peak_mem_gb": 38.6237,
+       "train_time_s": 3116.0149
+      },
+      "retracted_at": null,
+      "import": "80ccb0613772de1acc8f459d6a6b95b101571b61190fb53c6b80de4667a66ec7"
+     },
+     "E-0001/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3907,
+      "secondary": {
+       "final_loss": 0.9142,
+       "loss_auc": 1.2773,
+       "peak_mem_gb": 38.0428,
+       "train_time_s": 2983.973
+      },
+      "retracted_at": null,
+      "import": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0"
+     },
+     "E-0001/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4456,
+      "secondary": {
+       "final_loss": 0.9124,
+       "loss_auc": 1.2831,
+       "peak_mem_gb": 37.901,
+       "train_time_s": 2997.7651
+      },
+      "retracted_at": null,
+      "import": "e0386148c42cd8ea61da0ad1f7042b2a8c6d507bd344ae53b0883aec634c6708"
+     },
+     "E-0001/s44": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3642,
+      "secondary": {
+       "final_loss": 0.9107,
+       "loss_auc": 1.2825,
+       "peak_mem_gb": 37.9461,
+       "train_time_s": 3021.8327
+      },
+      "retracted_at": null,
+      "import": "82a37fc2e7493d2ccaf8c64f8226df791347a939461908f55cf910abdecba6c9"
+     }
+    },
+    "pair_keys": {
+     "sota": [
+      "seed=42/data_version=commonsense-mix-v1（虚构）",
+      "seed=43/data_version=commonsense-mix-v1（虚构）"
+     ]
+    },
+    "method_code_ref": "88c7c6eb4d52a3826a8fac51f559de0f18de34cd",
+    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "harness_paths": [
+     "harness"
+    ],
+    "protocol_doc_id": "D-0006",
+    "metric_spec_doc_id": "D-0005",
+    "baseline_experiment_id": "E-0001",
+    "baseline_evaluation_id": "EV-0001",
+    "result_doc_id": "D-0024",
+    "metrics": {
+     "acc": {
+      "n": 2,
+      "mean": 71.1753,
+      "values": [
+       71.1512,
+       71.1994
+      ],
+      "sd": 0.034082546853187526,
+      "unit": "percentage_point",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "final_loss": {
+      "n": 2,
+      "mean": 0.92355,
+      "values": [
+       0.9258,
+       0.9213
+      ],
+      "sd": 0.0031819805153394274,
+      "unit": "nats",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "loss_auc": {
+      "n": 2,
+      "mean": 1.30565,
+      "values": [
+       1.3088,
+       1.3025
+      ],
+      "sd": 0.0044547727214752295,
+      "unit": "raw",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "peak_mem_gb": {
+      "n": 2,
+      "mean": 38.607150000000004,
+      "values": [
+       38.5906,
+       38.6237
+      ],
+      "sd": 0.023405234457272932,
+      "unit": "gib",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "train_time_s": {
+      "n": 2,
+      "mean": 3117.0578,
+      "values": [
+       3118.1007,
+       3116.0149
+      ],
+      "sd": 1.4748833241987847,
+      "unit": "seconds",
+      "seeds": [
+       42,
+       43
+      ]
+     }
+    },
+    "comparisons": {
+     "sota": {
+      "target_id": "E-0001",
+      "n_paired": 2,
+      "metrics": {
+       "acc": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "percentage_point",
+        "deltas": [
+         -0.2394999999999925,
+         -0.24620000000000175
+        ],
+        "delta_mean": -0.24284999999999712,
+        "delta_sd": 0.004737615433956412
+       },
+       "final_loss": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "nats",
+        "deltas": [
+         -0.011599999999999944,
+         -0.008900000000000019
+        ],
+        "delta_mean": -0.010249999999999981,
+        "delta_sd": 0.001909188309203625
+       },
+       "loss_auc": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "raw",
+        "deltas": [
+         -0.03149999999999986,
+         -0.019400000000000084
+        ],
+        "delta_mean": -0.025449999999999973,
+        "delta_sd": 0.008555992052357068
+       },
+       "peak_mem_gb": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "gib",
+        "deltas": [
+         -0.5478000000000023,
+         -0.7226999999999961
+        ],
+        "delta_mean": -0.6352499999999992,
+        "delta_sd": 0.1236729760295228
+       },
+       "train_time_s": {
+        "n_paired": 2,
+        "effect_mode": "relative_to_reference_mean",
+        "unit": "fraction",
+        "delta_mean": -0.04219133231526796,
+        "delta_sd": null,
+        "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
+       }
+      },
+      "delta_mean": -0.24284999999999712,
+      "delta_sd": 0.004737615433956412,
+      "deltas": {
+       "final_loss": -0.010249999999999981,
+       "loss_auc": -0.025449999999999973,
+       "peak_mem_gb": -0.6352499999999992,
+       "train_time_s": -0.04219133231526796
+      },
+      "guardrails": {
+       "peak_mem_gb": {
+        "allowed_regression": 2.0,
+        "effect": -0.6352499999999992,
+        "passed": true
+       },
+       "train_time_s": {
+        "allowed_regression": 0.1,
+        "effect": -0.04219133231526796,
+        "passed": true
+       }
+      },
+      "passes_gate": false
+     }
+    },
+    "verdict": "no_gain",
+    "gate_passed": false,
+    "guardrails_passed": true,
+    "eval_type": "real_gt",
+    "limitations": [],
+    "verification_level": "artifact_imported",
+    "artifact_refs": [
+     "outputs/E-0001/s42/metrics.json",
+     "outputs/E-0001/s43/metrics.json",
+     "outputs/E-0001/s44/metrics.json",
+     "outputs/E-0003/s42/metrics.json",
+     "outputs/E-0003/s43/metrics.json"
+    ],
+    "statistics_version": "rt-stats-1",
+    "parser_version": "rt-manifest-1",
+    "fingerprint": "3ea86a0583764ad8d3f8fd29b55e3f55f5fb42c4c93b5d01a750357825f4dc29",
+    "inputs_digest": "f0a4c9555e31c1d13592b88cbc42736be879db5028f9d95a4f90fc10afd1f35d",
+    "created_by": "worker/h0002",
+    "created_at": "2026-10-06T19:20:07Z",
+    "experiment_id": "E-0003"
+   },
+   {
+    "id": "EV-0004",
+    "result_revision": 1,
+    "run_attempt_refs": [
+     "E-0001/s42@1",
+     "E-0001/s43@1",
+     "E-0001/s44@1",
+     "E-0002/s42@1",
+     "E-0002/s43@1",
+     "E-0004/s42@1",
+     "E-0004/s43@1"
+    ],
+    "input_revisions": {
+     "E-0004/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.6523,
+      "secondary": {
+       "final_loss": 0.9125,
+       "loss_auc": 1.2725,
+       "peak_mem_gb": 39.0426,
+       "train_time_s": 3006.8881
+      },
+      "retracted_at": null,
+      "import": "2f1dd44520747b568904c41d1a600bac1160afd8d8ff5fa31e4000a3c503ff1d"
+     },
+     "E-0004/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.674,
+      "secondary": {
+       "final_loss": 0.9125,
+       "loss_auc": 1.2628,
+       "peak_mem_gb": 39.0501,
+       "train_time_s": 3008.166
+      },
+      "retracted_at": null,
+      "import": "2154ee6a1906915114788f0396aa5d9c8a5ff2b6526a6a25282badb63f34bbff"
+     },
+     "E-0001/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3907,
+      "secondary": {
+       "final_loss": 0.9142,
+       "loss_auc": 1.2773,
+       "peak_mem_gb": 38.0428,
+       "train_time_s": 2983.973
+      },
+      "retracted_at": null,
+      "import": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0"
+     },
+     "E-0001/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4456,
+      "secondary": {
+       "final_loss": 0.9124,
+       "loss_auc": 1.2831,
+       "peak_mem_gb": 37.901,
+       "train_time_s": 2997.7651
+      },
+      "retracted_at": null,
+      "import": "e0386148c42cd8ea61da0ad1f7042b2a8c6d507bd344ae53b0883aec634c6708"
+     },
+     "E-0001/s44": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3642,
+      "secondary": {
+       "final_loss": 0.9107,
+       "loss_auc": 1.2825,
+       "peak_mem_gb": 37.9461,
+       "train_time_s": 3021.8327
+      },
+      "retracted_at": null,
+      "import": "82a37fc2e7493d2ccaf8c64f8226df791347a939461908f55cf910abdecba6c9"
+     },
+     "E-0002/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.5654,
+      "secondary": {
+       "final_loss": 0.9121,
+       "loss_auc": 1.2774,
+       "peak_mem_gb": 39.1613,
+       "train_time_s": 3004.0644
+      },
+      "retracted_at": null,
+      "import": "c1ddce2e7874bc5212c02641714c12dc46094fb9b2cd61cff8ec3242c80ad6d4"
+     },
+     "E-0002/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.5984,
+      "secondary": {
+       "final_loss": 0.9158,
+       "loss_auc": 1.2793,
+       "peak_mem_gb": 39.1537,
+       "train_time_s": 3007.4259
+      },
+      "retracted_at": null,
+      "import": "71bc44ef6e279a3d37ce2edbf2c7cd86a90ed79d42c42848b6efbb37f9753420"
+     }
+    },
+    "pair_keys": {
+     "sota": [
+      "seed=42/data_version=commonsense-mix-v1（虚构）",
+      "seed=43/data_version=commonsense-mix-v1（虚构）"
+     ],
+     "parent": [
+      "seed=42/data_version=commonsense-mix-v1（虚构）",
+      "seed=43/data_version=commonsense-mix-v1（虚构）"
+     ]
+    },
+    "method_code_ref": "c434993c829927243b6fdb05afceb0ad556d7e2b",
+    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "harness_paths": [
+     "harness"
+    ],
+    "protocol_doc_id": "D-0006",
+    "metric_spec_doc_id": "D-0005",
+    "baseline_experiment_id": "E-0001",
+    "baseline_evaluation_id": "EV-0001",
+    "parent_experiment_id": "E-0002",
+    "parent_evaluation_id": "EV-0002",
+    "result_doc_id": "D-0030",
+    "metrics": {
+     "acc": {
+      "n": 2,
+      "mean": 71.66315,
+      "values": [
+       71.6523,
+       71.674
+      ],
+      "sd": 0.015344217151755027,
+      "unit": "percentage_point",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "final_loss": {
+      "n": 2,
+      "mean": 0.9125,
+      "values": [
+       0.9125,
+       0.9125
+      ],
+      "sd": 0.0,
+      "unit": "nats",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "loss_auc": {
+      "n": 2,
+      "mean": 1.26765,
+      "values": [
+       1.2725,
+       1.2628
+      ],
+      "sd": 0.00685893577750954,
+      "unit": "raw",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "peak_mem_gb": {
+      "n": 2,
+      "mean": 39.046350000000004,
+      "values": [
+       39.0426,
+       39.0501
+      ],
+      "sd": 0.005303300858899307,
+      "unit": "gib",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "train_time_s": {
+      "n": 2,
+      "mean": 3007.52705,
+      "values": [
+       3006.8881,
+       3008.166
+      ],
+      "sd": 0.903611755678321,
+      "unit": "seconds",
+      "seeds": [
+       42,
+       43
+      ]
+     }
+    },
+    "comparisons": {
+     "sota": {
+      "target_id": "E-0001",
+      "n_paired": 2,
+      "metrics": {
+       "acc": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "percentage_point",
+        "deltas": [
+         0.2616000000000014,
+         0.2284000000000077
+        ],
+        "delta_mean": 0.24500000000000455,
+        "delta_sd": 0.023475945135388906
+       },
+       "final_loss": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "nats",
+        "deltas": [
+         0.0017000000000000348,
+         -9.999999999998899e-05
+        ],
+        "delta_mean": 0.0008000000000000229,
+        "delta_sd": 0.0012727922061358025
+       },
+       "loss_auc": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "raw",
+        "deltas": [
+         0.0048000000000001375,
+         0.020299999999999985
+        ],
+        "delta_mean": 0.012550000000000061,
+        "delta_sd": 0.010960155108391378
+       },
+       "peak_mem_gb": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "gib",
+        "deltas": [
+         -0.9998000000000005,
+         -1.1490999999999971
+        ],
+        "delta_mean": -1.0744499999999988,
+        "delta_sd": 0.10557104243114918
+       },
+       "train_time_s": {
+        "n_paired": 2,
+        "effect_mode": "relative_to_reference_mean",
+        "unit": "fraction",
+        "delta_mean": -0.0055696186364294015,
+        "delta_sd": null,
+        "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
+       }
+      },
+      "delta_mean": 0.24500000000000455,
+      "delta_sd": 0.023475945135388906,
+      "deltas": {
+       "final_loss": 0.0008000000000000229,
+       "loss_auc": 0.012550000000000061,
+       "peak_mem_gb": -1.0744499999999988,
+       "train_time_s": -0.0055696186364294015
+      },
+      "guardrails": {
+       "peak_mem_gb": {
+        "allowed_regression": 2.0,
+        "effect": -1.0744499999999988,
+        "passed": true
+       },
+       "train_time_s": {
+        "allowed_regression": 0.1,
+        "effect": -0.0055696186364294015,
+        "passed": true
+       }
+      },
+      "passes_gate": false
+     },
+     "parent": {
+      "target_id": "E-0002",
+      "n_paired": 2,
+      "metrics": {
+       "acc": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "percentage_point",
+        "deltas": [
+         0.08689999999999998,
+         0.07560000000000855
+        ],
+        "delta_mean": 0.08125000000000426,
+        "delta_sd": 0.007990306627401926
+       },
+       "final_loss": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "nats",
+        "deltas": [
+         -0.00039999999999995595,
+         0.0032999999999999696
+        ],
+        "delta_mean": 0.0014500000000000068,
+        "delta_sd": 0.002616295090390173
+       },
+       "loss_auc": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "raw",
+        "deltas": [
+         0.0049000000000001265,
+         0.01650000000000018
+        ],
+        "delta_mean": 0.010700000000000154,
+        "delta_sd": 0.00820243866176399
+       },
+       "peak_mem_gb": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "gib",
+        "deltas": [
+         0.11869999999999692,
+         0.10360000000000014
+        ],
+        "delta_mean": 0.11114999999999853,
+        "delta_sd": 0.010677312395914592
+       },
+       "train_time_s": {
+        "n_paired": 2,
+        "effect_mode": "relative_to_reference_mean",
+        "unit": "fraction",
+        "delta_mean": -0.0005928313649611812,
+        "delta_sd": null,
+        "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
+       }
+      },
+      "delta_mean": 0.08125000000000426,
+      "delta_sd": 0.007990306627401926,
+      "deltas": {
+       "final_loss": 0.0014500000000000068,
+       "loss_auc": 0.010700000000000154,
+       "peak_mem_gb": 0.11114999999999853,
+       "train_time_s": -0.0005928313649611812
+      },
+      "guardrails": {
+       "peak_mem_gb": {
+        "allowed_regression": 2.0,
+        "effect": 0.11114999999999853,
+        "passed": true
+       },
+       "train_time_s": {
+        "allowed_regression": 0.1,
+        "effect": -0.0005928313649611812,
+        "passed": true
+       }
+      }
+     }
+    },
+    "verdict": "beats_parent",
+    "gate_passed": false,
+    "guardrails_passed": true,
+    "eval_type": "real_gt",
+    "limitations": [],
+    "verification_level": "artifact_imported",
+    "artifact_refs": [
+     "outputs/E-0001/s42/metrics.json",
+     "outputs/E-0001/s43/metrics.json",
+     "outputs/E-0001/s44/metrics.json",
+     "outputs/E-0002/s42/metrics.json",
+     "outputs/E-0002/s43/metrics.json",
+     "outputs/E-0004/s42/metrics.json",
+     "outputs/E-0004/s43/metrics.json"
+    ],
+    "statistics_version": "rt-stats-1",
+    "parser_version": "rt-manifest-1",
+    "fingerprint": "4dfb5b7a5edadd192aa67d328a7a0f3bbdf0f998e2e6d5545c19df08c5e1202d",
+    "inputs_digest": "35306caec7a2bb5ac95759ed1e317afcc960b4a5196f4f23a21fc17181722486",
+    "created_by": "worker/h0003",
+    "created_at": "2026-10-06T19:20:14Z",
+    "experiment_id": "E-0004"
+   },
+   {
+    "id": "EV-0005",
+    "result_revision": 2,
+    "run_attempt_refs": [
+     "E-0001/s42@1",
+     "E-0001/s43@1",
+     "E-0001/s44@1",
+     "E-0002/s42@1",
+     "E-0002/s43@1",
+     "E-0004/s42@1",
+     "E-0004/s43@1",
+     "E-0004/s44@1"
+    ],
+    "input_revisions": {
+     "E-0004/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.6523,
+      "secondary": {
+       "final_loss": 0.9125,
+       "loss_auc": 1.2725,
+       "peak_mem_gb": 39.0426,
+       "train_time_s": 3006.8881
+      },
+      "retracted_at": null,
+      "import": "2f1dd44520747b568904c41d1a600bac1160afd8d8ff5fa31e4000a3c503ff1d"
+     },
+     "E-0004/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.674,
+      "secondary": {
+       "final_loss": 0.9125,
+       "loss_auc": 1.2628,
+       "peak_mem_gb": 39.0501,
+       "train_time_s": 3008.166
+      },
+      "retracted_at": null,
+      "import": "2154ee6a1906915114788f0396aa5d9c8a5ff2b6526a6a25282badb63f34bbff"
+     },
+     "E-0004/s44": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.5978,
+      "secondary": {
+       "final_loss": 0.9124,
+       "loss_auc": 1.268,
+       "peak_mem_gb": 39.0222,
+       "train_time_s": 2983.6223
+      },
+      "retracted_at": null,
+      "import": "09f3d05dc52133573e1378ee97cbf61f472e6848ec211ba1207aaf574fb8e3f5"
+     },
+     "E-0001/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3907,
+      "secondary": {
+       "final_loss": 0.9142,
+       "loss_auc": 1.2773,
+       "peak_mem_gb": 38.0428,
+       "train_time_s": 2983.973
+      },
+      "retracted_at": null,
+      "import": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0"
+     },
+     "E-0001/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4456,
+      "secondary": {
+       "final_loss": 0.9124,
+       "loss_auc": 1.2831,
+       "peak_mem_gb": 37.901,
+       "train_time_s": 2997.7651
+      },
+      "retracted_at": null,
+      "import": "e0386148c42cd8ea61da0ad1f7042b2a8c6d507bd344ae53b0883aec634c6708"
+     },
+     "E-0001/s44": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3642,
+      "secondary": {
+       "final_loss": 0.9107,
+       "loss_auc": 1.2825,
+       "peak_mem_gb": 37.9461,
+       "train_time_s": 3021.8327
+      },
+      "retracted_at": null,
+      "import": "82a37fc2e7493d2ccaf8c64f8226df791347a939461908f55cf910abdecba6c9"
+     },
+     "E-0002/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.5654,
+      "secondary": {
+       "final_loss": 0.9121,
+       "loss_auc": 1.2774,
+       "peak_mem_gb": 39.1613,
+       "train_time_s": 3004.0644
+      },
+      "retracted_at": null,
+      "import": "c1ddce2e7874bc5212c02641714c12dc46094fb9b2cd61cff8ec3242c80ad6d4"
+     },
+     "E-0002/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.5984,
+      "secondary": {
+       "final_loss": 0.9158,
+       "loss_auc": 1.2793,
+       "peak_mem_gb": 39.1537,
+       "train_time_s": 3007.4259
+      },
+      "retracted_at": null,
+      "import": "71bc44ef6e279a3d37ce2edbf2c7cd86a90ed79d42c42848b6efbb37f9753420"
+     }
+    },
+    "pair_keys": {
+     "sota": [
+      "seed=42/data_version=commonsense-mix-v1（虚构）",
+      "seed=43/data_version=commonsense-mix-v1（虚构）",
+      "seed=44/data_version=commonsense-mix-v1（虚构）"
+     ],
+     "parent": [
+      "seed=42/data_version=commonsense-mix-v1（虚构）",
+      "seed=43/data_version=commonsense-mix-v1（虚构）"
+     ]
+    },
+    "method_code_ref": "c434993c829927243b6fdb05afceb0ad556d7e2b",
+    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "harness_paths": [
+     "harness"
+    ],
+    "protocol_doc_id": "D-0006",
+    "metric_spec_doc_id": "D-0005",
+    "baseline_experiment_id": "E-0001",
+    "baseline_evaluation_id": "EV-0001",
+    "parent_experiment_id": "E-0002",
+    "parent_evaluation_id": "EV-0002",
+    "result_doc_id": "D-0031",
+    "metrics": {
+     "acc": {
+      "n": 3,
+      "mean": 71.64136666666667,
+      "values": [
+       71.6523,
+       71.674,
+       71.5978
+      ],
+      "sd": 0.03925892679803191,
+      "unit": "percentage_point",
+      "seeds": [
+       42,
+       43,
+       44
+      ]
+     },
+     "final_loss": {
+      "n": 3,
+      "mean": 0.9124666666666666,
+      "values": [
+       0.9125,
+       0.9125,
+       0.9124
+      ],
+      "sd": 5.7735026918956215e-05,
+      "unit": "nats",
+      "seeds": [
+       42,
+       43,
+       44
+      ]
+     },
+     "loss_auc": {
+      "n": 3,
+      "mean": 1.2677666666666667,
+      "values": [
+       1.2725,
+       1.2628,
+       1.268
+      ],
+      "sd": 0.0048542077966784196,
+      "unit": "raw",
+      "seeds": [
+       42,
+       43,
+       44
+      ]
+     },
+     "peak_mem_gb": {
+      "n": 3,
+      "mean": 39.0383,
+      "values": [
+       39.0426,
+       39.0501,
+       39.0222
+      ],
+      "sd": 0.014438490225783258,
+      "unit": "gib",
+      "seeds": [
+       42,
+       43,
+       44
+      ]
+     },
+     "train_time_s": {
+      "n": 3,
+      "mean": 2999.5588000000002,
+      "values": [
+       3006.8881,
+       3008.166,
+       2983.6223
+      ],
+      "sd": 13.816196339441706,
+      "unit": "seconds",
+      "seeds": [
+       42,
+       43,
+       44
+      ]
+     }
+    },
+    "comparisons": {
+     "sota": {
+      "target_id": "E-0001",
+      "n_paired": 3,
+      "metrics": {
+       "acc": {
+        "n_paired": 3,
+        "effect_mode": "absolute",
+        "unit": "percentage_point",
+        "deltas": [
+         0.2616000000000014,
+         0.2284000000000077,
+         0.2336000000000098
+        ],
+        "delta_mean": 0.2412000000000063,
+        "delta_sd": 0.017857211428435715
+       },
+       "final_loss": {
+        "n_paired": 3,
+        "effect_mode": "absolute",
+        "unit": "nats",
+        "deltas": [
+         0.0017000000000000348,
+         -9.999999999998899e-05,
+         -0.0017000000000000348
+        ],
+        "delta_mean": -3.333333333332966e-05,
+        "delta_sd": 0.001700980109623111
+       },
+       "loss_auc": {
+        "n_paired": 3,
+        "effect_mode": "absolute",
+        "unit": "raw",
+        "deltas": [
+         0.0048000000000001375,
+         0.020299999999999985,
+         0.014499999999999957
+        ],
+        "delta_mean": 0.013200000000000026,
+        "delta_sd": 0.007831347265956138
+       },
+       "peak_mem_gb": {
+        "n_paired": 3,
+        "effect_mode": "absolute",
+        "unit": "gib",
+        "deltas": [
+         -0.9998000000000005,
+         -1.1490999999999971,
+         -1.0760999999999967
+        ],
+        "delta_mean": -1.0749999999999982,
+        "delta_sd": 0.07465607811826006
+       },
+       "train_time_s": {
+        "n_paired": 3,
+        "effect_mode": "relative_to_reference_mean",
+        "unit": "fraction",
+        "delta_mean": 0.0005436065433059924,
+        "delta_sd": null,
+        "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
+       }
+      },
+      "delta_mean": 0.2412000000000063,
+      "delta_sd": 0.017857211428435715,
+      "deltas": {
+       "final_loss": -3.333333333332966e-05,
+       "loss_auc": 0.013200000000000026,
+       "peak_mem_gb": -1.0749999999999982,
+       "train_time_s": 0.0005436065433059924
+      },
+      "guardrails": {
+       "peak_mem_gb": {
+        "allowed_regression": 2.0,
+        "effect": -1.0749999999999982,
+        "passed": true
+       },
+       "train_time_s": {
+        "allowed_regression": 0.1,
+        "effect": 0.0005436065433059924,
+        "passed": true
+       }
+      },
+      "passes_gate": true
+     },
+     "parent": {
+      "target_id": "E-0002",
+      "n_paired": 2,
+      "metrics": {
+       "acc": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "percentage_point",
+        "deltas": [
+         0.08689999999999998,
+         0.07560000000000855
+        ],
+        "delta_mean": 0.08125000000000426,
+        "delta_sd": 0.007990306627401926
+       },
+       "final_loss": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "nats",
+        "deltas": [
+         -0.00039999999999995595,
+         0.0032999999999999696
+        ],
+        "delta_mean": 0.0014500000000000068,
+        "delta_sd": 0.002616295090390173
+       },
+       "loss_auc": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "raw",
+        "deltas": [
+         0.0049000000000001265,
+         0.01650000000000018
+        ],
+        "delta_mean": 0.010700000000000154,
+        "delta_sd": 0.00820243866176399
+       },
+       "peak_mem_gb": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "gib",
+        "deltas": [
+         0.11869999999999692,
+         0.10360000000000014
+        ],
+        "delta_mean": 0.11114999999999853,
+        "delta_sd": 0.010677312395914592
+       },
+       "train_time_s": {
+        "n_paired": 2,
+        "effect_mode": "relative_to_reference_mean",
+        "unit": "fraction",
+        "delta_mean": -0.0005928313649611812,
+        "delta_sd": null,
+        "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
+       }
+      },
+      "delta_mean": 0.08125000000000426,
+      "delta_sd": 0.007990306627401926,
+      "deltas": {
+       "final_loss": 0.0014500000000000068,
+       "loss_auc": 0.010700000000000154,
+       "peak_mem_gb": 0.11114999999999853,
+       "train_time_s": -0.0005928313649611812
+      },
+      "guardrails": {
+       "peak_mem_gb": {
+        "allowed_regression": 2.0,
+        "effect": 0.11114999999999853,
+        "passed": true
+       },
+       "train_time_s": {
+        "allowed_regression": 0.1,
+        "effect": -0.0005928313649611812,
+        "passed": true
+       }
+      }
+     }
+    },
+    "verdict": "beats_sota",
+    "gate_passed": true,
+    "guardrails_passed": true,
+    "eval_type": "real_gt",
+    "limitations": [],
+    "verification_level": "artifact_imported",
+    "artifact_refs": [
+     "outputs/E-0001/s42/metrics.json",
+     "outputs/E-0001/s43/metrics.json",
+     "outputs/E-0001/s44/metrics.json",
+     "outputs/E-0002/s42/metrics.json",
+     "outputs/E-0002/s43/metrics.json",
+     "outputs/E-0004/s42/metrics.json",
+     "outputs/E-0004/s43/metrics.json",
+     "outputs/E-0004/s44/metrics.json"
+    ],
+    "statistics_version": "rt-stats-1",
+    "parser_version": "rt-manifest-1",
+    "fingerprint": "e389be5b700c2561c311b3f70e5bab8a9cf40c52ed584d95aba93df96e8e58d9",
+    "inputs_digest": "b8ee4695d0dcc6d4ec8038e2b90fdca777d1f6de46cb1a1458ef7e2daf856d0d",
+    "supersedes_evaluation_id": "EV-0004",
+    "created_by": "worker/h0003",
+    "created_at": "2026-10-06T19:20:17Z",
+    "experiment_id": "E-0004"
+   },
+   {
+    "id": "EV-0006",
+    "result_revision": 1,
+    "run_attempt_refs": [
+     "E-0001/s42@1",
+     "E-0001/s43@1",
+     "E-0001/s44@1",
+     "E-0002/s42@1",
+     "E-0002/s43@1",
+     "E-0005/s42@1",
+     "E-0005/s43@1"
+    ],
+    "input_revisions": {
+     "E-0005/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4047,
+      "secondary": {
+       "final_loss": 0.9317,
+       "loss_auc": 1.3133,
+       "peak_mem_gb": 39.5652,
+       "train_time_s": 3090.8359
+      },
+      "retracted_at": null,
+      "import": "c6a9898028e1864128f1a481b10f0834e00e0799cd39ad6167d908322c235266"
+     },
+     "E-0005/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4694,
+      "secondary": {
+       "final_loss": 0.9328,
+       "loss_auc": 1.3166,
+       "peak_mem_gb": 39.6413,
+       "train_time_s": 3080.9947
+      },
+      "retracted_at": null,
+      "import": "26d404e31819d1c15933281b617dafa05ed59ed1a5ed5086ad82227b97361c11"
+     },
+     "E-0001/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3907,
+      "secondary": {
+       "final_loss": 0.9142,
+       "loss_auc": 1.2773,
+       "peak_mem_gb": 38.0428,
+       "train_time_s": 2983.973
+      },
+      "retracted_at": null,
+      "import": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0"
+     },
+     "E-0001/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4456,
+      "secondary": {
+       "final_loss": 0.9124,
+       "loss_auc": 1.2831,
+       "peak_mem_gb": 37.901,
+       "train_time_s": 2997.7651
+      },
+      "retracted_at": null,
+      "import": "e0386148c42cd8ea61da0ad1f7042b2a8c6d507bd344ae53b0883aec634c6708"
+     },
+     "E-0001/s44": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3642,
+      "secondary": {
+       "final_loss": 0.9107,
+       "loss_auc": 1.2825,
+       "peak_mem_gb": 37.9461,
+       "train_time_s": 3021.8327
+      },
+      "retracted_at": null,
+      "import": "82a37fc2e7493d2ccaf8c64f8226df791347a939461908f55cf910abdecba6c9"
+     },
+     "E-0002/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.5654,
+      "secondary": {
+       "final_loss": 0.9121,
+       "loss_auc": 1.2774,
+       "peak_mem_gb": 39.1613,
+       "train_time_s": 3004.0644
+      },
+      "retracted_at": null,
+      "import": "c1ddce2e7874bc5212c02641714c12dc46094fb9b2cd61cff8ec3242c80ad6d4"
+     },
+     "E-0002/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.5984,
+      "secondary": {
+       "final_loss": 0.9158,
+       "loss_auc": 1.2793,
+       "peak_mem_gb": 39.1537,
+       "train_time_s": 3007.4259
+      },
+      "retracted_at": null,
+      "import": "71bc44ef6e279a3d37ce2edbf2c7cd86a90ed79d42c42848b6efbb37f9753420"
+     }
+    },
+    "pair_keys": {
+     "sota": [
+      "seed=42/data_version=commonsense-mix-v1（虚构）",
+      "seed=43/data_version=commonsense-mix-v1（虚构）"
+     ],
+     "parent": [
+      "seed=42/data_version=commonsense-mix-v1（虚构）",
+      "seed=43/data_version=commonsense-mix-v1（虚构）"
+     ]
+    },
+    "method_code_ref": "98f362f1348945401690914d1121cd20c56019ee",
+    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "harness_paths": [
+     "harness"
+    ],
+    "protocol_doc_id": "D-0006",
+    "metric_spec_doc_id": "D-0005",
+    "baseline_experiment_id": "E-0001",
+    "baseline_evaluation_id": "EV-0001",
+    "parent_experiment_id": "E-0002",
+    "parent_evaluation_id": "EV-0002",
+    "result_doc_id": "D-0038",
+    "metrics": {
+     "acc": {
+      "n": 2,
+      "mean": 71.43705,
+      "values": [
+       71.4047,
+       71.4694
+      ],
+      "sd": 0.045749808742760974,
+      "unit": "percentage_point",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "final_loss": {
+      "n": 2,
+      "mean": 0.93225,
+      "values": [
+       0.9317,
+       0.9328
+      ],
+      "sd": 0.0007778174593051951,
+      "unit": "nats",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "loss_auc": {
+      "n": 2,
+      "mean": 1.31495,
+      "values": [
+       1.3133,
+       1.3166
+      ],
+      "sd": 0.002333452377915664,
+      "unit": "raw",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "peak_mem_gb": {
+      "n": 2,
+      "mean": 39.60325,
+      "values": [
+       39.5652,
+       39.6413
+      ],
+      "sd": 0.053810826048298975,
+      "unit": "gib",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "train_time_s": {
+      "n": 2,
+      "mean": 3085.9153,
+      "values": [
+       3090.8359,
+       3080.9947
+      ],
+      "sd": 6.958779255012941,
+      "unit": "seconds",
+      "seeds": [
+       42,
+       43
+      ]
+     }
+    },
+    "comparisons": {
+     "sota": {
+      "target_id": "E-0001",
+      "n_paired": 2,
+      "metrics": {
+       "acc": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "percentage_point",
+        "deltas": [
+         0.014000000000010004,
+         0.02379999999999427
+        ],
+        "delta_mean": 0.018900000000002137,
+        "delta_sd": 0.00692964645561704
+       },
+       "final_loss": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "nats",
+        "deltas": [
+         -0.01749999999999996,
+         -0.020399999999999974
+        ],
+        "delta_mean": -0.018949999999999967,
+        "delta_sd": 0.0020506096654409976
+       },
+       "loss_auc": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "raw",
+        "deltas": [
+         -0.03599999999999981,
+         -0.033500000000000085
+        ],
+        "delta_mean": -0.03474999999999995,
+        "delta_sd": 0.0017677669529661741
+       },
+       "peak_mem_gb": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "gib",
+        "deltas": [
+         -1.5223999999999975,
+         -1.7402999999999977
+        ],
+        "delta_mean": -1.6313499999999976,
+        "delta_sd": 0.15407856762054886
+       },
+       "train_time_s": {
+        "n_paired": 2,
+        "effect_mode": "relative_to_reference_mean",
+        "unit": "fraction",
+        "delta_mean": -0.03177880689895128,
+        "delta_sd": null,
+        "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
+       }
+      },
+      "delta_mean": 0.018900000000002137,
+      "delta_sd": 0.00692964645561704,
+      "deltas": {
+       "final_loss": -0.018949999999999967,
+       "loss_auc": -0.03474999999999995,
+       "peak_mem_gb": -1.6313499999999976,
+       "train_time_s": -0.03177880689895128
+      },
+      "guardrails": {
+       "peak_mem_gb": {
+        "allowed_regression": 2.0,
+        "effect": -1.6313499999999976,
+        "passed": true
+       },
+       "train_time_s": {
+        "allowed_regression": 0.1,
+        "effect": -0.03177880689895128,
+        "passed": true
+       }
+      },
+      "passes_gate": false
+     },
+     "parent": {
+      "target_id": "E-0002",
+      "n_paired": 2,
+      "metrics": {
+       "acc": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "percentage_point",
+        "deltas": [
+         -0.1606999999999914,
+         -0.1290000000000049
+        ],
+        "delta_mean": -0.14484999999999815,
+        "delta_sd": 0.022415284963604024
+       },
+       "final_loss": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "nats",
+        "deltas": [
+         -0.01959999999999995,
+         -0.017000000000000015
+        ],
+        "delta_mean": -0.018299999999999983,
+        "delta_sd": 0.0018384776310849781
+       },
+       "loss_auc": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "raw",
+        "deltas": [
+         -0.03589999999999982,
+         -0.03729999999999989
+        ],
+        "delta_mean": -0.036599999999999855,
+        "delta_sd": 0.0009899494936612145
+       },
+       "peak_mem_gb": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "gib",
+        "deltas": [
+         -0.40390000000000015,
+         -0.4876000000000005
+        ],
+        "delta_mean": -0.4457500000000003,
+        "delta_sd": 0.05918483758531426
+       },
+       "train_time_s": {
+        "n_paired": 2,
+        "effect_mode": "relative_to_reference_mean",
+        "unit": "fraction",
+        "delta_mean": -0.026672304536530623,
+        "delta_sd": null,
+        "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
+       }
+      },
+      "delta_mean": -0.14484999999999815,
+      "delta_sd": 0.022415284963604024,
+      "deltas": {
+       "final_loss": -0.018299999999999983,
+       "loss_auc": -0.036599999999999855,
+       "peak_mem_gb": -0.4457500000000003,
+       "train_time_s": -0.026672304536530623
+      },
+      "guardrails": {
+       "peak_mem_gb": {
+        "allowed_regression": 2.0,
+        "effect": -0.4457500000000003,
+        "passed": true
+       },
+       "train_time_s": {
+        "allowed_regression": 0.1,
+        "effect": -0.026672304536530623,
+        "passed": true
+       }
+      }
+     }
+    },
+    "verdict": "no_gain",
+    "gate_passed": false,
+    "guardrails_passed": true,
+    "eval_type": "real_gt",
+    "limitations": [],
+    "verification_level": "artifact_imported",
+    "artifact_refs": [
+     "outputs/E-0001/s42/metrics.json",
+     "outputs/E-0001/s43/metrics.json",
+     "outputs/E-0001/s44/metrics.json",
+     "outputs/E-0002/s42/metrics.json",
+     "outputs/E-0002/s43/metrics.json",
+     "outputs/E-0005/s42/metrics.json",
+     "outputs/E-0005/s43/metrics.json"
+    ],
+    "statistics_version": "rt-stats-1",
+    "parser_version": "rt-manifest-1",
+    "fingerprint": "8b94243bf831817630cbfda9d0c718fa4b31a7e218e2d38040665bca7bd6dd3d",
+    "inputs_digest": "f2ab43e15a82f9bae35ab0428b6c6a8ec2f1ce07782a7afde9dc621bf0bbb257",
+    "created_by": "worker/h0004",
+    "created_at": "2026-10-06T19:20:25Z",
+    "experiment_id": "E-0005"
+   },
+   {
+    "id": "EV-0007",
+    "result_revision": 1,
+    "run_attempt_refs": [
+     "E-0001/s42@1",
+     "E-0001/s43@1",
+     "E-0001/s44@1",
+     "E-0006/s42@1",
+     "E-0006/s43@1"
+    ],
+    "input_revisions": {
+     "E-0006/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4655,
+      "secondary": {
+       "final_loss": 0.9133,
+       "loss_auc": 1.2885,
+       "peak_mem_gb": 38.3542,
+       "train_time_s": 2989.858
+      },
+      "retracted_at": null,
+      "import": "1c67221c2e2014751bba0423e91fb81a4ef1ed2dc413f8b5ee2f66d3b797ee87"
+     },
+     "E-0006/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.5061,
+      "secondary": {
+       "final_loss": 0.9127,
+       "loss_auc": 1.2827,
+       "peak_mem_gb": 38.3731,
+       "train_time_s": 2978.174
+      },
+      "retracted_at": null,
+      "import": "64fda824fa1f1c233b0ee7fcc77c5f32b86175fe6f0fa7a945d9bf1b8c04b0e2"
+     },
+     "E-0001/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3907,
+      "secondary": {
+       "final_loss": 0.9142,
+       "loss_auc": 1.2773,
+       "peak_mem_gb": 38.0428,
+       "train_time_s": 2983.973
+      },
+      "retracted_at": null,
+      "import": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0"
+     },
+     "E-0001/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4456,
+      "secondary": {
+       "final_loss": 0.9124,
+       "loss_auc": 1.2831,
+       "peak_mem_gb": 37.901,
+       "train_time_s": 2997.7651
+      },
+      "retracted_at": null,
+      "import": "e0386148c42cd8ea61da0ad1f7042b2a8c6d507bd344ae53b0883aec634c6708"
+     },
+     "E-0001/s44": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3642,
+      "secondary": {
+       "final_loss": 0.9107,
+       "loss_auc": 1.2825,
+       "peak_mem_gb": 37.9461,
+       "train_time_s": 3021.8327
+      },
+      "retracted_at": null,
+      "import": "82a37fc2e7493d2ccaf8c64f8226df791347a939461908f55cf910abdecba6c9"
+     }
+    },
+    "pair_keys": {
+     "sota": [
+      "seed=42/data_version=commonsense-mix-v1（虚构）",
+      "seed=43/data_version=commonsense-mix-v1（虚构）"
+     ]
+    },
+    "method_code_ref": "b63dd8e23189084c83b24e2fc2b68766eb2a4523",
+    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "harness_paths": [
+     "harness"
+    ],
+    "protocol_doc_id": "D-0006",
+    "metric_spec_doc_id": "D-0005",
+    "baseline_experiment_id": "E-0001",
+    "baseline_evaluation_id": "EV-0001",
+    "result_doc_id": "D-0044",
+    "metrics": {
+     "acc": {
+      "n": 2,
+      "mean": 71.48580000000001,
+      "values": [
+       71.4655,
+       71.5061
+      ],
+      "sd": 0.028708535316172238,
+      "unit": "percentage_point",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "final_loss": {
+      "n": 2,
+      "mean": 0.913,
+      "values": [
+       0.9133,
+       0.9127
+      ],
+      "sd": 0.0004242640687119603,
+      "unit": "nats",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "loss_auc": {
+      "n": 2,
+      "mean": 1.2856,
+      "values": [
+       1.2885,
+       1.2827
+      ],
+      "sd": 0.004101219330881995,
+      "unit": "raw",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "peak_mem_gb": {
+      "n": 2,
+      "mean": 38.36365,
+      "values": [
+       38.3542,
+       38.3731
+      ],
+      "sd": 0.01336431816442726,
+      "unit": "gib",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "train_time_s": {
+      "n": 2,
+      "mean": 2984.016,
+      "values": [
+       2989.858,
+       2978.174
+      ],
+      "sd": 8.26183563138376,
+      "unit": "seconds",
+      "seeds": [
+       42,
+       43
+      ]
+     }
+    },
+    "comparisons": {
+     "sota": {
+      "target_id": "E-0001",
+      "n_paired": 2,
+      "metrics": {
+       "acc": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "percentage_point",
+        "deltas": [
+         0.07480000000001041,
+         0.06050000000000466
+        ],
+        "delta_mean": 0.06765000000000754,
+        "delta_sd": 0.010111626970971697
+       },
+       "final_loss": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "nats",
+        "deltas": [
+         0.0009000000000000119,
+         -0.00029999999999996696
+        ],
+        "delta_mean": 0.00030000000000002247,
+        "delta_sd": 0.000848528137423842
+       },
+       "loss_auc": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "raw",
+        "deltas": [
+         -0.011199999999999877,
+         0.00039999999999995595
+        ],
+        "delta_mean": -0.00539999999999996,
+        "delta_sd": 0.008202438661763832
+       },
+       "peak_mem_gb": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "gib",
+        "deltas": [
+         -0.311399999999999,
+         -0.4720999999999975
+        ],
+        "delta_mean": -0.39174999999999827,
+        "delta_sd": 0.11363205973667713
+       },
+       "train_time_s": {
+        "n_paired": 2,
+        "effect_mode": "relative_to_reference_mean",
+        "unit": "fraction",
+        "delta_mean": 0.0022913239882569134,
+        "delta_sd": null,
+        "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
+       }
+      },
+      "delta_mean": 0.06765000000000754,
+      "delta_sd": 0.010111626970971697,
+      "deltas": {
+       "final_loss": 0.00030000000000002247,
+       "loss_auc": -0.00539999999999996,
+       "peak_mem_gb": -0.39174999999999827,
+       "train_time_s": 0.0022913239882569134
+      },
+      "guardrails": {
+       "peak_mem_gb": {
+        "allowed_regression": 2.0,
+        "effect": -0.39174999999999827,
+        "passed": true
+       },
+       "train_time_s": {
+        "allowed_regression": 0.1,
+        "effect": 0.0022913239882569134,
+        "passed": true
+       }
+      },
+      "passes_gate": false
+     }
+    },
+    "verdict": "close",
+    "gate_passed": false,
+    "guardrails_passed": true,
+    "eval_type": "real_gt",
+    "limitations": [],
+    "verification_level": "artifact_imported",
+    "artifact_refs": [
+     "outputs/E-0001/s42/metrics.json",
+     "outputs/E-0001/s43/metrics.json",
+     "outputs/E-0001/s44/metrics.json",
+     "outputs/E-0006/s42/metrics.json",
+     "outputs/E-0006/s43/metrics.json"
+    ],
+    "statistics_version": "rt-stats-1",
+    "parser_version": "rt-manifest-1",
+    "fingerprint": "281fcc0d3cc3201f12d415d14ac708704f71054d58b50f19a3c8b829e95f4d3e",
+    "inputs_digest": "10f7356ed2f37d390fd92ae3bb5a683a9adb8425b05c7354644bba0db1e93e0d",
+    "created_by": "worker/h0005",
+    "created_at": "2026-10-06T19:20:34Z",
+    "experiment_id": "E-0006"
+   },
+   {
+    "id": "EV-0008",
+    "result_revision": 1,
+    "run_attempt_refs": [
+     "E-0001/s42@1",
+     "E-0001/s43@1",
+     "E-0001/s44@1",
+     "E-0007/s42@1",
+     "E-0007/s43@1"
+    ],
+    "input_revisions": {
+     "E-0007/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4136,
+      "secondary": {
+       "final_loss": 0.9102,
+       "loss_auc": 1.2812,
+       "peak_mem_gb": 31.9714,
+       "train_time_s": 3042.1152
+      },
+      "retracted_at": null,
+      "import": "08f8b3bb8e8e6b6fa0422b1a1b1747b1765950d03e1081e8a77188e8e633fcc3"
+     },
+     "E-0007/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4488,
+      "secondary": {
+       "final_loss": 0.9177,
+       "loss_auc": 1.2804,
+       "peak_mem_gb": 31.9622,
+       "train_time_s": 3031.7717
+      },
+      "retracted_at": null,
+      "import": "b77b0ebf77632a00b66ec104af9b020d80c8e64ec1e78162351adc1e34ce4b68"
+     },
+     "E-0001/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3907,
+      "secondary": {
+       "final_loss": 0.9142,
+       "loss_auc": 1.2773,
+       "peak_mem_gb": 38.0428,
+       "train_time_s": 2983.973
+      },
+      "retracted_at": null,
+      "import": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0"
+     },
+     "E-0001/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4456,
+      "secondary": {
+       "final_loss": 0.9124,
+       "loss_auc": 1.2831,
+       "peak_mem_gb": 37.901,
+       "train_time_s": 2997.7651
+      },
+      "retracted_at": null,
+      "import": "e0386148c42cd8ea61da0ad1f7042b2a8c6d507bd344ae53b0883aec634c6708"
+     },
+     "E-0001/s44": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3642,
+      "secondary": {
+       "final_loss": 0.9107,
+       "loss_auc": 1.2825,
+       "peak_mem_gb": 37.9461,
+       "train_time_s": 3021.8327
+      },
+      "retracted_at": null,
+      "import": "82a37fc2e7493d2ccaf8c64f8226df791347a939461908f55cf910abdecba6c9"
+     }
+    },
+    "pair_keys": {
+     "sota": [
+      "seed=42/data_version=commonsense-mix-v1（虚构）",
+      "seed=43/data_version=commonsense-mix-v1（虚构）"
+     ]
+    },
+    "method_code_ref": "aaa83837038b1a360ffb6526857f884a2b7f4e0b",
+    "harness_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+    "harness_paths": [
+     "harness"
+    ],
+    "protocol_doc_id": "D-0006",
+    "metric_spec_doc_id": "D-0005",
+    "baseline_experiment_id": "E-0001",
+    "baseline_evaluation_id": "EV-0001",
+    "result_doc_id": "D-0051",
+    "metrics": {
+     "acc": {
+      "n": 2,
+      "mean": 71.4312,
+      "values": [
+       71.4136,
+       71.4488
+      ],
+      "sd": 0.024890158697768755,
+      "unit": "percentage_point",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "final_loss": {
+      "n": 2,
+      "mean": 0.91395,
+      "values": [
+       0.9102,
+       0.9177
+      ],
+      "sd": 0.005303300858899072,
+      "unit": "nats",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "loss_auc": {
+      "n": 2,
+      "mean": 1.2808,
+      "values": [
+       1.2812,
+       1.2804
+      ],
+      "sd": 0.0005656854249491757,
+      "unit": "raw",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "peak_mem_gb": {
+      "n": 2,
+      "mean": 31.9668,
+      "values": [
+       31.9714,
+       31.9622
+      ],
+      "sd": 0.006505382386916149,
+      "unit": "gib",
+      "seeds": [
+       42,
+       43
+      ]
+     },
+     "train_time_s": {
+      "n": 2,
+      "mean": 3036.9434499999998,
+      "values": [
+       3042.1152,
+       3031.7717
+      ],
+      "sd": 7.31395899120334,
+      "unit": "seconds",
+      "seeds": [
+       42,
+       43
+      ]
+     }
+    },
+    "comparisons": {
+     "sota": {
+      "target_id": "E-0001",
+      "n_paired": 2,
+      "metrics": {
+       "acc": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "percentage_point",
+        "deltas": [
+         0.022900000000007026,
+         0.003200000000006753
+        ],
+        "delta_mean": 0.01305000000000689,
+        "delta_sd": 0.013930003589375179
+       },
+       "final_loss": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "nats",
+        "deltas": [
+         0.0040000000000000036,
+         -0.005299999999999971
+        ],
+        "delta_mean": -0.0006499999999999839,
+        "delta_sd": 0.006576093065034874
+       },
+       "loss_auc": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "raw",
+        "deltas": [
+         -0.0038999999999997925,
+         0.0026999999999999247
+        ],
+        "delta_mean": -0.0005999999999999339,
+        "delta_sd": 0.004666904755831014
+       },
+       "peak_mem_gb": {
+        "n_paired": 2,
+        "effect_mode": "absolute",
+        "unit": "gib",
+        "deltas": [
+         6.071400000000001,
+         5.938800000000004
+        ],
+        "delta_mean": 6.005100000000002,
+        "delta_sd": 0.09376235918533372
+       },
+       "train_time_s": {
+        "n_paired": 2,
+        "effect_mode": "relative_to_reference_mean",
+        "unit": "fraction",
+        "delta_mean": -0.015405020824967081,
+        "delta_sd": null,
+        "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
+       }
+      },
+      "delta_mean": 0.01305000000000689,
+      "delta_sd": 0.013930003589375179,
+      "deltas": {
+       "final_loss": -0.0006499999999999839,
+       "loss_auc": -0.0005999999999999339,
+       "peak_mem_gb": 6.005100000000002,
+       "train_time_s": -0.015405020824967081
+      },
+      "guardrails": {
+       "peak_mem_gb": {
+        "allowed_regression": 2.0,
+        "effect": 6.005100000000002,
+        "passed": true
+       },
+       "train_time_s": {
+        "allowed_regression": 0.1,
+        "effect": -0.015405020824967081,
+        "passed": true
+       }
+      },
+      "passes_gate": false
+     }
+    },
+    "verdict": "needs_rld",
+    "gate_passed": false,
+    "guardrails_passed": true,
+    "eval_type": "real_gt",
+    "limitations": [],
+    "verification_level": "artifact_imported",
+    "artifact_refs": [
+     "outputs/E-0001/s42/metrics.json",
+     "outputs/E-0001/s43/metrics.json",
+     "outputs/E-0001/s44/metrics.json",
+     "outputs/E-0007/s42/metrics.json",
+     "outputs/E-0007/s43/metrics.json"
+    ],
+    "statistics_version": "rt-stats-1",
+    "parser_version": "rt-manifest-1",
+    "fingerprint": "38afd61839a04e3761eb91b92fc11b4101a9581d9bd7aa2a27b55f3554af08e3",
+    "inputs_digest": "4f3125c7cf1dc5debe65d9abb2e94e43ff5a675a2417e354a5dc348b822614c8",
+    "created_by": "worker/h0007",
+    "created_at": "2026-10-06T19:20:43Z",
+    "experiment_id": "E-0007"
+   }
+  ],
+  "run": [
+   {
+    "id": "E-0001/s42",
+    "seed": 42,
+    "job_id": "demo-3480462",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.3907,
+    "secondary": {
+     "final_loss": 0.9142,
+     "loss_auc": 1.2773,
+     "peak_mem_gb": 38.0428,
+     "train_time_s": 2983.973
+    },
+    "manifest_path": "outputs/E-0001/s42/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0001",
+     "seed": 42,
+     "attempt": 1,
+     "code_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3043,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0001/s42/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "1d9d37f09594223d5e8e19b36638ae1c8d70731d01ed82ed5d3fff847996482c",
+     "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
+     "imported_at": "2026-10-06T19:19:48Z",
+     "by": "worker/root"
+    },
+    "log_path": "outputs/E-0001/s42/train.log",
+    "curve_path": "outputs/E-0001/s42/curve.json",
+    "output_path": "outputs/E-0001/s42",
+    "nodes_used": 4,
+    "walltime_used_s": 3043,
+    "valid": true,
+    "experiment_id": "E-0001"
+   },
+   {
+    "id": "E-0001/s43",
+    "seed": 43,
+    "job_id": "demo-3489991",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.4456,
+    "secondary": {
+     "final_loss": 0.9124,
+     "loss_auc": 1.2831,
+     "peak_mem_gb": 37.901,
+     "train_time_s": 2997.7651
+    },
+    "manifest_path": "outputs/E-0001/s43/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0001",
+     "seed": 43,
+     "attempt": 1,
+     "code_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3057,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0001/s43/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "b86bb2a26441d63cf191eaff4a7aaa5b77049b6c3b43bfaa8b134f9b79b1171e",
+     "metrics_sha256": "e0386148c42cd8ea61da0ad1f7042b2a8c6d507bd344ae53b0883aec634c6708",
+     "imported_at": "2026-10-06T19:19:49Z",
+     "by": "worker/root"
+    },
+    "log_path": "outputs/E-0001/s43/train.log",
+    "curve_path": "outputs/E-0001/s43/curve.json",
+    "output_path": "outputs/E-0001/s43",
+    "nodes_used": 4,
+    "walltime_used_s": 3057,
+    "valid": true,
+    "experiment_id": "E-0001"
+   },
+   {
+    "id": "E-0001/s44",
+    "seed": 44,
+    "job_id": "demo-3480081",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.3642,
+    "secondary": {
+     "final_loss": 0.9107,
+     "loss_auc": 1.2825,
+     "peak_mem_gb": 37.9461,
+     "train_time_s": 3021.8327
+    },
+    "manifest_path": "outputs/E-0001/s44/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0001",
+     "seed": 44,
+     "attempt": 1,
+     "code_ref": "5d2d6ccd855fc3398814a374d9634fd6879c95b0",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3081,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0001/s44/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "a6c9e388dc6622426a1b4ce4b1c24ee6936376151055639fbcc5062eb0a5968a",
+     "metrics_sha256": "82a37fc2e7493d2ccaf8c64f8226df791347a939461908f55cf910abdecba6c9",
+     "imported_at": "2026-10-06T19:19:49Z",
+     "by": "worker/root"
+    },
+    "log_path": "outputs/E-0001/s44/train.log",
+    "curve_path": "outputs/E-0001/s44/curve.json",
+    "output_path": "outputs/E-0001/s44",
+    "nodes_used": 4,
+    "walltime_used_s": 3081,
+    "valid": true,
+    "experiment_id": "E-0001"
+   },
+   {
+    "id": "E-0002/s42",
+    "seed": 42,
+    "job_id": "demo-3488156",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.5654,
+    "secondary": {
+     "final_loss": 0.9121,
+     "loss_auc": 1.2774,
+     "peak_mem_gb": 39.1613,
+     "train_time_s": 3004.0644
+    },
+    "manifest_path": "outputs/E-0002/s42/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0002",
+     "seed": 42,
+     "attempt": 1,
+     "code_ref": "0a34213ca488fb0a71c93e953b73f9b114f28683",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3064,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0002/s42/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "7f68b5fc4ef6605e227a463e5098168444d71d6c32a49d3b6c0e26a1604be7dc",
+     "metrics_sha256": "c1ddce2e7874bc5212c02641714c12dc46094fb9b2cd61cff8ec3242c80ad6d4",
+     "imported_at": "2026-10-06T19:19:58Z",
+     "by": "worker/h0001"
+    },
+    "log_path": "outputs/E-0002/s42/train.log",
+    "curve_path": "outputs/E-0002/s42/curve.json",
+    "output_path": "outputs/E-0002/s42",
+    "nodes_used": 4,
+    "walltime_used_s": 3064,
+    "valid": true,
+    "experiment_id": "E-0002"
+   },
+   {
+    "id": "E-0002/s43",
+    "seed": 43,
+    "job_id": "demo-3484726",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.5984,
+    "secondary": {
+     "final_loss": 0.9158,
+     "loss_auc": 1.2793,
+     "peak_mem_gb": 39.1537,
+     "train_time_s": 3007.4259
+    },
+    "manifest_path": "outputs/E-0002/s43/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0002",
+     "seed": 43,
+     "attempt": 1,
+     "code_ref": "0a34213ca488fb0a71c93e953b73f9b114f28683",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3067,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0002/s43/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "d22aa5530803c6686c817d19aa614aae0343c4a7cb88cd0f1b511f45148b7131",
+     "metrics_sha256": "71bc44ef6e279a3d37ce2edbf2c7cd86a90ed79d42c42848b6efbb37f9753420",
+     "imported_at": "2026-10-06T19:19:59Z",
+     "by": "worker/h0001"
+    },
+    "log_path": "outputs/E-0002/s43/train.log",
+    "curve_path": "outputs/E-0002/s43/curve.json",
+    "output_path": "outputs/E-0002/s43",
+    "nodes_used": 4,
+    "walltime_used_s": 3067,
+    "valid": true,
+    "experiment_id": "E-0002"
+   },
+   {
+    "id": "E-0003/s42",
+    "seed": 42,
+    "job_id": "demo-3486345",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.1512,
+    "secondary": {
+     "final_loss": 0.9258,
+     "loss_auc": 1.3088,
+     "peak_mem_gb": 38.5906,
+     "train_time_s": 3118.1007
+    },
+    "manifest_path": "outputs/E-0003/s42/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0003",
+     "seed": 42,
+     "attempt": 1,
+     "code_ref": "88c7c6eb4d52a3826a8fac51f559de0f18de34cd",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3178,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0003/s42/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "9a0b7c3996c3c4e0f6b2076b4f70524eee2b78f2f0ae76e72ac56eeecb02bf3b",
+     "metrics_sha256": "86701fb69bdedba6fa5fb18ffb8a22c7b22e6021cf97589c24bde87cdac3cb4c",
+     "imported_at": "2026-10-06T19:20:05Z",
+     "by": "worker/h0002"
+    },
+    "log_path": "outputs/E-0003/s42/train.log",
+    "curve_path": "outputs/E-0003/s42/curve.json",
+    "output_path": "outputs/E-0003/s42",
+    "nodes_used": 4,
+    "walltime_used_s": 3178,
+    "valid": true,
+    "experiment_id": "E-0003"
+   },
+   {
+    "id": "E-0003/s43",
+    "seed": 43,
+    "job_id": "demo-3488456",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.1994,
+    "secondary": {
+     "final_loss": 0.9213,
+     "loss_auc": 1.3025,
+     "peak_mem_gb": 38.6237,
+     "train_time_s": 3116.0149
+    },
+    "manifest_path": "outputs/E-0003/s43/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0003",
+     "seed": 43,
+     "attempt": 1,
+     "code_ref": "88c7c6eb4d52a3826a8fac51f559de0f18de34cd",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3176,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0003/s43/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "e342d00a492982837997b86afd815c97c89a949e0a3d92610d5702046752ea83",
+     "metrics_sha256": "80ccb0613772de1acc8f459d6a6b95b101571b61190fb53c6b80de4667a66ec7",
+     "imported_at": "2026-10-06T19:20:06Z",
+     "by": "worker/h0002"
+    },
+    "log_path": "outputs/E-0003/s43/train.log",
+    "curve_path": "outputs/E-0003/s43/curve.json",
+    "output_path": "outputs/E-0003/s43",
+    "nodes_used": 4,
+    "walltime_used_s": 3176,
+    "valid": true,
+    "experiment_id": "E-0003"
+   },
+   {
+    "id": "E-0004/s42",
+    "seed": 42,
+    "job_id": "demo-3487801",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.6523,
+    "secondary": {
+     "final_loss": 0.9125,
+     "loss_auc": 1.2725,
+     "peak_mem_gb": 39.0426,
+     "train_time_s": 3006.8881
+    },
+    "manifest_path": "outputs/E-0004/s42/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0004",
+     "seed": 42,
+     "attempt": 1,
+     "code_ref": "c434993c829927243b6fdb05afceb0ad556d7e2b",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3066,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0004/s42/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "ffce40f793bacd11d78f3d58ff6cd125ffe5297f9e0b573af683a4e59126f361",
+     "metrics_sha256": "2f1dd44520747b568904c41d1a600bac1160afd8d8ff5fa31e4000a3c503ff1d",
+     "imported_at": "2026-10-06T19:20:13Z",
+     "by": "worker/h0003"
+    },
+    "log_path": "outputs/E-0004/s42/train.log",
+    "curve_path": "outputs/E-0004/s42/curve.json",
+    "output_path": "outputs/E-0004/s42",
+    "nodes_used": 4,
+    "walltime_used_s": 3066,
+    "valid": true,
+    "experiment_id": "E-0004"
+   },
+   {
+    "id": "E-0004/s43",
+    "seed": 43,
+    "job_id": "demo-3486173",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.674,
+    "secondary": {
+     "final_loss": 0.9125,
+     "loss_auc": 1.2628,
+     "peak_mem_gb": 39.0501,
+     "train_time_s": 3008.166
+    },
+    "manifest_path": "outputs/E-0004/s43/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0004",
+     "seed": 43,
+     "attempt": 1,
+     "code_ref": "c434993c829927243b6fdb05afceb0ad556d7e2b",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3068,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0004/s43/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "ee0e1c328459f835ee0c6c3c094bb58bb01fa1cf0a45ce7c704a4d4b64c5b226",
+     "metrics_sha256": "2154ee6a1906915114788f0396aa5d9c8a5ff2b6526a6a25282badb63f34bbff",
+     "imported_at": "2026-10-06T19:20:13Z",
+     "by": "worker/h0003"
+    },
+    "log_path": "outputs/E-0004/s43/train.log",
+    "curve_path": "outputs/E-0004/s43/curve.json",
+    "output_path": "outputs/E-0004/s43",
+    "nodes_used": 4,
+    "walltime_used_s": 3068,
+    "valid": true,
+    "experiment_id": "E-0004"
+   },
+   {
+    "id": "E-0004/s44",
+    "seed": 44,
+    "job_id": "demo-3482035",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.5978,
+    "secondary": {
+     "final_loss": 0.9124,
+     "loss_auc": 1.268,
+     "peak_mem_gb": 39.0222,
+     "train_time_s": 2983.6223
+    },
+    "manifest_path": "outputs/E-0004/s44/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0004",
+     "seed": 44,
+     "attempt": 1,
+     "code_ref": "c434993c829927243b6fdb05afceb0ad556d7e2b",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3043,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0004/s44/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "40cc0e8bd6f694b0a38cdbcbfdacf00cc54d0fdefc808eff3c9fed66d2532438",
+     "metrics_sha256": "09f3d05dc52133573e1378ee97cbf61f472e6848ec211ba1207aaf574fb8e3f5",
+     "imported_at": "2026-10-06T19:20:16Z",
+     "by": "worker/h0003"
+    },
+    "log_path": "outputs/E-0004/s44/train.log",
+    "curve_path": "outputs/E-0004/s44/curve.json",
+    "output_path": "outputs/E-0004/s44",
+    "nodes_used": 4,
+    "walltime_used_s": 3043,
+    "valid": true,
+    "experiment_id": "E-0004"
+   },
+   {
+    "id": "E-0005/s42",
+    "seed": 42,
+    "job_id": "demo-3482083",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.4047,
+    "secondary": {
+     "final_loss": 0.9317,
+     "loss_auc": 1.3133,
+     "peak_mem_gb": 39.5652,
+     "train_time_s": 3090.8359
+    },
+    "manifest_path": "outputs/E-0005/s42/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0005",
+     "seed": 42,
+     "attempt": 1,
+     "code_ref": "98f362f1348945401690914d1121cd20c56019ee",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3150,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0005/s42/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "96e201014b48b9f39fb15e1b304ba4b03f52e4910e81806030ef35f0e444fc7c",
+     "metrics_sha256": "c6a9898028e1864128f1a481b10f0834e00e0799cd39ad6167d908322c235266",
+     "imported_at": "2026-10-06T19:20:24Z",
+     "by": "worker/h0004"
+    },
+    "log_path": "outputs/E-0005/s42/train.log",
+    "curve_path": "outputs/E-0005/s42/curve.json",
+    "output_path": "outputs/E-0005/s42",
+    "nodes_used": 4,
+    "walltime_used_s": 3150,
+    "valid": true,
+    "experiment_id": "E-0005"
+   },
+   {
+    "id": "E-0005/s43",
+    "seed": 43,
+    "job_id": "demo-3488383",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.4694,
+    "secondary": {
+     "final_loss": 0.9328,
+     "loss_auc": 1.3166,
+     "peak_mem_gb": 39.6413,
+     "train_time_s": 3080.9947
+    },
+    "manifest_path": "outputs/E-0005/s43/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0005",
+     "seed": 43,
+     "attempt": 1,
+     "code_ref": "98f362f1348945401690914d1121cd20c56019ee",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3140,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0005/s43/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "dda07f4449c7e6718303b7b71906ae0fcad5f43321d8dc0fbf4dd389cc87d8fa",
+     "metrics_sha256": "26d404e31819d1c15933281b617dafa05ed59ed1a5ed5086ad82227b97361c11",
+     "imported_at": "2026-10-06T19:20:25Z",
+     "by": "worker/h0004"
+    },
+    "log_path": "outputs/E-0005/s43/train.log",
+    "curve_path": "outputs/E-0005/s43/curve.json",
+    "output_path": "outputs/E-0005/s43",
+    "nodes_used": 4,
+    "walltime_used_s": 3140,
+    "valid": true,
+    "experiment_id": "E-0005"
+   },
+   {
+    "id": "E-0006/s42",
+    "seed": 42,
+    "job_id": "demo-3489195",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.4655,
+    "secondary": {
+     "final_loss": 0.9133,
+     "loss_auc": 1.2885,
+     "peak_mem_gb": 38.3542,
+     "train_time_s": 2989.858
+    },
+    "manifest_path": "outputs/E-0006/s42/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0006",
+     "seed": 42,
+     "attempt": 1,
+     "code_ref": "b63dd8e23189084c83b24e2fc2b68766eb2a4523",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3049,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0006/s42/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "556412874e6c156eff4f0fa6159feb3473aba2bb93f473479a3e300c0fb034ae",
+     "metrics_sha256": "1c67221c2e2014751bba0423e91fb81a4ef1ed2dc413f8b5ee2f66d3b797ee87",
+     "imported_at": "2026-10-06T19:20:32Z",
+     "by": "worker/h0005"
+    },
+    "log_path": "outputs/E-0006/s42/train.log",
+    "curve_path": "outputs/E-0006/s42/curve.json",
+    "output_path": "outputs/E-0006/s42",
+    "nodes_used": 4,
+    "walltime_used_s": 3049,
+    "valid": true,
+    "experiment_id": "E-0006"
+   },
+   {
+    "id": "E-0006/s43",
+    "seed": 43,
+    "job_id": "demo-3488045",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.5061,
+    "secondary": {
+     "final_loss": 0.9127,
+     "loss_auc": 1.2827,
+     "peak_mem_gb": 38.3731,
+     "train_time_s": 2978.174
+    },
+    "manifest_path": "outputs/E-0006/s43/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0006",
+     "seed": 43,
+     "attempt": 1,
+     "code_ref": "b63dd8e23189084c83b24e2fc2b68766eb2a4523",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3038,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0006/s43/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "2d1a0bd63d66aac663a50c0f9fc06764a0f793944fa5e5ef76634e520189fa56",
+     "metrics_sha256": "64fda824fa1f1c233b0ee7fcc77c5f32b86175fe6f0fa7a945d9bf1b8c04b0e2",
+     "imported_at": "2026-10-06T19:20:33Z",
+     "by": "worker/h0005"
+    },
+    "log_path": "outputs/E-0006/s43/train.log",
+    "curve_path": "outputs/E-0006/s43/curve.json",
+    "output_path": "outputs/E-0006/s43",
+    "nodes_used": 4,
+    "walltime_used_s": 3038,
+    "valid": true,
+    "experiment_id": "E-0006"
+   },
+   {
+    "id": "E-0007/s42",
+    "seed": 42,
+    "job_id": "demo-3485582",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.4136,
+    "secondary": {
+     "final_loss": 0.9102,
+     "loss_auc": 1.2812,
+     "peak_mem_gb": 31.9714,
+     "train_time_s": 3042.1152
+    },
+    "manifest_path": "outputs/E-0007/s42/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0007",
+     "seed": 42,
+     "attempt": 1,
+     "code_ref": "aaa83837038b1a360ffb6526857f884a2b7f4e0b",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3102,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0007/s42/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "75d0528aff9ad8bcbd0c785c7f82ef81a2476c147ea7bdbf6444e329645061ed",
+     "metrics_sha256": "08f8b3bb8e8e6b6fa0422b1a1b1747b1765950d03e1081e8a77188e8e633fcc3",
+     "imported_at": "2026-10-06T19:20:40Z",
+     "by": "worker/h0007"
+    },
+    "log_path": "outputs/E-0007/s42/train.log",
+    "curve_path": "outputs/E-0007/s42/curve.json",
+    "output_path": "outputs/E-0007/s42",
+    "nodes_used": 4,
+    "walltime_used_s": 3102,
+    "valid": true,
+    "experiment_id": "E-0007"
+   },
+   {
+    "id": "E-0007/s43",
+    "seed": 43,
+    "job_id": "demo-3485454",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.4488,
+    "secondary": {
+     "final_loss": 0.9177,
+     "loss_auc": 1.2804,
+     "peak_mem_gb": 31.9622,
+     "train_time_s": 3031.7717
+    },
+    "manifest_path": "outputs/E-0007/s43/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0007",
+     "seed": 43,
+     "attempt": 1,
+     "code_ref": "aaa83837038b1a360ffb6526857f884a2b7f4e0b",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3091,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0007/s43/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "35be4601a9ae8d3cb7a98f6daf57a30a60f8f792fc6686603fbe500dc743f58f",
+     "metrics_sha256": "b77b0ebf77632a00b66ec104af9b020d80c8e64ec1e78162351adc1e34ce4b68",
+     "imported_at": "2026-10-06T19:20:41Z",
+     "by": "worker/h0007"
+    },
+    "log_path": "outputs/E-0007/s43/train.log",
+    "curve_path": "outputs/E-0007/s43/curve.json",
+    "output_path": "outputs/E-0007/s43",
+    "nodes_used": 4,
+    "walltime_used_s": 3091,
+    "valid": true,
+    "experiment_id": "E-0007"
+   }
+  ]
+ },
+ "edges": {
+  "rel_compared_with": [
+   {
+    "source_id": "E-0002",
+    "target_id": "E-0001",
+    "role": "sota",
+    "n_paired": 2,
+    "delta_mean": 0.16375000000000028,
+    "delta_sd": 0.015485638507986982,
+    "deltas": {
+     "final_loss": -0.0006499999999999839,
+     "loss_auc": 0.0018499999999999073,
+     "peak_mem_gb": -1.1855999999999973,
+     "train_time_s": -0.004973838623927701
+    },
+    "passes_gate": false
+   },
+   {
+    "source_id": "E-0003",
+    "target_id": "E-0001",
+    "role": "sota",
+    "n_paired": 2,
+    "delta_mean": -0.24284999999999712,
+    "delta_sd": 0.004737615433956412,
+    "deltas": {
+     "final_loss": -0.010249999999999981,
+     "loss_auc": -0.025449999999999973,
+     "peak_mem_gb": -0.6352499999999992,
+     "train_time_s": -0.04219133231526796
+    },
+    "passes_gate": false
+   },
+   {
+    "source_id": "E-0004",
+    "target_id": "E-0001",
+    "role": "sota",
+    "n_paired": 3,
+    "delta_mean": 0.2412000000000063,
+    "delta_sd": 0.017857211428435715,
+    "deltas": {
+     "final_loss": -3.333333333332966e-05,
+     "loss_auc": 0.013200000000000026,
+     "peak_mem_gb": -1.0749999999999982,
+     "train_time_s": 0.0005436065433059924
+    },
+    "passes_gate": true
+   },
+   {
+    "source_id": "E-0004",
+    "target_id": "E-0002",
+    "role": "parent",
+    "n_paired": 2,
+    "delta_mean": 0.08125000000000426,
+    "delta_sd": 0.007990306627401926,
+    "deltas": {
+     "final_loss": 0.0014500000000000068,
+     "loss_auc": 0.010700000000000154,
+     "peak_mem_gb": 0.11114999999999853,
+     "train_time_s": -0.0005928313649611812
+    }
+   },
+   {
+    "source_id": "E-0005",
+    "target_id": "E-0001",
+    "role": "sota",
+    "n_paired": 2,
+    "delta_mean": 0.018900000000002137,
+    "delta_sd": 0.00692964645561704,
+    "deltas": {
+     "final_loss": -0.018949999999999967,
+     "loss_auc": -0.03474999999999995,
+     "peak_mem_gb": -1.6313499999999976,
+     "train_time_s": -0.03177880689895128
+    },
+    "passes_gate": false
+   },
+   {
+    "source_id": "E-0005",
+    "target_id": "E-0002",
+    "role": "parent",
+    "n_paired": 2,
+    "delta_mean": -0.14484999999999815,
+    "delta_sd": 0.022415284963604024,
+    "deltas": {
+     "final_loss": -0.018299999999999983,
+     "loss_auc": -0.036599999999999855,
+     "peak_mem_gb": -0.4457500000000003,
+     "train_time_s": -0.026672304536530623
+    }
+   },
+   {
+    "source_id": "E-0006",
+    "target_id": "E-0001",
+    "role": "sota",
+    "n_paired": 2,
+    "delta_mean": 0.06765000000000754,
+    "delta_sd": 0.010111626970971697,
+    "deltas": {
+     "final_loss": 0.00030000000000002247,
+     "loss_auc": -0.00539999999999996,
+     "peak_mem_gb": -0.39174999999999827,
+     "train_time_s": 0.0022913239882569134
+    },
+    "passes_gate": false
+   },
+   {
+    "source_id": "E-0007",
+    "target_id": "E-0001",
+    "role": "sota",
+    "n_paired": 2,
+    "delta_mean": 0.01305000000000689,
+    "delta_sd": 0.013930003589375179,
+    "deltas": {
+     "final_loss": -0.0006499999999999839,
+     "loss_auc": -0.0005999999999999339,
+     "peak_mem_gb": 6.005100000000002,
+     "train_time_s": -0.015405020824967081
+    },
+    "passes_gate": false
+   }
+  ],
+  "rel_depends_on": [],
+  "rel_references": [
+   {
+    "source_id": "H-0001",
+    "target_id": "D-0011"
+   },
+   {
+    "source_id": "H-0001",
+    "target_id": "D-0012"
+   },
+   {
+    "source_id": "H-0001",
+    "target_id": "D-0013"
+   },
+   {
+    "source_id": "H-0002",
+    "target_id": "D-0011"
+   },
+   {
+    "source_id": "H-0002",
+    "target_id": "D-0013"
+   },
+   {
+    "source_id": "H-0002",
+    "target_id": "D-0014"
+   },
+   {
+    "source_id": "H-0003",
+    "target_id": "D-0011"
+   },
+   {
+    "source_id": "H-0003",
+    "target_id": "D-0012"
+   },
+   {
+    "source_id": "H-0003",
+    "target_id": "D-0013"
+   },
+   {
+    "source_id": "H-0004",
+    "target_id": "D-0011"
+   },
+   {
+    "source_id": "H-0004",
+    "target_id": "D-0012"
+   },
+   {
+    "source_id": "H-0004",
+    "target_id": "D-0015"
+   },
+   {
+    "source_id": "H-0005",
+    "target_id": "D-0013"
+   },
+   {
+    "source_id": "H-0005",
+    "target_id": "D-0014"
+   },
+   {
+    "source_id": "H-0005",
+    "target_id": "D-0015"
+   },
+   {
+    "source_id": "H-0006",
+    "target_id": "D-0011"
+   },
+   {
+    "source_id": "H-0006",
+    "target_id": "D-0013"
+   },
+   {
+    "source_id": "H-0006",
+    "target_id": "D-0014"
+   },
+   {
+    "source_id": "H-0007",
+    "target_id": "D-0011"
+   },
+   {
+    "source_id": "H-0007",
+    "target_id": "D-0012"
+   },
+   {
+    "source_id": "H-0007",
+    "target_id": "D-0015"
+   },
+   {
+    "source_id": "H-0008",
+    "target_id": "D-0011"
+   },
+   {
+    "source_id": "H-0008",
+    "target_id": "D-0012"
+   },
+   {
+    "source_id": "H-0008",
+    "target_id": "D-0013"
+   }
+  ],
+  "rel_related": [],
+  "rel_describes": [
+   {
+    "source_id": "D-0017",
+    "target_id": "H-0001"
+   },
+   {
+    "source_id": "D-0020",
+    "target_id": "H-0001"
+   },
+   {
+    "source_id": "D-0022",
+    "target_id": "H-0002"
+   },
+   {
+    "source_id": "D-0025",
+    "target_id": "H-0002"
+   },
+   {
+    "source_id": "D-0026",
+    "target_id": "H-0002"
+   },
+   {
+    "source_id": "D-0028",
+    "target_id": "H-0003"
+   },
+   {
+    "source_id": "D-0032",
+    "target_id": "H-0003"
+   },
+   {
+    "source_id": "D-0033",
+    "target_id": "H-0003"
+   },
+   {
+    "source_id": "D-0034",
+    "target_id": "H-0003"
+   },
+   {
+    "source_id": "D-0036",
+    "target_id": "H-0004"
+   },
+   {
+    "source_id": "D-0039",
+    "target_id": "H-0004"
+   },
+   {
+    "source_id": "D-0040",
+    "target_id": "H-0004"
+   },
+   {
+    "source_id": "D-0042",
+    "target_id": "H-0005"
+   },
+   {
+    "source_id": "D-0046",
+    "target_id": "H-0006"
+   },
+   {
+    "source_id": "D-0047",
+    "target_id": "H-0006"
+   },
+   {
+    "source_id": "D-0049",
+    "target_id": "H-0007"
+   }
+  ],
+  "rel_supersedes": [],
+  "rel_based_on": [
+   {
+    "source_id": "DEC-0003",
+    "target_id": "E-0002"
+   },
+   {
+    "source_id": "DEC-0004",
+    "target_id": "E-0002"
+   },
+   {
+    "source_id": "DEC-0007",
+    "target_id": "E-0003"
+   },
+   {
+    "source_id": "DEC-0008",
+    "target_id": "E-0003"
+   },
+   {
+    "source_id": "DEC-0012",
+    "target_id": "E-0004"
+   },
+   {
+    "source_id": "DEC-0013",
+    "target_id": "D-0032"
+   },
+   {
+    "source_id": "DEC-0013",
+    "target_id": "D-0033"
+   },
+   {
+    "source_id": "DEC-0013",
+    "target_id": "E-0004"
+   },
+   {
+    "source_id": "DEC-0014",
+    "target_id": "D-0032"
+   },
+   {
+    "source_id": "DEC-0014",
+    "target_id": "D-0033"
+   },
+   {
+    "source_id": "DEC-0014",
+    "target_id": "E-0004"
+   },
+   {
+    "source_id": "DEC-0018",
+    "target_id": "E-0005"
+   },
+   {
+    "source_id": "DEC-0019",
+    "target_id": "E-0005"
+   },
+   {
+    "source_id": "DEC-0023",
+    "target_id": "D-0046"
+   }
+  ]
+ }
+}

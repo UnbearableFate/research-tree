@@ -38,6 +38,9 @@ def command(spec, directory):
         "mcp_servers.research_tree.command": sys.executable,
         "mcp_servers.research_tree.args": [str(ROOT / "tools/codex_mcp.py"), "--project", spec["project"], "--actor", actor],
         "mcp_servers.research_tree.tool_timeout_sec": 1800,  # run_cleanup may take a while
+        # Background exec sessions cannot answer approval prompts (approval_policy never): the plugin's own server
+        # is pre-approved; it fixes the actor and applies every research gate itself.
+        "mcp_servers.research_tree.default_tools_approval_mode": "approve",
         "sandbox_mode": "read-only" if actor == "ui/ui" else "workspace-write",
         "approval_policy": "never",
     }

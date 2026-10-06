@@ -17,6 +17,22 @@ builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)
 
 
+class HostParityTest(unittest.TestCase):
+    """Both adapters expose the shared read-only API: the Claude mod's READ_ONLY and the Codex hook's READ_METHODS
+    are research_db.READ_METHODS."""
+
+    def test_read_only_methods(self):
+        import re
+        sys.path.insert(0, str(ROOT / "shared/research-tree/tools"))
+        from research_db import READ_METHODS
+        tsx = (ROOT / "claude-mod/research-tree/hooks/register.tsx").read_text(encoding="utf-8")
+        claude = re.search(r"const READ_ONLY = /\^\(([^)]*)\)\$/", tsx).group(1).split("|")
+        hook = (ROOT / "codex-plugin/research-tree/tools/codex_hook.py").read_text(encoding="utf-8")
+        codex = re.findall(r'"([a-z_]+)"', re.search(r"READ_METHODS = \{([^}]*)\}", hook).group(1))
+        self.assertEqual(sorted(claude), sorted(READ_METHODS))
+        self.assertEqual(sorted(codex), sorted(READ_METHODS))
+
+
 class PackagingTest(unittest.TestCase):
     def test_standalone_claude_bundle_and_reproducible_archive(self):
         with tempfile.TemporaryDirectory() as tmp:

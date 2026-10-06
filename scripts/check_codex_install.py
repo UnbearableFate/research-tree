@@ -117,15 +117,22 @@ def check(marketplace: Path, work: Path):
             initialized = call("research_control", action="init", params={"project_id": "P-native"})
             root = Path(initialized["project"]["root"])
 
-            def doc(rel, kind):
-                (root / "docs" / rel).write_text(f"# {kind}\nNative CLI fixture; no experiments.\n")
+            def doc(rel, kind, body=None):
+                (root / "docs" / rel).write_text(body or f"# {kind}\nNative CLI fixture; no experiments.\n")
                 ident = call("research_db", method="register_document", kwargs={"path": rel, "doc_type": kind, "title": kind})
                 call("research_db", method="set_document_current", kwargs={"doc_id": ident})
                 return ident
 
             setup = doc("project/min-setup.v1.md", "min_setup")
+            # fixtures only: raw units, no guardrails (a real project declares them)
+            spec = {"version": 1, "primary": "accuracy", "metrics": [
+                {"name": "accuracy", "direction": "higher", "input_unit": "raw", "canonical_unit": "raw",
+                 "effect_mode": "absolute", "minimum_practical_gain": 0.05, "aggregation": "paired_run_mean"}]}
+            specs = doc("project/metric-spec.v1.json", "metric_spec", json.dumps(spec))
+            protocol = doc("project/protocol.v1.json", "protocol",
+                           json.dumps({"version": 1, "eval_type": "real_gt", "pair_fields": ["seed"]}))
             call("research_db", method="create_project", kwargs={"id": "P-native", "title": "Native installation smoke",
-                  "min_setup_doc_id": setup, "primary_metric": "accuracy", "metric_direction": "higher",
+                  "metric_spec_doc_id": specs, "protocol_doc_id": protocol, "min_setup_doc_id": setup, "primary_metric": "accuracy", "metric_direction": "higher",
                   "metric_is_percent": True, "secondary_metrics": [], "seeds": [1, 2, 3]})
             doc("project/reports/init-plan.v1.md", "report")
             call("post_to_ui", type="confirm_request", text="Fixture plan; confirm only for validation.", docs=["project/reports/init-plan.v1.md"])

@@ -33,7 +33,8 @@ CLASSES = {
     "optimizer_state": ["optimizer*.pt", "optimizer*.bin", "optim_state*", "rng_state*", "scheduler*.pt"],
     "periodic_ckpt": ["checkpoint-*", "ckpt-*", "step_*", "global_step*"],
     "final_weights": ["*.safetensors", "*.pt", "*.pth", "*.bin", "*.ckpt"],
-    "predictions": ["predictions*.jsonl", "predictions*.json", "preds*.npy"],
+    # Per-sample predictions are not a class here: they are raw scoring material an evaluation may be recomputed
+    # from (plans/design 04 §8). Add a class only for predictions this project never re-scores.
     "trace": ["*.trace.json", "*.pt.trace.json", "profiler", "activations*", "grad_stats*"],
     "scratch": ["tmp", "scratch", "*.tmp"],
 }

@@ -29,8 +29,9 @@ ATTENTION_LABELS = {
     "usage_alert": "资源提醒", "awaiting_reply": "待RLD回执", "extend_seeds": "待扩展seed", "needs_rld": "需要RLD复核",
     "stale_harness": "框架已更换", "run_unknown": "作业状态未知", "curve_missing": "曲线缺失",
     "conclusion_outdated": "结论待更新", "task": "任务", "doc_integrity": "文档完整性", "cleanup_due": "待清理",
-    "cleanup_failed": "清理未完成",
+    "cleanup_failed": "清理未完成", "evidence_stale": "证据已失效",
 }
+VERIFICATION_LABELS = {"record_recomputed": "记录级重算", "artifact_imported": "产物级导入", "legacy_unverified": "旧记录（未核验）"}
 VERSION_RE = re.compile(r'<meta name="data-version" content="(\d+)">')
 
 
@@ -134,7 +135,8 @@ def load_curve(path_text: str | None, base: Path) -> tuple[dict | None, str | No
 
 
 def collect(db_path: Path) -> dict:
-    snap = ResearchDB(db_path, "web_builder/site").export_snapshot()
+    reader = ResearchDB(db_path, "web_builder/site")
+    snap = reader.export_snapshot()
     root = db_path.parent
     tables, edges = snap["tables"], snap["edges"]
     project = tables["project"][0] if tables["project"] else None
@@ -176,6 +178,7 @@ def collect(db_path: Path) -> dict:
         })
 
     harness = project.get("harness_ref")
+    evaluations = {v["id"]: v for v in tables.get("evaluation", [])}
     experiments = {}
     for x in tables["experiment"]:
         experiments[x["id"]] = {
@@ -187,6 +190,11 @@ def collect(db_path: Path) -> dict:
             "runs": sorted(runs_by_exp.get(x["id"], []), key=lambda r: r["seed"]),
             "comparisons": sorted(comparisons.get(x["id"], []), key=lambda c: c["role"]),
             "keep": x.get("keep") or [], "cleaned": _cleaned(x.get("cleanup")),
+            "evaluation": x.get("evaluation_id") and {
+                "id": x["evaluation_id"],
+                "level": VERIFICATION_LABELS.get(evaluations.get(x["evaluation_id"], {}).get("verification_level"), "未知"),
+                "eval_type": evaluations.get(x["evaluation_id"], {}).get("eval_type"),
+                "guardrails_passed": evaluations.get(x["evaluation_id"], {}).get("guardrails_passed")},
         }
 
     branches = {b["hypothesis_id"]: b for b in tables["branch"]}
@@ -216,7 +224,9 @@ def collect(db_path: Path) -> dict:
             "experiments": [e["id"] for e in exps], "latest": latest and latest["id"],
             "branch": b and {"name": b["name"], "status": b["status"], "base": b["base_commit"][:10],
                              "head": (b.get("head_commit") or "")[:10]},
-            "go": h["experiment_status"] == "beats_sota" and h["novelty_recheck"] == h["theory_recheck"] == "pass",
+            # GO eligibility from current evidence (research_db.get_eligibility), never from the cached labels
+            "eligibility": (eligibility := reader.get_eligibility(h["id"])),
+            "go": eligibility["eligible"],
             "worker": _worker(h),
         })
 
@@ -238,6 +248,12 @@ def collect(db_path: Path) -> dict:
         if latest and latest["verdict"] in ("no_gain", "beats_parent", "beats_sota") and latest["verdict"] != n["exp_status"]:
             attention.append({"kind": "conclusion_outdated", "id": n["id"],
                               "text": f"{n['id']} 最新判定为 {latest['verdict']}，节点结论仍为 {n['exp_status']}"})
+    for n in nodes:
+        e = n["eligibility"]
+        if e["evidence_state"] == "stale":
+            attention.append({"kind": "evidence_stale", "id": n["id"],
+                              "text": f"{n['id']} 的当前评估 {e['basis_evaluation_id']} 已不适用（{'、'.join(e['reasons'])}）："
+                                      "不能支持GO，需重新评估或重做实验"})
     for t in tables["task"]:
         if t["status"] in ("open", "in_progress", "delivered", "rejected"):
             attention.append({"kind": "task", "id": t["id"],
@@ -676,7 +692,7 @@ function expBlock(e) {
     <td class="num">${fmt(r.metric)}</td>${(P.secondary_metrics || []).map(k => `<td class="num">${fmt(r.secondary?.[k])}</td>`).join("")}<td class="num">${fmt(r.node_h, 2)}</td>
     <td>${r.curve_problem ? `<span class="warn">${esc(r.curve_problem)}</span>` : "有"}</td></tr>`).join("");
   return `<div class="panel"><b>${esc(e.id)}</b> ${esc(e.method)} · ${esc(e.kind)} · seeds ${esc(e.seeds.join(", "))} · 代码 ${esc(e.code)}
-    ${e.verdict ? badge(e.verdict, "v-" + e.verdict) : e.kind === "baseline" ? `<span class="muted">${e.evaluated ? "基线结果已记录" : "基线结果未记录"}</span>` : '<span class="muted">未判定</span>'}${e.stale_harness ? '<span class="warn">框架已更换，结果不可比</span>' : ""}${e.cleaned ? `<span class="muted"> · 产物已清理（${esc(e.cleaned.at)}，释放 ${(e.cleaned.freed_bytes / 2 ** 30).toFixed(2)} GiB${e.cleaned.kept.length ? "，保留 " + esc(e.cleaned.kept.join("、")) : ""}）</span>` : ""}
+    ${e.evaluation ? `<span class="muted">${esc(e.evaluation.id)} · ${esc(e.evaluation.level)}${e.evaluation.eval_type ? " · " + esc(e.evaluation.eval_type) : ""}${e.evaluation.guardrails_passed === false ? ' · <span class="warn">保护指标未通过</span>' : ""}</span> ` : ""}${e.verdict ? badge(e.verdict, "v-" + e.verdict) : e.kind === "baseline" ? `<span class="muted">${e.evaluated ? "基线结果已记录" : "基线结果未记录"}</span>` : '<span class="muted">未判定</span>'}${e.stale_harness ? '<span class="warn">框架已更换，结果不可比</span>' : ""}${e.cleaned ? `<span class="muted"> · 产物已清理（${esc(e.cleaned.at)}，释放 ${(e.cleaned.freed_bytes / 2 ** 30).toFixed(2)} GiB${e.cleaned.kept.length ? "，保留 " + esc(e.cleaned.kept.join("、")) : ""}）</span>` : ""}
     <div>设计：${docLink(e.design)}；结果：${docLink(e.result)}</div>
     <table class="heat"><thead><tr><th>seed</th><th>执行</th><th>验收</th><th>${esc(P.primary_metric)}</th>${(P.secondary_metrics || []).map(k => `<th>${esc(k)}</th>`).join("")}<th>node·h</th><th>曲线</th></tr></thead><tbody>${runs}</tbody></table>
     ${e.comparisons.length ? `<table class="heat"><thead><tr><th>比较</th><th>配对seed</th><th>Δ${esc(P.primary_metric)}</th>${(P.secondary_metrics || []).map(k => `<th>Δ${esc(k)}</th>`).join("")}<th>过SOTA门槛</th></tr></thead><tbody>
