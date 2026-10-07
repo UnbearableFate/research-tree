@@ -68,6 +68,7 @@ CREATE TABLE project (
     recheck_required    BOOLEAN NOT NULL DEFAULT FALSE,  -- GO 候选须有跨模型复核（review.trigger: candidate_ready；07、09）
     review_usd_alert    REAL,                  -- 累计评审费用提醒阈值（USD）；达到后暂停新的评审调用
     review_cost_usd     REAL NOT NULL DEFAULT 0,  -- 评审调用的累计费用（review_call.py 登记）
+    screen_seeds        INTEGER,               -- 筛选 seed 数上限（version 2：verification.screening_seeds 的个数）；空则只按筛选预算
     protocol_doc_id     TEXT,                  -- 现行实验协议（JSON 文档：评测类型、配对字段、必须一致的设定）
     metric_spec_doc_id  TEXT,                  -- 现行指标规范（JSON 文档：每个指标的方向、单位、效应、最小实际收益、保护阈值）
     -- 冻结的实验框架与统计代码（根节点 worker 实现，RLD 审核）

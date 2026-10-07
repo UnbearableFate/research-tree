@@ -2043,6 +2043,13 @@ class CostEstimateTest(Fixture):
                                               estimated_node_h=0.1)
         self.assertEqual((again, other != first), (first, True))
 
+    def test_configured_screening_seeds_cap_the_screen(self):
+        h = self.hypothesis()
+        self.start(h)
+        self.assertEqual(len(self.rld.get(self.method(h))["seeds"]), 3)  # the budget allows 3
+        self.rld.update_project(screen_seeds=1)  # version 2: verification.screening_seeds has one seed
+        self.assertEqual(len(self.rld.get(self.method(h))["seeds"]), 1)
+
     def test_x04(self):
         h = self.hypothesis()
         self.start(h)

@@ -83,12 +83,15 @@ async function venv($: EngineInterface): Promise<{ python: string } | { problem:
   let cwd = '当前目录'
   try {
     cwd = await $.session.cwd()
-    if (await $.fs.exists(`${cwd}/${VENV_PYTHON}`)) return { python: `${cwd}/${VENV_PYTHON}` }
+    // the session's directory may have moved below the project (a shell cd): look upward for the environment
+    for (let dir = cwd; dir && dir !== '/'; dir = dir.replace(/\/[^/]*$/, '') || '/') {
+      if (await $.fs.exists(`${dir}/${VENV_PYTHON}`)) return { python: `${dir}/${VENV_PYTHON}` }
+    }
   } catch {
     // no file system here: treated as missing
   }
   return {
-    problem: `${cwd} 下还没有 ${VENV_PYTHON}：先运行 /${COMMAND} prepare，它会用 uv 建立本目录的项目环境。`,
+    problem: `${cwd} 及其上级目录都没有 ${VENV_PYTHON}：在研究项目目录（含 .research-tree.json）中运行；新项目先运行 /${COMMAND} prepare，它会用 uv 建立项目环境。`,
   }
 }
 
