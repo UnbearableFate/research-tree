@@ -56,7 +56,7 @@ SPEC_PATH = Path(__file__).resolve().parent.parent / "schema" / "research_tree.s
 CLEANUP_SCRIPT = "research-tree-cleanup.py"
 CLEANUP_TEMPLATE = Path(__file__).resolve().parent.parent / "schema" / "cleanup.template.py"
 # The database layout this interface writes (schema/create_db.py SCHEMA_VERSION; a test keeps them equal).
-SCHEMA_VERSION = 11
+SCHEMA_VERSION = 12
 OPEN_ATTEMPTS = 40
 OPEN_RETRY_DELAY_S = 0.25
 
@@ -147,6 +147,8 @@ DOC_AUTHORS = {
     "other": ("ui", "rld", "worker", "assistant"),
     "review": ("reviewer",),  # only through review_call.py (plans/design 09 §4)
 }
+CANDIDATE_ID_RE = re.compile(r"CAND-\d{4,}")
+POSITIVE_NOVELTY = ("PROCEED", "PROCEED_WITH_CAUTION")  # 09 §3: CAUTION is positive; only a named ABANDON is not
 REVIEW_KINDS = ("triage", "novelty_precheck", "critical_review", "proposal_review", "ablation_plan", "code_review",
                 "candidate_recheck")
 # A GO candidate's rechecks (07 §2): the dimensions about numbers are bound to the evaluation they checked, the
@@ -235,7 +237,8 @@ ATTEMPT_FIELDS = (REPORTED_FIELDS + RUN_MEASUREMENTS + IMPORT_FIELDS
 LIMIT_FIELDS = ("max_parallel_workers", "alert_node_h", "config_doc_id", "total_limit", "search_limit",
                 "confirmation_limit", "repair_limit", "overrun_factor", "stall_structural_at", "stall_human_at",
                 "recheck_required", "review_usd_alert", "screen_seeds", "design_required", "max_primary_claims",
-                "max_core_blocks", "code_review_required", "sanity_required")
+                "max_core_blocks", "code_review_required", "sanity_required", "require_precheck",
+                "literature_verification")
 # The documents evaluations are computed under (plans/design/04): protocol and metric specification.
 EVIDENCE_DOC_FIELDS = ("protocol_doc_id", "metric_spec_doc_id")
 # Caps the user authorizes (10 §1.5): an agent may lower them, raising one (or lifting it, None) needs the user.
@@ -731,7 +734,8 @@ class ResearchDB:
                 self._check_evidence_docs(tx, final)
             raised = [k for k in CAP_FIELDS if k in changes and changes[k] != project.get(k) and (
                 changes[k] is None or (project.get(k) is not None and changes[k] > project[k]))]
-            for gate in ("recheck_required", "design_required", "code_review_required", "sanity_required"):
+            for gate in ("recheck_required", "design_required", "code_review_required", "sanity_required",
+                         "require_precheck", "literature_verification"):
                 if project.get(gate) and changes.get(gate) is False:
                     raised.append(gate)  # dropping a gate lowers the bar: the user's decision
             if raised:
@@ -847,14 +851,22 @@ class ResearchDB:
     # -- hypotheses -------------------------------------------------------------
 
     def create_hypothesis(self, title: str, statement: str, doc_id: str, related_work: list[str],
-                          parent_id: str | None = None, priority: int = 0, direction: str | None = None) -> str:
+                          parent_id: str | None = None, priority: int = 0, direction: str | None = None,
+                          candidate_id: str | None = None, user_instruction_doc_id: str | None = None) -> str:
         """related_work: current literature documents consulted when creating the node (the cached
         related research); the hypothesis document records the creation rationale.
 
         The tree's root is the project: it holds the baselines (frozen harness, SOTA and other baseline
         experiments) and no hypothesis. Without parent_id a node is a child of the root, as every initial
         hypothesis is; a node is derived below another hypothesis only once that one is verified and
-        expandable, so the level of a node never has to be guessed."""
+        expandable, so the level of a node never has to be guessed.
+
+        With literature_verification only literature whose existence was verified (front matter `verification:
+        verified`) counts toward min_related_work. With require_precheck an initial node names the discovery
+        candidate it comes from (candidate_id) and needs that candidate's receipts: a current novelty_precheck
+        that is PROCEED or PROCEED_WITH_CAUTION and a critical_review with stance proceed. A negative receipt does
+        not drop a user's hypothesis: the user decides, and user_instruction_doc_id (their current instruction)
+        then admits it."""
         self._require_role("rld")
         with self._writer() as tx:
             project = self._project(tx)
@@ -877,12 +889,24 @@ class ResearchDB:
                 )
             for doc_id_ in related:
                 self._check_literature(tx, doc_id_)
+            if project.get("literature_verification"):
+                verified = [d for d in related if self._literature_verified(tx, d)]
+                if len(verified) < project["min_related_work"]:
+                    raise ResearchDBError(
+                        f"only {len(verified)} of the cited literature documents are verified to exist "
+                        f"(front matter verification: verified); a node needs {project['min_related_work']} — "
+                        "unverified literature is kept but does not count (literature.py verify)")
+            if project.get("require_precheck") and parent_id in (None, project["id"]):
+                self._check_receipts(tx, candidate_id, user_instruction_doc_id)
+            elif candidate_id is not None and not CANDIDATE_ID_RE.fullmatch(candidate_id):
+                raise ResearchDBError("candidate_id is a discovery candidate id (CAND-0001)")
             hyp_id = self._insert(tx, "hypothesis", {
                 "id": tx.next_id("hypothesis"), "project_id": project["id"], "parent_id": parent_id or project["id"],
                 "title": title, "statement": statement, "doc_id": doc_id, "status": "pending",
                 "experiment_status": "todo", "novelty_recheck": "pending", "theory_recheck": "pending",
                 "priority": priority, "owner": self.agent, "resume_doc_ids": [doc_id],
                 "disposition": "active", "direction": direction, "new_findings_streak": 0, "stall_state": "none",
+                "candidate_id": candidate_id,
             })
             for doc_id_ in related:
                 tx.link("rel_references", hyp_id, doc_id_)
@@ -943,6 +967,44 @@ class ResearchDB:
         if missing:
             raise ResearchDBError(f"{doc_id} ({path}) lacks the sections {', '.join(missing)}; an experiment design "
                                   f"has the '## ' sections {', '.join(EXPERIMENT_DESIGN_SECTIONS)} (03 §4, §10)")
+
+    def _literature_verified(self, tx: _Tx, doc_id: str) -> bool:
+        return self._literature_verified_path(tx.get(doc_id)["path"])
+
+    def _literature_verified_path(self, rel: str) -> bool:
+        """A literature document whose front matter records `verification: verified` (literature.py)."""
+        path = self.docs_root / rel
+        text = path.read_text(encoding="utf-8") if path.is_file() else ""
+        head = re.match(r"^---\n(.*?)\n---", text, re.S)
+        return bool(head and re.search(r"^verification:\s*[\"']?verified[\"']?\s*$", head.group(1), re.M))
+
+    def _check_receipts(self, tx: _Tx, candidate_id: str | None, user_instruction_doc_id: str | None) -> None:
+        """02 §3 D8 / R09: an initial node needs its candidate's novelty and critical-review receipts."""
+        if not candidate_id or not CANDIDATE_ID_RE.fullmatch(candidate_id):
+            raise ResearchDBError("discovery.require_precheck: an initial node names its discovery candidate "
+                                  "(candidate_id CAND-…) whose novelty_precheck and critical_review it rests on")
+        docs = [tx.get(i) for i in tx.ids("document", "WHERE n.doc_type = $t", t="review")]
+        mine = [d for d in docs if d["status"] == "current" and d.get("review_about") == candidate_id]
+
+        def latest(kind):
+            found = [d for d in mine if d.get("review_kind") == kind]
+            return max(found, key=lambda d: int(d["id"].split("-")[1])) if found else None
+        novelty, critique = latest("novelty_precheck"), latest("critical_review")
+        missing = [k for k, d in (("novelty_precheck", novelty), ("critical_review", critique)) if d is None]
+        if missing:
+            raise CodedError("REVIEW_UNAVAILABLE", f"{candidate_id} has no {' and no '.join(missing)} receipt "
+                                                   f"(research_review with about={candidate_id}); the node is "
+                                                   "created after both")
+        negative = [f"{novelty['id']} {novelty['review_result']}"] if novelty["review_result"] not in POSITIVE_NOVELTY else []
+        if critique["review_result"] != "proceed":
+            negative.append(f"{critique['id']} stance {critique['review_result']}")
+        if negative:
+            instruction = user_instruction_doc_id and tx.get(user_instruction_doc_id)
+            if not instruction or (instruction.get("doc_type"), instruction.get("status")) != (
+                    "user_instruction", "current"):
+                raise ResearchDBError(f"{candidate_id}'s receipts advise against it ({'; '.join(negative)}): a user "
+                                      "hypothesis stays for the user to decide (report it as '建议放弃，待用户决定'); "
+                                      "to build it anyway pass user_instruction_doc_id, their current instruction")
 
     def _check_literature(self, tx: _Tx, doc_id: str) -> None:
         doc = tx.require(doc_id, ("document",))
@@ -3122,7 +3184,12 @@ class ResearchDB:
             project = self._project(tx)
             if tx.ids("document", "WHERE n.path = $path", path=path):
                 raise ResearchDBError(f"{path} is already registered")
-            targets = [tx.require(entity) for entity in about]
+            candidates = [a for a in about if CANDIDATE_ID_RE.fullmatch(a)]
+            if len(candidates) > 1 or (candidates and len(about) > 1):
+                raise ResearchDBError("a review is about one discovery candidate, or about database entities")
+            if candidates and kind == "candidate_recheck":
+                raise ResearchDBError("a candidate_recheck is about a node, not a discovery candidate")
+            targets = [tx.require(entity) for entity in about if entity not in candidates]
             fields = {}
             if kind == "candidate_recheck":
                 if dimension not in RECHECK_DIMENSIONS:
@@ -3154,9 +3221,11 @@ class ResearchDB:
                 "id": tx.next_id("document"), "path": path, "version": int(m.group(1)), "doc_type": "review",
                 "title": title, "summary": summary, "status": "current", "author_role": self.role,
                 "author_id": self.agent, "sha256": sha256_file(file), "review_kind": kind, "review_result": result,
-                "review_backend": backend, "reviewer_model": reviewer_model, "review_session": session, **fields})
+                "review_backend": backend, "reviewer_model": reviewer_model, "review_session": session,
+                "review_about": candidates[0] if candidates else None, **fields})
             for entity in about:
-                tx.link("rel_describes", doc_id, entity)
+                if entity not in candidates:
+                    tx.link("rel_describes", doc_id, entity)
             if previous:
                 self._update(tx, previous["id"], {"status": "superseded"})
                 tx.link("rel_supersedes", doc_id, previous["id"])
@@ -3178,7 +3247,8 @@ class ResearchDB:
         with self.reader() as tx:
             docs = [tx.get(i) for i in tx.ids("document", "WHERE n.doc_type = $t", t="review")]
             if about:
-                docs = [d for d in docs if tx.edges("rel_describes", source=d["id"], target=about)]
+                docs = [d for d in docs if d.get("review_about") == about
+                        or tx.edges("rel_describes", source=d["id"], target=about)]
         out = [{k: v for k, v in d.items() if k != "_table"} for d in docs if not kind or d.get("review_kind") == kind]
         return sorted(out, key=lambda d: int(d["id"].split("-")[1]))
 

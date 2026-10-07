@@ -40,7 +40,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 from jsonschema import Draft202012Validator  # noqa: E402
 
 import research_tree as tree  # noqa: E402
-from research_db import RECHECK_DIMENSIONS, REVIEW_KINDS, ResearchDB, ResearchDBError  # noqa: E402
+from research_db import (CANDIDATE_ID_RE, RECHECK_DIMENSIONS, REVIEW_KINDS, ResearchDB,  # noqa: E402
+                         ResearchDBError)
 
 REVIEWS_DIR = Path(__file__).resolve().parent.parent / "schema" / "reviews"
 PROMPT = ("Read the brief at {brief} and follow it. Executor notes are not evidence beyond the files they cite. "
@@ -403,8 +404,8 @@ def review(cwd: Path, kind: str, brief: str, about: str, dimension: str | None =
     system_file = REVIEWS_DIR / f"{kind}.md"
     db = ResearchDB(Path(marker["db"]), "reviewer/" + backend.name)
     with ResearchDB(Path(marker["db"]), "rld/main").reader() as tx:
-        if tx.get(about) is None:
-            raise ReviewError("REVIEW_INVALID", f"{about} does not exist")
+        if tx.get(about) is None and not CANDIDATE_ID_RE.fullmatch(about):
+            raise ReviewError("REVIEW_INVALID", f"{about} is neither a record nor a discovery candidate (CAND-…)")
 
     with _Lock(root):
         rv, uid, version, first, state = _allocate(root, session, kind, about, backend.name)

@@ -1,0 +1,322 @@
+"""Discovery before the project starts (plans/design 02): resumable stage state, the candidate pool and its
+deterministic gates. Nothing here calls a model.
+
+Stage state is ported from ARIS tools/run_state.py and the gate from tools/idea_discovery_gate.py
+(Auto-claude-code-research-in-sleep @ 3b19a22), adapted: a stage is `done` when the Leader finished it and
+`accepted` only on evidence it cannot write itself — a current review document by another model family
+(review stages) or a deterministic check (literature verification, feasibility). Resume returns the first stage
+that is not terminal, so a stage the Leader called done but no reviewer accepted is redone, never skipped
+("a loop can DRIVE, it cannot ACQUIT").
+
+State: research/<id>/cache/discovery/state.json. Candidates: docs/project/discovery/candidates.json (merged from
+the lens shards in cache/discovery/shards/*.json). User hypotheses enter as candidates with origin "user": they
+are annotated, never eliminated by the feasibility gate or the triage ranking (02 §3).
+"""
+
+from __future__ import annotations
+
+import fcntl
+import json
+import os
+import re
+import tempfile
+import unicodedata
+from contextlib import contextmanager
+from datetime import datetime, timezone
+from pathlib import Path
+
+STAGES = ("brief", "literature", "candidates", "feasibility", "triage", "novelty", "critique", "refine", "gate")
+SKIPPED_BY_MODE = {"full": (), "precheck": ("candidates", "feasibility", "triage")}
+REVIEW_STAGES = {"triage": "triage", "novelty": "novelty_precheck", "critique": "critical_review"}
+DETERMINISTIC_STAGES = ("literature", "feasibility")
+TERMINAL = ("accepted", "skipped")
+EXECUTOR_STATUSES = ("pending", "running", "done", "failed")
+REPORT_SECTIONS = ("用户假说", "新发现候选", "淘汰想法")
+STATE_PATH = Path("cache") / "discovery" / "state.json"
+CANDIDATES_PATH = Path("docs") / "project" / "discovery" / "candidates.json"
+
+
+class DiscoveryError(Exception):
+    pass
+
+
+def now() -> str:
+    return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+# -- state ---------------------------------------------------------------------------------------------------------
+
+
+@contextmanager
+def _locked(root: Path):
+    path = root / STATE_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with (path.parent / ".lock").open("w") as handle:
+        fcntl.flock(handle, fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(handle, fcntl.LOCK_UN)
+
+
+def load(root: Path) -> dict | None:
+    path = root / STATE_PATH
+    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
+
+
+def _save(root: Path, state: dict) -> None:
+    path = root / STATE_PATH
+    state["updated"] = now()
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=".state.", suffix=".tmp")
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        json.dump(state, f, ensure_ascii=False, indent=1)
+    os.replace(tmp, path)
+
+
+def start(root: Path, mode: str, executor_model: str | None) -> dict:
+    """Create the stage list for discovery.mode full or precheck (idempotent: an existing run is returned)."""
+    if mode not in SKIPPED_BY_MODE:
+        raise DiscoveryError(f"discovery runs in mode full or precheck, not {mode!r} (off skips discovery)")
+    with _locked(root):
+        state = load(root)
+        if state is not None:
+            return state
+        state = {"mode": mode, "executor_model": executor_model, "created": now(), "gate": None,
+                 "stages": [{"stage": s, "status": "skipped" if s in SKIPPED_BY_MODE[mode] else "pending",
+                             "artifact": None, "evidence": None, "updated": now()} for s in STAGES]}
+        _save(root, state)
+        return state
+
+
+def _stage(state: dict, name: str) -> dict:
+    for s in state["stages"]:
+        if s["stage"] == name:
+            return s
+    raise DiscoveryError(f"unknown stage {name!r}; stages: {', '.join(STAGES)}")
+
+
+def set_status(root: Path, name: str, status: str, artifact: str | None = None) -> dict:
+    """The Leader's own progress: pending, running, done or failed. Acceptance is accept()'s alone."""
+    if status not in EXECUTOR_STATUSES:
+        raise DiscoveryError(f"set writes {', '.join(EXECUTOR_STATUSES)}; acceptance needs evidence (accept)")
+    with _locked(root):
+        state = _require(root)
+        stage = _stage(state, name)
+        if stage["status"] == "skipped":
+            raise DiscoveryError(f"{name} is skipped in mode {state['mode']}")
+        stage.update(status=status, updated=now(), **({"artifact": artifact} if artifact else {}))
+        if name != "gate":
+            state["gate"] = None  # anything redone invalidates an earlier gate result
+        _save(root, state)
+        return state
+
+
+def _require(root: Path) -> dict:
+    state = load(root)
+    if state is None:
+        raise DiscoveryError("no discovery run: start it first (discovery start)")
+    return state
+
+
+def accept(root: Path, name: str, evidence: list[str], reviews: list[dict] | None = None,
+           verifier: str | None = None) -> dict:
+    """Accept a done stage on evidence the Leader cannot write: review stages need current review documents of
+    their kind by another model family (`reviews`: the records of `evidence`, from research_db.reviews), the
+    deterministic stages a verifier's report (`verifier`: what checked it, `evidence`: its output files)."""
+    with _locked(root):
+        state = _require(root)
+        stage = _stage(state, name)
+        if stage["status"] not in ("done", "accepted"):
+            raise DiscoveryError(f"{name} is {stage['status']}: only a finished stage is accepted")
+        if not evidence:
+            raise DiscoveryError(f"accepting {name} records its evidence (review ids or verifier output)")
+        if name in REVIEW_STAGES:
+            kind = REVIEW_STAGES[name]
+            found = {r["id"]: r for r in reviews or []}
+            for doc_id in evidence:
+                r = found.get(doc_id)
+                if r is None or r.get("review_kind") != kind or r.get("status") != "current":
+                    raise DiscoveryError(f"{name} is accepted on current {kind} reviews; {doc_id} is not one")
+                if family(r.get("reviewer_model")) in (None, family(state.get("executor_model"))):
+                    raise DiscoveryError(f"{doc_id} is not by another model family than the Leader "
+                                         f"({state.get('executor_model')})")
+        elif name in DETERMINISTIC_STAGES:
+            if not verifier:
+                raise DiscoveryError(f"{name} is accepted on a deterministic check: name the verifier")
+        else:
+            raise DiscoveryError(f"{name} needs no acceptance: done is terminal for it")
+        stage.update(status="accepted", evidence=list(evidence), verifier=verifier, updated=now())
+        _save(root, state)
+        return state
+
+
+def terminal(stage: dict) -> bool:
+    if stage["status"] in TERMINAL:
+        return True
+    # stages that promise no review or check end when the Leader has done them
+    return stage["status"] == "done" and stage["stage"] not in REVIEW_STAGES and stage["stage"] not in DETERMINISTIC_STAGES
+
+
+def resume_point(root: Path) -> dict | None:
+    """R11: the first stage that is not terminal (a done-but-unaccepted review stage is redone), else None."""
+    state = _require(root)
+    return next((s for s in state["stages"] if not terminal(s)), None)
+
+
+def family(model: str | None) -> str | None:
+    if not model:
+        return None
+    m = model.lower()
+    if "/" in m:
+        return {"gemini": "google"}.get(m.split("/", 1)[0], m.split("/", 1)[0])
+    for prefix, fam in (("claude", "anthropic"), ("gpt", "openai"), ("o1", "openai"), ("o3", "openai"),
+                        ("o4", "openai"), ("codex", "openai"), ("gemini", "google"), ("deepseek", "deepseek")):
+        if m.startswith(prefix):
+            return fam
+    return None
+
+
+# -- candidates ----------------------------------------------------------------------------------------------------
+
+
+def dedup_key(text: str) -> str:
+    """A mechanical key: lower case, accents and punctuation removed, words joined by '-'."""
+    t = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode() or text
+    words = re.findall(r"\w+", t.lower(), re.UNICODE)
+    return "-".join(words)[:120]
+
+
+def merge(shards: list[dict], user_hypotheses: list[dict]) -> list[dict]:
+    """R12, R17: merge lens shards ({"lens", "generator", "candidates": [{"title", "summary", "mechanism",
+    "dedup_key"?, "estimated_run"?, ...}]}) with the user's hypotheses ({"title", "summary", ...}). Duplicates are
+    clustered by dedup_key only — never dropped for being weak; a user hypothesis keeps origin "user" and records
+    which lenses also found it."""
+    pool: dict[str, dict] = {}
+    for h in user_hypotheses:
+        key = h.get("dedup_key") or dedup_key(h["title"])
+        pool[key] = {**h, "dedup_key": key, "origin": "user", "found_by": ["user"]}
+    for shard in shards:
+        lens = shard.get("lens") or "unknown"
+        for c in shard.get("candidates") or []:
+            if not (c.get("title") or "").strip():
+                raise DiscoveryError(f"a candidate of lens {lens} has no title")
+            key = c.get("dedup_key") or dedup_key(c["title"])
+            source = f"{lens}:{shard.get('generator') or 'assistant'}"
+            if key in pool:
+                pool[key]["found_by"] = sorted(set(pool[key]["found_by"]) | {source})
+                for field, value in c.items():
+                    pool[key].setdefault(field, value)
+            else:
+                pool[key] = {**c, "dedup_key": key, "origin": "lens", "found_by": [source]}
+    out = sorted(pool.values(), key=lambda c: (c["origin"] != "user", c["dedup_key"]))
+    for n, c in enumerate(out, 1):
+        c["id"] = f"CAND-{n:04d}"
+    return out
+
+
+def feasibility(candidates: list[dict], max_nodes: int, max_walltime_s: int, screen_node_h: float) -> list[dict]:
+    """R13: only budget facts eliminate — a screening run that cannot fit one run's cap, or one seed that costs
+    more than the screening budget. Everything else is a note. A user hypothesis is annotated, never removed."""
+    out = []
+    for c in candidates:
+        run = c.get("estimated_run") or {}
+        nodes, walltime = run.get("nodes"), run.get("walltime_s")
+        reasons = []
+        if not isinstance(nodes, int) or not isinstance(walltime, int):
+            reasons.append("no estimated_run {nodes, walltime_s}: feasibility unknown")
+            feasible = None
+        else:
+            if nodes > max_nodes or walltime > max_walltime_s:
+                reasons.append(f"a screening run needs {nodes} nodes x {walltime} s, over the per-run cap "
+                               f"{max_nodes} x {max_walltime_s} s")
+            if nodes * walltime / 3600 > screen_node_h:
+                reasons.append(f"one seed costs {nodes * walltime / 3600:.2f} node-h, over the screening budget "
+                               f"{screen_node_h}")
+            feasible = not reasons
+        c = {**c, "feasible": feasible, "feasibility_reasons": reasons}
+        if c["origin"] == "user" and feasible is False:
+            c["feasibility_reasons"] = reasons + ["user hypothesis: kept for the user to decide"]
+        out.append(c)
+    return out
+
+
+def select(candidates: list[dict], ranking: list[dict], top_n: int) -> list[dict]:
+    """R15: the ideas that go to the novelty check: every user hypothesis, whatever its rank, plus the top_n
+    feasible new candidates by the triage ranking ([{candidate_id, rank}] from the triage review)."""
+    rank = {r["candidate_id"]: r["rank"] for r in ranking}
+    new = [c for c in candidates if c["origin"] != "user" and c.get("feasible") is not False]
+    new.sort(key=lambda c: rank.get(c["id"], 10 ** 6))
+    chosen = {c["id"] for c in new[:top_n]} | {c["id"] for c in candidates if c["origin"] == "user"}
+    return [{**c, "selected": c["id"] in chosen, "triage_rank": rank.get(c["id"])} for c in candidates]
+
+
+def write_candidates(root: Path, candidates: list[dict]) -> str:
+    path = root / CANDIDATES_PATH
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps({"updated": now(), "candidates": candidates}, ensure_ascii=False, indent=1) + "\n",
+                    encoding="utf-8")
+    return str(CANDIDATES_PATH)
+
+
+def read_candidates(root: Path) -> list[dict]:
+    path = root / CANDIDATES_PATH
+    return json.loads(path.read_text(encoding="utf-8"))["candidates"] if path.is_file() else []
+
+
+def read_shards(root: Path) -> list[dict]:
+    return [json.loads(p.read_text(encoding="utf-8"))
+            for p in sorted((root / "cache" / "discovery" / "shards").glob("*.json"))]
+
+
+# -- the gate ------------------------------------------------------------------------------------------------------
+
+
+def evaluate(root: Path, reviews: list[dict], literature: dict[str, bool], min_related_work: int,
+             report_path: str | None) -> dict:
+    """D8: every stage terminal with its artifact; the report has its sections (用户假说, 新发现候选, 淘汰想法) and
+    they are not empty; every selected candidate has a novelty_precheck and a critical_review, and at least
+    min_related_work verified literature documents (`literature`: doc id -> verified). Returns {verdict PASS or
+    BLOCKED, reasons} and records it in the state."""
+    state = _require(root)
+    reasons = []
+    for s in state["stages"]:
+        if s["stage"] == "gate":
+            continue
+        if not terminal(s):
+            reasons.append(f"{s['stage']}: {s['status']}" + (" (needs acceptance on evidence)"
+                                                             if s["status"] == "done" else ""))
+        elif s["status"] != "skipped" and s["stage"] != "brief" and not s.get("artifact"):
+            reasons.append(f"{s['stage']}: no artifact recorded")
+        elif s.get("artifact") and not (root / s["artifact"].partition("#")[0]).is_file():
+            reasons.append(f"{s['stage']}: artifact {s['artifact']} is missing")
+    if not report_path or not (root / report_path).is_file():
+        reasons.append("the discovery report (docs/project/reports/discovery.vN.md) is missing")
+    else:
+        text = (root / report_path).read_text(encoding="utf-8")
+        sections = dict(re.findall(r"^##[ \t]+(.+?)[ \t]*\n(.*?)(?=^##[ \t]|\Z)", text, re.M | re.S))
+        for name in REPORT_SECTIONS:
+            body = next((b for h, b in sections.items() if h.startswith(name)), None)
+            if body is None:
+                reasons.append(f"the report lacks the section ## {name}")
+            elif not re.sub(r"<!--.*?-->", "", body, flags=re.S).strip():
+                reasons.append(f"the report's section ## {name} is empty (write 无 when there is nothing)")
+    current = [r for r in reviews if r.get("status") == "current"]
+    for c in read_candidates(root):
+        if not c.get("selected"):
+            continue
+        kinds = {r["review_kind"] for r in current if r.get("review_about") == c["id"]}
+        for kind in ("novelty_precheck", "critical_review"):
+            if kind not in kinds:
+                reasons.append(f"{c['id']} ({c['title'][:40]}): no {kind} receipt")
+        cited = c.get("literature") or []
+        verified = [d for d in cited if literature.get(d)]
+        if len(verified) < min_related_work:
+            reasons.append(f"{c['id']}: {len(verified)} verified literature documents, needs {min_related_work}")
+    verdict = "BLOCKED" if reasons else "PASS"
+    with _locked(root):
+        state = _require(root)
+        state["gate"] = {"verdict": verdict, "reasons": reasons, "at": now(), "report": report_path}
+        gate = _stage(state, "gate")
+        gate.update(status="done" if verdict == "PASS" else "failed", artifact=report_path, updated=now())
+        _save(root, state)
+    return {"verdict": verdict, "reasons": reasons}

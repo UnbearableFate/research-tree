@@ -162,6 +162,10 @@ class Runtime:
         text = args["text"]
         if not isinstance(text, str) or not 1 <= len(text) <= 200:
             raise ValueError("text must contain 1..200 characters")
+        if kind == "confirm_request" and self.marker["phase"] == "planning":
+            blocked = tree.discovery_blocks_confirmation(self.cwd)  # 02 D8: the discovery gate first
+            if blocked:
+                raise ValueError(blocked)
         if kind != "notice":
             message = self.log_message(self.actor, "ui/ui", kind, text, args.get("docs"), re=args.get("re"))
         else:
