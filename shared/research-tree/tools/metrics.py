@@ -407,8 +407,8 @@ def outcome(effect: float | None, gain: float, n_pairs: int, min_pairs: int, com
     if n_pairs >= min_pairs and passes(-effect, gain, comparison):
         return "negative_signal", (f"effect {effect:.6g} is below -{gain:g} over {n_pairs} pairs "
                                    "(within the tested setting only)")
-    return "inconclusive", (f"effect {effect:.6g} over {n_pairs} pair(s): neither clear of {gain:g} nor a negative "
-                            f"signal over {min_pairs} pairs")
+    return "inconclusive", (f"effect {effect:.6g} over {n_pairs} pair(s): neither clear of {gain:g} nor below "
+                            f"-{gain:g} with at least {min_pairs} pairs (what a negative signal needs)")
 
 
 def minimal_documents(primary: str, direction: str, secondary: list[str], gain: float = 0.05) -> tuple[dict, dict]:

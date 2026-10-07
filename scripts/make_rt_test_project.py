@@ -23,7 +23,7 @@ TRAIN = '''"""Toy training run: logistic regression on a fixed synthetic split (
     python -m toytrain.train --method adam --seed 42 --out outputs/run [--sanity] [--epochs 30] [--lr 0.05]
 
 Writes OUT/metrics.json (accuracy as a fraction of the validation split, final_loss, train_time_s, counts),
-OUT/curve.csv (step, loss), OUT/train.log and OUT/model.pt (final weights as JSON text, disposable: the cleanup template removes *.pt).
+OUT/curve.csv (step, loss), OUT/curve.json (the same as {"step": [...], "loss": [...]}: manifest curve_path), OUT/train.log and OUT/model.pt (final weights as JSON text, disposable: the cleanup template removes *.pt).
 """
 from __future__ import annotations
 
@@ -114,6 +114,8 @@ def main(argv=None) -> int:
                "method": args.method, "data_version": DATA_VERSION, "sanity": args.sanity}
     (out / "metrics.json").write_text(json.dumps(metrics, indent=1) + "\\n")
     (out / "curve.csv").write_text("step,loss\\n" + "".join(f"{s},{v:.6f}\\n" for s, v in curve))
+    # the plugin's curve contract (build_site.load_curve): a JSON object of equal-length series with "step"
+    (out / "curve.json").write_text(json.dumps({"step": [s for s, _ in curve], "loss": [v for _, v in curve]}))
     (out / "model.pt").write_text(json.dumps({"w": w, "b": b}))
     log.write(f"done accuracy={metrics['accuracy']:.4f} final_loss={final_loss:.5f}\\n")
     log.close()
