@@ -18,6 +18,7 @@ import build_site
 import codex_prompts
 import notify
 import research_tree as tree
+import review_call
 import send_message as messaging
 from codex_state import actor_key, cache_dir, lock_busy, locked, read_json, write_json
 from research_db import CLI_METHODS, READ_METHODS, ResearchDB, busy_workers, describe, now_utc
@@ -428,6 +429,25 @@ class Runtime:
             return result
         if name == "research_control":
             return self.control(args["action"], args.get("params", {}))
+        if name == "research_review":
+            if self.actor != "rld/main":
+                raise ValueError("only the Leader organizes reviews")
+            entry = {"kind": args["kind"], "about": args["about"], "dimension": args.get("dimension"),
+                     "session": args.get("session")}
+            try:
+                result = review_call.review(self.cwd, args["kind"], args["brief"], args["about"], args.get("dimension"),
+                                            args.get("evaluation"), args.get("session"), args.get("add_dirs") or [],
+                                            self.actor)
+            except review_call.ReviewError as exc:
+                review_call.log_call(self.root, {**entry, "outcome": exc.code, "error": str(exc)[:600],
+                                                 "cost_usd": exc.cost})
+                self.summary()
+                raise ValueError(str(exc)) from None
+            review_call.log_call(self.root, {**entry, "outcome": "ok", "review_id": result["review_id"],
+                                             "session": result["session"], "backend": result["backend"],
+                                             "model": result["model_observed"], "cost_usd": result["cost_usd"]})
+            self.summary()
+            return result
         if name == "post_to_ui":
             return self.post(args)
         if name == "requirement_draft":

@@ -46,6 +46,9 @@
     │   │   └── stats.v1.json                # 统计代码的结构化输出（逐seed与配对比较），可选
     │   ├── decisions/prune-after-gate.v1.md # 节点决定的理由
     │   └── notes/                           # 补充分析、讨论（经rel_describes关联）
+    ├── reviews/                             # 跨模型非交互评审（review_call.py，作者 reviewer）
+    │   ├── RV-0003.v1.md                    # 一次评审；同一会话的追问写 v2
+    │   └── briefs/H-0007-numbers.v1.md      # RLD 写的 brief：只列路径与结构化元数据
     └── tasks/T-0088/
         ├── request.v1.md
         └── delivery.v1.md
@@ -115,6 +118,7 @@ created_at: 2026-10-03T10:21:00Z
 | `report` | RLD | 阶段总结、GO/NOT GO报告（第6、7节要求的内容） |
 | `metric_spec` | RLD | JSON：`{"version": 1, "primary": <主指标>, "metrics": [...]}`，每个指标 `name`、`direction`（higher/lower）、`input_unit`（run 报告的单位，如 fraction、percentage、seconds、gib）、`canonical_unit`（比较单位，如 percentage_point）、`effect_mode`（absolute 或 relative_to_reference_mean）、`minimum_practical_gain`、`aggregation`（paired_run_mean），可选 `allowed_regression`（保护指标允许的最大退化）、`valid_range`（输入单位的合法范围；fraction 默认 [0,1]、percentage 默认 [0,100]。百分数指标收到 0–1 的比例时默认范围查不出，需要时把 valid_range 收紧到实际可能的区间）、`relative_min_denominator`（相对效应必填）；指标恰为项目的主指标与其他比较指标。设为现行时接口校验 |
 | `protocol` | RLD | JSON：`{"version": 1, "eval_type": real_gt/synthetic_proxy/self_supervised_proxy/simulation_only/human_eval, "pair_fields": ["seed", ...], "match": {必须一致的设定}, "required_counts": {计数: 值}}`，可选 `gate_comparison`（">" 或 ">="，默认 ">"）、`min_pairs`、`require_artifact_import`、`description`；`profile`（`stage1_confirmed`（默认）：GO 需要独立确认；`screening`：搜索过门槛即 candidate_ready，GO 报告须写明未经独立确认）、`confirmation_seeds`（与搜索 seed 不重叠，至少 `min_confirmation_pairs` 个，默认 3）、`max_confirmation_candidates`、`independence_fields`（共享这些 manifest 字段的运行只算一次独立重复）。设为现行时接口校验 |
+| `review` | reviewer（只经 `review_call.py`） | front matter：kind、about、dimension 与 evaluation_id（candidate_recheck）、result、backend（pi/claude_code）、provider、请求与 observed 的模型、thinking、会话、brief 路径、终止原因、费用与用量、permission_denials、原始输出路径（`cache/reviews/`）；正文为 reviewer 原文与结构化 JSON。Leader 不能登记或替换 review 文档 |
 | `config` | RLD（mod 代用户登记） | 项目目录 `research-tree.yaml` 的原文：开发与实验平台、资源预算、阶段1门槛、子代理模型；立项确认与每次 `/research-tree config apply` 时登记新版本 |
 
 ## 5. 写入权限
@@ -122,6 +126,7 @@ created_at: 2026-10-03T10:21:00Z
 | 区域 | 写入者 | 说明 |
 |---|---|---|
 | `project/`、`hypotheses/*/hypothesis.*`、`novelty.*`、`theory.*`、`decisions/`、`workflow/`、`reports/` | RLD | 节点和项目层面的内容、复核与决定 |
+| `reviews/RV-*` | reviewer（review_call.py） | RLD 只写 `reviews/briefs/`（brief 本身不登记为 review） |
 | `instructions/` | UI | 只有UI登记用户指令；用户直接在main下达的指令由RLD代为登记 |
 | `hypotheses/*/experiments/`、`notes/`、`baselines/`、`literature/` | 被委派的worker或助手 | 只能写自己认领任务范围内的路径 |
 | `tasks/*/request.*` / `delivery.*` | RLD / 被委派者 | |

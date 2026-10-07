@@ -1,0 +1,68 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "type": "object",
+ "required": [
+  "verdict",
+  "score",
+  "closest_prior_work",
+  "delta_sentence",
+  "abandon_paper"
+ ],
+ "properties": {
+  "verdict": {
+   "enum": [
+    "PROCEED",
+    "PROCEED_WITH_CAUTION",
+    "ABANDON"
+   ]
+  },
+  "score": {
+   "type": "integer",
+   "minimum": 1,
+   "maximum": 10
+  },
+  "closest_prior_work": {
+   "type": "array",
+   "items": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": [
+     "title",
+     "id",
+     "overlap",
+     "difference"
+    ],
+    "properties": {
+     "title": {
+      "type": "string",
+      "minLength": 1
+     },
+     "id": {
+      "type": "string",
+      "minLength": 1
+     },
+     "overlap": {
+      "type": "string",
+      "minLength": 1
+     },
+     "difference": {
+      "type": "string",
+      "minLength": 1
+     }
+    }
+   },
+   "minItems": 0
+  },
+  "delta_sentence": {
+   "type": "string",
+   "minLength": 1
+  },
+  "abandon_paper": {
+   "type": [
+    "string",
+    "null"
+   ]
+  }
+ },
+ "title": "novelty_precheck"
+}

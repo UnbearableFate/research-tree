@@ -142,6 +142,9 @@ def db_fields(config: dict) -> dict:
             "total_limit": budget["total_limit"], "search_limit": budget["search_limit"],
             "confirmation_limit": budget["confirmation_limit"], "repair_limit": budget["repair_limit"],
             "overrun_factor": config["design"]["overrun_factor"],
+            # review.trigger candidate_ready: a GO candidate needs the cross-model rechecks (07, 09)
+            "recheck_required": config["review"]["trigger"] == "candidate_ready",
+            "review_usd_alert": budget["review_usd_alert"],
         }
     budget, stage1 = config["budget"], config["stage1"]
     return {

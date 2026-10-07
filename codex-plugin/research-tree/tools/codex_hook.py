@@ -19,7 +19,7 @@ CONFIG = "research-tree.yaml"
 READ_METHODS = {"help", "get", "find", "edges", "children", "history", "go_candidates", "latest_result",
                 "screen_seed_count", "export_snapshot", "verify_document", "resume_package", "cleanup_due",
                 "get_eligibility", "evaluations", "preview_evaluation", "obligations", "budget_status",
-                "reconcile_submission"}
+                "reconcile_submission", "reviews"}
 WORKFLOW = f"""research-tree 项目已启用。主会话是唯一 Research Leader。
 读取 {ROOT / 'skills/research-tree/SKILL.md'} 与 {ROOT / 'rules/research-tree-rules.md'}。
 只通过 research_db 修改研究数据库；已生效文档写新版本；节点不能修改冻结框架。
@@ -56,7 +56,7 @@ def research_calls(tokens):
     calls = []
     for i, token in enumerate(tokens):
         script = Path(token).name
-        if script not in {"research_db.py", "research_tree.py"}:
+        if script not in {"research_db.py", "research_tree.py", "review_call.py"}:
             continue
         actor = method = None
         j = i + 1
@@ -73,8 +73,37 @@ def research_calls(tokens):
     return calls
 
 
+def reviewer_bypass(tokens):
+    """A review goes through research_review (review_call.py), which records it: never pi or claude -p directly
+    (plans/design 09 §4)."""
+    start = True
+    for i, token in enumerate(tokens):
+        if token in {";", "&&", "||", "|", "&"}:
+            start = True
+            continue
+        name = Path(token).name
+        if start and name == "pi":
+            return "评审只经 research_review（review_call.py）调用，它登记 review 文档并记录费用；不要直接运行 pi。"
+        if start and name == "claude":
+            rest = []
+            for t in tokens[i + 1:]:
+                if t in {";", "&&", "||", "|", "&"}:
+                    break
+                rest.append(t)
+            if any(t in {"-p", "--print"} or t.startswith("--print=") for t in rest):
+                return "评审只经 research_review（review_call.py）调用；不要直接运行 claude -p / --print。"
+        start = start and (name in {"env", "nohup", "timeout", "exec", "command"} or "=" in token)
+    return None
+
+
 def call_block(calls, actor):
-    """Only the RLD drives the tools from a shell; a worker acts as itself, any other session only reads."""
+    """Only the RLD drives the tools from a shell; a worker acts as itself, any other session only reads. No one
+    writes as the reviewer: reviews are registered by review_call.py alone."""
+    for script, named, method in calls:
+        if script == "research_db.py" and (named or "").startswith("reviewer/"):
+            return "reviewer 身份只属于 review_call.py；评审用 research_review。"
+        if script == "review_call.py" and actor != "rld/main":
+            return f"{actor} 不发起评审：由 Leader 用 research_review 组织。"
     if actor == "rld/main":
         return None
     for script, named, method in calls:
@@ -115,7 +144,8 @@ def guard(event, cwd, summary, marker):
             tokens = list(shlex.shlex(command, posix=True, punctuation_chars=";&|<>"))
         except ValueError:
             return None  # let the shell report its own syntax error
-        blocked = call_block(research_calls(tokens), os.environ.get("RESEARCH_TREE_ACTOR", "rld/main"))
+        blocked = (reviewer_bypass(tokens) or
+                   call_block(research_calls(tokens), os.environ.get("RESEARCH_TREE_ACTOR", "rld/main")))
         if blocked:
             return blocked
         writer = False
@@ -152,8 +182,9 @@ def handle(event):
                 write_json(cache / "leader.json", {"session_id": event["session_id"], "model": event.get("model") or previous.get("model")})
             else:
                 return {"systemMessage": "research-tree已有另一RLD会话；若需要接管，先核对原会话与作业，再用research_control attach登记交接。"}
-    if kind == "SessionStart" and actor != "rld/main" and event.get("model"):
-        # The model the session actually runs on: the observed side of rule 2's model records.
+    if kind == "SessionStart" and event.get("model"):
+        # The model the session actually runs on: the observed side of rule 2's model records (for rld/main also
+        # the Leader's family, which a reviewer must differ from: plans/design 09 §2.1 step 3).
         log = Path(marker["root"]) / "logs" / "agent_models.jsonl"
         log.parent.mkdir(parents=True, exist_ok=True)
         with log.open("a", encoding="utf-8") as stream:

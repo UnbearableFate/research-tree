@@ -300,7 +300,17 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
                  ("ui/ui", f"{db_call} --actor ui/ui decide '{{}}'", True),
                  ("ui/ui", f"{db_call} --actor ui/ui get '{{}}'", False),
                  ("worker/root", "python tools/research_tree.py phase --set confirmed", True),
-                 ("rld/main", f"{db_call} --actor rld/main decide '{{}}'", False)]
+                 ("rld/main", f"{db_call} --actor rld/main decide '{{}}'", False),
+                 # reviews only through research_review: no direct pi / claude -p, no reviewer identity (09 §4)
+                 ("rld/main", "pi -p --mode json --model openai/gpt-6-astra 'review this'", True),
+                 ("rld/main", "cd x && env A=1 pi -p 'x'", True),
+                 ("rld/main", "claude -p --output-format json 'x'", True),
+                 ("rld/main", "claude --print 'x'", True),
+                 ("rld/main", "claude --version", False),
+                 ("rld/main", "echo pi", False),
+                 ("rld/main", f"{db_call} --actor reviewer/pi register_review '{{}}'", True),
+                 ("worker/root", "python tools/review_call.py --kind code_review --brief b --about H-0001", True),
+                 ("rld/main", "python tools/review_call.py --kind code_review --brief b --about H-0001", False)]
         for actor, command, denied in cases:
             event.update(tool_name="Bash", tool_input={"command": command})
             with patch.dict(os.environ, {"RESEARCH_TREE_ACTOR": actor}):
@@ -328,7 +338,7 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         responses = [json.loads(x) for x in proc.stdout.splitlines()]
         self.assertEqual([r["id"] for r in responses], [1, 2, 3, 4])
-        self.assertEqual(len(responses[1]["result"]["tools"]), 5)
+        self.assertEqual(len(responses[1]["result"]["tools"]), 6)  # with research_review (09 §4)
         self.assertTrue(responses[2]["result"]["isError"])
         self.assertEqual(responses[3]["result"], {})
 

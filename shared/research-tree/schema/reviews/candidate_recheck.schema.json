@@ -1,0 +1,82 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "type": "object",
+ "required": [
+  "dimension",
+  "result",
+  "evidence_paths",
+  "reason"
+ ],
+ "properties": {
+  "dimension": {
+   "enum": [
+    "numbers",
+    "protocol",
+    "method_code",
+    "novelty",
+    "theory"
+   ]
+  },
+  "result": {
+   "enum": [
+    "pass",
+    "fail",
+    "uncertain",
+    "not_applicable"
+   ]
+  },
+  "checklist": {
+   "type": "array",
+   "items": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": [
+     "item",
+     "result",
+     "note"
+    ],
+    "properties": {
+     "item": {
+      "enum": [
+       "A",
+       "B",
+       "C",
+       "D",
+       "E",
+       "F",
+       "G",
+       "H",
+       "I"
+      ]
+     },
+     "result": {
+      "enum": [
+       "pass",
+       "fail",
+       "uncertain",
+       "not_applicable"
+      ]
+     },
+     "note": {
+      "type": "string",
+      "minLength": 1
+     }
+    }
+   },
+   "minItems": 0
+  },
+  "evidence_paths": {
+   "type": "array",
+   "items": {
+    "type": "string",
+    "minLength": 1
+   },
+   "minItems": 0
+  },
+  "reason": {
+   "type": "string",
+   "minLength": 1
+  }
+ },
+ "title": "candidate_recheck"
+}

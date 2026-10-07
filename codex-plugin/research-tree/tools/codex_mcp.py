@@ -36,6 +36,10 @@ TOOLS = [
     {"name": "research_message", "description": "Send a validated short message to RLD, or resend an existing id unchanged. Delivery state is returned separately from durable recording.",
      "inputSchema": schema({"type": STRING, "text": STRING, "docs": {"type": "array", "items": STRING},
                             "about": {"type": "array", "items": STRING}, "re": STRING, "resend": STRING})},
+    {"name": "research_review", "description": "RLD: run one cross-model, non-interactive review (plans/design 09) through review_call.py: kind triage, novelty_precheck, critical_review, proposal_review, ablation_plan, code_review or candidate_recheck (with dimension numbers/protocol/method_code/novelty/theory and the evaluation it rechecks). brief is a file under the research root listing paths and structured metadata only, never your summary. The review is registered by the reviewer role; REVIEW_UNAVAILABLE / REVIEW_INVALID / REVIEW_BUDGET are never replaced by a self-review.",
+     "inputSchema": schema({"kind": STRING, "brief": STRING, "about": STRING, "dimension": STRING, "evaluation": STRING,
+                            "session": STRING, "add_dirs": {"type": "array", "items": STRING}},
+                           ["kind", "brief", "about"])},
     {"name": "requirement_draft", "description": "UI only: save a requirement draft with source user-message IDs; this does not submit it to RLD. Use a submit action in the UI's final response to submit.",
      "inputSchema": schema({"req": STRING, "title": STRING, "fields": OBJECT,
                             "messages": {"type": "array", "items": STRING},
@@ -75,7 +79,7 @@ def run_request(cwd: Path, actor: str, name: str, arguments: dict) -> dict:
                              "--actor", actor], input=json.dumps({"tool": name, "arguments": arguments}),
                             text=True, capture_output=True, cwd=cwd,
                             # a cleanup deletes run outputs and may take a while on shared storage
-                            timeout=1800 if arguments.get("method") == "run_cleanup" else 90)
+                            timeout=1800 if arguments.get("method") == "run_cleanup" or name == "research_review" else 90)
     try:
         response = json.loads(result.stdout)
     except ValueError:

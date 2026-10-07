@@ -65,6 +65,9 @@ CREATE TABLE project (
     admission_paused    TEXT,                  -- 准入暂停的原因（实际超额等）；新的提交预留被拒，直到用户处理
     stall_structural_at INTEGER NOT NULL DEFAULT 2,  -- 子树连续几批没有新发现即须换向（同方向子节点被拒）
     stall_human_at      INTEGER NOT NULL DEFAULT 4,  -- 连续几批没有新发现即上报用户
+    recheck_required    BOOLEAN NOT NULL DEFAULT FALSE,  -- GO 候选须有跨模型复核（review.trigger: candidate_ready；07、09）
+    review_usd_alert    REAL,                  -- 累计评审费用提醒阈值（USD）；达到后暂停新的评审调用
+    review_cost_usd     REAL NOT NULL DEFAULT 0,  -- 评审调用的累计费用（review_call.py 登记）
     protocol_doc_id     TEXT,                  -- 现行实验协议（JSON 文档：评测类型、配对字段、必须一致的设定）
     metric_spec_doc_id  TEXT,                  -- 现行指标规范（JSON 文档：每个指标的方向、单位、效应、最小实际收益、保护阈值）
     -- 冻结的实验框架与统计代码（根节点 worker 实现，RLD 审核）
@@ -369,6 +372,7 @@ CREATE TABLE document (
                             'user_instruction', 'task_request', 'task_delivery',
                             'workflow', 'report', 'config',
                             'protocol', 'metric_spec',
+                            'review',          -- 跨模型非交互评审（review_call.py，作者只能是 reviewer）
                             'other'
                         )),
     title               TEXT NOT NULL,
@@ -379,10 +383,18 @@ CREATE TABLE document (
                             'superseded'       -- 已被新版本或新指令取代
                         )),
     author_role         TEXT NOT NULL CHECK (author_role IN (
-                            'user', 'ui', 'rld', 'worker', 'assistant', 'web_builder'
+                            'user', 'ui', 'rld', 'worker', 'assistant', 'web_builder', 'reviewer'
                         )),
     author_id           TEXT NOT NULL,
     sha256              TEXT,
+    review_kind         TEXT,                  -- review：triage、novelty_precheck、critical_review、proposal_review、ablation_plan、code_review、candidate_recheck
+    review_result       TEXT,                  -- review：kind 的结论（candidate_recheck 的 pass/fail/uncertain/not_applicable，novelty 的 verdict 等）
+    review_dimension    TEXT,                  -- candidate_recheck：numbers、protocol、method_code、novelty、theory
+    review_backend      TEXT,                  -- pi | claude_code
+    reviewer_model      TEXT,                  -- observed 的 provider/model
+    basis_evaluation_id TEXT,                  -- candidate_recheck 所复核的 evaluation
+    basis_code_ref      TEXT,                  -- 该 evaluation 的代码版本（只核实现的维度按它复用）
+    review_session      TEXT,                  -- 评审会话（RV-编号）；同会话续接写新版本
     created_at          TEXT NOT NULL
 );
 

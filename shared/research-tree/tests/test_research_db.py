@@ -2056,7 +2056,7 @@ class SchemaUpgradeTest(unittest.TestCase):
                 rld.register_document("s.v1.md", "min_setup", "s")
             self.assertEqual(create_db.upgrade_db(db), 6)
             rld.register_document("s.v1.md", "min_setup", "s")
-            self.assertEqual(create_db.upgrade_db(db), 9)  # nothing more to do
+            self.assertEqual(create_db.upgrade_db(db), create_db.SCHEMA_VERSION)  # nothing more to do
             self.assertEqual(rdb.SCHEMA_VERSION, create_db.SCHEMA_VERSION)
 
 
@@ -2609,3 +2609,67 @@ class SessionTest(Fixture):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class CandidateRecheckTest(Fixture):
+    """07 §2–§3, 09 candidate_recheck: with recheck_required a GO candidate needs a current cross-model review per
+    dimension, bound to its evaluation (numbers, protocol) or code (method_code, novelty, theory)."""
+
+    def review(self, h: str, dimension: str, result: str, evaluation: str) -> str:
+        self.n += 1
+        rev = ResearchDB(self.db, "reviewer/pi")
+        path = f"reviews/RV-{self.n:04d}.v1.md"
+        (rev.docs_root / "reviews").mkdir(exist_ok=True)
+        (rev.docs_root / path).write_text(f"# {dimension}\n{result}\n", encoding="utf-8")
+        return rev.register_review(path, f"candidate_recheck {h} {dimension}", "candidate_recheck", [h], result,
+                                   f"RV-{self.n:04d}", "pi", "openai/gpt-6-astra", 0.01, dimension=dimension,
+                                   evaluation_id=evaluation)
+
+    def test_go_needs_bound_cross_model_rechecks(self):
+        h, exp = self.candidate()
+        self.rld.update_project(recheck_required=True)
+        state = self.rld.get_eligibility(h)
+        self.assertFalse(state["eligible"])
+        self.assertIn("RECHECK_PENDING", state["reasons"])
+        self.assertEqual({r["state"] for r in state["rechecks"]}, {"missing"})
+        basis = state["basis_evaluation_id"]
+        for dimension in ("numbers", "protocol", "method_code", "novelty"):
+            self.review(h, dimension, "pass", basis)
+        self.review(h, "theory", "not_applicable", basis)
+        state = self.rld.get_eligibility(h)
+        self.assertTrue(state["eligible"], state)
+        # what was checked, on which evaluation, and by whom
+        row = next(r for r in state["rechecks"] if r["dimension"] == "numbers")
+        self.assertEqual((row["evaluation_id"], row["backend"], row["reviewer_model"], row["result"]),
+                         (basis, "pi", "openai/gpt-6-astra", "pass"))
+        self.review(h, "numbers", "uncertain", basis)
+        self.assertIn("RECHECK_UNCERTAIN", self.rld.get_eligibility(h)["reasons"])
+        self.review(h, "numbers", "fail", basis)
+        self.assertIn("RECHECK_FAILED", self.rld.get_eligibility(h)["reasons"])
+        self.review(h, "numbers", "pass", basis)
+        self.assertTrue(self.rld.get_eligibility(h)["eligible"])
+        self.assertEqual(self.rld.get("P-test")["review_cost_usd"], 0.08)
+
+    def test_recheck_binding_and_permissions(self):
+        h, exp = self.candidate()
+        self.rld.update_project(recheck_required=True)
+        basis = self.rld.get_eligibility(h)["basis_evaluation_id"]
+        other = self.hypothesis()
+        with self.assertRaisesRegex(ResearchDBError, "about the node of"):
+            self.review(other, "numbers", "pass", basis)
+        first = self.review(h, "numbers", "pass", basis)
+        second = self.review(h, "protocol", "pass", basis)
+        with self.assertRaises(PermissionDenied):  # reviews are versioned by review_call.py only
+            self.rld.supersede_document(first, second)
+        with self.assertRaisesRegex(ResearchDBError, "BUDGET_EXCEEDED: raising recheck_required"):
+            self.rld.update_project(recheck_required=False)
+        # a later evaluation of the same code keeps the code-bound rechecks and makes the numbers stale
+        for dimension in ("method_code", "novelty", "theory"):
+            self.review(h, dimension, "pass", basis)
+        later = self.method(h, code_ref=self.rld.get(exp)["code_ref"], walltime_s=1700)  # same code, rerun
+        self.evaluate(later, "beats_sota")
+        state = self.rld.get_eligibility(h)
+        states = {r["dimension"]: r["state"] for r in state["rechecks"]}
+        self.assertEqual(states, {"numbers": "stale", "protocol": "stale", "method_code": "pass", "novelty": "pass",
+                                  "theory": "pass"})
+        self.assertIn("RECHECK_STALE", state["reasons"])
