@@ -7,7 +7,7 @@ summary: "E-0003 判定 no_gain"
 about: []
 author_role: "worker"
 author_id: "h0002"
-created_at: "2026-10-06T23:53:41Z"
+created_at: "2026-10-07T00:41:34Z"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
 

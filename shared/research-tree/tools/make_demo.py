@@ -460,6 +460,24 @@ class Demo:
                             f"{conf} 确认结果", f"确认 seed 上相对确认基线 Δacc {cmps[0]['delta_mean']:+.3f}。\n"
                             + self.evidence(conf, cmps), f"{conf} 独立确认")
         wk3.evaluate_experiment(conf, c_result)
+        # Cross-model rechecks of the candidate (09 candidate_recheck), as review_call.py records them (fictional).
+        reviewer = ResearchDB(db_path, "reviewer/pi")
+        basis = rld.get_eligibility(h3)["basis_evaluation_id"]
+        notes = {"numbers": "结果文档的数字均可在所引指标文件中找到；归一化与评测标签来源无问题（虚构）。",
+                 "protocol": "训练步数、评测条数与协议一致（虚构）。",
+                 "method_code": "尺度平衡在优化器 step 中执行，并被训练脚本调用（虚构）。",
+                 "novelty": "最接近的文献A、B未同时处理二阶矩与因子尺度（虚构）。",
+                 "theory": "尺度平衡的论证与 loss_auc 的改善一致，结论范围未超出证据（虚构）。"}
+        for n, (dimension, note) in enumerate(notes.items(), 1):
+            rel = f"reviews/RV-{n:04d}.v1.md"
+            (self.docs / "reviews").mkdir(parents=True, exist_ok=True)
+            (self.docs / rel).write_text(
+                f"---\nkind: candidate_recheck\nabout: {h3}\ndimension: {dimension}\nevaluation_id: {basis}\n"
+                "result: pass\nbackend: pi\nmodel_observed: openai/gpt-6-astra\n---\n\n"
+                f"{FICTION}# candidate_recheck：{h3}（{dimension}）\n\n{note}\n", encoding="utf-8")
+            reviewer.register_review(rel, f"candidate_recheck {h3} {dimension}", "candidate_recheck", [h3], "pass",
+                                     f"RV-{n:04d}", "pi", "openai/gpt-6-astra", 0.05, dimension=dimension,
+                                     evaluation_id=basis, summary=f"pi openai/gpt-6-astra: pass")
         del db_path
         # H-0004: child of H-0001 — no gain against the parent; pruned.
         h4 = node("子批次二阶矩 + 动量重标度", "按子批次方差重标度动量可减少噪声。", [lit[0], lit[1], lit[4]], parent=h1,
