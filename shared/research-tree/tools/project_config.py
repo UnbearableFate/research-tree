@@ -134,7 +134,7 @@ def db_fields(config: dict) -> dict:
             "screen_budget_node_h": budget["screen_node_h"],
             "max_parallel_workers": budget["max_parallel_workers"],
             "alert_node_h": budget["alert_node_h"],
-            "gate_seeds": len(seeds), "seeds": seeds,
+            "gate_seeds": len(seeds), "seeds": seeds, "screen_seeds": len(v["screening_seeds"]),
             "go_margin": config["metric_specs"][0]["minimum_practical_gain"],
             "min_related_work": config["literature"]["min_related_work"],
             "stall_structural_at": config["search"]["stall_structural_at"],

@@ -210,7 +210,7 @@ ATTEMPT_FIELDS = (REPORTED_FIELDS + RUN_MEASUREMENTS + IMPORT_FIELDS
                   + ("retracted_at", "retracted_reason", "submission_key"))
 # Settings from the project configuration (research-tree.yaml) besides the caps and gates above.
 LIMIT_FIELDS = ("max_parallel_workers", "alert_node_h", "config_doc_id", "total_limit", "search_limit",
-                "confirmation_limit", "repair_limit", "overrun_factor", "stall_structural_at", "stall_human_at")
+                "confirmation_limit", "repair_limit", "overrun_factor", "stall_structural_at", "stall_human_at", "screen_seeds")
 # The documents evaluations are computed under (plans/design/04): protocol and metric specification.
 EVIDENCE_DOC_FIELDS = ("protocol_doc_id", "metric_spec_doc_id")
 # Caps the user authorizes (10 §1.5): an agent may lower them, raising one (or lifting it, None) needs the user.
@@ -1806,14 +1806,16 @@ class ResearchDB:
             return self._screen_seeds(tx, self._project(tx))
 
     def _screen_seeds(self, tx: _Tx, project: dict) -> int:
-        """Largest n <= gate_seeds with n x (SOTA first-seed node-hours) < screen budget; at least 1."""
+        """Largest n <= gate_seeds (and <= screen_seeds, the configured screening seeds) with n x (SOTA first-seed
+        node-hours) < screen budget; at least 1."""
         sota = project.get("sota_experiment_id")
         if not sota:
             raise ResearchDBError("set the SOTA baseline before node experiments; its cost fixes the screening seeds")
         run = tx.require(f"{sota}/s{project['seeds'][0]}", ("run",))
         cost = run["nodes_used"] * run["walltime_used_s"] / 3600
         n = 1
-        while n < project["gate_seeds"] and (n + 1) * cost < project["screen_budget_node_h"]:
+        cap = min(project["gate_seeds"], project.get("screen_seeds") or project["gate_seeds"])
+        while n < cap and (n + 1) * cost < project["screen_budget_node_h"]:
             n += 1
         return n
 

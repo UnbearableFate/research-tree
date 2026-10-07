@@ -244,6 +244,8 @@ Claude 版提供内嵌窗口、面板和状态栏；Codex 版使用独立终端�
 4. 唤醒后只核对原作业与导入结果，把控制交回 RLD；不作判定、不自动验收。
 5. 不修改 `research-tree.yaml`、已生效文档与冻结框架。
 
+站点技能的一个参考：[miyabi-toolbox](https://github.com/tsukuba-hpcs/miyabi-toolbox)（筑波大学 Miyabi 集群）。
+
 研究对话中尚未得到 RLD 回执的消息显示在状态栏，也可用 `/research-tree inbox` 查看。
 
 **配置何时生效：**立项确认前，文件修改用于当前规划；确认时登记为生效版本。确认后须运行 `config apply`，插件会生成 `docs/project/config.vN.yaml`、记录用户指令并更新项目记录。新启动的子代理使用现行配置，活跃 worker 由 Leader 转告变更。

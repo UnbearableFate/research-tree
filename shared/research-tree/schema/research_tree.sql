@@ -65,6 +65,7 @@ CREATE TABLE project (
     admission_paused    TEXT,                  -- 准入暂停的原因（实际超额等）；新的提交预留被拒，直到用户处理
     stall_structural_at INTEGER NOT NULL DEFAULT 2,  -- 子树连续几批没有新发现即须换向（同方向子节点被拒）
     stall_human_at      INTEGER NOT NULL DEFAULT 4,  -- 连续几批没有新发现即上报用户
+    screen_seeds        INTEGER,               -- 筛选 seed 数上限（version 2：verification.screening_seeds 的个数）；空则只按筛选预算
     protocol_doc_id     TEXT,                  -- 现行实验协议（JSON 文档：评测类型、配对字段、必须一致的设定）
     metric_spec_doc_id  TEXT,                  -- 现行指标规范（JSON 文档：每个指标的方向、单位、效应、最小实际收益、保护阈值）
     -- 冻结的实验框架与统计代码（根节点 worker 实现，RLD 审核）
