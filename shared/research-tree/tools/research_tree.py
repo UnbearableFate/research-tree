@@ -498,6 +498,12 @@ def discovery_command(cwd: Path, args) -> dict:
         return discovery.accept(root, args.stage, args.evidence, reviewer_records(reader), args.verifier)
     if args.action == "resume":
         return {"resume": discovery.resume_point(root)}
+    if args.action == "cite":
+        for doc_id in args.literature:
+            doc = reader.get(doc_id)
+            if not doc or doc.get("doc_type") != "literature":
+                raise TreeError(f"{doc_id} is not a literature document")
+        return discovery.cite(root, args.candidate, args.literature)
     if args.action == "check":  # may the start-up plan be put to the user?
         return {"blocked": discovery_blocks_confirmation(cwd)}
     if args.action == "merge":
@@ -522,7 +528,7 @@ def discovery_command(cwd: Path, args) -> dict:
         chosen = discovery.select(discovery.read_candidates(root), ranking, top_n)
         return {"path": discovery.write_candidates(root, chosen), "candidates": chosen}
     if args.action == "gate":
-        literature = {d["id"]: reader._literature_verified_path(d["path"]) for d in reader.find("document")
+        literature = {d["id"]: d.get("literature_check") == "verified" for d in reader.find("document")
                       if d["doc_type"] == "literature" and d["status"] == "current"}
         project = (reader.find("project") or [None])[0]
         need = (project or project_config.db_fields(conf))["min_related_work"]
@@ -603,7 +609,7 @@ def main(argv: list[str] | None = None) -> int:
     dv = sub.add_parser("discovery", help="discovery before the project starts (plans/design 02): stage state, "
                                           "candidate pool, gates")
     dv.add_argument("action", choices=("start", "status", "set", "accept", "resume", "merge", "feasibility",
-                                       "select", "gate", "check"))
+                                       "select", "gate", "check", "cite"))
     dv.add_argument("--stage")
     dv.add_argument("--status", choices=discovery.EXECUTOR_STATUSES)
     dv.add_argument("--artifact", help="the stage's output, relative to the research root")
@@ -612,6 +618,8 @@ def main(argv: list[str] | None = None) -> int:
     dv.add_argument("--user-hypotheses", help="merge: JSON list of the user's hypotheses (title, summary, ...)")
     dv.add_argument("--triage", help="select: the triage review document id")
     dv.add_argument("--report", help="gate: the discovery report, relative to the research root")
+    dv.add_argument("--candidate", help="cite: the candidate (CAND-…)")
+    dv.add_argument("--literature", nargs="*", default=[], help="cite: literature document ids (D-…)")
     sub.add_parser("status")
     args = p.parse_args(argv)
     cwd = Path.cwd()

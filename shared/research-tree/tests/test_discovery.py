@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import json
+import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -119,8 +122,17 @@ class ReceiptTest(Fixture):
     """R09, R10, R16: verified literature and discovery receipts before an initial node."""
 
     def lit_doc(self, verified: bool) -> str:
-        head = f"---\ntitle: x\nverification: {'verified' if verified else 'unverified'}\n---\n\n# x\n"
-        return self.doc(self.worker, f"literature/LIT-v{self.n}.v1.md", "literature", body=head)
+        """A literature document checked through verify_literature (the network layer stubbed)."""
+        from unittest import mock
+        import literature
+        title = f"paper {self.n} {'real' if verified else 'ghost'}"
+        # a hand-typed verification line in the file never counts: only the recorded check does
+        doc = self.doc(self.worker, f"literature/LIT-v{self.n}.v1.md", "literature",
+                       body=f"---\ntitle: \"{title}\"\nverification: verified\n---\n\n# x\n")
+        verdict = {"verification": "verified" if verified else "unverified", "method": "arxiv", "detail": "stub"}
+        with mock.patch.object(literature, "verify", return_value=verdict):
+            self.worker.verify_literature(doc)
+        return doc
 
     def review(self, about: str, kind: str, result: str) -> str:
         self.n += 1
@@ -135,15 +147,20 @@ class ReceiptTest(Fixture):
         self.rld.update_project(literature_verification=True)
         lit = [self.lit_doc(True), self.lit_doc(True), self.lit_doc(False)]
         doc = self.doc(self.rld, "h/x/hypothesis.v1.md", "hypothesis")
-        with self.assertRaisesRegex(ResearchDBError, "only 2 of the cited literature documents are verified"):
+        with self.assertRaisesRegex(ResearchDBError, "LITERATURE_UNVERIFIED: only 2 of the cited"):
             self.rld.create_hypothesis("h", "s", doc, lit)
         self.rld.create_hypothesis("h", "s", doc, lit[:2] + [self.lit_doc(True)])
 
     def test_r09_r16_receipts(self):
         self.rld.update_project(require_precheck=True)
         doc = self.doc(self.rld, "h/y/hypothesis.v1.md", "hypothesis")
-        with self.assertRaisesRegex(ResearchDBError, "names its discovery candidate"):
+        with self.assertRaisesRegex(ResearchDBError, "PRECHECK_REQUIRED: .*names its discovery candidate"):
             self.rld.create_hypothesis("h", "s", doc, self.literature)
+        with self.assertRaisesRegex(ResearchDBError, "PRECHECK_REQUIRED: .*after the discovery gate passed"):
+            self.rld.create_hypothesis("h", "s", doc, self.literature, candidate_id="CAND-0001")
+        state = self.root / "cache" / "discovery" / "state.json"
+        state.parent.mkdir(parents=True)
+        state.write_text(json.dumps({"gate": {"verdict": "PASS"}}))
         with self.assertRaisesRegex(ResearchDBError, "CAND-0001 has no novelty_precheck and no critical_review"):
             self.rld.create_hypothesis("h", "s", doc, self.literature, candidate_id="CAND-0001")
         self.review("CAND-0001", "novelty_precheck", "ABANDON")
@@ -161,6 +178,42 @@ class ReceiptTest(Fixture):
         self.review("CAND-0002", "critical_review", "proceed")
         self.rld.create_hypothesis("h2", "s", doc, self.literature, candidate_id="CAND-0002")
         self.assertEqual([r["review_about"] for r in self.rld.reviews(about="CAND-0002")], ["CAND-0002"] * 2)
+
+
+class CommandTest(unittest.TestCase):
+    """The discovery subcommand end to end on a project (no network, no reviewer): merge selects the user
+    hypotheses, cite attaches literature, the gate reports, and the start-up plan stays blocked until PASS."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.cwd = Path(self.tmp.name)
+        (self.cwd / "plan.md").write_text("# 计划\n", encoding="utf-8")
+
+    def tool(self, *args):
+        out = subprocess.run([sys.executable, str(TOOLS / "research_tree.py"), *args], cwd=self.cwd,
+                             capture_output=True, text=True, env={**os.environ})
+        return json.loads(out.stdout)
+
+    def test_precheck_flow(self):
+        import research_tree
+        config = (TOOLS.parent / "schema" / "config.template.yaml").read_text(encoding="utf-8")
+        (self.cwd / "research-tree.yaml").write_text(config.replace("  mode: full ", "  mode: precheck "),
+                                                    encoding="utf-8")
+        self.assertTrue(self.tool("init", "plan.md", "--project-id", "P-d")["ok"])
+        blocked = self.tool("discovery", "check")["result"]["blocked"]
+        self.assertIn("尚未运行", blocked)
+        self.assertEqual(research_tree.discovery_blocks_confirmation(self.cwd), blocked)
+        self.assertEqual(self.tool("discovery", "start")["result"]["mode"], "precheck")
+        (self.cwd / "users.json").write_text(json.dumps([{"title": "Adam warmup", "summary": "u"}]))
+        merged = self.tool("discovery", "merge", "--user-hypotheses", "users.json")["result"]["candidates"]
+        self.assertEqual([(c["id"], c["origin"], c["selected"]) for c in merged], [("CAND-0001", "user", True)])
+        self.assertIn("not a literature document", self.tool("discovery", "cite", "--candidate", "CAND-0001",
+                                                             "--literature", "D-0001")["error"])
+        gate = self.tool("discovery", "gate", "--report", "docs/project/reports/discovery.v1.md")["result"]
+        self.assertEqual(gate["verdict"], "BLOCKED")
+        self.assertIn("CAND-0001 (Adam warmup): no novelty_precheck receipt", gate["reasons"])
+        self.assertIn("discovery 门尚未通过", self.tool("discovery", "check")["result"]["blocked"])
 
 
 if __name__ == "__main__":

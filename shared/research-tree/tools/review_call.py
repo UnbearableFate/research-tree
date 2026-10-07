@@ -39,6 +39,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 
 from jsonschema import Draft202012Validator  # noqa: E402
 
+import discovery  # noqa: E402
 import research_tree as tree  # noqa: E402
 from research_db import (CANDIDATE_ID_RE, RECHECK_DIMENSIONS, REVIEW_KINDS, ResearchDB,  # noqa: E402
                          ResearchDBError)
@@ -70,20 +71,7 @@ def now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def family(model: str | None) -> str | None:
-    """The model family of a provider/model or a bare model id; None when it cannot be told."""
-    if not model:
-        return None
-    m = model.lower()
-    if "/" in m:
-        provider = m.split("/", 1)[0]
-        return {"gemini": "google", "google": "google"}.get(provider, provider)
-    for prefix, fam in (("claude", "anthropic"), ("gpt", "openai"), ("o1", "openai"), ("o3", "openai"),
-                        ("o4", "openai"), ("codex", "openai"), ("chatgpt", "openai"), ("gemini", "google"),
-                        ("deepseek", "deepseek")):
-        if m.startswith(prefix):
-            return fam
-    return None
+family = discovery.family  # one model-family table for every review decision
 
 
 def leader_model(root: Path) -> str | None:

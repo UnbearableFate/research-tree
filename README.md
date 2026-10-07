@@ -237,6 +237,9 @@ Claude 版提供内嵌窗口、面板和状态栏；Codex 版使用独立终端�
 | `notify.url` | 可选：确认请求与用量提醒同时 POST 到这个地址；超时不等于同意，记录在 `logs/notify.jsonl` | `null` |
 | `literature.min_related_work` | 每个假说至少引用的相关研究数 | `3` |
 | `models.ui` / `models.worker` | 子代理的模型与 effort | `inherit` / 模型默认 |
+| `models.lens_assistant` | 发现阶段 lens 助手的模型与 effort（Claude 宿主） | `inherit` |
+| `discovery.mode` / `require_precheck` / `triage_top_n` | 立项前发现：`full`、`precheck` 或 `off`；初始节点须有查新与评审回执；triage 后进入查新的新候选数 | `full` / `true` / `4` |
+| `literature.require_verified` | 只有经 `verify_literature` 核验存在的文献计入 `min_related_work` | `true` |
 | `models.reviewer` | 跨模型评审：`provider/model`、thinking、`require_cross_family`、超时 | `openai/gpt-6-astra`，high |
 | `review.trigger` / `budget.review_usd_alert` | GO 候选须跨模型复核 / 累计评审费用提醒（达到后暂停评审调用） | `candidate_ready` / `null` |
 

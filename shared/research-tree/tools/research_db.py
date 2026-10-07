@@ -892,10 +892,11 @@ class ResearchDB:
             if project.get("literature_verification"):
                 verified = [d for d in related if self._literature_verified(tx, d)]
                 if len(verified) < project["min_related_work"]:
-                    raise ResearchDBError(
+                    raise CodedError(
+                        "LITERATURE_UNVERIFIED",
                         f"only {len(verified)} of the cited literature documents are verified to exist "
-                        f"(front matter verification: verified); a node needs {project['min_related_work']} — "
-                        "unverified literature is kept but does not count (literature.py verify)")
+                        f"(research_db verify_literature); a node needs {project['min_related_work']} — "
+                        "unverified literature is kept but does not count")
             if project.get("require_precheck") and parent_id in (None, project["id"]):
                 self._check_receipts(tx, candidate_id, user_instruction_doc_id)
             elif candidate_id is not None and not CANDIDATE_ID_RE.fullmatch(candidate_id):
@@ -969,20 +970,47 @@ class ResearchDB:
                                   f"has the '## ' sections {', '.join(EXPERIMENT_DESIGN_SECTIONS)} (03 §4, §10)")
 
     def _literature_verified(self, tx: _Tx, doc_id: str) -> bool:
-        return self._literature_verified_path(tx.get(doc_id)["path"])
+        """Verified by verify_literature (the record), never by a line someone typed into the file."""
+        return tx.get(doc_id).get("literature_check") == "verified"
 
-    def _literature_verified_path(self, rel: str) -> bool:
-        """A literature document whose front matter records `verification: verified` (literature.py)."""
-        path = self.docs_root / rel
-        text = path.read_text(encoding="utf-8") if path.is_file() else ""
-        head = re.match(r"^---\n(.*?)\n---", text, re.S)
-        return bool(head and re.search(r"^verification:\s*[\"']?verified[\"']?\s*$", head.group(1), re.M))
+    def verify_literature(self, doc_id: str) -> dict:
+        """08 §2: check that a literature document's paper exists (literature.verify: arXiv id → CrossRef DOI →
+        Semantic Scholar title, from the document's front matter) and record the result on the document. Network
+        access happens here; an unreachable service gives unverified (pending), never an error."""
+        self._require_role("rld", "worker", "assistant")
+        import literature
+        with self.reader() as tx:
+            doc = tx.require(doc_id, ("document",))
+        if doc["doc_type"] != "literature":
+            raise ResearchDBError(f"{doc_id} is a {doc['doc_type']}, not literature")
+        import yaml
+        text = (self.docs_root / doc["path"]).read_text(encoding="utf-8")
+        block = re.match(r"^---\n(.*?)\n---", text, re.S)
+        try:
+            head = (yaml.safe_load(block.group(1)) if block else None) or {}
+        except yaml.YAMLError:
+            head = {}
+        if not head.get("title"):
+            raise ResearchDBError(f"{doc_id} has no front matter title (write it with literature.py note)")
+        result = literature.verify({"title": head.get("title"), "arxiv_id": head.get("arxiv_id"),
+                                    "doi": head.get("doi"), "year": head.get("year"),
+                                    "authors": head.get("authors") or []})
+        with self._writer() as tx:
+            self._update(tx, doc_id, {"literature_check": result["verification"],
+                                      "literature_check_detail": f"{result.get('method')}: {result.get('detail')}"[:300]})
+        return result
 
     def _check_receipts(self, tx: _Tx, candidate_id: str | None, user_instruction_doc_id: str | None) -> None:
         """02 §3 D8 / R09: an initial node needs its candidate's novelty and critical-review receipts."""
         if not candidate_id or not CANDIDATE_ID_RE.fullmatch(candidate_id):
-            raise ResearchDBError("discovery.require_precheck: an initial node names its discovery candidate "
-                                  "(candidate_id CAND-…) whose novelty_precheck and critical_review it rests on")
+            raise CodedError("PRECHECK_REQUIRED", "discovery.require_precheck: an initial node names its discovery "
+                                                  "candidate (candidate_id CAND-…) whose novelty_precheck and "
+                                                  "critical_review it rests on")
+        state = self.db_path.parent / "cache" / "discovery" / "state.json"
+        gate = (json.loads(state.read_text(encoding="utf-8")).get("gate") or {}) if state.is_file() else {}
+        if gate.get("verdict") != "PASS":
+            raise CodedError("PRECHECK_REQUIRED", "initial nodes are created after the discovery gate passed "
+                                                  "(research_tree.py discovery gate --report …)")
         docs = [tx.get(i) for i in tx.ids("document", "WHERE n.doc_type = $t", t="review")]
         mine = [d for d in docs if d["status"] == "current" and d.get("review_about") == candidate_id]
 
@@ -992,7 +1020,7 @@ class ResearchDB:
         novelty, critique = latest("novelty_precheck"), latest("critical_review")
         missing = [k for k, d in (("novelty_precheck", novelty), ("critical_review", critique)) if d is None]
         if missing:
-            raise CodedError("REVIEW_UNAVAILABLE", f"{candidate_id} has no {' and no '.join(missing)} receipt "
+            raise CodedError("PRECHECK_REQUIRED", f"{candidate_id} has no {' and no '.join(missing)} receipt "
                                                    f"(research_review with about={candidate_id}); the node is "
                                                    "created after both")
         negative = [f"{novelty['id']} {novelty['review_result']}"] if novelty["review_result"] not in POSITIVE_NOVELTY else []

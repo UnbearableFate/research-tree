@@ -410,6 +410,8 @@ CREATE TABLE document (
     basis_code_ref      TEXT,                  -- 该 evaluation 的代码版本（只核实现的维度按它复用）
     review_session      TEXT,                  -- 评审会话（RV-编号）；同会话续接写新版本
     review_about        TEXT,                  -- 评审对象不是数据库实体时（发现阶段的候选 CAND-编号）
+    literature_check    TEXT,                  -- literature：verify_literature 的结果（verified / unverified）；只有 verified 计入文献下限
+    literature_check_detail TEXT,              -- 核验方法与说明（arxiv / crossref / semantic_scholar_title …）
     created_at          TEXT NOT NULL
 );
 
