@@ -10,12 +10,12 @@ DEST/truth.json (never inside the project). The trainer reads the truth from $RT
 have no effect, so a run outside the benchmark is an ordinary toy run. Scenarios:
 
   zero         every knob and combination has no effect: any GO is a false GO
-  gain         one knob gives a recoverable +1.5 pp
-  combination  two knobs do nothing alone and give +1.5 pp together (non-greedy search)
+  gain         one knob gives a recoverable +3 pp (detectable with 3 paired seeds at the toy's seed noise)
+  combination  two knobs do nothing alone and give +3 pp together (non-greedy search)
   noisy        a +0.6 pp effect under seed noise of 1.0 pp (replication decides)
   confound     a knob 'helps' only because it doubles the effective learning rate: the same gain comes from a larger
                --lr without the knob (a cheaper competing explanation)
-  faults       a +1.5 pp knob, and the first attempt of some (seed, knob set) runs fails: recovery, no duplicate
+  faults       a +3 pp knob, and the first attempt of some (seed, knob set) runs fails: recovery, no duplicate
                submissions, lesson reuse
 
 Limit: the truth file is outside the project, but an agent with shell access that looks for $RT_BENCH_TRUTH can
@@ -66,17 +66,17 @@ def truth_for(scenario: str, rng: random.Random) -> dict:
     a, b = rng.sample(KNOBS, 2)
     base = {"scenario": scenario, "salt": rng.getrandbits(64), "noise_pp": 0.2, "effects": {}}
     if scenario == "gain":
-        base["effects"] = {a: 1.5}
+        base["effects"] = {a: 3.0}
         base["best"] = [a]
     elif scenario == "combination":
-        base["effects"] = {"+".join(sorted((a, b))): 1.5}
+        base["effects"] = {"+".join(sorted((a, b))): 3.0}
         base["best"] = sorted((a, b))
     elif scenario == "noisy":
         base.update(effects={a: 0.6}, noise_pp=1.0, best=[a])
     elif scenario == "confound":
         base.update(confound=a, lr_slope=1.5, best=[])  # the 'gain' disappears at a matched learning rate
     elif scenario == "faults":
-        base.update(effects={a: 1.5}, best=[a], faults=[{"seed": s, "knobs": k} for s in (0, 1) for k in ("", a)])
+        base.update(effects={a: 3.0}, best=[a], faults=[{"seed": s, "knobs": k} for s in (0, 1) for k in ("", a)])
     else:
         base["best"] = []
     return base

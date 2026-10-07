@@ -48,7 +48,7 @@ class ScoreTest(unittest.TestCase):
                                       "--knobs", ",".join(knobs)], cwd=code, env=env, capture_output=True, text=True)
                 return json.loads(run.stdout)["accuracy"]
             plain = accuracy([], with_truth=False)
-            self.assertAlmostEqual(accuracy(truth["best"]) - plain, 0.015, delta=0.006)
+            self.assertAlmostEqual(accuracy(truth["best"]) - plain, 0.03, delta=0.006)
             self.assertAlmostEqual(accuracy(truth["best"][:1]) - plain, 0.0, delta=0.006)
 
 

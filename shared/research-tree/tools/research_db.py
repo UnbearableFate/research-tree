@@ -2170,8 +2170,9 @@ class ResearchDB:
                 entry = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if (entry.get("kind"), entry.get("about"), entry.get("outcome")) == ("code_review", about,
-                                                                                 "REVIEW_UNAVAILABLE"):
+            # a reviewer that cannot answer, or only answers invalidly, leaves the review undone either way
+            if (entry.get("kind"), entry.get("about")) == ("code_review", about) and entry.get("outcome") in (
+                    "REVIEW_UNAVAILABLE", "REVIEW_INVALID"):
                 return True
         return False
 
@@ -3301,7 +3302,9 @@ class ResearchDB:
             return
         text = (self.docs_root / doc["path"]).read_text(encoding="utf-8")
         text = BLOCK_RE_EVIDENCE.sub("", text)
-        found = SOTA_CLAIM_RE.search(text)
+        found = next((m for m in SOTA_CLAIM_RE.finditer(text)
+                      if not re.search(r"(?:不|未|没有|并非|无法|not|no|never)\s*$", text[max(0, m.start() - 6):m.start()],
+                                       re.I)), None)  # a negated claim ("未优于 SOTA") is within the limit
         if found:
             raise CodedError("CLAIM_EXCEEDS_EVAL_TYPE", f"{doc['id']} ({doc['path']}) says {found.group(0)!r}, but the "
                                                         f"evaluation type is {eval_type}: a proxy result supports "

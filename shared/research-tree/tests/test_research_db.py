@@ -2894,6 +2894,7 @@ class ProxyWordingTest(Fixture):
         doc = self.doc(self.rld, "reports/x11.v1.md", "report", current=False, body="# 结果\n\n本方法优于 SOTA。\n")
         with self.assertRaisesRegex(ResearchDBError, "CLAIM_EXCEEDS_EVAL_TYPE: .*synthetic_proxy"):
             self.rld.set_document_current(doc)
+        self.doc(self.rld, "reports/x11c.v1.md", "report", body="# 结果\n\n本方法未优于 SOTA。\n")  # negated: fine
         ok = self.doc(self.rld, "reports/x11b.v1.md", "report", body="# 结果\n\n在合成代理指标上相对提升 0.3 个百分点。\n")
         self.assertEqual(self.rld.get(ok)["status"], "current")
 

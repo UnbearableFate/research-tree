@@ -2,7 +2,7 @@
  "meta": {
   "schema_version": 14,
   "data_version": 338,
-  "updated_at": "2026-10-07T04:53:27Z"
+  "updated_at": "2026-10-07T07:14:56Z"
  },
  "tables": {
   "project": [
@@ -65,10 +65,10 @@
      "D-0010"
     ],
     "review_cost_usd": 0.43,
-    "created_at": "2026-10-07T04:52:05Z",
-    "updated_at": "2026-10-07T04:53:21Z",
+    "created_at": "2026-10-07T07:13:37Z",
+    "updated_at": "2026-10-07T07:14:51Z",
     "worker_id": "root",
-    "harness_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
+    "harness_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
     "harness_paths": [
      "harness"
     ],
@@ -96,14 +96,14 @@
     "new_findings_streak": 1,
     "stall_state": "none",
     "exploration": false,
-    "created_at": "2026-10-07T04:52:16Z",
-    "updated_at": "2026-10-07T04:53:27Z",
+    "created_at": "2026-10-07T07:13:46Z",
+    "updated_at": "2026-10-07T07:14:56Z",
     "worker_id": "h0001",
-    "concluded_at": "2026-10-07T04:52:23Z",
-    "started_at": "2026-10-07T04:52:17Z",
+    "concluded_at": "2026-10-07T07:13:53Z",
+    "started_at": "2026-10-07T07:13:48Z",
     "status_reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
-    "first_experiment_at": "2026-10-07T04:52:20Z",
-    "first_result_at": "2026-10-07T04:52:22Z",
+    "first_experiment_at": "2026-10-07T07:13:50Z",
+    "first_result_at": "2026-10-07T07:13:52Z",
     "parent_id": "P-demo-lora-opt"
    },
    {
@@ -126,14 +126,14 @@
     "new_findings_streak": 0,
     "stall_state": "none",
     "exploration": false,
-    "created_at": "2026-10-07T04:52:24Z",
-    "updated_at": "2026-10-07T04:52:30Z",
+    "created_at": "2026-10-07T07:13:54Z",
+    "updated_at": "2026-10-07T07:14:02Z",
     "worker_id": "h0002",
-    "concluded_at": "2026-10-07T04:52:30Z",
-    "started_at": "2026-10-07T04:52:25Z",
+    "concluded_at": "2026-10-07T07:14:02Z",
+    "started_at": "2026-10-07T07:13:55Z",
     "status_reason": "所有指标都不优于SOTA，按规则消灭。",
-    "first_experiment_at": "2026-10-07T04:52:27Z",
-    "first_result_at": "2026-10-07T04:52:30Z",
+    "first_experiment_at": "2026-10-07T07:13:58Z",
+    "first_result_at": "2026-10-07T07:14:01Z",
     "disposition_reason": "所有指标都不优于SOTA，按规则消灭。",
     "reconsider_when": "出现能修复该缺陷的新机制依据",
     "parent_id": "P-demo-lora-opt"
@@ -158,15 +158,15 @@
     "new_findings_streak": 0,
     "stall_state": "none",
     "exploration": false,
-    "created_at": "2026-10-07T04:52:32Z",
-    "updated_at": "2026-10-07T04:52:45Z",
+    "created_at": "2026-10-07T07:14:04Z",
+    "updated_at": "2026-10-07T07:14:15Z",
     "worker_id": "h0003",
-    "concluded_at": "2026-10-07T04:52:45Z",
-    "started_at": "2026-10-07T04:52:34Z",
+    "concluded_at": "2026-10-07T07:14:15Z",
+    "started_at": "2026-10-07T07:14:05Z",
     "status_reason": "优于SOTA且复核通过，可拓展",
-    "first_experiment_at": "2026-10-07T04:52:36Z",
-    "first_result_at": "2026-10-07T04:52:39Z",
-    "beats_sota_at": "2026-10-07T04:52:43Z",
+    "first_experiment_at": "2026-10-07T07:14:08Z",
+    "first_result_at": "2026-10-07T07:14:10Z",
+    "beats_sota_at": "2026-10-07T07:14:14Z",
     "parent_id": "H-0001"
    },
    {
@@ -189,14 +189,14 @@
     "new_findings_streak": 0,
     "stall_state": "none",
     "exploration": false,
-    "created_at": "2026-10-07T04:52:55Z",
-    "updated_at": "2026-10-07T04:53:04Z",
+    "created_at": "2026-10-07T07:14:27Z",
+    "updated_at": "2026-10-07T07:14:34Z",
     "worker_id": "h0004",
-    "concluded_at": "2026-10-07T04:53:04Z",
-    "started_at": "2026-10-07T04:52:57Z",
+    "concluded_at": "2026-10-07T07:14:34Z",
+    "started_at": "2026-10-07T07:14:28Z",
     "status_reason": "相对父节点各项指标都不更好，按规则消灭。",
-    "first_experiment_at": "2026-10-07T04:52:59Z",
-    "first_result_at": "2026-10-07T04:53:03Z",
+    "first_experiment_at": "2026-10-07T07:14:30Z",
+    "first_result_at": "2026-10-07T07:14:33Z",
     "disposition_reason": "相对父节点各项指标都不更好，按规则消灭。",
     "reconsider_when": "出现能修复该缺陷的新机制依据",
     "parent_id": "H-0001"
@@ -222,13 +222,13 @@
     "new_findings_streak": 0,
     "stall_state": "none",
     "exploration": false,
-    "created_at": "2026-10-07T04:53:06Z",
-    "updated_at": "2026-10-07T04:53:08Z",
+    "created_at": "2026-10-07T07:14:37Z",
+    "updated_at": "2026-10-07T07:14:38Z",
     "worker_id": "h0005",
-    "started_at": "2026-10-07T04:53:08Z",
+    "started_at": "2026-10-07T07:14:38Z",
     "status_reason": "开始代码改进与实验",
-    "first_experiment_at": "2026-10-07T04:53:10Z",
-    "first_result_at": "2026-10-07T04:53:13Z",
+    "first_experiment_at": "2026-10-07T07:14:40Z",
+    "first_result_at": "2026-10-07T07:14:43Z",
     "parent_id": "P-demo-lora-opt"
    },
    {
@@ -251,9 +251,9 @@
     "new_findings_streak": 0,
     "stall_state": "none",
     "exploration": false,
-    "created_at": "2026-10-07T04:53:14Z",
-    "updated_at": "2026-10-07T04:53:15Z",
-    "concluded_at": "2026-10-07T04:53:15Z",
+    "created_at": "2026-10-07T07:14:45Z",
+    "updated_at": "2026-10-07T07:14:45Z",
+    "concluded_at": "2026-10-07T07:14:45Z",
     "status_reason": "用户决定放弃（超出单次运行上限）",
     "disposition_reason": "用户决定放弃（超出单次运行上限）",
     "reconsider_when": "用户提供新的预算或资源",
@@ -279,13 +279,13 @@
     "new_findings_streak": 0,
     "stall_state": "none",
     "exploration": false,
-    "created_at": "2026-10-07T04:53:16Z",
-    "updated_at": "2026-10-07T04:53:26Z",
+    "created_at": "2026-10-07T07:14:46Z",
+    "updated_at": "2026-10-07T07:14:55Z",
     "worker_id": "h0007",
-    "started_at": "2026-10-07T04:53:18Z",
+    "started_at": "2026-10-07T07:14:48Z",
     "status_reason": "开始代码改进与实验",
-    "first_experiment_at": "2026-10-07T04:53:20Z",
-    "first_result_at": "2026-10-07T04:53:23Z",
+    "first_experiment_at": "2026-10-07T07:14:50Z",
+    "first_result_at": "2026-10-07T07:14:53Z",
     "disposition_reason": "精度持平、只省显存；阶段1目标是精度，暂不投入",
     "reconsider_when": "用户把显存列为阶段目标，或出现精度改进的组合依据",
     "parent_id": "P-demo-lora-opt"
@@ -310,8 +310,8 @@
     "new_findings_streak": 0,
     "stall_state": "none",
     "exploration": false,
-    "created_at": "2026-10-07T04:53:25Z",
-    "updated_at": "2026-10-07T04:53:25Z",
+    "created_at": "2026-10-07T07:14:54Z",
+    "updated_at": "2026-10-07T07:14:54Z",
     "parent_id": "H-0003"
    }
   ],
@@ -322,7 +322,7 @@
     "kind": "baseline",
     "method_name": "BaseOpt-A（虚构SOTA）",
     "design_doc_id": "D-0008",
-    "code_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
+    "code_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
     "seeds": [
      42,
      43,
@@ -335,16 +335,16 @@
     "owner": "root",
     "estimated_node_h": 12.0,
     "milestone": "M1",
-    "created_at": "2026-10-07T04:52:08Z",
+    "created_at": "2026-10-07T07:13:40Z",
     "metric_mean": 71.40016666666666,
     "metric_sd": 0.0415175063477257,
     "result_doc_id": "D-0009",
-    "harness_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
-    "evaluated_at": "2026-10-07T04:52:12Z",
+    "harness_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
+    "evaluated_at": "2026-10-07T07:13:43Z",
     "evaluation_id": "EV-0001",
     "cleanup": {
      "1": {
-      "at": "2026-10-07T04:52:13Z",
+      "at": "2026-10-07T07:13:44Z",
       "by": "worker/root",
       "reason": "statistics recorded",
       "kept": [],
@@ -366,7 +366,7 @@
     "kind": "sanity",
     "method_name": "subbatch-moment（sanity）",
     "design_doc_id": "D-0019",
-    "code_ref": "224a96bd0c53c03bb6306b41842dc927cc702c4c",
+    "code_ref": "cb10c6dd9271dcb3352cd4ce266b7ec150cc2c44",
     "seeds": [
      42
     ],
@@ -377,7 +377,7 @@
     "owner": "h0001",
     "estimated_node_h": 0.2,
     "milestone": "M0",
-    "created_at": "2026-10-07T04:52:19Z",
+    "created_at": "2026-10-07T07:13:50Z",
     "hypothesis_id": "H-0001"
    },
    {
@@ -386,7 +386,7 @@
     "kind": "method",
     "method_name": "subbatch-moment",
     "design_doc_id": "D-0018",
-    "code_ref": "224a96bd0c53c03bb6306b41842dc927cc702c4c",
+    "code_ref": "cb10c6dd9271dcb3352cd4ce266b7ec150cc2c44",
     "seeds": [
      42
     ],
@@ -399,16 +399,16 @@
     "estimated_node_h": 12.0,
     "selection_rationale": "检验subbatch-moment能否超过SOTA（虚构）",
     "milestone": "M2",
-    "created_at": "2026-10-07T04:52:21Z",
+    "created_at": "2026-10-07T07:13:51Z",
     "verdict": "beats_parent",
     "metric_mean": 71.5654,
     "result_doc_id": "D-0021",
-    "harness_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
-    "evaluated_at": "2026-10-07T04:52:22Z",
+    "harness_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
+    "evaluated_at": "2026-10-07T07:13:52Z",
     "evaluation_id": "EV-0002",
     "cleanup": {
      "1": {
-      "at": "2026-10-07T04:52:23Z",
+      "at": "2026-10-07T07:13:53Z",
       "by": "worker/h0001",
       "reason": "statistics recorded",
       "kept": [],
@@ -429,7 +429,7 @@
     "kind": "sanity",
     "method_name": "orthogonal-update（sanity）",
     "design_doc_id": "D-0026",
-    "code_ref": "c703c5799629f1d38e99ff8e9624a27c08b7c0f5",
+    "code_ref": "e3949bdbcdbb23ceb49f65cdd536c9e80f599b10",
     "seeds": [
      42
     ],
@@ -440,7 +440,7 @@
     "owner": "h0002",
     "estimated_node_h": 0.2,
     "milestone": "M0",
-    "created_at": "2026-10-07T04:52:27Z",
+    "created_at": "2026-10-07T07:13:57Z",
     "hypothesis_id": "H-0002"
    },
    {
@@ -449,7 +449,7 @@
     "kind": "method",
     "method_name": "orthogonal-update",
     "design_doc_id": "D-0025",
-    "code_ref": "c703c5799629f1d38e99ff8e9624a27c08b7c0f5",
+    "code_ref": "e3949bdbcdbb23ceb49f65cdd536c9e80f599b10",
     "seeds": [
      42
     ],
@@ -462,16 +462,16 @@
     "estimated_node_h": 12.0,
     "selection_rationale": "检验orthogonal-update能否超过SOTA（虚构）",
     "milestone": "M2",
-    "created_at": "2026-10-07T04:52:28Z",
+    "created_at": "2026-10-07T07:13:59Z",
     "verdict": "no_gain",
     "metric_mean": 71.1512,
     "result_doc_id": "D-0028",
-    "harness_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
-    "evaluated_at": "2026-10-07T04:52:30Z",
+    "harness_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
+    "evaluated_at": "2026-10-07T07:14:01Z",
     "evaluation_id": "EV-0003",
     "cleanup": {
      "1": {
-      "at": "2026-10-07T04:52:30Z",
+      "at": "2026-10-07T07:14:01Z",
       "by": "worker/h0002",
       "reason": "statistics recorded",
       "kept": [],
@@ -492,7 +492,7 @@
     "kind": "sanity",
     "method_name": "moment-balance（sanity）",
     "design_doc_id": "D-0034",
-    "code_ref": "7a7ff9ff8e58beecb7ea2bf8c794a64e74d8b418",
+    "code_ref": "2f2d639f31eea5cea8fc97a988bd4ec49db1e4f9",
     "seeds": [
      42
     ],
@@ -503,7 +503,7 @@
     "owner": "h0003",
     "estimated_node_h": 0.2,
     "milestone": "M0",
-    "created_at": "2026-10-07T04:52:35Z",
+    "created_at": "2026-10-07T07:14:07Z",
     "hypothesis_id": "H-0003"
    },
    {
@@ -512,7 +512,7 @@
     "kind": "method",
     "method_name": "moment-balance",
     "design_doc_id": "D-0033",
-    "code_ref": "7a7ff9ff8e58beecb7ea2bf8c794a64e74d8b418",
+    "code_ref": "2f2d639f31eea5cea8fc97a988bd4ec49db1e4f9",
     "seeds": [
      42,
      43,
@@ -528,17 +528,17 @@
     "estimated_node_h": 12.0,
     "selection_rationale": "检验moment-balance能否超过SOTA（虚构）",
     "milestone": "M2",
-    "created_at": "2026-10-07T04:52:37Z",
+    "created_at": "2026-10-07T07:14:08Z",
     "verdict": "beats_sota",
     "metric_mean": 71.64136666666667,
     "metric_sd": 0.03925892679803191,
     "result_doc_id": "D-0037",
-    "harness_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
-    "evaluated_at": "2026-10-07T04:52:43Z",
+    "harness_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
+    "evaluated_at": "2026-10-07T07:14:13Z",
     "evaluation_id": "EV-0005",
     "cleanup": {
      "1": {
-      "at": "2026-10-07T04:52:40Z",
+      "at": "2026-10-07T07:14:10Z",
       "by": "worker/h0003",
       "reason": "statistics recorded",
       "kept": [],
@@ -551,7 +551,7 @@
       "failed": 0
      },
      "2": {
-      "at": "2026-10-07T04:52:43Z",
+      "at": "2026-10-07T07:14:14Z",
       "by": "worker/h0003",
       "reason": "statistics recorded",
       "kept": [],
@@ -574,7 +574,7 @@
     "kind": "baseline",
     "method_name": "BaseOpt-A（确认基线）",
     "design_doc_id": "D-0041",
-    "code_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
+    "code_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
     "seeds": [
      1042,
      1043,
@@ -587,12 +587,12 @@
     "owner": "root",
     "estimated_node_h": 12.0,
     "milestone": "M1",
-    "created_at": "2026-10-07T04:52:45Z",
+    "created_at": "2026-10-07T07:14:16Z",
     "metric_mean": 71.39286666666668,
     "metric_sd": 0.03691941675234285,
     "result_doc_id": "D-0042",
-    "harness_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
-    "evaluated_at": "2026-10-07T04:52:49Z",
+    "harness_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
+    "evaluated_at": "2026-10-07T07:14:19Z",
     "evaluation_id": "EV-0006"
    },
    {
@@ -601,7 +601,7 @@
     "kind": "method",
     "method_name": "moment-balance（确认）",
     "design_doc_id": "D-0043",
-    "code_ref": "7a7ff9ff8e58beecb7ea2bf8c794a64e74d8b418",
+    "code_ref": "2f2d639f31eea5cea8fc97a988bd4ec49db1e4f9",
     "seeds": [
      1042,
      1043,
@@ -615,12 +615,12 @@
     "baseline_experiment_id": "E-0008",
     "estimated_node_h": 12.0,
     "milestone": "M2",
-    "created_at": "2026-10-07T04:52:49Z",
+    "created_at": "2026-10-07T07:14:20Z",
     "metric_mean": 71.6318,
     "metric_sd": 0.026685389260785654,
     "result_doc_id": "D-0044",
-    "harness_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
-    "evaluated_at": "2026-10-07T04:52:53Z",
+    "harness_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
+    "evaluated_at": "2026-10-07T07:14:25Z",
     "evaluation_id": "EV-0007",
     "hypothesis_id": "H-0003"
    },
@@ -630,7 +630,7 @@
     "kind": "sanity",
     "method_name": "momentum-rescale（sanity）",
     "design_doc_id": "D-0053",
-    "code_ref": "01b0fdfc9cfd28c1f7ba27c3da4831be982ff8ed",
+    "code_ref": "ebace34f3ac8d24fcffddff586eddd2ab3bd3409",
     "seeds": [
      42
     ],
@@ -641,7 +641,7 @@
     "owner": "h0004",
     "estimated_node_h": 0.2,
     "milestone": "M0",
-    "created_at": "2026-10-07T04:52:59Z",
+    "created_at": "2026-10-07T07:14:30Z",
     "hypothesis_id": "H-0004"
    },
    {
@@ -650,7 +650,7 @@
     "kind": "method",
     "method_name": "momentum-rescale",
     "design_doc_id": "D-0052",
-    "code_ref": "01b0fdfc9cfd28c1f7ba27c3da4831be982ff8ed",
+    "code_ref": "ebace34f3ac8d24fcffddff586eddd2ab3bd3409",
     "seeds": [
      42
     ],
@@ -664,16 +664,16 @@
     "estimated_node_h": 12.0,
     "selection_rationale": "检验momentum-rescale能否超过SOTA（虚构）",
     "milestone": "M2",
-    "created_at": "2026-10-07T04:53:00Z",
+    "created_at": "2026-10-07T07:14:31Z",
     "verdict": "no_gain",
     "metric_mean": 71.4047,
     "result_doc_id": "D-0055",
-    "harness_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
-    "evaluated_at": "2026-10-07T04:53:03Z",
+    "harness_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
+    "evaluated_at": "2026-10-07T07:14:33Z",
     "evaluation_id": "EV-0008",
     "cleanup": {
      "1": {
-      "at": "2026-10-07T04:53:03Z",
+      "at": "2026-10-07T07:14:34Z",
       "by": "worker/h0004",
       "reason": "statistics recorded",
       "kept": [],
@@ -694,7 +694,7 @@
     "kind": "sanity",
     "method_name": "kron-diag（sanity）",
     "design_doc_id": "D-0061",
-    "code_ref": "0608005b6d78b11904c29536da54d15a0779d5b9",
+    "code_ref": "e6bbdf1efffba2f3b0978359804199ef7e7fb7a9",
     "seeds": [
      42
     ],
@@ -705,7 +705,7 @@
     "owner": "h0005",
     "estimated_node_h": 0.2,
     "milestone": "M0",
-    "created_at": "2026-10-07T04:53:10Z",
+    "created_at": "2026-10-07T07:14:40Z",
     "hypothesis_id": "H-0005"
    },
    {
@@ -714,7 +714,7 @@
     "kind": "method",
     "method_name": "kron-diag",
     "design_doc_id": "D-0060",
-    "code_ref": "0608005b6d78b11904c29536da54d15a0779d5b9",
+    "code_ref": "e6bbdf1efffba2f3b0978359804199ef7e7fb7a9",
     "seeds": [
      42
     ],
@@ -727,16 +727,16 @@
     "estimated_node_h": 12.0,
     "selection_rationale": "检验kron-diag能否超过SOTA（虚构）",
     "milestone": "M2",
-    "created_at": "2026-10-07T04:53:11Z",
+    "created_at": "2026-10-07T07:14:41Z",
     "verdict": "close",
     "metric_mean": 71.4655,
     "result_doc_id": "D-0063",
-    "harness_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
-    "evaluated_at": "2026-10-07T04:53:13Z",
+    "harness_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
+    "evaluated_at": "2026-10-07T07:14:43Z",
     "evaluation_id": "EV-0009",
     "cleanup": {
      "1": {
-      "at": "2026-10-07T04:53:13Z",
+      "at": "2026-10-07T07:14:44Z",
       "by": "worker/h0005",
       "reason": "statistics recorded",
       "kept": [],
@@ -757,7 +757,7 @@
     "kind": "sanity",
     "method_name": "state-8bit（sanity）",
     "design_doc_id": "D-0070",
-    "code_ref": "230aa25b9d2fe9d76dcf1e24d3f55504fcb01b0b",
+    "code_ref": "b01413af260f32454e74c5f4ea19291a7e11c1ec",
     "seeds": [
      42
     ],
@@ -768,7 +768,7 @@
     "owner": "h0007",
     "estimated_node_h": 0.2,
     "milestone": "M0",
-    "created_at": "2026-10-07T04:53:19Z",
+    "created_at": "2026-10-07T07:14:49Z",
     "hypothesis_id": "H-0007"
    },
    {
@@ -777,7 +777,7 @@
     "kind": "method",
     "method_name": "state-8bit",
     "design_doc_id": "D-0069",
-    "code_ref": "230aa25b9d2fe9d76dcf1e24d3f55504fcb01b0b",
+    "code_ref": "b01413af260f32454e74c5f4ea19291a7e11c1ec",
     "seeds": [
      42
     ],
@@ -790,16 +790,16 @@
     "estimated_node_h": 12.0,
     "selection_rationale": "检验state-8bit能否超过SOTA（虚构）",
     "milestone": "M2",
-    "created_at": "2026-10-07T04:53:21Z",
+    "created_at": "2026-10-07T07:14:51Z",
     "verdict": "close",
     "metric_mean": 71.4136,
     "result_doc_id": "D-0072",
-    "harness_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
-    "evaluated_at": "2026-10-07T04:53:23Z",
+    "harness_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
+    "evaluated_at": "2026-10-07T07:14:53Z",
     "evaluation_id": "EV-0010",
     "cleanup": {
      "1": {
-      "at": "2026-10-07T04:53:24Z",
+      "at": "2026-10-07T07:14:53Z",
       "by": "worker/h0007",
       "reason": "statistics recorded",
       "kept": [],
@@ -821,11 +821,11 @@
     "repo_path": "code",
     "name": "node/H-0001",
     "base_ref": "main",
-    "base_commit": "6e74ddc968820903b1da0cdf166acb9df67b3647",
+    "base_commit": "89e754800f0300b3409ecd5a2240bf8521d38959",
     "worktree_path": "worktrees/H-0001",
     "owner": "h0001",
     "status": "active",
-    "created_at": "2026-10-07T04:52:17Z",
+    "created_at": "2026-10-07T07:13:48Z",
     "hypothesis_id": "H-0001"
    },
    {
@@ -833,13 +833,13 @@
     "repo_path": "code",
     "name": "node/H-0002",
     "base_ref": "main",
-    "base_commit": "6e74ddc968820903b1da0cdf166acb9df67b3647",
+    "base_commit": "89e754800f0300b3409ecd5a2240bf8521d38959",
     "owner": "main",
     "status": "deleted",
-    "created_at": "2026-10-07T04:52:24Z",
-    "head_commit": "c703c5799629f1d38e99ff8e9624a27c08b7c0f5",
-    "returned_at": "2026-10-07T04:52:30Z",
-    "closed_at": "2026-10-07T04:52:32Z",
+    "created_at": "2026-10-07T07:13:55Z",
+    "head_commit": "e3949bdbcdbb23ceb49f65cdd536c9e80f599b10",
+    "returned_at": "2026-10-07T07:14:02Z",
+    "closed_at": "2026-10-07T07:14:03Z",
     "hypothesis_id": "H-0002"
    },
    {
@@ -847,11 +847,11 @@
     "repo_path": "code",
     "name": "node/H-0003",
     "base_ref": "node/H-0001",
-    "base_commit": "224a96bd0c53c03bb6306b41842dc927cc702c4c",
+    "base_commit": "cb10c6dd9271dcb3352cd4ce266b7ec150cc2c44",
     "worktree_path": "worktrees/H-0003",
     "owner": "h0003",
     "status": "active",
-    "created_at": "2026-10-07T04:52:33Z",
+    "created_at": "2026-10-07T07:14:05Z",
     "hypothesis_id": "H-0003"
    },
    {
@@ -859,13 +859,13 @@
     "repo_path": "code",
     "name": "node/H-0004",
     "base_ref": "node/H-0001",
-    "base_commit": "224a96bd0c53c03bb6306b41842dc927cc702c4c",
+    "base_commit": "cb10c6dd9271dcb3352cd4ce266b7ec150cc2c44",
     "owner": "main",
     "status": "deleted",
-    "created_at": "2026-10-07T04:52:57Z",
-    "head_commit": "01b0fdfc9cfd28c1f7ba27c3da4831be982ff8ed",
-    "returned_at": "2026-10-07T04:53:04Z",
-    "closed_at": "2026-10-07T04:53:05Z",
+    "created_at": "2026-10-07T07:14:28Z",
+    "head_commit": "ebace34f3ac8d24fcffddff586eddd2ab3bd3409",
+    "returned_at": "2026-10-07T07:14:35Z",
+    "closed_at": "2026-10-07T07:14:36Z",
     "hypothesis_id": "H-0004"
    },
    {
@@ -873,11 +873,11 @@
     "repo_path": "code",
     "name": "node/H-0005",
     "base_ref": "main",
-    "base_commit": "6e74ddc968820903b1da0cdf166acb9df67b3647",
+    "base_commit": "89e754800f0300b3409ecd5a2240bf8521d38959",
     "worktree_path": "worktrees/H-0005",
     "owner": "h0005",
     "status": "active",
-    "created_at": "2026-10-07T04:53:07Z",
+    "created_at": "2026-10-07T07:14:38Z",
     "hypothesis_id": "H-0005"
    },
    {
@@ -885,11 +885,11 @@
     "repo_path": "code",
     "name": "node/H-0007",
     "base_ref": "main",
-    "base_commit": "6e74ddc968820903b1da0cdf166acb9df67b3647",
+    "base_commit": "89e754800f0300b3409ecd5a2240bf8521d38959",
     "worktree_path": "worktrees/H-0007",
     "owner": "h0007",
     "status": "active",
-    "created_at": "2026-10-07T04:53:17Z",
+    "created_at": "2026-10-07T07:14:47Z",
     "hypothesis_id": "H-0007"
    }
   ],
@@ -904,8 +904,8 @@
     "status": "current",
     "author_role": "ui",
     "author_id": "ui",
-    "created_at": "2026-10-07T04:52:03Z",
-    "sha256": "2ac7e82f1399fe6d4540349fd6ab9a1bb9826c49a759f619beb07b2688ff0c9c"
+    "created_at": "2026-10-07T07:13:35Z",
+    "sha256": "f933aa9ea0844fd6e0e9baa592f3c471e94146734007f9d3ac9147d20e687dee"
    },
    {
     "id": "D-0002",
@@ -917,8 +917,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:52:03Z",
-    "sha256": "5817244b5e7ded41095d3757499b66c5290b4a1d0634f3e1973af9d7ff1430d0"
+    "created_at": "2026-10-07T07:13:35Z",
+    "sha256": "054a334ba38f00f1b3d79b5b2202537f5c365fcba00da7389d69a1979a353810"
    },
    {
     "id": "D-0003",
@@ -930,8 +930,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:52:04Z",
-    "sha256": "01f37c11e7c571c8ea47c5814aae0857b515bf02caa44eebfa749e2633f9fc3b"
+    "created_at": "2026-10-07T07:13:36Z",
+    "sha256": "dc57237c3fe40c94e599511bfb65b44de9bce44a988685c01e4c1747d7724749"
    },
    {
     "id": "D-0004",
@@ -943,7 +943,7 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:52:04Z",
+    "created_at": "2026-10-07T07:13:36Z",
     "sha256": "77aa2791c4ddee32cbe68f21742601e8d1f2f3caf90ce27ef7c91059f84f866e"
    },
    {
@@ -956,7 +956,7 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:52:05Z",
+    "created_at": "2026-10-07T07:13:36Z",
     "sha256": "45cb4bf064c2622c7e6623d14d33f1d0f1a94e9db3ba46ae5c9da59a44584237"
    },
    {
@@ -969,7 +969,7 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:52:05Z",
+    "created_at": "2026-10-07T07:13:36Z",
     "sha256": "ffedfdbb2dd88224f6e7c26cf4bf3cf99e41e8915da1fdf1bdbbd7b9bd80967d"
    },
    {
@@ -982,8 +982,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:52:08Z",
-    "sha256": "5bb4060ecd9fd4fb8b6b04554cf7121a7e6438770fb2b7fbb1057a3d583dac0f"
+    "created_at": "2026-10-07T07:13:39Z",
+    "sha256": "a059ce6dc3d465760ab43b66a5d2cfb4f8aa935676d7f04f7057430aeea2864a"
    },
    {
     "id": "D-0008",
@@ -995,8 +995,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-07T04:52:08Z",
-    "sha256": "4479a9fcefdbb87ec572f15dbd3c8060edead90ef97f23f0dea3e4837f92dee7"
+    "created_at": "2026-10-07T07:13:40Z",
+    "sha256": "57c9182ea1a37e408bd35f0b998eae1651e5389c980384c9aed20f44cd3c3fea"
    },
    {
     "id": "D-0009",
@@ -1008,8 +1008,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-07T04:52:12Z",
-    "sha256": "23f4c026438af54de5136dd61ab16b47525957551007d4754ef233a20226dc5c"
+    "created_at": "2026-10-07T07:13:43Z",
+    "sha256": "3c9ba2adc946f9c9629d4eb0b0325eaeeab5f3dc0ee9a6c59471536d250db5c4"
    },
    {
     "id": "D-0010",
@@ -1021,8 +1021,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-07T04:52:13Z",
-    "sha256": "9a7502e7904a2e1ee5f620fe103c6921672e97c7c38a2b7d803023c02ee6788a"
+    "created_at": "2026-10-07T07:13:44Z",
+    "sha256": "51ee4b4f7aba014571dcbe040a7ddd1830bac99bbe0e88d735e5854eb9a57a24"
    },
    {
     "id": "D-0011",
@@ -1034,8 +1034,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-07T04:52:14Z",
-    "sha256": "d5c99e730f4f2781129f9b0c02cb293927445de260f52fd9228259b7cb7a50e6"
+    "created_at": "2026-10-07T07:13:45Z",
+    "sha256": "74463079aef877d891825031ac5fb7cddcb238bfdc27aacc1adeab02329e68dd"
    },
    {
     "id": "D-0012",
@@ -1047,8 +1047,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-07T04:52:14Z",
-    "sha256": "33d208d5ffd781accf441bf0d8fc40156f66d49ff53bc11ffbe5e0b8ef3c50f7"
+    "created_at": "2026-10-07T07:13:45Z",
+    "sha256": "97cd34c1c9e5799502cc1d0a83d410f6d943d280206a7e5c6636d6a214ad8cae"
    },
    {
     "id": "D-0013",
@@ -1060,8 +1060,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-07T04:52:14Z",
-    "sha256": "55c6832fe32af508076b69e16f8533f797b13ae6259fc979002ead2063fd0a3d"
+    "created_at": "2026-10-07T07:13:45Z",
+    "sha256": "9cbad29bc3c6539136af2f854f7ddeedae99807975ebb643bddb553c0cc4cb41"
    },
    {
     "id": "D-0014",
@@ -1073,8 +1073,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-07T04:52:15Z",
-    "sha256": "9cb07b979579a38515fe79ae05eee4ff2ed0d392e43f4df1b22f611fe2bab34d"
+    "created_at": "2026-10-07T07:13:46Z",
+    "sha256": "c2ad141868a5cc6d697041d11c9f6090ba776c4d071eb6008ebf23e37ce5d0c7"
    },
    {
     "id": "D-0015",
@@ -1086,8 +1086,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-07T04:52:15Z",
-    "sha256": "8cdf3c6df2094a61d2c5b7b3653d1deebb040b588fae6be2d79dc43fbc91ef74"
+    "created_at": "2026-10-07T07:13:46Z",
+    "sha256": "0154de0aa0bde44f3bc46301dd75ccb789de33a94b1c616d76b5aace01cfb8d3"
    },
    {
     "id": "D-0016",
@@ -1099,8 +1099,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:52:16Z",
-    "sha256": "f0b1f076527cd0a5ad51cd1b53459340892c6de75ecb37e7fccf387b2f651660"
+    "created_at": "2026-10-07T07:13:46Z",
+    "sha256": "090955ac31ee7d9e17c2ed12313db03deb0484dbfb8537680a8aa41e98af82b4"
    },
    {
     "id": "D-0017",
@@ -1112,8 +1112,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:52:17Z",
-    "sha256": "a74fc7890f568800ad850251e242eeadd1af7a35f177da601f4b918cacac38ab"
+    "created_at": "2026-10-07T07:13:48Z",
+    "sha256": "6c0932916d75c1220d3406f73f4629573343e6604c03455564dd52f611d0762e"
    },
    {
     "id": "D-0018",
@@ -1125,8 +1125,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0001",
-    "created_at": "2026-10-07T04:52:18Z",
-    "sha256": "a6426a3417a5b673a10943c519b31b8b03048d45c7322e344471868a69c32197"
+    "created_at": "2026-10-07T07:13:49Z",
+    "sha256": "0f14a87960d31cf0538a0010f1b6d82ade7eacaaf98c9907410f8404f3ccc1c8"
    },
    {
     "id": "D-0019",
@@ -1138,8 +1138,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0001",
-    "created_at": "2026-10-07T04:52:19Z",
-    "sha256": "00468a676f4c087a5bfdeb6197404abf17d9246a00795fa54603fe67c0982582"
+    "created_at": "2026-10-07T07:13:49Z",
+    "sha256": "f5ea500a67fa3fc597670ebc1cda5672520e5c616fd3bde1c9ffa9f92973e2df"
    },
    {
     "id": "D-0020",
@@ -1151,14 +1151,14 @@
     "status": "current",
     "author_role": "reviewer",
     "author_id": "pi",
-    "sha256": "7b3ad13c8974c9b0307c608e42ffef774eb7ff144c3f2b4a626c5d141b75df15",
+    "sha256": "cc8665bdef8a5d3f7df5b9dfc6aa34c863604ca5bd9c8413b5746d09f1365a76",
     "review_kind": "code_review",
     "review_result": "clear",
     "review_backend": "pi",
     "reviewer_model": "openai/gpt-6-astra",
     "review_session": "RV-0001",
-    "basis_code_ref": "224a96bd0c53c03bb6306b41842dc927cc702c4c",
-    "created_at": "2026-10-07T04:52:20Z"
+    "basis_code_ref": "cb10c6dd9271dcb3352cd4ce266b7ec150cc2c44",
+    "created_at": "2026-10-07T07:13:51Z"
    },
    {
     "id": "D-0021",
@@ -1170,8 +1170,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0001",
-    "created_at": "2026-10-07T04:52:22Z",
-    "sha256": "ad5397804338270f835d4b6517b2cb99d0daa01f693705f5a83478020991b167"
+    "created_at": "2026-10-07T07:13:52Z",
+    "sha256": "101acdc148149cc48a15b22f4be81f0c03462ba68cb785a37ac6b95767237ace"
    },
    {
     "id": "D-0022",
@@ -1183,8 +1183,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:52:23Z",
-    "sha256": "77cc7b277d1bb42cc5b34b78cec6a8dc7a97422ad5207669978b3421cef0d64c"
+    "created_at": "2026-10-07T07:13:53Z",
+    "sha256": "c674073c48a8683c9be3ab42d51398a43822b0880e873cc8a9158096fc29fb29"
    },
    {
     "id": "D-0023",
@@ -1196,8 +1196,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:52:23Z",
-    "sha256": "5e285fa166f19d06e9e090639e7085b2c42ddf1092dd38b69a4839e8556217fa"
+    "created_at": "2026-10-07T07:13:54Z",
+    "sha256": "fa969081cdad31dece42edb394d3605bb03612878f01c6f667545f10c315d991"
    },
    {
     "id": "D-0024",
@@ -1209,8 +1209,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:52:25Z",
-    "sha256": "c17e3bb1f1cf733021c711943d0f701dae92fa7c781733e7ce9420a991a1526b"
+    "created_at": "2026-10-07T07:13:55Z",
+    "sha256": "4f8bcde4236847f5f6cfcb851cca0410cc3c3b860ac8c5ad910dfa3641a60906"
    },
    {
     "id": "D-0025",
@@ -1222,8 +1222,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0002",
-    "created_at": "2026-10-07T04:52:26Z",
-    "sha256": "7f552293b77ca49a6bacf34394c5693f96f7b53594b7d52059a5e5c19d3f5154"
+    "created_at": "2026-10-07T07:13:56Z",
+    "sha256": "68b997825c36306217ef1198617e14bf25d22d07af206f70ffe4ce0c7244c515"
    },
    {
     "id": "D-0026",
@@ -1235,8 +1235,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0002",
-    "created_at": "2026-10-07T04:52:26Z",
-    "sha256": "366885b50ab0dd70561392766d4cc4e41352c6b5f6abbc19c08ff4150c90705c"
+    "created_at": "2026-10-07T07:13:57Z",
+    "sha256": "051c7ef60a3d6d9c76d2f667d10e7bd914f0720a5e28effcb27f6fba8a65c1c6"
    },
    {
     "id": "D-0027",
@@ -1248,14 +1248,14 @@
     "status": "current",
     "author_role": "reviewer",
     "author_id": "pi",
-    "sha256": "2220ea5e3a3c0ae8ec29a8394112f0e6fc744d873f9c7ef7c68d06c53f477139",
+    "sha256": "f42e212b6e89fa13def408bd1f54fb45690832f818dd4c3d5cb2fe56589172ec",
     "review_kind": "code_review",
     "review_result": "clear",
     "review_backend": "pi",
     "reviewer_model": "openai/gpt-6-astra",
     "review_session": "RV-0002",
-    "basis_code_ref": "c703c5799629f1d38e99ff8e9624a27c08b7c0f5",
-    "created_at": "2026-10-07T04:52:28Z"
+    "basis_code_ref": "e3949bdbcdbb23ceb49f65cdd536c9e80f599b10",
+    "created_at": "2026-10-07T07:13:59Z"
    },
    {
     "id": "D-0028",
@@ -1267,8 +1267,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0002",
-    "created_at": "2026-10-07T04:52:29Z",
-    "sha256": "190fb7ddba840afbaec7f50bc9fef606b4709721f1120ce6f4861306b77b520e"
+    "created_at": "2026-10-07T07:14:00Z",
+    "sha256": "66c4e6aaa9f5f5a05ea3b64092332186d7d2cd75ea7856362834abe32c9d937c"
    },
    {
     "id": "D-0029",
@@ -1280,8 +1280,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:52:30Z",
-    "sha256": "52625085f83fa6f22fdfd9f8dee8446c6ac1f20208b175921ed717792835044a"
+    "created_at": "2026-10-07T07:14:01Z",
+    "sha256": "041a16ed2917cc5f2fd52f3dc6aa7f6b18e1ff83d80f195b1d3f889438762251"
    },
    {
     "id": "D-0030",
@@ -1293,8 +1293,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:52:31Z",
-    "sha256": "9278049f970436aeacf392f67f0333647ac867fa980c53868b42f5f3a4b82561"
+    "created_at": "2026-10-07T07:14:03Z",
+    "sha256": "890397c4a40564b0c768ef3999050e9314b76557a978e586a72868f767856722"
    },
    {
     "id": "D-0031",
@@ -1306,8 +1306,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:52:32Z",
-    "sha256": "be80fe60b24eb682455a81676b8baa3ff4d75e493687875d2acd8e8dce75d9fc"
+    "created_at": "2026-10-07T07:14:04Z",
+    "sha256": "c3b26b8d7ba6a096d19da047782296ba3f6f8060886bd6a8353233157720605f"
    },
    {
     "id": "D-0032",
@@ -1319,8 +1319,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:52:33Z",
-    "sha256": "a721e0546b17e5d21f8d7e9aa5571943afc434248a612a5284aeffb820487831"
+    "created_at": "2026-10-07T07:14:05Z",
+    "sha256": "af7bd9704b18b98bdd21e7e155f93e87f9ce362239413098ea1818d5575edf03"
    },
    {
     "id": "D-0033",
@@ -1332,8 +1332,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-07T04:52:34Z",
-    "sha256": "c8fb9d34a9db2faaf11fb83998b50b482da88f8c7621a09c505ca3fe179531a3"
+    "created_at": "2026-10-07T07:14:06Z",
+    "sha256": "317d8c6fa14f8dd5600925c36cdb63bb165366ed4baa4afca70ccad8cef48a8a"
    },
    {
     "id": "D-0034",
@@ -1345,8 +1345,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-07T04:52:35Z",
-    "sha256": "ca67699ff7991d99b8e8c456027f4b14f2548e13a9d580a556dacaff5d7f3c80"
+    "created_at": "2026-10-07T07:14:06Z",
+    "sha256": "10df8ff4361665960252aee8a334279575c73c4ce571fad4aa9b730274b5bafa"
    },
    {
     "id": "D-0035",
@@ -1358,14 +1358,14 @@
     "status": "current",
     "author_role": "reviewer",
     "author_id": "pi",
-    "sha256": "d97614867d5d660ba452fe60f4f6cce6757fae857bec96338d4f9390c88e9189",
+    "sha256": "18d4bf4522ace57aafe519e9d8bba5a9eefdc9ff81903c2825a429e69a79d2a0",
     "review_kind": "code_review",
     "review_result": "clear",
     "review_backend": "pi",
     "reviewer_model": "openai/gpt-6-astra",
     "review_session": "RV-0003",
-    "basis_code_ref": "7a7ff9ff8e58beecb7ea2bf8c794a64e74d8b418",
-    "created_at": "2026-10-07T04:52:37Z"
+    "basis_code_ref": "2f2d639f31eea5cea8fc97a988bd4ec49db1e4f9",
+    "created_at": "2026-10-07T07:14:08Z"
    },
    {
     "id": "D-0036",
@@ -1377,8 +1377,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-07T04:52:39Z",
-    "sha256": "8caf0bf3349bf08dc84e2b6b9432f1d1d651ad58b4f477fb88c65a5ed8e764dc"
+    "created_at": "2026-10-07T07:14:09Z",
+    "sha256": "ee12e836fbef5cd7b0d873e091313989a95c029f5d01bceb61e86c8cf77e655b"
    },
    {
     "id": "D-0037",
@@ -1390,8 +1390,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-07T04:52:42Z",
-    "sha256": "39816596dab7b9600a71a66c4f3bc77ce965f8f3f584d12fa00b94152f872ef1"
+    "created_at": "2026-10-07T07:14:12Z",
+    "sha256": "ae294b13f2034927f6f92df51b8112698b5defff0ba787cae7ede66e39440864"
    },
    {
     "id": "D-0038",
@@ -1403,8 +1403,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:52:44Z",
-    "sha256": "928397f97d72858c97ac5d5d306b1bfa31f5181ead7c863527e52b3713571c8b"
+    "created_at": "2026-10-07T07:14:14Z",
+    "sha256": "6be4f03c2f5e7dfad2c559d20502360d18523e9a32836ef5e22a69f1c0ebdcb3"
    },
    {
     "id": "D-0039",
@@ -1416,8 +1416,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:52:44Z",
-    "sha256": "dc67cd62fe2cb93f1b09f69b725b268dde51f54b757c918197620ff420097ae2"
+    "created_at": "2026-10-07T07:14:14Z",
+    "sha256": "fce81afd0fe32447d91fbeac9ccf67db6dbfe060cac1e31cf77b0d721bf4dd07"
    },
    {
     "id": "D-0040",
@@ -1429,8 +1429,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:52:44Z",
-    "sha256": "f08949a833e07bc04f547ac3cbed8ebd0f321d0081bd1d3295e4a4a1d7e49248"
+    "created_at": "2026-10-07T07:14:15Z",
+    "sha256": "c425cb76fb586e8e452a83cd7131576aa9171185e887ae639c980d313e58c7f8"
    },
    {
     "id": "D-0041",
@@ -1442,8 +1442,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-07T04:52:45Z",
-    "sha256": "f23175c22e7fed00e4ba04457b3510368a13bd838354c5e39479d979df3c6691"
+    "created_at": "2026-10-07T07:14:15Z",
+    "sha256": "8bd8414e592364e82f6aa141f725e6419de9ccd1d57ff3005fea21fad67777ef"
    },
    {
     "id": "D-0042",
@@ -1455,8 +1455,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-07T04:52:48Z",
-    "sha256": "9104353829c42046c282c559c191729e798ba045d6f168e2c7877fc9b234e79e"
+    "created_at": "2026-10-07T07:14:19Z",
+    "sha256": "f635d5df20bf0a976ff151840730cb2a1d080b38f7a7bbc3976f6e4c5c541af4"
    },
    {
     "id": "D-0043",
@@ -1468,8 +1468,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-07T04:52:49Z",
-    "sha256": "6fe07a8072cd274f1c1b29202256b0660dbf7046c668590b951b465b3ca3fd5a"
+    "created_at": "2026-10-07T07:14:20Z",
+    "sha256": "537dca4f6f1bdfc5f1ddc2cb8053b3101777de10deb42001842cd853df528146"
    },
    {
     "id": "D-0044",
@@ -1481,8 +1481,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-07T04:52:53Z",
-    "sha256": "46a5da99901d6aaec01bcd09c3ad39dfcb93acfa1f8cd98a91a5c8a2d65864d0"
+    "created_at": "2026-10-07T07:14:24Z",
+    "sha256": "e4acf332088e92a7a53212ca496fe7c82f0b05a43febbeca3eb48f19ebccea8b"
    },
    {
     "id": "D-0045",
@@ -1502,8 +1502,8 @@
     "review_session": "RV-0004",
     "review_dimension": "numbers",
     "basis_evaluation_id": "EV-0007",
-    "basis_code_ref": "7a7ff9ff8e58beecb7ea2bf8c794a64e74d8b418",
-    "created_at": "2026-10-07T04:52:54Z"
+    "basis_code_ref": "2f2d639f31eea5cea8fc97a988bd4ec49db1e4f9",
+    "created_at": "2026-10-07T07:14:25Z"
    },
    {
     "id": "D-0046",
@@ -1523,8 +1523,8 @@
     "review_session": "RV-0005",
     "review_dimension": "protocol",
     "basis_evaluation_id": "EV-0007",
-    "basis_code_ref": "7a7ff9ff8e58beecb7ea2bf8c794a64e74d8b418",
-    "created_at": "2026-10-07T04:52:54Z"
+    "basis_code_ref": "2f2d639f31eea5cea8fc97a988bd4ec49db1e4f9",
+    "created_at": "2026-10-07T07:14:25Z"
    },
    {
     "id": "D-0047",
@@ -1544,8 +1544,8 @@
     "review_session": "RV-0006",
     "review_dimension": "method_code",
     "basis_evaluation_id": "EV-0007",
-    "basis_code_ref": "7a7ff9ff8e58beecb7ea2bf8c794a64e74d8b418",
-    "created_at": "2026-10-07T04:52:54Z"
+    "basis_code_ref": "2f2d639f31eea5cea8fc97a988bd4ec49db1e4f9",
+    "created_at": "2026-10-07T07:14:26Z"
    },
    {
     "id": "D-0048",
@@ -1565,8 +1565,8 @@
     "review_session": "RV-0007",
     "review_dimension": "novelty",
     "basis_evaluation_id": "EV-0007",
-    "basis_code_ref": "7a7ff9ff8e58beecb7ea2bf8c794a64e74d8b418",
-    "created_at": "2026-10-07T04:52:54Z"
+    "basis_code_ref": "2f2d639f31eea5cea8fc97a988bd4ec49db1e4f9",
+    "created_at": "2026-10-07T07:14:26Z"
    },
    {
     "id": "D-0049",
@@ -1586,8 +1586,8 @@
     "review_session": "RV-0008",
     "review_dimension": "theory",
     "basis_evaluation_id": "EV-0007",
-    "basis_code_ref": "7a7ff9ff8e58beecb7ea2bf8c794a64e74d8b418",
-    "created_at": "2026-10-07T04:52:55Z"
+    "basis_code_ref": "2f2d639f31eea5cea8fc97a988bd4ec49db1e4f9",
+    "created_at": "2026-10-07T07:14:26Z"
    },
    {
     "id": "D-0050",
@@ -1599,8 +1599,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:52:55Z",
-    "sha256": "aae5df84ae9f6a31bee3e87377db61903140c3d2762e5576dd0601bb84e58a12"
+    "created_at": "2026-10-07T07:14:26Z",
+    "sha256": "0a6ad5deddfd0573060fa07780562e2ad249ff7320cdbe4c6a7bf0332551f0a4"
    },
    {
     "id": "D-0051",
@@ -1612,8 +1612,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:52:57Z",
-    "sha256": "6acc55d72ff69b4ea1b445daf96da3c5d067311deda4a6603c9380bf89337c95"
+    "created_at": "2026-10-07T07:14:28Z",
+    "sha256": "17e51f7ba170c27ef97778da674b98d5ac23fce9321a9871507b44bec0997e63"
    },
    {
     "id": "D-0052",
@@ -1625,8 +1625,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0004",
-    "created_at": "2026-10-07T04:52:58Z",
-    "sha256": "c53e6036957a30a08e2c0e26985dc3fd6bf50d8ee5987d57ff2583643d8c0dfe"
+    "created_at": "2026-10-07T07:14:29Z",
+    "sha256": "7e5f058aca9fd07a977499539ae60af4c74d5757e80d6bd872c31f8f7ca57e60"
    },
    {
     "id": "D-0053",
@@ -1638,8 +1638,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0004",
-    "created_at": "2026-10-07T04:52:58Z",
-    "sha256": "cf55679dd2e796f8a990edaf52c5ef6169cacd3c08fa9d67653140b401db099f"
+    "created_at": "2026-10-07T07:14:30Z",
+    "sha256": "52e046e398a4dd553fc97394bafb821a2d0cc9dda7bd0aada3976e4947ab772a"
    },
    {
     "id": "D-0054",
@@ -1651,14 +1651,14 @@
     "status": "current",
     "author_role": "reviewer",
     "author_id": "pi",
-    "sha256": "1efb41781b969345d929ed4a8b85dcf62299caef1cde610955566a4694c04d88",
+    "sha256": "fa099a8fa20e57a791500c94155a3c4010ee04e5ee5e73afa5bb81f2cee20ca8",
     "review_kind": "code_review",
     "review_result": "clear",
     "review_backend": "pi",
     "reviewer_model": "openai/gpt-6-astra",
     "review_session": "RV-0009",
-    "basis_code_ref": "01b0fdfc9cfd28c1f7ba27c3da4831be982ff8ed",
-    "created_at": "2026-10-07T04:53:00Z"
+    "basis_code_ref": "ebace34f3ac8d24fcffddff586eddd2ab3bd3409",
+    "created_at": "2026-10-07T07:14:31Z"
    },
    {
     "id": "D-0055",
@@ -1670,8 +1670,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0004",
-    "created_at": "2026-10-07T04:53:02Z",
-    "sha256": "f7380b67b0d1cda0d5c901277600c4e2ada473433bd572084ba0c0c63d3b41b9"
+    "created_at": "2026-10-07T07:14:33Z",
+    "sha256": "8d822019c3da426648b7c4bd3dec7e1830b950b4ae6f0d8340e0597a61dd1461"
    },
    {
     "id": "D-0056",
@@ -1683,8 +1683,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:53:03Z",
-    "sha256": "0fa40a9c8dfd4ea56da73eca3e80a1b6d9943e06287121596dc6687933221b6f"
+    "created_at": "2026-10-07T07:14:34Z",
+    "sha256": "e2970d9e0e680f3ec5ffc703b5a9a3f03ec54aaa7a4ab5638cca678a250248b1"
    },
    {
     "id": "D-0057",
@@ -1696,8 +1696,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:53:05Z",
-    "sha256": "71ca16d5380d123783b2c89453c9922e3c3000d34f5c38b9590c717ec7d45d32"
+    "created_at": "2026-10-07T07:14:35Z",
+    "sha256": "d404a5bbccfe4a17cb6d4c7495209377f2cde79dfab4113b5702f123faf426e1"
    },
    {
     "id": "D-0058",
@@ -1709,8 +1709,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:53:05Z",
-    "sha256": "2b2dc7df19e18a672c0497fb5cfe9c48cbc50da3baefa713c001318f3fdcb492"
+    "created_at": "2026-10-07T07:14:36Z",
+    "sha256": "c1ead609b6f002afd588d69d59cb564fb468e9e4e7ec3c4fa2be3facadaa38eb"
    },
    {
     "id": "D-0059",
@@ -1722,8 +1722,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:53:07Z",
-    "sha256": "f05566c117cb844c7f23263687c7792a4f475ba48e2603cc5bb0c67086c88b77"
+    "created_at": "2026-10-07T07:14:38Z",
+    "sha256": "11798aba5e36796ca998a6c03b5957d76b40206810aaba9811e7ed0ccc5317ba"
    },
    {
     "id": "D-0060",
@@ -1735,8 +1735,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0005",
-    "created_at": "2026-10-07T04:53:09Z",
-    "sha256": "bc08dc7333e744b914096ede84a70465dfc2d5f5dce60bc6a438c9999e706b47"
+    "created_at": "2026-10-07T07:14:39Z",
+    "sha256": "fe913ae779a92f8c771d9a5d1206556e3da55345d88dcdb836ab725d218eb634"
    },
    {
     "id": "D-0061",
@@ -1748,8 +1748,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0005",
-    "created_at": "2026-10-07T04:53:09Z",
-    "sha256": "0b6aebefdda226c587ecce8ea3c33bf3eaab1c714873982b1a89cdd6ad9b6fd5"
+    "created_at": "2026-10-07T07:14:39Z",
+    "sha256": "3144994694459f5ae2744630874a74074d02a66c153c0140d207ed53a27167c3"
    },
    {
     "id": "D-0062",
@@ -1761,14 +1761,14 @@
     "status": "current",
     "author_role": "reviewer",
     "author_id": "pi",
-    "sha256": "daecd5a37020f111432b5f163be9e45e21a1e3a5f548822134cbe380791d39f4",
+    "sha256": "e2218ee61048c2b709a50cb9201ce953deb3ef73627bb7f194c712f5ca84467d",
     "review_kind": "code_review",
     "review_result": "clear",
     "review_backend": "pi",
     "reviewer_model": "openai/gpt-6-astra",
     "review_session": "RV-0010",
-    "basis_code_ref": "0608005b6d78b11904c29536da54d15a0779d5b9",
-    "created_at": "2026-10-07T04:53:11Z"
+    "basis_code_ref": "e6bbdf1efffba2f3b0978359804199ef7e7fb7a9",
+    "created_at": "2026-10-07T07:14:41Z"
    },
    {
     "id": "D-0063",
@@ -1780,8 +1780,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0005",
-    "created_at": "2026-10-07T04:53:12Z",
-    "sha256": "8cc92468272da36e45dfb35cbebbb333fe1063929e46f07aac7ba6f2fc4d28a3"
+    "created_at": "2026-10-07T07:14:43Z",
+    "sha256": "e4e45fa05871eeea7f0f0473045f57fed0a66bcaa9fb677c0b6b1ead6c0efda7"
    },
    {
     "id": "D-0064",
@@ -1793,8 +1793,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:53:14Z",
-    "sha256": "ad491f083931545bd7273158d8a8fdcccc7edaa22856e85d9376d6b9a85043dd"
+    "created_at": "2026-10-07T07:14:44Z",
+    "sha256": "5e04b0f99dcde038f97b674e0d5ff3e250b1686ecf850f7ce5da14063ea270f3"
    },
    {
     "id": "D-0065",
@@ -1806,8 +1806,8 @@
     "status": "current",
     "author_role": "ui",
     "author_id": "ui",
-    "created_at": "2026-10-07T04:53:14Z",
-    "sha256": "7af27cf10d8fb5b2424b9102b044e8ef75df048be21a9cb47c988c3ecee41a23"
+    "created_at": "2026-10-07T07:14:45Z",
+    "sha256": "ca206dcd360dc8ae222b71019cf263d3c33f692a2c611c5b887c81f992cc4f22"
    },
    {
     "id": "D-0066",
@@ -1819,8 +1819,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:53:15Z",
-    "sha256": "e913c734a8ff9771016f29c0dbb2783863842df676a05eb14efbdc8868476d5b"
+    "created_at": "2026-10-07T07:14:45Z",
+    "sha256": "44fbbe7312feaccb7f51f8a5242eb403cf61dee10064ff8cb5813f6fb24b8e2f"
    },
    {
     "id": "D-0067",
@@ -1832,8 +1832,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:53:16Z",
-    "sha256": "dcd1ed059084f10fcef99aa8085b94e45a4f5b43a7d26d4990637593021eb2e4"
+    "created_at": "2026-10-07T07:14:46Z",
+    "sha256": "064ce6c87106c5642c4aba412eb7460cc2ec7c1783e4e924fe81b9a07de25151"
    },
    {
     "id": "D-0068",
@@ -1845,8 +1845,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:53:17Z",
-    "sha256": "65c009e588985dee9b83df8108fa4ca1bf3819d2550ee3d60b9fb4d3bb2ab4d8"
+    "created_at": "2026-10-07T07:14:47Z",
+    "sha256": "a765576b4d065f2d28cd2343dab80b565275a5cefda05ac51d3f990abd78ec4e"
    },
    {
     "id": "D-0069",
@@ -1858,8 +1858,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0007",
-    "created_at": "2026-10-07T04:53:19Z",
-    "sha256": "073f4e68bcca3c4af60e193fc2b20edf30ce975dd7df6b107562439d4a7b838f"
+    "created_at": "2026-10-07T07:14:48Z",
+    "sha256": "9d4826ffae3ae4ddf9f87cd034fc8f7ffe04b5626b060d249340e72ab4cc3b98"
    },
    {
     "id": "D-0070",
@@ -1871,8 +1871,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0007",
-    "created_at": "2026-10-07T04:53:19Z",
-    "sha256": "e7b2e9d5f63a9b27a4084065c7f51300ff9fcf63a9a5faed472926f54cc53bcd"
+    "created_at": "2026-10-07T07:14:49Z",
+    "sha256": "3eeafae6ef9195f1500a09e8fac4fd495041e9a426d223be0f148a74899886d1"
    },
    {
     "id": "D-0071",
@@ -1884,14 +1884,14 @@
     "status": "current",
     "author_role": "reviewer",
     "author_id": "pi",
-    "sha256": "1e07382af3869f6c9e6233e178278e778f14e2cb9a38bb7f64d6d62b2d66a327",
+    "sha256": "df124cae1ca22dbb41bb2703a98ed2debe957a63c0c5b9dc7bbb98db100f015e",
     "review_kind": "code_review",
     "review_result": "clear",
     "review_backend": "pi",
     "reviewer_model": "openai/gpt-6-astra",
     "review_session": "RV-0011",
-    "basis_code_ref": "230aa25b9d2fe9d76dcf1e24d3f55504fcb01b0b",
-    "created_at": "2026-10-07T04:53:21Z"
+    "basis_code_ref": "b01413af260f32454e74c5f4ea19291a7e11c1ec",
+    "created_at": "2026-10-07T07:14:51Z"
    },
    {
     "id": "D-0072",
@@ -1903,8 +1903,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0007",
-    "created_at": "2026-10-07T04:53:23Z",
-    "sha256": "c117d71cf4b0fbb774604076bf918ee7cb48b04d6826c1fda9608ee9950d80db"
+    "created_at": "2026-10-07T07:14:52Z",
+    "sha256": "a370a29e9703a662701a6f4ba693a7bd7c9b7795b5da3e68887848f8f0f4c1e0"
    },
    {
     "id": "D-0073",
@@ -1916,8 +1916,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:53:24Z",
-    "sha256": "fdf961ad4d1c8a8e8954c095c89243a1ddeb4c4cea23e547a87fc8c90b4672ba"
+    "created_at": "2026-10-07T07:14:54Z",
+    "sha256": "a3bd8fe9dafc96baed55de557a10d5e453910f773c816c5e678b667c78647f91"
    },
    {
     "id": "D-0074",
@@ -1929,8 +1929,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T04:53:25Z",
-    "sha256": "060c7264ec250797c39f660173ac38ea6b4659bbeee04cc1790b01aec2724e21"
+    "created_at": "2026-10-07T07:14:54Z",
+    "sha256": "ae83b1eb5e75f416b4a1b632f6510f8b3344361f4e6c07005d034024610f9bb4"
    }
   ],
   "decision": [
@@ -1942,7 +1942,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0017",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:52:17Z",
+    "decided_at": "2026-10-07T07:13:48Z",
     "target_id": "H-0001"
    },
    {
@@ -1953,7 +1953,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0017",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:52:17Z",
+    "decided_at": "2026-10-07T07:13:48Z",
     "target_id": "H-0001"
    },
    {
@@ -1964,7 +1964,7 @@
     "reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
     "doc_id": "D-0022",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:52:23Z",
+    "decided_at": "2026-10-07T07:13:53Z",
     "target_id": "H-0001"
    },
    {
@@ -1975,7 +1975,7 @@
     "reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
     "doc_id": "D-0022",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:52:23Z",
+    "decided_at": "2026-10-07T07:13:53Z",
     "target_id": "H-0001"
    },
    {
@@ -1986,7 +1986,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0024",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:52:25Z",
+    "decided_at": "2026-10-07T07:13:55Z",
     "target_id": "H-0002"
    },
    {
@@ -1997,7 +1997,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0024",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:52:25Z",
+    "decided_at": "2026-10-07T07:13:55Z",
     "target_id": "H-0002"
    },
    {
@@ -2008,7 +2008,7 @@
     "reason": "所有指标都不优于SOTA，按规则消灭。",
     "doc_id": "D-0029",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:52:30Z",
+    "decided_at": "2026-10-07T07:14:02Z",
     "target_id": "H-0002"
    },
    {
@@ -2019,7 +2019,7 @@
     "reason": "所有指标都不优于SOTA，按规则消灭。",
     "doc_id": "D-0029",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:52:30Z",
+    "decided_at": "2026-10-07T07:14:02Z",
     "target_id": "H-0002"
    },
    {
@@ -2030,7 +2030,7 @@
     "reason": "所有指标都不优于SOTA，按规则消灭。",
     "doc_id": "D-0029",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:52:30Z",
+    "decided_at": "2026-10-07T07:14:02Z",
     "target_id": "H-0002"
    },
    {
@@ -2041,7 +2041,7 @@
     "reason": "无提升，删除分支（实验提交已打标签）。",
     "doc_id": "D-0030",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:52:32Z",
+    "decided_at": "2026-10-07T07:14:03Z",
     "target_id": "BR-0002"
    },
    {
@@ -2052,7 +2052,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0032",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:52:34Z",
+    "decided_at": "2026-10-07T07:14:05Z",
     "target_id": "H-0003"
    },
    {
@@ -2063,7 +2063,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0032",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:52:34Z",
+    "decided_at": "2026-10-07T07:14:05Z",
     "target_id": "H-0003"
    },
    {
@@ -2073,7 +2073,7 @@
     "to_value": "beats_sota",
     "reason": "3个seed判定",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:52:43Z",
+    "decided_at": "2026-10-07T07:14:14Z",
     "target_id": "H-0003"
    },
    {
@@ -2083,7 +2083,7 @@
     "to_value": "pass",
     "reason": "复核通过",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:52:44Z",
+    "decided_at": "2026-10-07T07:14:15Z",
     "target_id": "H-0003"
    },
    {
@@ -2093,7 +2093,7 @@
     "to_value": "pass",
     "reason": "复核通过",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:52:44Z",
+    "decided_at": "2026-10-07T07:14:15Z",
     "target_id": "H-0003"
    },
    {
@@ -2104,7 +2104,7 @@
     "reason": "优于SOTA且复核通过，可拓展",
     "doc_id": "D-0040",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:52:45Z",
+    "decided_at": "2026-10-07T07:14:15Z",
     "target_id": "H-0003"
    },
    {
@@ -2115,7 +2115,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0051",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:52:57Z",
+    "decided_at": "2026-10-07T07:14:28Z",
     "target_id": "H-0004"
    },
    {
@@ -2126,7 +2126,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0051",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:52:57Z",
+    "decided_at": "2026-10-07T07:14:28Z",
     "target_id": "H-0004"
    },
    {
@@ -2137,7 +2137,7 @@
     "reason": "相对父节点各项指标都不更好，按规则消灭。",
     "doc_id": "D-0056",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:53:04Z",
+    "decided_at": "2026-10-07T07:14:34Z",
     "target_id": "H-0004"
    },
    {
@@ -2148,7 +2148,7 @@
     "reason": "相对父节点各项指标都不更好，按规则消灭。",
     "doc_id": "D-0056",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:53:04Z",
+    "decided_at": "2026-10-07T07:14:34Z",
     "target_id": "H-0004"
    },
    {
@@ -2159,7 +2159,7 @@
     "reason": "相对父节点各项指标都不更好，按规则消灭。",
     "doc_id": "D-0056",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:53:04Z",
+    "decided_at": "2026-10-07T07:14:34Z",
     "target_id": "H-0004"
    },
    {
@@ -2170,7 +2170,7 @@
     "reason": "无提升，删除分支。",
     "doc_id": "D-0057",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:53:05Z",
+    "decided_at": "2026-10-07T07:14:36Z",
     "target_id": "BR-0004"
    },
    {
@@ -2181,7 +2181,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0059",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:53:08Z",
+    "decided_at": "2026-10-07T07:14:38Z",
     "target_id": "H-0005"
    },
    {
@@ -2192,7 +2192,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0059",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:53:08Z",
+    "decided_at": "2026-10-07T07:14:38Z",
     "target_id": "H-0005"
    },
    {
@@ -2203,7 +2203,7 @@
     "reason": "用户决定放弃（超出单次运行上限）",
     "doc_id": "D-0066",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:53:15Z",
+    "decided_at": "2026-10-07T07:14:45Z",
     "target_id": "H-0006"
    },
    {
@@ -2214,7 +2214,7 @@
     "reason": "用户决定放弃（超出单次运行上限）",
     "doc_id": "D-0066",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:53:15Z",
+    "decided_at": "2026-10-07T07:14:45Z",
     "target_id": "H-0006"
    },
    {
@@ -2225,7 +2225,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0068",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:53:18Z",
+    "decided_at": "2026-10-07T07:14:48Z",
     "target_id": "H-0007"
    },
    {
@@ -2236,7 +2236,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0068",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:53:18Z",
+    "decided_at": "2026-10-07T07:14:48Z",
     "target_id": "H-0007"
    },
    {
@@ -2246,7 +2246,7 @@
     "to_value": "paused",
     "reason": "精度持平、只省显存；阶段1目标是精度，暂不投入",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:53:26Z",
+    "decided_at": "2026-10-07T07:14:55Z",
     "target_id": "H-0007"
    },
    {
@@ -2256,7 +2256,7 @@
     "to_value": "0",
     "reason": "1 new finding(s) this batch; stall none",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:53:27Z",
+    "decided_at": "2026-10-07T07:14:56Z",
     "target_id": "H-0001"
    },
    {
@@ -2266,7 +2266,7 @@
     "to_value": "1",
     "reason": "0 new finding(s) this batch; stall none",
     "decided_by": "main",
-    "decided_at": "2026-10-07T04:53:27Z",
+    "decided_at": "2026-10-07T07:14:56Z",
     "target_id": "H-0001"
    }
   ],
@@ -2278,8 +2278,8 @@
     "assignee_role": "worker",
     "assignee_id": "root",
     "request_doc_id": "D-0007",
-    "created_at": "2026-10-07T04:52:08Z",
-    "updated_at": "2026-10-07T04:52:13Z",
+    "created_at": "2026-10-07T07:13:40Z",
+    "updated_at": "2026-10-07T07:13:44Z",
     "delivery_doc_id": "D-0010",
     "accepted_by": "rld/main",
     "accepted_evidence": [
@@ -2295,8 +2295,8 @@
     "assignee_role": "worker",
     "assignee_id": "h0005",
     "request_doc_id": "D-0074",
-    "created_at": "2026-10-07T04:53:26Z",
-    "updated_at": "2026-10-07T04:53:26Z",
+    "created_at": "2026-10-07T07:14:55Z",
+    "updated_at": "2026-10-07T07:14:55Z",
     "target_id": "H-0005"
    }
   ],
@@ -2351,8 +2351,8 @@
      }
     },
     "pair_keys": {},
-    "method_code_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
-    "harness_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
+    "method_code_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
+    "harness_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
     "harness_paths": [
      "harness"
     ],
@@ -2453,10 +2453,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "7893539318c992a84de9c254f70c90cdee5a686e1677e2321aafa761a985f9f9",
-    "inputs_digest": "a093d12604dae575feae0cfcd49147548d0db8edae151fc03f2eed692c2eda7d",
+    "fingerprint": "0a8c2cd1a0f41924e8f74bb1587bb54f69b027f3abc22e05a07b49b7c68e579b",
+    "inputs_digest": "88e1da50a2b4bfeb623080218cfe48fbb61842f4efd794147a09d1a238f15cd5",
     "created_by": "worker/root",
-    "created_at": "2026-10-07T04:52:12Z",
+    "created_at": "2026-10-07T07:13:43Z",
     "experiment_id": "E-0001"
    },
    {
@@ -2527,8 +2527,8 @@
       "seed=42/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "224a96bd0c53c03bb6306b41842dc927cc702c4c",
-    "harness_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
+    "method_code_ref": "cb10c6dd9271dcb3352cd4ce266b7ec150cc2c44",
+    "harness_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
     "harness_paths": [
      "harness"
     ],
@@ -2705,10 +2705,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "e1f55d5d5d27b6628c163c8cdbc53b77333f2948e227c824a6caa4a748fa9213",
-    "inputs_digest": "42f55931a6d81281a0fc8f3d3c4e00a4e9d4ead01eb2fb6899574cc262cd93fa",
+    "fingerprint": "fe02dcb81e98e5569e4f1f2805c5c4146b8a40411f00c9f42efaf90d642aa338",
+    "inputs_digest": "e60006206516fd95e1d09e5f33ed00f333d0ae7f00620f91e2ba4a2b95e348af",
     "created_by": "worker/h0001",
-    "created_at": "2026-10-07T04:52:22Z",
+    "created_at": "2026-10-07T07:13:52Z",
     "experiment_id": "E-0003"
    },
    {
@@ -2779,8 +2779,8 @@
       "seed=42/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "c703c5799629f1d38e99ff8e9624a27c08b7c0f5",
-    "harness_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
+    "method_code_ref": "e3949bdbcdbb23ceb49f65cdd536c9e80f599b10",
+    "harness_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
     "harness_paths": [
      "harness"
     ],
@@ -2957,10 +2957,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "b7d12cd008177238de45f21eee309ca2b8cc0f3315c0a79fdadfba69dd100328",
-    "inputs_digest": "f3dd3078f2af8808239694528b1f3cbe1873fab93f164f405d600689ebae481f",
+    "fingerprint": "10da8db5d7058f93fa9ea9bb67382e989a6dd7311dc23de521ccd986c4c03574",
+    "inputs_digest": "06bbead1278c6e0ba453aa16e19a0ea74a2589f4c783ce8c10691c5aabf3a37c",
     "created_by": "worker/h0002",
-    "created_at": "2026-10-07T04:52:30Z",
+    "created_at": "2026-10-07T07:14:01Z",
     "experiment_id": "E-0005"
    },
    {
@@ -3048,8 +3048,8 @@
       "seed=42/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "7a7ff9ff8e58beecb7ea2bf8c794a64e74d8b418",
-    "harness_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
+    "method_code_ref": "2f2d639f31eea5cea8fc97a988bd4ec49db1e4f9",
+    "harness_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
     "harness_paths": [
      "harness"
     ],
@@ -3308,10 +3308,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "06420250f27349475b5c5a72164b041b995fc373fcf8d5e2c493028dd93693ba",
-    "inputs_digest": "26f387354a7e9fc44ebdca8a027ae331d2b73ee8a1d42e0e1a4c8558845ed5d9",
+    "fingerprint": "bbda83fe6dbf604b9f0c0f47a639db09f340eef48d4ec9c42e9bc9fe75f877f8",
+    "inputs_digest": "defc5ddff4f8f399adee69f973463e190b3d740420911c24643ee1b22d59275e",
     "created_by": "worker/h0003",
-    "created_at": "2026-10-07T04:52:39Z",
+    "created_at": "2026-10-07T07:14:10Z",
     "experiment_id": "E-0007"
    },
    {
@@ -3429,8 +3429,8 @@
       "seed=42/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "7a7ff9ff8e58beecb7ea2bf8c794a64e74d8b418",
-    "harness_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
+    "method_code_ref": "2f2d639f31eea5cea8fc97a988bd4ec49db1e4f9",
+    "harness_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
     "harness_paths": [
      "harness"
     ],
@@ -3708,11 +3708,11 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "e2ec490b12482aa197a5f036e76e36c34564562e510fe9f3d3f8baf9c005c9c8",
-    "inputs_digest": "b8bdcf84ece4e2a48944483340cd790292269f1898e22f9543bb9fa8058937d8",
+    "fingerprint": "642b3f16ae4db0799170995c72b06c66fce870f4c26d7b719b50f24e945fdb01",
+    "inputs_digest": "1099432f9f0584d1fd0a68132948a4f7967e2c15678ef6004fbaae2d882a05c1",
     "supersedes_evaluation_id": "EV-0004",
     "created_by": "worker/h0003",
-    "created_at": "2026-10-07T04:52:43Z",
+    "created_at": "2026-10-07T07:14:13Z",
     "experiment_id": "E-0007"
    },
    {
@@ -3765,8 +3765,8 @@
      }
     },
     "pair_keys": {},
-    "method_code_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
-    "harness_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
+    "method_code_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
+    "harness_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
     "harness_paths": [
      "harness"
     ],
@@ -3867,10 +3867,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "fae2835db92b2cffac1afe1f68d0f223754d20c644682171f50b132257bf0d45",
-    "inputs_digest": "e27bfbfa9589649faf200fa67cc05ff2774ea5e79c252623bf746211306f0f52",
+    "fingerprint": "fc34bad0427c77e95bb053d837ebddb6d5186c988d4e6a47ef2966894ec86be3",
+    "inputs_digest": "3e7907faf2d664382c18f444b7382e3baa3456568992ea2e04aff026f806d9bb",
     "created_by": "worker/root",
-    "created_at": "2026-10-07T04:52:49Z",
+    "created_at": "2026-10-07T07:14:19Z",
     "experiment_id": "E-0008"
    },
    {
@@ -3971,8 +3971,8 @@
       "seed=1044/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "7a7ff9ff8e58beecb7ea2bf8c794a64e74d8b418",
-    "harness_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
+    "method_code_ref": "2f2d639f31eea5cea8fc97a988bd4ec49db1e4f9",
+    "harness_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
     "harness_paths": [
      "harness"
     ],
@@ -4167,10 +4167,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "8d4d64b633fbe575c58a4bcc46903a92af9af6a82737b8827b7543b1fe2a65a1",
-    "inputs_digest": "417161eef84f04c9850b73250827613e7c3d27543b3109f3dc777437bb6e2c6d",
+    "fingerprint": "eba0a66e32549d1c3e14068db011c3f645de07730acb217eb3727b5316e6446b",
+    "inputs_digest": "72fe23136e143d48c27e615a2e62bf41c2220071706b5f3ede15373a4e37df53",
     "created_by": "worker/h0003",
-    "created_at": "2026-10-07T04:52:53Z",
+    "created_at": "2026-10-07T07:14:25Z",
     "experiment_id": "E-0009"
    },
    {
@@ -4258,8 +4258,8 @@
       "seed=42/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "01b0fdfc9cfd28c1f7ba27c3da4831be982ff8ed",
-    "harness_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
+    "method_code_ref": "ebace34f3ac8d24fcffddff586eddd2ab3bd3409",
+    "harness_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
     "harness_paths": [
      "harness"
     ],
@@ -4518,10 +4518,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "99e5f2927a915dad546e288485695a0fb6b16d1a46b1ecbdea0be9166f13802d",
-    "inputs_digest": "e265fc27bb4388aba4732790e753994e5a1305ba26f64f8265f351939794d969",
+    "fingerprint": "69b3237ba06c2f201f222fc3b7fd9f129e51ad1476b0c874c445f0aa45624911",
+    "inputs_digest": "4bfce105c5541dc31b572671dc438f6aed93e7046ae1400d8ed734edf1fa4128",
     "created_by": "worker/h0004",
-    "created_at": "2026-10-07T04:53:03Z",
+    "created_at": "2026-10-07T07:14:33Z",
     "experiment_id": "E-0011"
    },
    {
@@ -4592,8 +4592,8 @@
       "seed=42/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "0608005b6d78b11904c29536da54d15a0779d5b9",
-    "harness_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
+    "method_code_ref": "e6bbdf1efffba2f3b0978359804199ef7e7fb7a9",
+    "harness_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
     "harness_paths": [
      "harness"
     ],
@@ -4770,10 +4770,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "6d7f567bf07aad4215a3685500ef96aca1ef9c3cce8c794848b90256825d4da5",
-    "inputs_digest": "6edbe8c3de23aca4fe6a8277b7b4794b39e88fd9b29ae13a69207e9c1a77ae4e",
+    "fingerprint": "f0f5b03baf8d01e5b96b6539a83a3aca762ee52d8c0a9447fc38cf31db484c7e",
+    "inputs_digest": "c3dbf8971117ddadb1f21724bf229c151fcf467fd3d51e45ff8e3f57e0a5f7f6",
     "created_by": "worker/h0005",
-    "created_at": "2026-10-07T04:53:13Z",
+    "created_at": "2026-10-07T07:14:43Z",
     "experiment_id": "E-0013"
    },
    {
@@ -4844,8 +4844,8 @@
       "seed=42/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "230aa25b9d2fe9d76dcf1e24d3f55504fcb01b0b",
-    "harness_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
+    "method_code_ref": "b01413af260f32454e74c5f4ea19291a7e11c1ec",
+    "harness_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
     "harness_paths": [
      "harness"
     ],
@@ -5022,10 +5022,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "5e684c428e30da0e3edd7980c7b4e3cb3fe41eaaab4de2578ee13932072bdb5a",
-    "inputs_digest": "8ccb4d534310113798f78142de629693219e472761f44d22497f542e1548bb87",
+    "fingerprint": "d89f2f60aa53cdfe3c60e356702bb417fcde7f74842f02b3e88f48af019d07f2",
+    "inputs_digest": "9f52b7e53430d476393d49bd28e9bd5d1c700bff054f069d53c92de2de898915",
     "created_by": "worker/h0007",
-    "created_at": "2026-10-07T04:53:23Z",
+    "created_at": "2026-10-07T07:14:53Z",
     "experiment_id": "E-0015"
    }
   ],
@@ -5040,12 +5040,12 @@
     "status": "RESOLVED",
     "claim": "（虚构）复核指出配置中 seed 列表与协议不一致",
     "evidence_excerpt": "config.yaml seeds",
-    "created_at": "2026-10-07T04:53:26Z",
-    "updated_at": "2026-10-07T04:53:27Z",
+    "created_at": "2026-10-07T07:14:55Z",
+    "updated_at": "2026-10-07T07:14:55Z",
     "resolution": {
      "fix_type": "code_fixed",
      "verified_by": "rld/main",
-     "resolved_at": "2026-10-07T04:53:27Z",
+     "resolved_at": "2026-10-07T07:14:55Z",
      "evidence_path": "outputs/fixes/seed-config-check.txt",
      "evidence_sha256": "a7839e214bf78b3ed8710724d4d77eb84e13e4d20ecdd9cf13e5dc547f190692"
     }
@@ -5073,7 +5073,7 @@
      "experiment_id": "E-0001",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
+     "code_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5093,9 +5093,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "d34c139621ebb0342e3e2d2ca51638f753a539f89d4eb257200199afb941a231",
+     "manifest_sha256": "408a156cdbcdbba521904df8b9dbe45ed4fbd032ba6920fc478f517babf1abfe",
      "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
-     "imported_at": "2026-10-07T04:52:09Z",
+     "imported_at": "2026-10-07T07:13:41Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0001/s42/train.log",
@@ -5126,7 +5126,7 @@
      "experiment_id": "E-0001",
      "seed": 43,
      "attempt": 1,
-     "code_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
+     "code_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5146,9 +5146,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "dc4282a0a03cbb5607ac8b6b8db2bfeaa27e11386b0d7bbcc966e2829b3ac326",
+     "manifest_sha256": "c8cc9ea1853d1aa6450b3d79cd0c29b043194325ed5891de8c222bded8906ad3",
      "metrics_sha256": "e0386148c42cd8ea61da0ad1f7042b2a8c6d507bd344ae53b0883aec634c6708",
-     "imported_at": "2026-10-07T04:52:10Z",
+     "imported_at": "2026-10-07T07:13:42Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0001/s43/train.log",
@@ -5179,7 +5179,7 @@
      "experiment_id": "E-0001",
      "seed": 44,
      "attempt": 1,
-     "code_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
+     "code_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5199,9 +5199,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "234c3c16106ebc9fe869e8772c89216fd830f1b0ee4ce4e71eee0b72dd1e67ad",
+     "manifest_sha256": "8297636710267bc9adbff5404b427bcc341de18c173db1d98509737a4abdfa4a",
      "metrics_sha256": "82a37fc2e7493d2ccaf8c64f8226df791347a939461908f55cf910abdecba6c9",
-     "imported_at": "2026-10-07T04:52:12Z",
+     "imported_at": "2026-10-07T07:13:42Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0001/s44/train.log",
@@ -5232,7 +5232,7 @@
      "experiment_id": "E-0002",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "224a96bd0c53c03bb6306b41842dc927cc702c4c",
+     "code_ref": "cb10c6dd9271dcb3352cd4ce266b7ec150cc2c44",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5252,9 +5252,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "587e995f0e62749247cab3537d5e616a59551d90ba2d50933b34ce0c3e1d9816",
+     "manifest_sha256": "58dec1e39d695bd7e19ae1877915dc913b2c3e30d1de07609705c74ebadd40d6",
      "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
-     "imported_at": "2026-10-07T04:52:20Z",
+     "imported_at": "2026-10-07T07:13:50Z",
      "by": "worker/h0001"
     },
     "log_path": "outputs/E-0002/s42/train.log",
@@ -5285,7 +5285,7 @@
      "experiment_id": "E-0003",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "224a96bd0c53c03bb6306b41842dc927cc702c4c",
+     "code_ref": "cb10c6dd9271dcb3352cd4ce266b7ec150cc2c44",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5305,9 +5305,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "9da4db95ea54e6d68961f33d62ef074e1d495e36111fa7b511ed6b2a716529aa",
+     "manifest_sha256": "329d208b75d229991299e7c218060880f288b13743626ba3916446b97420b4a4",
      "metrics_sha256": "c1ddce2e7874bc5212c02641714c12dc46094fb9b2cd61cff8ec3242c80ad6d4",
-     "imported_at": "2026-10-07T04:52:21Z",
+     "imported_at": "2026-10-07T07:13:52Z",
      "by": "worker/h0001"
     },
     "log_path": "outputs/E-0003/s42/train.log",
@@ -5338,7 +5338,7 @@
      "experiment_id": "E-0004",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "c703c5799629f1d38e99ff8e9624a27c08b7c0f5",
+     "code_ref": "e3949bdbcdbb23ceb49f65cdd536c9e80f599b10",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5358,9 +5358,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "93fb6281dad8a095b9e612d3ee229239932aa70ee4795856c164b9ce82c8e6e0",
+     "manifest_sha256": "129ea79e4dd32a690a02556babaabf4041f535a26e0183925f5fbc3605ec8e4c",
      "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
-     "imported_at": "2026-10-07T04:52:27Z",
+     "imported_at": "2026-10-07T07:13:58Z",
      "by": "worker/h0002"
     },
     "log_path": "outputs/E-0004/s42/train.log",
@@ -5391,7 +5391,7 @@
      "experiment_id": "E-0005",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "c703c5799629f1d38e99ff8e9624a27c08b7c0f5",
+     "code_ref": "e3949bdbcdbb23ceb49f65cdd536c9e80f599b10",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5411,9 +5411,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "e5a2ee26925225fb25073566ce57a0bc19a8f134f37bc991776d83e8a545b246",
+     "manifest_sha256": "3ef4399251f4c7231165900316d88093f032b8807c69f721cbec0f0c5875f6e3",
      "metrics_sha256": "86701fb69bdedba6fa5fb18ffb8a22c7b22e6021cf97589c24bde87cdac3cb4c",
-     "imported_at": "2026-10-07T04:52:29Z",
+     "imported_at": "2026-10-07T07:14:00Z",
      "by": "worker/h0002"
     },
     "log_path": "outputs/E-0005/s42/train.log",
@@ -5444,7 +5444,7 @@
      "experiment_id": "E-0006",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "7a7ff9ff8e58beecb7ea2bf8c794a64e74d8b418",
+     "code_ref": "2f2d639f31eea5cea8fc97a988bd4ec49db1e4f9",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5464,9 +5464,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "19c366d2af7b9b3b6dec8b8bb340833f546543fb35d464306d82a82a964ddfa0",
+     "manifest_sha256": "43b483bb1d387d0ee74558ee7faea54a1778458e75c790b540aa27abdd4e18c1",
      "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
-     "imported_at": "2026-10-07T04:52:36Z",
+     "imported_at": "2026-10-07T07:14:08Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0006/s42/train.log",
@@ -5497,7 +5497,7 @@
      "experiment_id": "E-0007",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "7a7ff9ff8e58beecb7ea2bf8c794a64e74d8b418",
+     "code_ref": "2f2d639f31eea5cea8fc97a988bd4ec49db1e4f9",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5517,9 +5517,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "b5d10de0cd82be6ba4a71d038e37dbe36ae30349e52ae43b988faacaa38dfea8",
+     "manifest_sha256": "4c3e7f20bb3ccc2578a71fb0fc3484ade719d6a67cd67961c1905aa6245c6b25",
      "metrics_sha256": "2f1dd44520747b568904c41d1a600bac1160afd8d8ff5fa31e4000a3c503ff1d",
-     "imported_at": "2026-10-07T04:52:38Z",
+     "imported_at": "2026-10-07T07:14:09Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0007/s42/train.log",
@@ -5550,7 +5550,7 @@
      "experiment_id": "E-0007",
      "seed": 43,
      "attempt": 1,
-     "code_ref": "7a7ff9ff8e58beecb7ea2bf8c794a64e74d8b418",
+     "code_ref": "2f2d639f31eea5cea8fc97a988bd4ec49db1e4f9",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5570,9 +5570,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "6f6086ecb61c7d003a036943ada1db357c5d2df44333e3c2eed1e605985292eb",
+     "manifest_sha256": "6407b206ebb7b93d7365232653b38e96882ff0efaa1194366b66cbcd1fa9d7c0",
      "metrics_sha256": "2154ee6a1906915114788f0396aa5d9c8a5ff2b6526a6a25282badb63f34bbff",
-     "imported_at": "2026-10-07T04:52:41Z",
+     "imported_at": "2026-10-07T07:14:11Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0007/s43/train.log",
@@ -5603,7 +5603,7 @@
      "experiment_id": "E-0007",
      "seed": 44,
      "attempt": 1,
-     "code_ref": "7a7ff9ff8e58beecb7ea2bf8c794a64e74d8b418",
+     "code_ref": "2f2d639f31eea5cea8fc97a988bd4ec49db1e4f9",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5623,9 +5623,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "6cbb07ff80feaf6a05df832242ac44ed7c8839419eb3cdc3bf0e95d144e192c2",
+     "manifest_sha256": "6f84c7a65d468aefbefc47de2828669c048275b9d5bcb39a0593a7921cc31dbd",
      "metrics_sha256": "09f3d05dc52133573e1378ee97cbf61f472e6848ec211ba1207aaf574fb8e3f5",
-     "imported_at": "2026-10-07T04:52:42Z",
+     "imported_at": "2026-10-07T07:14:12Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0007/s44/train.log",
@@ -5656,7 +5656,7 @@
      "experiment_id": "E-0008",
      "seed": 1042,
      "attempt": 1,
-     "code_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
+     "code_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5676,9 +5676,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "6e475411190a8a3beadc66fb851fd24e913175341342cd66688a809846da3ec8",
+     "manifest_sha256": "940232cbf19a48a771a62458e4e6a18121445417ca4eac1e16058d987c0cbc6a",
      "metrics_sha256": "1e261d4529fc7745d4fc2126954bd56b60b320134a07bfbf5d82480c3c8c0f94",
-     "imported_at": "2026-10-07T04:52:46Z",
+     "imported_at": "2026-10-07T07:14:17Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0008/s1042/train.log",
@@ -5709,7 +5709,7 @@
      "experiment_id": "E-0008",
      "seed": 1043,
      "attempt": 1,
-     "code_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
+     "code_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5729,9 +5729,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "8302266068aa6fe2a43c3468f1d03094462cb7a66704ebf80ab8e56717ded781",
+     "manifest_sha256": "ed652f390a13078f6fa673d55530915ccc144ace1eb60f81d0ee0bf468426b79",
      "metrics_sha256": "c3d1faf3800fda5048b375f5187d136d731f1b9ef58e499f9f8d19ca2ebf9fb5",
-     "imported_at": "2026-10-07T04:52:47Z",
+     "imported_at": "2026-10-07T07:14:18Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0008/s1043/train.log",
@@ -5762,7 +5762,7 @@
      "experiment_id": "E-0008",
      "seed": 1044,
      "attempt": 1,
-     "code_ref": "6e74ddc968820903b1da0cdf166acb9df67b3647",
+     "code_ref": "89e754800f0300b3409ecd5a2240bf8521d38959",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5782,9 +5782,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "e2cf9685cf6854db5c75426f9e5416d614d5939c2214fa4c70fca0eb59f716a3",
+     "manifest_sha256": "b7096a3bcc840307b06f7c62780d65edf974835aa6874335628e5c13bcc98cc5",
      "metrics_sha256": "cb7f3994a4d43a18d80eaafabdecb61fd81798d3ed8b4470ed6a9e679cc8a0b6",
-     "imported_at": "2026-10-07T04:52:48Z",
+     "imported_at": "2026-10-07T07:14:19Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0008/s1044/train.log",
@@ -5815,7 +5815,7 @@
      "experiment_id": "E-0009",
      "seed": 1042,
      "attempt": 1,
-     "code_ref": "7a7ff9ff8e58beecb7ea2bf8c794a64e74d8b418",
+     "code_ref": "2f2d639f31eea5cea8fc97a988bd4ec49db1e4f9",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5835,9 +5835,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "81706f982b7b5fbb4f729e5bc02a07837c64bd9adcbd5a22b4492f8b413bbcf9",
+     "manifest_sha256": "b8f3ba5ced60a4668cef5a7bf32a60f28ee20d724caf6466ac6626a07cce26d0",
      "metrics_sha256": "2e7fe6047968177c1de3908fabbc39008a5d2fb2e339545e3a927a6d41a87953",
-     "imported_at": "2026-10-07T04:52:50Z",
+     "imported_at": "2026-10-07T07:14:22Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0009/s1042/train.log",
@@ -5868,7 +5868,7 @@
      "experiment_id": "E-0009",
      "seed": 1043,
      "attempt": 1,
-     "code_ref": "7a7ff9ff8e58beecb7ea2bf8c794a64e74d8b418",
+     "code_ref": "2f2d639f31eea5cea8fc97a988bd4ec49db1e4f9",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5888,9 +5888,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "0bd99d3104ac3c1584cb9b92d6750d1e0376c5f0042361aa113c9364174bfdbe",
+     "manifest_sha256": "0fd59753bc60f631f5adda5acaaac0bebd18c93eb4e73f3c9d183cfe18b58fa8",
      "metrics_sha256": "7e32f6b1cd7a20d7dd21f11abba82e46d1ab87a858dc2c89146f1a462aa86ddf",
-     "imported_at": "2026-10-07T04:52:51Z",
+     "imported_at": "2026-10-07T07:14:23Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0009/s1043/train.log",
@@ -5921,7 +5921,7 @@
      "experiment_id": "E-0009",
      "seed": 1044,
      "attempt": 1,
-     "code_ref": "7a7ff9ff8e58beecb7ea2bf8c794a64e74d8b418",
+     "code_ref": "2f2d639f31eea5cea8fc97a988bd4ec49db1e4f9",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5941,9 +5941,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "1e570a2039200b51e9e0bf5b63c1f9dc0de94812a1f4e2992332840a122c7ee6",
+     "manifest_sha256": "53e56eae0a3615c54fc3fa6fb370e0b3d1bb7cf3a940b6c73c983cf96ac42efe",
      "metrics_sha256": "23fe44261874eca8f9c07c02eacc89750110c5339960757724f5e70401f12109",
-     "imported_at": "2026-10-07T04:52:52Z",
+     "imported_at": "2026-10-07T07:14:24Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0009/s1044/train.log",
@@ -5974,7 +5974,7 @@
      "experiment_id": "E-0010",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "01b0fdfc9cfd28c1f7ba27c3da4831be982ff8ed",
+     "code_ref": "ebace34f3ac8d24fcffddff586eddd2ab3bd3409",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5994,9 +5994,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "a619e8a9e13d1ec8a4e2a4c2e1d87458931666b984c3133e647aa21fffdf9262",
+     "manifest_sha256": "f999de52870cc050654d438fa1633a3e15967aab3a66b73b697b86e5c33b098c",
      "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
-     "imported_at": "2026-10-07T04:53:00Z",
+     "imported_at": "2026-10-07T07:14:31Z",
      "by": "worker/h0004"
     },
     "log_path": "outputs/E-0010/s42/train.log",
@@ -6027,7 +6027,7 @@
      "experiment_id": "E-0011",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "01b0fdfc9cfd28c1f7ba27c3da4831be982ff8ed",
+     "code_ref": "ebace34f3ac8d24fcffddff586eddd2ab3bd3409",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -6047,9 +6047,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "3c21f0f6ae3fb749ba45a58ac40137ce791fc9adfc847bba32ce51b35da610e2",
+     "manifest_sha256": "df06d1dbad30f2c5e0865becd21bcabd68019a253822ae1be0aef2c7bc039fb3",
      "metrics_sha256": "c6a9898028e1864128f1a481b10f0834e00e0799cd39ad6167d908322c235266",
-     "imported_at": "2026-10-07T04:53:02Z",
+     "imported_at": "2026-10-07T07:14:32Z",
      "by": "worker/h0004"
     },
     "log_path": "outputs/E-0011/s42/train.log",
@@ -6080,7 +6080,7 @@
      "experiment_id": "E-0012",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "0608005b6d78b11904c29536da54d15a0779d5b9",
+     "code_ref": "e6bbdf1efffba2f3b0978359804199ef7e7fb7a9",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -6100,9 +6100,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "28459a34e50eea0ace4b0ad48d4ddee1294a6342ed8899df2800073a4a301843",
+     "manifest_sha256": "ac3940267e4f7b3e6ee75bd09f56bb1ebcf127d5b4ac231e792e1d58903a1a5b",
      "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
-     "imported_at": "2026-10-07T04:53:10Z",
+     "imported_at": "2026-10-07T07:14:41Z",
      "by": "worker/h0005"
     },
     "log_path": "outputs/E-0012/s42/train.log",
@@ -6133,7 +6133,7 @@
      "experiment_id": "E-0013",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "0608005b6d78b11904c29536da54d15a0779d5b9",
+     "code_ref": "e6bbdf1efffba2f3b0978359804199ef7e7fb7a9",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -6153,9 +6153,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "4292310c7b08fc3bc1923d650bfb50b722899841503c3c3b32faacdbc2485d93",
+     "manifest_sha256": "65f4ae599d1b7046509f7110bede9b9d05572065fbff3ca9a90a5445518b08e9",
      "metrics_sha256": "1c67221c2e2014751bba0423e91fb81a4ef1ed2dc413f8b5ee2f66d3b797ee87",
-     "imported_at": "2026-10-07T04:53:12Z",
+     "imported_at": "2026-10-07T07:14:42Z",
      "by": "worker/h0005"
     },
     "log_path": "outputs/E-0013/s42/train.log",
@@ -6186,7 +6186,7 @@
      "experiment_id": "E-0014",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "230aa25b9d2fe9d76dcf1e24d3f55504fcb01b0b",
+     "code_ref": "b01413af260f32454e74c5f4ea19291a7e11c1ec",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -6206,9 +6206,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "ea4f78ea72192c104e47d9a30ba341a0b3263af302b4a3db6a6d33485437ffc7",
+     "manifest_sha256": "b57975894287cc1b34adad793aadff364bda3f2d4a19d4adf0b4c1a624f9f0b7",
      "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
-     "imported_at": "2026-10-07T04:53:20Z",
+     "imported_at": "2026-10-07T07:14:50Z",
      "by": "worker/h0007"
     },
     "log_path": "outputs/E-0014/s42/train.log",
@@ -6239,7 +6239,7 @@
      "experiment_id": "E-0015",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "230aa25b9d2fe9d76dcf1e24d3f55504fcb01b0b",
+     "code_ref": "b01413af260f32454e74c5f4ea19291a7e11c1ec",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -6259,9 +6259,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "3b98e157f949fe2d94e99abf8705c80a003d95486d706bf4c3b201930d3b1494",
+     "manifest_sha256": "339156f24201f2defebabc689d556dcead449218825826378ac6975ef85ad2bb",
      "metrics_sha256": "08f8b3bb8e8e6b6fa0422b1a1b1747b1765950d03e1081e8a77188e8e633fcc3",
-     "imported_at": "2026-10-07T04:53:22Z",
+     "imported_at": "2026-10-07T07:14:52Z",
      "by": "worker/h0007"
     },
     "log_path": "outputs/E-0015/s42/train.log",

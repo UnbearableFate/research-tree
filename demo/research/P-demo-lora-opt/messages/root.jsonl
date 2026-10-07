@@ -1,1 +1,1 @@
-{"v":1,"id":"root-0001","ts":"2026-10-07T04:53:27Z","project":"P-demo-lora-opt","from":"worker/root","to":"rld/main","type":"delivery","text":"T-0001完成：框架已提交，SOTA三个seed有效。","need":"ack","re":"main-0001","about":["T-0001","E-0001"],"docs":["tasks/T-0001/delivery.v1.md"]}
+{"v":1,"id":"root-0001","ts":"2026-10-07T07:14:56Z","project":"P-demo-lora-opt","from":"worker/root","to":"rld/main","type":"delivery","text":"T-0001完成：框架已提交，SOTA三个seed有效。","need":"ack","re":"main-0001","about":["T-0001","E-0001"],"docs":["tasks/T-0001/delivery.v1.md"]}

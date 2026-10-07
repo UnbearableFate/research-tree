@@ -7,11 +7,11 @@ summary: "momentum-rescale"
 about: []
 author_role: "worker"
 author_id: "h0004"
-created_at: "2026-10-07T04:52:58Z"
+created_at: "2026-10-07T07:14:29Z"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
 
-代码 01b0fdfc9c：momentum-rescale。
+代码 ebace34f3a：momentum-rescale。
 
 ## 检验的 claim
 

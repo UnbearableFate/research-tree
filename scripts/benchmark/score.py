@@ -7,7 +7,8 @@ Metrics: outcome (go / not_go / active), false_go (GO where the truth has no gai
 found (GO on the true best knob set), premature_elimination (the true best knob set tested and then retired),
 efficiency (valid runs per committed node-hour, failures included), duplicate_attempts (runs resubmitted beyond their
 first attempt), repeated_failures (failures reported again for a root cause after a verified lesson about it),
-user_burden (user instructions after the first), review_cost_usd, coverage (distinct knob sets tested) and
+user_burden (registered user instructions after the first; steering typed straight into the Leader's session is
+not registered and must be counted from the host log), review_cost_usd, coverage (distinct knob sets tested) and
 wall_clock_h (project creation to its last decision). Recovery time and the agents' token cost need the host logs
 (the hosts' session records), not this database. Single runs are noisy: compare systems over several tasks and
 seeds, never one run each.
