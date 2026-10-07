@@ -2896,3 +2896,64 @@ class ProxyWordingTest(Fixture):
             self.rld.set_document_current(doc)
         ok = self.doc(self.rld, "reports/x11b.v1.md", "report", body="# 结果\n\n在合成代理指标上相对提升 0.3 个百分点。\n")
         self.assertEqual(self.rld.get(ok)["status"], "current")
+
+
+class SearchRelationTest(Fixture):
+    """06 §4, U06–U08: relations to negative history, no endless renaming, an exploration share left unused."""
+
+    def node(self, **kw) -> str:
+        self.n += 1
+        doc = self.doc(self.rld, f"h/r{self.n}/hypothesis.v1.md", "hypothesis")
+        return self.rld.create_hypothesis(f"h{self.n}", "s", doc, self.literature, **kw)
+
+    def negative(self, direction: str | None = None) -> str:
+        h = self.node(direction=direction)
+        self.start(h)
+        self.evaluate(self.method(h), None, sota=(-0.4, -0.1, -0.1))
+        return h
+
+    def test_u06_combine_two_nodes_without_gain(self):
+        a, b = self.negative(), self.negative()
+        with self.assertRaisesRegex(ResearchDBError, "at least two"):
+            self.node(relations=[{"kind": "combines", "target": a}])
+        untested = self.node()
+        with self.assertRaisesRegex(ResearchDBError, "has no evaluation"):
+            self.node(relations=[{"kind": "combines", "target": a}, {"kind": "combines", "target": untested}])
+        c = self.node(relations=[{"kind": "combines", "target": a}, {"kind": "combines", "target": b}])
+        kinds = {(r["kind"], r["to"]) for r in self.rld.relations(c)["relations"]}
+        self.assertEqual(kinds, {("combines", a), ("combines", b)})
+        derived = {r["kind"] for r in self.rld.relations(a)["relations"]}
+        self.assertIn("tested_by", derived)
+        self.assertIn("combines", derived)
+
+    def test_u07_a_retired_direction_is_repaired_a_bounded_number_of_times(self):
+        old = self.negative(direction="warmup schedule")
+        self.rld.decide_disposition(old, "retired", "no gain", [self.decision_doc()], reconsider_when="new data")
+        with self.assertRaisesRegex(ResearchDBError, "REPEATED_DIRECTION: .*already tested this direction"):
+            self.node(direction="Warmup  schedule")  # renamed, same direction
+        self.rld.update_project(max_repairs_per_root_cause=2)
+        for _ in range(2):
+            self.node(direction="warmup schedule", relations=[{"kind": "repairs", "target": old}])
+        with self.assertRaisesRegex(ResearchDBError, "REPEATED_DIRECTION: .*repaired 2 times"):
+            self.node(direction="warmup schedule", relations=[{"kind": "repairs", "target": old}])
+
+    def test_u08_exploration_share(self):
+        self.rld.update_project(total_limit=20000, search_limit=10000, exploration_fraction=0.2)
+        tasks_before = len(self.rld.find("task"))
+        current = self.node()
+        self.start(current)
+        exp = self.method(current, n_seeds=1, walltime_s=100)
+        self.worker.create_run(exp, self.rld.get(exp)["seeds"][0])
+        # current directions may use 8000 of 10000; 5400 are recorded outside reservations (the SOTA)
+        with self.assertRaisesRegex(ResearchDBError, "BUDGET_EXCEEDED: .*exploration share"):
+            self.worker.reserve_submission("k1", [f"{exp}/s{self.rld.get(exp)['seeds'][0]}@1"],
+                                           {"nodes": 1, "walltime_s": 3000})
+        explore = self.node(exploration=True)
+        self.start(explore)
+        e2 = self.method(explore, n_seeds=1, walltime_s=100)
+        self.worker.create_run(e2, self.rld.get(e2)["seeds"][0])
+        self.worker.reserve_submission("k2", [f"{e2}/s{self.rld.get(e2)['seeds'][0]}@1"],
+                                       {"nodes": 1, "walltime_s": 2000})
+        status = self.rld.budget_status()["exploration"]
+        self.assertEqual((status["fraction"], status["committed"]), (0.2, 2000))
+        self.assertEqual(len(self.rld.find("task")), tasks_before)  # nothing is created to use a share

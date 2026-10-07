@@ -77,6 +77,7 @@ CREATE TABLE project (
     literature_verification BOOLEAN NOT NULL DEFAULT FALSE, -- 只有存在性核验为 verified 的文献计入 min_related_work（08 §2）
     memory_max_items    INTEGER NOT NULL DEFAULT 5,   -- 上下文包中至多几条经验（memory.max_items_per_task）
     memory_counterevidence BOOLEAN NOT NULL DEFAULT TRUE, -- 经验与其反例一起返回（memory.include_counterevidence，K03）
+    exploration_fraction REAL,                 -- 搜索预算中保留给不同机制探索的比例（search.exploration_fraction，06 §4.5）
     max_repairs_per_root_cause INTEGER NOT NULL DEFAULT 2,  -- 同一根因至多几次补丁（search.max_repairs_per_root_cause，03 §8）
     screen_seeds        INTEGER,               -- 筛选 seed 数上限（version 2：verification.screening_seeds 的个数）；空则只按筛选预算
     protocol_doc_id     TEXT,                  -- 现行实验协议（JSON 文档：评测类型、配对字段、必须一致的设定）
@@ -106,6 +107,7 @@ CREATE TABLE hypothesis (
     statement           TEXT NOT NULL,         -- 一句话可证伪假说；完整内容见 doc
     doc_id              TEXT NOT NULL,         -- 假说文档
     candidate_id        TEXT,                  -- 发现阶段的候选（CAND-编号）；其查新与评审回执在建节点时核对
+    exploration         BOOLEAN NOT NULL DEFAULT FALSE,  -- 探索与当前赢家不同的机制（用探索份额，06 §4.3、§4.5）
     status              TEXT NOT NULL CHECK (status IN (
                             'pending',         -- 待验证
                             'verifying',       -- 验证中
@@ -504,7 +506,10 @@ CREATE TABLE rel_related (                     -- edge: RELATED（hypothesis →
     kind                TEXT NOT NULL CHECK (kind IN (
                             'competes',        -- 竞争解释
                             'shares_control',  -- 共享对照
-                            'variant_of'       -- 同一想法的变体（非派生）
+                            'variant_of',      -- 同一想法的变体（非派生）
+                            'combines',        -- 组合两个方向的关键机制（不代表代码可自动合并，06 §4.1）
+                            'repairs',         -- 修正此前结果揭示的具体缺陷（不抹去原节点的失败证据）
+                            'tests_assumption' -- 检验另一个节点的必要前提（不要求自身成为性能赢家）
                         )),
     PRIMARY KEY (source_id, target_id, kind)
 );

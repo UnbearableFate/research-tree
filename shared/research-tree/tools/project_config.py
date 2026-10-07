@@ -156,6 +156,7 @@ def db_fields(config: dict) -> dict:
             "literature_verification": config["literature"]["require_verified"],
             "memory_max_items": config["memory"]["max_items_per_task"],
             "memory_counterevidence": config["memory"]["include_counterevidence"],
+            "exploration_fraction": config["search"]["exploration_fraction"],
             "max_repairs_per_root_cause": config["search"]["max_repairs_per_root_cause"],
         }
     budget, stage1 = config["budget"], config["stage1"]
