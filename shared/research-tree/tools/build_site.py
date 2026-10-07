@@ -17,6 +17,7 @@ import json
 import re
 import shutil
 import sys
+from datetime import datetime, timezone
 from pathlib import Path
 
 from research_db import ResearchDB, ResearchDBError, busy_workers, now_utc, run_node_hours, sha256_file
@@ -31,7 +32,7 @@ ATTENTION_LABELS = {
     "conclusion_outdated": "结论待更新", "task": "任务", "doc_integrity": "文档完整性", "cleanup_due": "待清理",
     "cleanup_failed": "清理未完成", "evidence_stale": "证据已失效", "obligation_open": "未决问题",
     "stall": "停滞待换向", "confirmation_required": "待独立确认", "overrun": "用量超出预估",
-    "admission_paused": "准入暂停", "submission_unknown": "提交状态待核对",
+    "admission_paused": "准入暂停", "submission_unknown": "提交状态待核对", "run_stale": "作业超时未更新",
 }
 DISPOSITION_LABELS = {"active": "继续投入", "paused": "暂停", "retired": "不再投入"}
 OUTCOME_LABELS = {"positive_signal": "正向信号", "negative_signal": "负向信号", "inconclusive": "不确定", "invalid": "无效"}
@@ -263,6 +264,22 @@ def collect(db_path: Path) -> dict:
             attention.append({"kind": "overrun", "id": x.get("hypothesis_id") or project["id"],
                               "text": f"{x['id']} 已用 {used:.2f} node·h，达到预估 {estimate} 的 {factor:g} 倍：由 RLD 决定是否继续"
                                       "（作业不会被自动取消）"})
+    # a run still submitted or running well past its walltime cap: query the scheduler (05 §4.9)
+    now = datetime.now(timezone.utc)
+    walltime = {x["id"]: x["walltime_s"] for x in tables["experiment"]}
+    for r in tables["run"]:
+        if r["exec_status"] in ("submitted", "running") and r.get("started_at"):
+            try:
+                started = datetime.fromisoformat(r["started_at"].replace("Z", "+00:00"))
+            except ValueError:
+                continue
+            if started.tzinfo is None:
+                started = started.replace(tzinfo=timezone.utc)
+            limit = walltime.get(r["experiment_id"], 0) * 1.5 + 600
+            if (now - started).total_seconds() > limit:
+                attention.append({"kind": "run_stale", "id": r["id"],
+                                  "text": f"{r['id']} 自 {r['started_at']} 起仍为 {r['exec_status']}，已超过 walltime "
+                                          "上限：按 job_id 向调度器核对，查询失败记 unknown，不重提"})
     if project.get("admission_paused"):
         attention.insert(0, {"kind": "admission_paused", "id": project["id"],
                              "text": f"新的提交预留已暂停：{project['admission_paused']}；由用户决定（resume_admission）"})

@@ -21,6 +21,7 @@ import codex_mcp
 import research_tree
 from codex_runtime import Runtime
 from metrics import minimal_documents
+import build_site
 from research_db import READ_METHODS, TASK_SECTIONS
 from codex_state import lock_busy, locked, read_json, write_json
 
@@ -130,6 +131,20 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         self.assertEqual(len(self.db.find("document")), before)
         with self.assertRaisesRegex(ValueError, "assign_worker"):
             self.runtime.start_worker("P-test", "implement")
+
+    def test_confirm_request_and_usage_alert_reach_the_webhook_log(self):
+        self.runtime.post({"type": "confirm_request", "text": "请确认", "docs": ["project/reports/init-plan.v1.md"]})
+        real = build_site.summary_or_empty
+        build_site.summary_or_empty = lambda db: {**real(db), "project": {"alert_node_h": 1.0},
+                                                  "attention": [{"kind": "usage_alert", "text": "用量达到 1 node·h"}]}
+        try:
+            self.runtime.summary()
+            self.runtime.summary()  # one notification per threshold
+        finally:
+            build_site.summary_or_empty = real
+        log = [json.loads(line) for line in (self.runtime.root / "logs/notify.jsonl").read_text().splitlines()]
+        self.assertEqual([(r["kind"], r["outcome"]) for r in log],
+                         [("confirm_request", "skipped: no notify.url"), ("alert", "skipped: no notify.url")])
 
     def test_bound_roles_cannot_impersonate_or_control_execution(self):
         ui = Runtime(self.cwd, "ui/ui")

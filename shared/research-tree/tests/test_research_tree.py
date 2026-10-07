@@ -380,6 +380,15 @@ class ConfigV2Test(unittest.TestCase):
         project = rld.get("P-v2")
         self.assertEqual((project["go_margin"], rld.get(project["metric_spec_doc_id"])["path"]),
                          (0.3, "project/metric-spec.v2.json"))
+        # the budget cap is the user's: raising it in their file takes effect with their instruction recorded
+        for limit in (50000, 90000):
+            config.write_text(config.read_text(encoding="utf-8").replace(
+                "total_limit: null" if limit == 50000 else "total_limit: 50000", f"total_limit: {limit}"),
+                encoding="utf-8")
+            code, out = self.run_tool("config", "apply")
+            self.assertEqual(code, 0, out)
+        self.assertEqual(rld.get("P-v2")["total_limit"], 90000)
+        self.assertEqual(rld.get(out["result"]["instruction"]["doc_id"])["doc_type"], "user_instruction")
 
 
 class NotifyTest(unittest.TestCase):

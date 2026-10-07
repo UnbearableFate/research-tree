@@ -234,7 +234,17 @@ Claude 版提供内嵌窗口、面板和状态栏；Codex 版使用独立终端�
 
 `go_margin` 由主指标的 `minimum_practical_gain` 给出，单位与方向逐指标声明（如 accuracy 以百分点计）。门槛与统一 seed 在第一个实验登记后不能再修改；之后更换指标规范或协议须引用用户指令，旧 evaluation 随之失效。
 
-**提交与预算：**设置 `total_limit` 后，worker 每次提交依次 `reserve_submission` → `claim_submission` → 带 submission_key 提交 → `attach_job`，作业结束后按调度器的用量文件 `settle_reservation`。提交超时的运行保持 unknown，按 submission_key 核对，不会自动重提；实际用量超出预留或授权时准入暂停，由你决定后恢复。`budget_status` 查看已授权、已承诺与可用量。研究对话中尚未得到 RLD 回执的消息显示在状态栏，也可用 `/research-tree inbox` 查看。
+**提交与预算：**设置 `total_limit` 后，worker 每次提交依次 `reserve_submission` → `claim_submission` → 带 submission_key 提交 → `attach_job`，作业结束后按调度器的用量文件 `settle_reservation`。提交超时的运行保持 unknown，按 submission_key 核对，不会自动重提；实际用量超出预留或授权时准入暂停，由你决定后恢复。`budget_status` 查看已授权、已承诺与可用量；提高授权或上限只能由你修改配置文件并 `config apply`。
+
+`platform.skills` 中的站点技能（如集群调度技能）对插件至少要做到：
+
+1. 提交前用 `reserve_submission` / `claim_submission` 取得提交身份（submission_key），提交时带上它，提交后立即 `attach_job` 并把运行置为 submitted；job_id 可被调度器再次查询。
+2. 查询失败或提交超时保持 unknown，不重提（接口拒绝从 unknown 重提），按 submission_key 核对。
+3. 作业结束后填写实际用量，并用调度器的用量文件 `settle_reservation`；来源可追溯。
+4. 唤醒后只核对原作业与导入结果，把控制交回 RLD；不作判定、不自动验收。
+5. 不修改 `research-tree.yaml`、已生效文档与冻结框架。
+
+研究对话中尚未得到 RLD 回执的消息显示在状态栏，也可用 `/research-tree inbox` 查看。
 
 **配置何时生效：**立项确认前，文件修改用于当前规划；确认时登记为生效版本。确认后须运行 `config apply`，插件会生成 `docs/project/config.vN.yaml`、记录用户指令并更新项目记录。新启动的子代理使用现行配置，活跃 worker 由 Leader 转告变更。
 

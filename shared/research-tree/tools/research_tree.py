@@ -61,8 +61,8 @@ import create_db  # noqa: E402
 import notify  # noqa: E402
 import project_config  # noqa: E402
 from project_config import CONFIG_NAME, ConfigError  # noqa: E402
-from research_db import (CLEANUP_SCRIPT, CLEANUP_TEMPLATE, GATE_FIELDS, READ_METHODS, ResearchDB,  # noqa: E402
-                         ResearchDBError, describe, table_of)
+from research_db import (CAP_FIELDS, CLEANUP_SCRIPT, CLEANUP_TEMPLATE, EVIDENCE_DOC_FIELDS,  # noqa: E402
+                         GATE_FIELDS, READ_METHODS, ResearchDB, ResearchDBError, describe, table_of)
 
 MARKER = Path(".research-tree.json")
 PHASES = ("planning", "awaiting_confirmation", "confirmed")
@@ -288,13 +288,17 @@ def apply_config(cwd: Path, actor: str, words: str | None = None, require_projec
         registered = marker["config"] = {"doc_id": doc_id, "path": rel}
         write_marker(cwd, marker)
     instruction = None
+    # The file is the user's (agents may not write it): a cap it raises or a document it changes rests on it.
+    if not words and project is not None and set(changes) & set(CAP_FIELDS + EVIDENCE_DOC_FIELDS):
+        words = f"（用户的 {CONFIG_NAME}，经 config apply 或立项确认生效）"
     if words and (new_version or changes):  # first: a new metric specification rests on the user's instruction
         updated = f"；项目记录中的 {', '.join(sorted(changes))} 随之更新" if changes else ""
         instruction = register_instruction(root, words, f"项目配置改为 {registered['path']}"
                                            f"（{registered['doc_id']}）{updated}。", "配置变更",
                                            [project["id"]] if project else [])
     if project is not None and (changes or project.get("config_doc_id") != registered["doc_id"]):
-        extra = {"user_instruction_doc_id": instruction["doc_id"]} if instruction and "metric_spec_doc_id" in changes else {}
+        extra = ({"user_instruction_doc_id": instruction["doc_id"]}
+                 if instruction and set(changes) & set(CAP_FIELDS + EVIDENCE_DOC_FIELDS) else {})
         rld.update_project(**changes, config_doc_id=registered["doc_id"], **extra)
     return {"config": registered, "new_version": new_version, "updated_fields": changes,
             "instruction": instruction, "effective": config}

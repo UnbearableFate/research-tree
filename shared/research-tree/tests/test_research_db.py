@@ -188,7 +188,7 @@ class Fixture(unittest.TestCase):
     def baseline(self, nodes: int, walltime_s: int) -> str:
         self.n += 1
         design = self.doc(self.worker, f"exp/b{self.n}/design.v1.md", "experiment_design")
-        exp = self.worker.create_experiment("baseline", "sota", design, self.harness, nodes, walltime_s, estimated_node_h=1.0)
+        exp = self.worker.create_experiment("baseline", "sota", design, self.harness, nodes, walltime_s, config_path=f"configs/{design}.yaml", estimated_node_h=1.0)
         self.finish_runs(self.worker, exp, nodes, walltime_s)
         self.worker.evaluate_experiment(exp, self.result_doc(exp=exp))
         return exp
@@ -207,11 +207,11 @@ class Fixture(unittest.TestCase):
         self.rld.decide(hyp, {"experiment_status": "running", "status": "verifying"}, "start",
                         doc_id=self.decision_doc())
 
-    def method(self, hyp: str, n_seeds: int | None = None, code_ref: str | None = None) -> str:
+    def method(self, hyp: str, n_seeds: int | None = None, code_ref: str | None = None, walltime_s: int = 1800) -> str:
         """A node experiment with its runs not yet reported (evaluate or finish_runs reports them)."""
         self.n += 1
         design = self.doc(self.worker, f"exp/m{self.n}/design.v1.md", "experiment_design")
-        return self.worker.create_experiment("method", "m", design, code_ref or self.commit(), 1, 1800,
+        return self.worker.create_experiment("method", "m", design, code_ref or self.commit(), 1, walltime_s,
                                              hypothesis_id=hyp, n_seeds=n_seeds, estimated_node_h=1.0)
 
     def comparisons(self, exp: str, sota: tuple[float, float, float], parent=None) -> list[dict]:
@@ -337,7 +337,7 @@ class ProjectTest(Fixture):
         with self.assertRaisesRegex(ResearchDBError, "relative"):
             self.rld.update_project(harness_paths=["../outside"])
         design = self.doc(self.worker, "exp/x/design.v1.md", "experiment_design")
-        unevaluated = self.worker.create_experiment("baseline", "other", design, self.harness, 1, 60, estimated_node_h=1.0)
+        unevaluated = self.worker.create_experiment("baseline", "other", design, self.harness, 1, 60, config_path=f"configs/{design}.yaml", estimated_node_h=1.0)
         with self.assertRaisesRegex(ResearchDBError, r"not evaluated yet: .*evaluate_experiment.*not yet valid: "
                                     rf"{unevaluated}/s\d+ \(no run\).*exec_status planned -> submitted"):
             self.rld.update_project(sota_experiment_id=unevaluated)
@@ -470,7 +470,10 @@ class ExperimentTest(Fixture):
         with self.assertRaisesRegex(ResearchDBError, "reached alert_node_h"):
             self.worker.extend_seeds(exp, 2)
         self.worker.create_run(exp, SEEDS[0])  # runs of an experiment already registered go on
-        self.rld.update_project(alert_node_h=None)
+        with self.assertRaisesRegex(ResearchDBError, "BUDGET_EXCEEDED: raising alert_node_h is the user's decision"):
+            self.rld.update_project(alert_node_h=None)
+        user = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0900.v1.md", "user_instruction")
+        self.rld.update_project(alert_node_h=None, user_instruction_doc_id=user)
         self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h, estimated_node_h=1.0)
 
     def test_runs(self):
@@ -802,7 +805,7 @@ class DecisionTest(Fixture):
         design = self.doc(self.worker, "exp/stopped.v1.md", "experiment_design")
         req = self.doc(self.rld, "tasks/stopped/request.v1.md", "task_request")
         for start in (lambda: self.rld.create_hypothesis("h", "s", self.rld.get(h)["doc_id"], self.literature),
-                      lambda: self.worker.create_experiment("baseline", "b", design, self.harness, 1, 60, estimated_node_h=1.0),
+                      lambda: self.worker.create_experiment("baseline", "b", design, self.harness, 1, 60, config_path=f"configs/{design}.yaml", estimated_node_h=1.0),
                       lambda: self.worker.create_run(self.sota, SEEDS[0]),
                       lambda: self.rld.create_task("experiment", "worker", req, target_id=h)):
             with self.assertRaisesRegex(ResearchDBError, "is stopped: no new research work"):
@@ -819,7 +822,7 @@ class KnownDefectTest(Fixture):
 
     def test_f01_summary_must_match_the_runs(self):  # M01
         design = self.doc(self.worker, "exp/f01/design.v1.md", "experiment_design")
-        exp = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 60, estimated_node_h=1.0)
+        exp = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 60, config_path=f"configs/{design}.yaml", estimated_node_h=1.0)
         self.finish_runs(self.worker, exp)  # every run 70.0
         with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH"):
             self.worker.record_verdict(exp, self.result_doc(exp=exp), 70.3, 0.0)  # the SD (0) is true
@@ -929,7 +932,7 @@ class NumbersTest(Fixture):
         with self.assertRaisesRegex(ResearchDBError, "PROTOCOL_CHANGE_REQUIRED"):
             self.rld.update_project(protocol_doc_id=protocol)
         self.rld.update_project(protocol_doc_id=protocol, user_instruction_doc_id=instruction)
-        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, estimated_node_h=1.0)
+        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, config_path=f"configs/{design}.yaml", estimated_node_h=1.0)
         self.imported(base, epochs=30)
         self.worker.evaluate_experiment(base, self.result_doc(exp=base))
         self.rld.update_project(sota_experiment_id=base)
@@ -1041,7 +1044,7 @@ class UnitsTest(Fixture):
 
     def test_m04_m05(self):
         design = self.doc(self.worker, "exp/b.v1.md", "experiment_design")
-        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 600, estimated_node_h=1.0)
+        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 600, config_path=f"configs/{design}.yaml", estimated_node_h=1.0)
         self.finish_runs(self.worker, base, metric_value=0.699)
         self.worker.evaluate_experiment(base, self.result_doc(exp=base))
         self.rld.update_project(sota_experiment_id=base)
@@ -1070,7 +1073,7 @@ class RelativeTest(Fixture):
 
     def test_m09(self):
         design = self.doc(self.worker, "exp/z.v1.md", "experiment_design")
-        zero = self.worker.create_experiment("baseline", "zero", design, self.harness, 1, 600, estimated_node_h=1.0)
+        zero = self.worker.create_experiment("baseline", "zero", design, self.harness, 1, 600, config_path=f"configs/{design}.yaml", estimated_node_h=1.0)
         self.finish_runs(self.worker, zero, metric_value=0.5)
         self.worker.evaluate_experiment(zero, self.result_doc(exp=zero))
         self.rld.update_project(sota_experiment_id=zero)
@@ -1302,7 +1305,7 @@ class ArtifactImportTest(Fixture):
 
     def test_artifact_level(self):
         design = self.doc(self.worker, "exp/ai.v1.md", "experiment_design")
-        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, estimated_node_h=1.0)
+        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, config_path=f"configs/{design}.yaml", estimated_node_h=1.0)
         self.imported(base)
         self.worker.evaluate_experiment(base, self.result_doc(exp=base))
         self.rld.update_project(sota_experiment_id=base)
@@ -1392,7 +1395,7 @@ class FinalReviewTest(Fixture):
 
     def test_imported_runs_meet_a_later_protocol(self):
         design = self.doc(self.worker, "exp/mr.v1.md", "experiment_design")
-        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, estimated_node_h=1.0)
+        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, config_path=f"configs/{design}.yaml", estimated_node_h=1.0)
         self.imported(base, epochs=30)
         self.worker.evaluate_experiment(base, self.result_doc(exp=base))
         self.rld.update_project(sota_experiment_id=base)
@@ -1475,7 +1478,7 @@ class UnitMixTest(Fixture):
 class ReviewSixTest(Fixture):
     def test_one_fraction_among_percentages(self):
         design = self.doc(self.worker, "exp/mix.v1.md", "experiment_design")
-        mixed = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, estimated_node_h=1.0)
+        mixed = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, config_path=f"configs/{design}.yaml", estimated_node_h=1.0)
         for seed, value in zip(SEEDS, (69.9, 69.9, 0.699)):
             self.worker.create_run(mixed, seed)
             self.worker.update_run(f"{mixed}/s{seed}", exec_status="submitted")
@@ -1582,7 +1585,7 @@ class ConfirmationTest(Fixture):
 
     def confirm_baseline(self) -> str:
         design = self.doc(self.worker, "exp/cb.v1.md", "experiment_design")
-        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, stage="confirm", estimated_node_h=1.0)
+        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, stage="confirm", config_path=f"configs/{design}.yaml", estimated_node_h=1.0)
         self.assertEqual(self.rld.get(base)["seeds"], [1042, 1043, 1044])
         self.finish_runs(self.worker, base)
         self.worker.evaluate_experiment(base, self.result_doc(exp=base))
@@ -1635,7 +1638,7 @@ class IndependenceTest(Fixture):
 
     def test_u10(self):
         design = self.doc(self.worker, "exp/ib.v1.md", "experiment_design")
-        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, estimated_node_h=1.0)
+        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, config_path=f"configs/{design}.yaml", estimated_node_h=1.0)
         self.imported(base, data_order="fixed")
         self.worker.evaluate_experiment(base, self.result_doc(exp=base))
         self.rld.update_project(sota_experiment_id=base)
@@ -1830,7 +1833,7 @@ class BudgetTest(Fixture):
         self.start(self.h)
 
     def planned(self, n_seeds: int = 1) -> tuple[str, list[str]]:
-        exp = self.method(self.h, n_seeds=n_seeds)
+        exp = self.method(self.h, n_seeds=n_seeds, walltime_s=100)
         refs = []
         for seed in self.rld.get(exp)["seeds"]:
             self.worker.create_run(exp, seed)
@@ -1952,6 +1955,39 @@ class BudgetTest(Fixture):
         self.worker.reserve_submission("k2", refs2, {"nodes": 1, "walltime_s": 200, "budget_pool": "confirmation"})
         self.assertEqual(self.rld.budget_status()["available"]["confirmation"], 3400)
 
+    def test_caps_are_raised_only_by_the_user(self):
+        self.rld.update_project(total_limit=12000)  # lowering a cap is allowed
+        for change in ({"total_limit": 20000}, {"search_limit": None}, {"max_nodes": 99}):
+            with self.subTest(change=change), self.assertRaisesRegex(ResearchDBError, "BUDGET_EXCEEDED: raising"):
+                self.rld.update_project(**change)
+        user = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-3200.v1.md", "user_instruction")
+        self.rld.update_project(total_limit=20000, user_instruction_doc_id=user)
+        self.assertEqual(self.rld.budget_status()["limits"]["total"], 20000)
+
+    def test_reservation_covers_the_registered_request(self):
+        _, refs = self.planned(3)  # 3 runs of 1 node x 100 s
+        with self.assertRaisesRegex(ResearchDBError, "BUDGET_EXCEEDED: the request .* is smaller"):
+            self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 200})
+        self.assertEqual(self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 300})["reserved_units"], 300)
+
+    def test_submit_timeout_before_submitted_is_unknown(self):
+        _, refs = self.planned(1)
+        run = refs[0].rpartition("@")[0]
+        self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 100})
+        with self.assertRaisesRegex(ResearchDBError, "only under a reservation"):  # intent: nothing was submitted
+            self.worker.update_run(run, exec_status="unknown")
+        self.worker.claim_submission("k1")
+        self.worker.update_run(run, exec_status="unknown")  # the submit call timed out: maybe the scheduler has it
+        self.assertEqual(self.worker.reconcile_submission("k1")["accounting_status"], "held_unknown")
+
+    def test_released_reservation_does_not_hide_usage(self):
+        _, refs = self.planned(1)
+        self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 100})
+        self.worker.release_reservation("k1", "decided not to run")
+        before = self.rld.budget_status()["committed"]["total"]
+        self.worker.update_run(refs[0].rpartition("@")[0], nodes_used=1, walltime_used_s=50)
+        self.assertEqual(self.rld.budget_status()["committed"]["total"], before + 50)
+
     def test_b11_session_restart_keeps_the_attempt(self):
         _, refs = self.planned(1)
         run = refs[0].rpartition("@")[0]
@@ -1966,6 +2002,19 @@ class BudgetTest(Fixture):
 
 class CostEstimateTest(Fixture):
     """X04, X08: experiments carry a cost estimate; an overrun is an attention item, the job is not cancelled."""
+
+    def test_same_configuration_is_not_run_twice(self):
+        h = self.hypothesis()
+        self.start(h)
+        design = self.doc(self.worker, "exp/dd.v1.md", "experiment_design")
+        code = self.commit()
+        first = self.worker.create_experiment("method", "m", design, code, 1, 60, hypothesis_id=h, n_seeds=1,
+                                              estimated_node_h=0.1)
+        again = self.worker.create_experiment("method", "m", design, code, 1, 60, hypothesis_id=h, n_seeds=1,
+                                              estimated_node_h=0.1)
+        other = self.worker.create_experiment("method", "m", design, code, 1, 90, hypothesis_id=h, n_seeds=1,
+                                              estimated_node_h=0.1)
+        self.assertEqual((again, other != first), (first, True))
 
     def test_x04(self):
         h = self.hypothesis()

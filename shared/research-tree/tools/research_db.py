@@ -174,7 +174,7 @@ PROJECT_TRANSITIONS = {
     "stopped": ("active",),
 }
 EXEC_TRANSITIONS = {
-    "planned": ("submitted", "cancelled"),
+    "planned": ("submitted", "cancelled", "unknown"),  # unknown: a submit timed out under a claimed reservation
     "submitted": ("running", "succeeded", "failed", "cancelled", "unknown"),
     "running": ("succeeded", "failed", "cancelled", "unknown"),
     "unknown": ("running", "succeeded", "failed", "cancelled"),
@@ -213,6 +213,9 @@ LIMIT_FIELDS = ("max_parallel_workers", "alert_node_h", "config_doc_id", "total_
                 "confirmation_limit", "repair_limit", "overrun_factor", "stall_structural_at", "stall_human_at")
 # The documents evaluations are computed under (plans/design/04): protocol and metric specification.
 EVIDENCE_DOC_FIELDS = ("protocol_doc_id", "metric_spec_doc_id")
+# Caps the user authorizes (10 §1.5): an agent may lower them, raising one (or lifting it, None) needs the user.
+CAP_FIELDS = ("total_limit", "search_limit", "confirmation_limit", "repair_limit", "max_nodes", "max_walltime_s",
+              "alert_node_h")
 
 class ResearchDBError(Exception):
     pass
@@ -699,6 +702,15 @@ class ResearchDB:
                                          "decision; pass user_instruction_doc_id, the current user_instruction "
                                          "document that records it")
                 self._check_evidence_docs(tx, final)
+            raised = [k for k in CAP_FIELDS if k in changes and changes[k] != project.get(k) and (
+                changes[k] is None or (project.get(k) is not None and changes[k] > project[k]))]
+            if raised:
+                instruction = user_instruction_doc_id and tx.get(user_instruction_doc_id)
+                if not instruction or (instruction.get("doc_type"), instruction.get("status")) != (
+                        "user_instruction", "current"):
+                    raise CodedError("BUDGET_EXCEEDED", f"raising {', '.join(raised)} is the user's decision: pass "
+                                                        "user_instruction_doc_id, the current user_instruction "
+                                                        "document that records it (research-tree.yaml, config apply)")
             if {"max_parallel_workers", "alert_node_h"} & set(changes):
                 self._check_comparison_setup(final)
             if {"repo_path", "harness_ref", "harness_paths"} & set(changes):
@@ -1383,6 +1395,13 @@ class ResearchDB:
                 if run.get("submission_key"):
                     raise CodedError("SUBMISSION_AMBIGUOUS", f"{run_id}@{attempt} is under {run['submission_key']}")
                 pools.add(exp.get("budget_pool") or ("confirmation" if exp.get("stage") == "confirm" else "search"))
+            requested = [tx.get(tx.get(ref.rpartition("@")[0])["experiment_id"]) for ref in refs]
+            need_nodes = max(e["nodes"] for e in requested)
+            need_units = sum(e["nodes"] * e["walltime_s"] for e in requested)
+            if nodes < need_nodes or nodes * walltime < need_units:
+                raise CodedError("BUDGET_EXCEEDED", f"the request ({nodes} nodes x {walltime} s) is smaller than the "
+                                                    f"runs' registered requests ({need_nodes} nodes, {need_units} "
+                                                    "node-s in all): reserve what the scheduler will be asked for")
             pool = resource_request.get("budget_pool") or (pools.pop() if len(pools) == 1 else None)
             if pool is None or pool not in BUDGET_POOLS:
                 raise ResearchDBError(f"budget_pool is one of {BUDGET_POOLS}; the runs' experiments name {sorted(pools)}")
@@ -1565,7 +1584,8 @@ class ResearchDB:
         out = {"total": 0} | {p: 0 for p in BUDGET_POOLS}
         covered = set()
         for r in (tx.get(i) for i in tx.ids("reservation")):
-            covered.update(r["run_attempt_refs"])
+            if r["accounting_status"] != "released":  # a released reservation covers nothing actually run
+                covered.update(r["run_attempt_refs"])
             amount = (r.get("actual_units") or 0) if r["accounting_status"] == "settled" else (
                 r["reserved_units"] if r["accounting_status"] in ("reserved", "held_unknown") else 0)
             out[r["budget_pool"]] += amount
@@ -1622,7 +1642,7 @@ class ResearchDB:
         estimate = optional.get("estimated_node_h")
         if not (isinstance(estimate, (int, float)) and not isinstance(estimate, bool) and estimate > 0):
             raise ResearchDBError("estimated_node_h (the experiment's cost estimate over all its seeds, node-h > 0) "
-                                  "is required: the overrun check and the budget compare against it")
+                                  "is required: the overrun attention compares the actual usage with it")
         if optional.get("budget_pool") == "repair" and self.role != "rld":
             raise PermissionDenied("the repair budget is assigned by rld")
         stage = optional.pop("stage", None) or "screen"
@@ -1686,6 +1706,12 @@ class ResearchDB:
             resolved = _git_commit(project["repo_path"], code_ref)
             if resolved is None:
                 raise ResearchDBError(f"code_ref {code_ref} is not a commit in {project['repo_path']}")
+            # The same configuration is never run twice (05 §5): same code, configuration and seeds -> that experiment.
+            config_hash = self._config_hash(project, resolved, kind, stage, method_name, nodes, walltime_s,
+                                            optional.get("config_path"))
+            for other in (tx.get(i) for i in tx.ids("experiment", "WHERE n.config_hash = $h", h=config_hash)):
+                if (other["code_ref"], other.get("hypothesis_id"), other["seeds"]) == (resolved, hypothesis_id, seeds):
+                    return other["id"]
             # The references a node experiment is compared with are fixed now (plans/design 05 §3.2): later
             # experiments of the parent or a new SOTA do not move them.
             refs = {}
@@ -1703,9 +1729,25 @@ class ResearchDB:
             return self._insert(tx, "experiment", {
                 "id": tx.next_id("experiment"), "project_id": project["id"], "hypothesis_id": hypothesis_id,
                 "kind": kind, "method_name": method_name, "design_doc_id": design_doc_id, "code_ref": resolved,
-                "seeds": seeds, "nodes": nodes, "walltime_s": walltime_s, "stage": stage,
+                "seeds": seeds, "nodes": nodes, "walltime_s": walltime_s, "stage": stage, "config_hash": config_hash,
                 "owner": optional.pop("owner", None) or self.agent, **refs, **optional,
             })
+
+    def _config_hash(self, project: dict, code_ref: str, kind: str, stage: str, method_name: str, nodes: int,
+                     walltime_s: int, config_path: str | None) -> str:
+        """What an experiment runs besides its code: kind, stage, method, request and the configuration snapshot
+        (config_path's content at code_ref in the repository, else the file under the project directory)."""
+        content = None
+        if config_path:
+            shown = subprocess.run(["git", "-C", project["repo_path"], "show", f"{code_ref}:{config_path}"],
+                                   capture_output=True, check=False)
+            if shown.returncode == 0:
+                content = hashlib.sha256(shown.stdout).hexdigest()
+            elif not Path(config_path).is_absolute() and ".." not in Path(config_path).parts and \
+                    (self.project_dir / config_path).is_file():
+                content = sha256_file(self.project_dir / config_path)
+        key = json.dumps([kind, stage, method_name, nodes, walltime_s, config_path, content], sort_keys=True)
+        return hashlib.sha256(key.encode("utf-8")).hexdigest()[:32]
 
     def _confirm_setup(self, tx: _Tx, project: dict, protocol: dict, hyp: dict, code_ref: str) -> str:
         """A node's confirmation: its frozen candidate and the confirmation baseline it is compared with."""
@@ -1864,6 +1906,10 @@ class ResearchDB:
                                                           f"{run.get('manifest_path')} as {run.get(field)!r}; it is "
                                                           "not reported again")
             if new == "submitted" and new != old:
+                self._check_submission(tx, project, {**run, **changes})
+            if new == "unknown" and old == "planned":  # the scheduler may have it only if it was being submitted
+                if not run.get("submission_key"):
+                    raise ResearchDBError(f"{run_id} was never submitted (no submission key): it stays planned")
                 self._check_submission(tx, project, {**run, **changes})
             final = {**run, **changes}
             if final.get("valid") is False and not (final.get("invalid_reason") or "").strip():

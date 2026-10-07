@@ -172,6 +172,7 @@ CREATE TABLE experiment (
     parent_experiment_id TEXT,                 -- 创建时固定的父节点参照（父节点最新已判定的方法实验）
     evaluation_id       TEXT,                  -- 当前的 evaluation（可重建的缓存；历史 evaluation 保留）
     config_path         TEXT,
+    config_hash         TEXT,                  -- (kind, stage, method, request, config_path 内容) 的哈希；与 code_ref、seeds 一起去重
     keep                TEXT_LIST,             -- 判定后仍保留的产物类别（例：final_weights），登记实验时声明
     keep_reason         TEXT,                  -- 声明保留的理由（哪个后续实验要用这些产物）
     cleanup             JSON,                  -- 清理账本：键为第几次清理，值为时间、执行者、保留类别、逐项结果与释放字节数
