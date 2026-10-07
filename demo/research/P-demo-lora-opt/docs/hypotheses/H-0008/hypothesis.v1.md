@@ -7,7 +7,7 @@ summary: "按层的子批次方差分配LoRA秩，可在同等参数量下提升
 about: []
 author_role: "rld"
 author_id: "main"
-created_at: "2026-10-07T01:29:56Z"
+created_at: "2026-10-07T07:14:54Z"
 parent: "H-0003"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。

@@ -1,4 +1,4 @@
--- 研究假说树 LatticeDB 数据模型（schema_version 11，2026-10-07：M3 预留与预算、M4 评审文档与复核、M5 设计门、sanity、失败预算）
+-- 研究假说树 LatticeDB 数据模型（schema_version 14，2026-10-07：M3 预留与预算、M4 评审与复核、M5 设计门与 sanity、M6 发现与文献核验、M7 发现/经验与上下文包、M8 关系与探索份额）
 --
 -- 说明
 -- * LatticeDB 是属性图数据库（Cypher 查询），不执行 SQL。本文件用 SQL DDL 作为可读的
@@ -79,6 +79,9 @@ CREATE TABLE project (
     memory_enabled      BOOLEAN NOT NULL DEFAULT TRUE,  -- memory.enabled：关闭时上下文包不含经验与发现
     memory_pack_limit   INTEGER NOT NULL DEFAULT 8000,  -- 上下文包的字符上限（memory.pack_limit_chars）
     memory_counterevidence BOOLEAN NOT NULL DEFAULT TRUE, -- 经验与其反例一起返回（memory.include_counterevidence，K03）
+    exploration_fraction REAL,                 -- 搜索预算中保留给不同机制探索的比例（search.exploration_fraction，06 §4.5）
+    require_selection_rationale BOOLEAN NOT NULL DEFAULT FALSE, -- 每个节点实验写 selection_rationale（search.require_selection_rationale，06 §4.3）
+    allow_repair_from_retired BOOLEAN NOT NULL DEFAULT TRUE,     -- repairs 等关系可指向已不再投入的节点（search.allow_repair_from_retired_evidence）
     max_repairs_per_root_cause INTEGER NOT NULL DEFAULT 2,  -- 同一根因至多几次补丁（search.max_repairs_per_root_cause，03 §8）
     screen_seeds        INTEGER,               -- 筛选 seed 数上限（version 2：verification.screening_seeds 的个数）；空则只按筛选预算
     protocol_doc_id     TEXT,                  -- 现行实验协议（JSON 文档：评测类型、配对字段、必须一致的设定）
@@ -108,6 +111,7 @@ CREATE TABLE hypothesis (
     statement           TEXT NOT NULL,         -- 一句话可证伪假说；完整内容见 doc
     doc_id              TEXT NOT NULL,         -- 假说文档
     candidate_id        TEXT,                  -- 发现阶段的候选（CAND-编号）；其查新与评审回执在建节点时核对
+    exploration         BOOLEAN NOT NULL DEFAULT FALSE,  -- 探索与当前赢家不同的机制（用探索份额，06 §4.3、§4.5）
     status              TEXT NOT NULL CHECK (status IN (
                             'pending',         -- 待验证
                             'verifying',       -- 验证中
@@ -506,7 +510,10 @@ CREATE TABLE rel_related (                     -- edge: RELATED（hypothesis →
     kind                TEXT NOT NULL CHECK (kind IN (
                             'competes',        -- 竞争解释
                             'shares_control',  -- 共享对照
-                            'variant_of'       -- 同一想法的变体（非派生）
+                            'variant_of',      -- 同一想法的变体（非派生）
+                            'combines',        -- 组合两个方向的关键机制（不代表代码可自动合并，06 §4.1）
+                            'repairs',         -- 修正此前结果揭示的具体缺陷（不抹去原节点的失败证据）
+                            'tests_assumption' -- 检验另一个节点的必要前提（不要求自身成为性能赢家）
                         )),
     PRIMARY KEY (source_id, target_id, kind)
 );

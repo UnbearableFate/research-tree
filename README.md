@@ -265,6 +265,12 @@ Claude 版提供内嵌窗口、面板和状态栏；Codex 版使用独立终端�
 
 主会话就是 RLD，其模型由用户启动宿主 CLI 时选择。
 
+**搜索关系与探索份额。** 新节点可用 `relations` 写科学依据：`combines`、`repairs`、`tests_assumption` 可以基于负向或不确定的历史；与已不再投入节点同方向的新节点必须以 `repairs` 指向它，修复次数有上限（`REPEATED_DIRECTION`）；`relations(node)` 列出类型化关系（含 tested_by、supports、invalidates 及其证据是否仍适用）。`search.exploration_fraction` 为不同机制保留一部分搜索预算，其他工作不能占用，没有值得探索的新机制时不花；放宽这些上限须用户在配置中修改。
+
+### 工作流对照基准
+
+`scripts/benchmark/make_task.py` 生成可控的研究任务（零效应、可恢复收益、只有组合才有效、高噪声、易混淆的竞争解释），真相写在项目目录之外，训练脚本经环境变量 `RT_BENCH_TRUTH` 读取；`scripts/benchmark/score.py` 从完成的项目数据库计算错误 GO、找到真实改进、过早淘汰、有效实验效率、重复提交、用户负担、评审费用与探索覆盖。对比单 agent 简洁循环（A）、冻结版 research-tree（B）与当前版本（C）时，固定模型、工具、预算与任务起点，并在多个任务与种子上比较，单次运行不足以下结论。
+
 ## 源码与发布
 
 ### 一份共享源码，两种完整安装包
@@ -336,7 +342,7 @@ claude plugin test dist/claude/plugins/research-tree
 
 安装检查使用隔离的配置目录。会话检查使用真实 Codex CLI 和本地确定性 Responses 服务，验证 worker 启动、排队、恢复与独立 UI；不调用付费模型，也不代替对真实模型研究质量的评估。`--evidence` 需要一个尚不存在的目录。
 
-**升级旧项目的数据库**（schema_version 6 → 7）：新版插件拒绝写入旧版本的数据库（读取仍可用）。先停止所有会话并备份研究目录，然后：
+**升级旧项目的数据库**（升到本插件的 schema_version）：新版插件拒绝写入旧版本的数据库（读取仍可用）。先停止所有会话并备份研究目录，然后：
 
 ```bash
 .venv/bin/python <插件目录>/schema/create_db.py --upgrade research/<项目ID>/research_tree.db

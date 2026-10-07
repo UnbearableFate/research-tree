@@ -25,10 +25,10 @@ discovery:
   require_precheck: true
   lenses: [method-transfer, contradiction, untested-assumption, scaling-regime, diagnostic]
   seed_lenses: [variant, combination, competing, repair]
-  max_candidates: 12
+  max_candidates: 12   # 指引：本版本不由接口检查
   triage_top_n: 4
-  max_initial_nodes: 3
-  pi_generator: false
+  max_initial_nodes: 3   # 指引：本版本不由接口检查
+  pi_generator: false   # 指引：本版本不由接口检查
 
 # 从想法到实验设计（03）
 design:
@@ -100,9 +100,10 @@ search:
 
 memory:
   enabled: true
-  cross_project: false
+  cross_project: false        # 本版本不支持跨项目检索（须先有权限过滤）
   max_items_per_task: 5
   include_counterevidence: true
+  pack_limit_chars: 8000      # 上下文包的字符上限
 
 review:
   trigger: candidate_ready

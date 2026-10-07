@@ -160,6 +160,9 @@ def db_fields(config: dict) -> dict:
             "memory_enabled": config["memory"]["enabled"], "memory_pack_limit": config["memory"]["pack_limit_chars"],
             "memory_max_items": config["memory"]["max_items_per_task"],
             "memory_counterevidence": config["memory"]["include_counterevidence"],
+            "exploration_fraction": config["search"]["exploration_fraction"],
+            "require_selection_rationale": config["search"]["require_selection_rationale"],
+            "allow_repair_from_retired": config["search"]["allow_repair_from_retired_evidence"],
             "max_repairs_per_root_cause": config["search"]["max_repairs_per_root_cause"],
         }
     budget, stage1 = config["budget"], config["stage1"]

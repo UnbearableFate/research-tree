@@ -58,7 +58,7 @@ SPEC_PATH = Path(__file__).resolve().parent.parent / "schema" / "research_tree.s
 CLEANUP_SCRIPT = "research-tree-cleanup.py"
 CLEANUP_TEMPLATE = Path(__file__).resolve().parent.parent / "schema" / "cleanup.template.py"
 # The database layout this interface writes (schema/create_db.py SCHEMA_VERSION; a test keeps them equal).
-SCHEMA_VERSION = 13
+SCHEMA_VERSION = 14
 OPEN_ATTEMPTS = 40
 OPEN_RETRY_DELAY_S = 0.25
 
@@ -153,6 +153,9 @@ DOC_AUTHORS = {
 }
 CANDIDATE_ID_RE = re.compile(r"CAND-\d{4,}")
 POSITIVE_NOVELTY = ("PROCEED", "PROCEED_WITH_CAUTION")  # 09 §3: CAUTION is positive; only a named ABANDON is not
+# 06 §4: relations that let a node rest on negative or inconclusive history (code parent and scientific basis differ)
+EVIDENCE_RELATIONS = ("combines", "repairs", "tests_assumption")
+RELATION_KINDS = ("competes", "shares_control", "variant_of") + EVIDENCE_RELATIONS
 REVIEW_KINDS = ("triage", "novelty_precheck", "critical_review", "proposal_review", "ablation_plan", "code_review",
                 "candidate_recheck")
 # A GO candidate's rechecks (07 §2): the dimensions about numbers are bound to the evaluation they checked, the
@@ -244,12 +247,13 @@ LIMIT_FIELDS = ("max_parallel_workers", "alert_node_h", "config_doc_id", "total_
                 "recheck_required", "review_usd_alert", "screen_seeds", "design_required", "max_primary_claims",
                 "max_core_blocks", "code_review_required", "sanity_required", "require_precheck",
                 "literature_verification", "max_repairs_per_root_cause", "memory_max_items",
-                "memory_counterevidence", "memory_enabled", "memory_pack_limit")
+                "memory_counterevidence", "memory_enabled", "memory_pack_limit", "exploration_fraction",
+                "require_selection_rationale", "allow_repair_from_retired")
 # The documents evaluations are computed under (plans/design/04): protocol and metric specification.
 EVIDENCE_DOC_FIELDS = ("protocol_doc_id", "metric_spec_doc_id")
 # Caps the user authorizes (10 §1.5): an agent may lower them, raising one (or lifting it, None) needs the user.
 CAP_FIELDS = ("total_limit", "search_limit", "confirmation_limit", "repair_limit", "max_nodes", "max_walltime_s",
-              "alert_node_h", "review_usd_alert")
+              "alert_node_h", "review_usd_alert", "max_repairs_per_root_cause")
 
 class ResearchDBError(Exception):
     pass
@@ -740,8 +744,11 @@ class ResearchDB:
                 self._check_evidence_docs(tx, final)
             raised = [k for k in CAP_FIELDS if k in changes and changes[k] != project.get(k) and (
                 changes[k] is None or (project.get(k) is not None and changes[k] > project[k]))]
+            if project.get("exploration_fraction") and "exploration_fraction" in changes and (
+                    not changes["exploration_fraction"] or changes["exploration_fraction"] < project["exploration_fraction"]):
+                raised.append("exploration_fraction")  # a smaller share lets current directions take more
             for gate in ("recheck_required", "design_required", "code_review_required", "sanity_required",
-                         "require_precheck", "literature_verification"):
+                         "require_precheck", "literature_verification", "require_selection_rationale"):
                 if project.get(gate) and changes.get(gate) is False:
                     raised.append(gate)  # dropping a gate lowers the bar: the user's decision
             if raised:
@@ -858,7 +865,8 @@ class ResearchDB:
 
     def create_hypothesis(self, title: str, statement: str, doc_id: str, related_work: list[str],
                           parent_id: str | None = None, priority: int = 0, direction: str | None = None,
-                          candidate_id: str | None = None, user_instruction_doc_id: str | None = None) -> str:
+                          candidate_id: str | None = None, user_instruction_doc_id: str | None = None,
+                          relations: list[dict] | None = None, exploration: bool = False) -> str:
         """related_work: current literature documents consulted when creating the node (the cached
         related research); the hypothesis document records the creation rationale.
 
@@ -872,7 +880,14 @@ class ResearchDB:
         candidate it comes from (candidate_id) and needs that candidate's receipts: a current novelty_precheck
         that is PROCEED or PROCEED_WITH_CAUTION and a critical_review with stance proceed. A negative receipt does
         not drop a user's hypothesis: the user decides, and user_instruction_doc_id (their current instruction)
-        then admits it."""
+        then admits it.
+
+        relations ([{kind, target}], 06 §4): competes, shares_control, variant_of, and combines / repairs /
+        tests_assumption, which may rest on negative or inconclusive nodes — each target needs an evaluation (the
+        history it rests on), combines names at least two. A node whose direction repeats a retired node's must
+        repair it, and one root cause is repaired at most search.max_repairs_per_root_cause times (no endless
+        renaming of an excluded idea). exploration marks a different mechanism: it may use the exploration share
+        of the search budget."""
         self._require_role("rld")
         with self._writer() as tx:
             project = self._project(tx)
@@ -907,14 +922,17 @@ class ResearchDB:
                 self._check_receipts(tx, candidate_id, user_instruction_doc_id)
             elif candidate_id is not None and not CANDIDATE_ID_RE.fullmatch(candidate_id):
                 raise ResearchDBError("candidate_id is a discovery candidate id (CAND-0001)")
+            links = self._check_relations(tx, project, relations or [], direction, title, user_instruction_doc_id)
             hyp_id = self._insert(tx, "hypothesis", {
                 "id": tx.next_id("hypothesis"), "project_id": project["id"], "parent_id": parent_id or project["id"],
                 "title": title, "statement": statement, "doc_id": doc_id, "status": "pending",
                 "experiment_status": "todo", "novelty_recheck": "pending", "theory_recheck": "pending",
                 "priority": priority, "owner": self.agent, "resume_doc_ids": [doc_id],
                 "disposition": "active", "direction": direction, "new_findings_streak": 0, "stall_state": "none",
-                "candidate_id": candidate_id,
+                "candidate_id": candidate_id, "exploration": bool(exploration),
             })
+            for kind, target in links:
+                tx.link("rel_related", hyp_id, target, {"kind": kind})
             for doc_id_ in related:
                 tx.link("rel_references", hyp_id, doc_id_)
             return hyp_id
@@ -974,6 +992,77 @@ class ResearchDB:
         if missing:
             raise CodedError("DESIGN_SECTION_MISSING", f"{doc_id} ({path}) lacks the sections {', '.join(missing)}; an experiment design "
                                   f"has the '## ' sections {', '.join(EXPERIMENT_DESIGN_SECTIONS)} (03 §4, §10)")
+
+    def _check_relations(self, tx: _Tx, project: dict, relations: list[dict], direction: str | None,
+                         title: str, user_instruction_doc_id: str | None = None) -> list[tuple[str, str]]:
+        links = []
+        for r in relations:
+            if not isinstance(r, dict) or r.get("kind") not in RELATION_KINDS:
+                raise ResearchDBError(f"a relation is {{kind, target}} with kind one of {RELATION_KINDS}")
+            target = tx.require(r.get("target"), ("hypothesis",))
+            if r["kind"] in EVIDENCE_RELATIONS and not self._node_evaluations(tx, target["id"]):
+                raise ResearchDBError(f"{r['kind']} rests on {target['id']}'s evidence, but it has no evaluation yet")
+            if r["kind"] in EVIDENCE_RELATIONS and not project.get("allow_repair_from_retired", True) and (
+                    target["status"] == "prunable" or _disposition(target) == "retired"):
+                raise ResearchDBError(f"{target['id']} is no longer pursued and search.allow_repair_from_retired_evidence "
+                                      "is false")
+            if (r["kind"], target["id"]) not in links:
+                links.append((r["kind"], target["id"]))
+        if sum(k == "combines" for k, _ in links) == 1:
+            raise ResearchDBError("combines names at least two nodes whose mechanisms the new node combines")
+        # U07: an excluded idea is not proposed again under another name; repairs are bounded per root cause
+        retired = [h for h in (tx.get(i) for i in tx.ids("hypothesis"))
+                   if h["status"] == "prunable" or _disposition(h) == "retired"]
+        if retired and not direction and project.get("design_required"):
+            raise ResearchDBError("nodes are no longer pursued in this project: a new node names its direction (the "
+                                  "mechanism it tests) so a renamed excluded idea is recognised")
+        # the direction (mechanism) is what a renamed idea keeps; titles change freely
+        same = [h for h in retired if direction and _norm_title(h.get("direction") or "") == _norm_title(direction)]
+        repaired = {t for k, t in links if k == "repairs"}
+        untested = [h for h in same if not self._node_evaluations(tx, h["id"])]
+        if untested and len(untested) == len(same):
+            # a direction the user set aside before any experiment: reopened on the user's word, not by a repair
+            instruction = user_instruction_doc_id and tx.get(user_instruction_doc_id)
+            if not instruction or (instruction.get("doc_type"), instruction.get("status")) != (
+                    "user_instruction", "current"):
+                raise CodedError("REPEATED_DIRECTION", f"{', '.join(h['id'] for h in untested)} in this direction was set "
+                                                       "aside without an experiment: reopening it needs the user's "
+                                                       "instruction (user_instruction_doc_id)")
+            same = []
+        if same and not repaired & {h["id"] for h in same}:
+            raise CodedError("REPEATED_DIRECTION", f"{', '.join(h['id'] for h in same)} already tested this direction "
+                                                   "and is no longer pursued: a new node repairs it (relation repairs "
+                                                   "with the specific defect it fixes) or takes another direction")
+        limit = project.get("max_repairs_per_root_cause") or FAILURE_PATCHES
+        for target in repaired:
+            earlier = [e for e in tx.edges("rel_related", target=target) if e.get("kind") == "repairs"]
+            if len(earlier) >= limit:
+                raise CodedError("REPEATED_DIRECTION", f"{target} was repaired {len(earlier)} times "
+                                                       f"(search.max_repairs_per_root_cause {limit}): redesign, pause "
+                                                       "or report the obstacle to the user")
+        return links
+
+    def relations(self, node_id: str) -> dict:
+        """06 §4.6: a node's typed relations — stored (combines, repairs, tests_assumption, competes,
+        shares_control, variant_of, both directions) and derived: tested_by (its experiments) and supports /
+        invalidates (its current evaluations with a positive or negative outcome)."""
+        with self.reader() as tx:
+            node = tx.require(node_id, ("hypothesis",))
+            out = [{"kind": e["kind"], "from": node_id, "to": e["target_id"]}
+                   for e in tx.edges("rel_related", source=node_id)]
+            out += [{"kind": e["kind"], "from": e["source_id"], "to": node_id}
+                    for e in tx.edges("rel_related", target=node_id)]
+            for row in tx.query("MATCH (e:Experiment)-[:TESTS]->(h:Hypothesis {id: $id}) RETURN e.id AS id",
+                                id=node["id"]):
+                out.append({"kind": "tested_by", "from": node_id, "to": row["id"]})
+                exp = tx.get(row["id"])
+                ev = tx.get(exp["evaluation_id"]) if exp.get("evaluation_id") else None
+                if ev and ev.get("outcome") in ("positive_signal", "negative_signal"):
+                    project = self._project(tx)
+                    out.append({"kind": "supports" if ev["outcome"] == "positive_signal" else "invalidates",
+                                "from": ev["id"], "to": node_id,
+                                "applies": not self._stale_reasons(tx, project, ev)})  # stale evidence shown as such
+        return {"node": node_id, "relations": out}
 
     def _literature_verified(self, tx: _Tx, doc_id: str) -> bool:
         """Verified by verify_literature (the record), never by a line someone typed into the file."""
@@ -1595,6 +1684,8 @@ class ResearchDB:
                 raise ResearchDBError(f"budget_pool is one of {BUDGET_POOLS}; the runs' experiments name {sorted(pools)}")
             units = nodes * walltime
             self._check_budget(tx, project, pool, units)
+            if pool == "search":
+                self._check_exploration_share(tx, project, refs, units)
             res_id = tx.next_id("reservation")
             self._insert(tx, "reservation", {
                 "id": res_id, "project_id": project["id"], "submission_key": submission_key,
@@ -1753,8 +1844,11 @@ class ResearchDB:
             committed = self._committed(tx)
             open_res = [self._reservation_view(r, created=False) for r in (tx.get(i) for i in tx.ids("reservation"))
                         if r["accounting_status"] in ("reserved", "held_unknown")]
+            explore, other = self._exploration_split(tx)
         limits = {"total": project.get("total_limit")} | {p: project.get(f"{p}_limit") for p in BUDGET_POOLS}
         return {"unit": "node_seconds", "limits": limits, "committed": committed,
+                "exploration": {"fraction": project.get("exploration_fraction"), "committed": explore,
+                                "other_search_committed": other},
                 "available": {k: (v - committed[k] if v is not None else None) for k, v in limits.items()},
                 "open_reservations": open_res, "admission_paused": project.get("admission_paused")}
 
@@ -1765,6 +1859,37 @@ class ResearchDB:
                 raise CodedError("BUDGET_EXCEEDED", f"{units} node-s do not fit the {scope} budget: {committed[scope]} "
                                                     f"of {limit} committed (settled, reserved or recorded); report to "
                                                     "the user, who decides")
+
+    def _exploration_split(self, tx: _Tx) -> tuple[int, int]:
+        """Search-pool node-seconds committed by exploration nodes (their reservations) and by everything else
+        (the rest of the search pool's commitments, usage outside reservations included)."""
+        explore = 0
+        for r in (tx.get(i) for i in tx.ids("reservation")):
+            if r["budget_pool"] != "search" or r["accounting_status"] == "released":
+                continue
+            amount = (r.get("actual_units") or 0) if r["accounting_status"] == "settled" else r["reserved_units"]
+            if self._refs_explore(tx, r["run_attempt_refs"]):
+                explore += amount
+        return explore, self._committed(tx)["search"] - explore
+
+    def _refs_explore(self, tx: _Tx, refs: list[str]) -> bool:
+        exps = [tx.get(tx.get(ref.rpartition("@")[0])["experiment_id"]) for ref in refs]
+        return bool(exps) and all(e.get("hypothesis_id") and tx.get(e["hypothesis_id"]).get("exploration")
+                                  for e in exps)
+
+    def _check_exploration_share(self, tx: _Tx, project: dict, refs: list[str], units: int) -> None:
+        """06 §4.5: a share of the search budget stays for different mechanisms; other work does not consume it.
+        Unused it is simply not spent — nothing is created to use it up (U08)."""
+        fraction, limit = project.get("exploration_fraction"), project.get("search_limit")
+        if not fraction or limit is None or self._refs_explore(tx, refs):
+            return
+        _, other = self._exploration_split(tx)
+        cap = int(limit * (1 - fraction))
+        if other + units > cap:
+            raise CodedError("BUDGET_EXCEEDED", f"{units} node-s would take the exploration share: work on current "
+                                                f"directions may use {cap} of the search budget {limit} "
+                                                f"({other} committed); the rest is for different mechanisms "
+                                                "(exploration nodes) or the user's decision")
 
     def _committed(self, tx: _Tx) -> dict:
         """node-seconds committed per pool and in total: settled actual usage, outstanding reservations, and
@@ -1889,6 +2014,9 @@ class ResearchDB:
             if hypothesis_id is not None and kind != "sanity" and stage != "confirm" and \
                     not (optional.get("selection_rationale") or "").strip():
                 recent = [tx.get(v["id"]).get("outcome") for v in self._node_evaluations(tx, hypothesis_id)[-2:]]
+                if project.get("require_selection_rationale") and kind in ("method", "ablation"):
+                    raise ResearchDBError(f"search.require_selection_rationale: an experiment on {hypothesis_id} says "
+                                          "why now and how its result changes the next step (selection_rationale)")
                 if recent == ["inconclusive", "inconclusive"]:
                     raise ResearchDBError(f"{hypothesis_id}'s last two results were inconclusive: another experiment "
                                           "needs selection_rationale (why now, how its result changes the next step; "
@@ -2042,8 +2170,9 @@ class ResearchDB:
                 entry = json.loads(line)
             except json.JSONDecodeError:
                 continue
-            if (entry.get("kind"), entry.get("about"), entry.get("outcome")) == ("code_review", about,
-                                                                                 "REVIEW_UNAVAILABLE"):
+            # a reviewer that cannot answer, or only answers invalidly, leaves the review undone either way
+            if (entry.get("kind"), entry.get("about")) == ("code_review", about) and entry.get("outcome") in (
+                    "REVIEW_UNAVAILABLE", "REVIEW_INVALID"):
                 return True
         return False
 
@@ -3173,7 +3302,9 @@ class ResearchDB:
             return
         text = (self.docs_root / doc["path"]).read_text(encoding="utf-8")
         text = BLOCK_RE_EVIDENCE.sub("", text)
-        found = SOTA_CLAIM_RE.search(text)
+        found = next((m for m in SOTA_CLAIM_RE.finditer(text)
+                      if not re.search(r"(?:不|未|没有|并非|无法|not|no|never)\s*$", text[max(0, m.start() - 6):m.start()],
+                                       re.I)), None)  # a negated claim ("未优于 SOTA") is within the limit
         if found:
             raise CodedError("CLAIM_EXCEEDS_EVAL_TYPE", f"{doc['id']} ({doc['path']}) says {found.group(0)!r}, but the "
                                                         f"evaluation type is {eval_type}: a proxy result supports "
@@ -4222,6 +4353,10 @@ def busy_workers(tasks: list[dict]) -> set[str]:
             and t["status"] in ("open", "in_progress", "rejected")}
 
 
+def _norm_title(title: str) -> str:
+    return " ".join(re.findall(r"\w+", (title or "").lower()))
+
+
 def default_worker_id(node_id: str, table: str) -> str:
     """The worker identity a node gets by default: `root` for the project, `h0007` for H-0007."""
     return "root" if table == "project" else re.sub(r"[^A-Za-z0-9_.]", "", node_id).lower()
@@ -4235,7 +4370,7 @@ def default_worker_id(node_id: str, table: str) -> str:
 READ_METHODS = ("help", "get", "find", "edges", "children", "history", "go_candidates", "latest_result",
                 "screen_seed_count", "export_snapshot", "verify_document", "resume_package", "cleanup_due",
                 "get_eligibility", "evaluations", "preview_evaluation", "obligations", "budget_status",
-                "reconcile_submission", "reviews", "context_pack")
+                "reconcile_submission", "reviews", "context_pack", "relations")
 
 CLI_METHODS = sorted(
     name for name in vars(ResearchDB) if not name.startswith("_") and callable(getattr(ResearchDB, name))

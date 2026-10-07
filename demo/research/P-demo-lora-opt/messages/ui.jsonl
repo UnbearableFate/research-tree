@@ -1,1 +1,1 @@
-{"v":1,"id":"ui-0001","ts":"2026-10-07T01:29:59Z","project":"P-demo-lora-opt","from":"ui/ui","to":"rld/main","type":"instruction","text":"立项指令已登记，请开始阶段1。","need":"ack","about":["P-demo-lora-opt"],"docs":["instructions/UI-0001.v1.md"]}
+{"v":1,"id":"ui-0001","ts":"2026-10-07T07:14:56Z","project":"P-demo-lora-opt","from":"ui/ui","to":"rld/main","type":"instruction","text":"立项指令已登记，请开始阶段1。","need":"ack","about":["P-demo-lora-opt"],"docs":["instructions/UI-0001.v1.md"]}
