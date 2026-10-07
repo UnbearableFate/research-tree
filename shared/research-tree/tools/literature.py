@@ -86,7 +86,7 @@ class LiteratureError(Exception):
 def user_agent() -> str:
     """A named client lands in the APIs' lenient pools; the contact address comes from the environment."""
     contact = (os.environ.get("LITERATURE_MAILTO") or os.environ.get("ARIS_VERIFY_EMAIL") or "").strip()
-    base = "research-tree-literature/1.0 (+https://github.com/wanshuiyin/Auto-claude-code-research-in-sleep)"
+    base = "research-tree-literature/1.0 (+https://github.com/UnbearableFate/research-tree)"
     return f"{base} (mailto:{contact})" if contact else base
 
 

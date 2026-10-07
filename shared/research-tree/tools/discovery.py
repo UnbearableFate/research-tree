@@ -164,13 +164,17 @@ def resume_point(root: Path) -> dict | None:
 
 
 def family(model: str | None) -> str | None:
+    """The model family of a provider/model or a bare model id; None when it cannot be told. The one table both
+    review_call (who may review) and accept (whose review counts) use."""
     if not model:
         return None
     m = model.lower()
     if "/" in m:
-        return {"gemini": "google"}.get(m.split("/", 1)[0], m.split("/", 1)[0])
+        provider = m.split("/", 1)[0]
+        return {"gemini": "google", "google": "google"}.get(provider, provider)
     for prefix, fam in (("claude", "anthropic"), ("gpt", "openai"), ("o1", "openai"), ("o3", "openai"),
-                        ("o4", "openai"), ("codex", "openai"), ("gemini", "google"), ("deepseek", "deepseek")):
+                        ("o4", "openai"), ("codex", "openai"), ("chatgpt", "openai"), ("gemini", "google"),
+                        ("deepseek", "deepseek")):
         if m.startswith(prefix):
             return fam
     return None
@@ -194,7 +198,8 @@ def merge(shards: list[dict], user_hypotheses: list[dict]) -> list[dict]:
     pool: dict[str, dict] = {}
     for h in user_hypotheses:
         key = h.get("dedup_key") or dedup_key(h["title"])
-        pool[key] = {**h, "dedup_key": key, "origin": "user", "found_by": ["user"]}
+        # a user hypothesis always goes to the novelty check and critical review (02 §3), in every mode
+        pool[key] = {**h, "dedup_key": key, "origin": "user", "found_by": ["user"], "selected": True}
     for shard in shards:
         lens = shard.get("lens") or "unknown"
         for c in shard.get("candidates") or []:
@@ -204,6 +209,7 @@ def merge(shards: list[dict], user_hypotheses: list[dict]) -> list[dict]:
             source = f"{lens}:{shard.get('generator') or 'assistant'}"
             if key in pool:
                 pool[key]["found_by"] = sorted(set(pool[key]["found_by"]) | {source})
+                pool[key]["literature"] = sorted(set(pool[key].get("literature") or []) | set(c.get("literature") or []))
                 for field, value in c.items():
                     pool[key].setdefault(field, value)
             else:
@@ -248,6 +254,17 @@ def select(candidates: list[dict], ranking: list[dict], top_n: int) -> list[dict
     new.sort(key=lambda c: rank.get(c["id"], 10 ** 6))
     chosen = {c["id"] for c in new[:top_n]} | {c["id"] for c in candidates if c["origin"] == "user"}
     return [{**c, "selected": c["id"] in chosen, "triage_rank": rank.get(c["id"])} for c in candidates]
+
+
+def cite(root: Path, candidate_id: str, literature: list[str]) -> dict:
+    """Attach literature documents (D-…) to a candidate: the gate counts the verified ones."""
+    candidates = read_candidates(root)
+    found = next((c for c in candidates if c["id"] == candidate_id), None)
+    if found is None:
+        raise DiscoveryError(f"no candidate {candidate_id} in {CANDIDATES_PATH}")
+    found["literature"] = sorted(set(found.get("literature") or []) | set(literature))
+    write_candidates(root, candidates)
+    return found
 
 
 def write_candidates(root: Path, candidates: list[dict]) -> str:
@@ -301,7 +318,10 @@ def evaluate(root: Path, reviews: list[dict], literature: dict[str, bool], min_r
             elif not re.sub(r"<!--.*?-->", "", body, flags=re.S).strip():
                 reasons.append(f"the report's section ## {name} is empty (write 无 when there is nothing)")
     current = [r for r in reviews if r.get("status") == "current"]
-    for c in read_candidates(root):
+    candidates = read_candidates(root)
+    if not any(c.get("selected") for c in candidates):
+        reasons.append("no selected candidate: run discovery merge (user hypotheses are always selected)")
+    for c in candidates:
         if not c.get("selected"):
             continue
         kinds = {r["review_kind"] for r in current if r.get("review_about") == c["id"]}

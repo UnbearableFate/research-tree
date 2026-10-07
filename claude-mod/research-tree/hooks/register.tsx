@@ -18,7 +18,7 @@ const MARKER = '.research-tree.json'
 const CONFIG_FILE = 'research-tree.yaml'
 const ALERT_KIND = 'usage_alert'
 // The host's longest wait for one process (process.run accepts 1..600000 ms).
-const MAX_PROCESS_MS = 600_000
+const MAX_PROCESS_MS = 600_000  // the host's cap on one process (ms)
 // research_db.READ_METHODS (a test keeps the two equal)
 const READ_ONLY = /^(help|get|find|edges|children|history|go_candidates|latest_result|screen_seed_count|export_snapshot|verify_document|resume_package|cleanup_due|get_eligibility|evaluations|preview_evaluation|obligations|budget_status|reconcile_submission|reviews|context_pack)$/
 
@@ -80,13 +80,13 @@ async function loadProject($: EngineInterface): Promise<ResearchProject | null> 
 }
 
 /** The session directory's .venv interpreter, or why it cannot be used. */
-async function venv($: EngineInterface): Promise<{ python: string } | { problem: string }> {
+async function venv($: EngineInterface): Promise<{ python: string; dir: string } | { problem: string }> {
   let cwd = '当前目录'
   try {
     cwd = await $.session.cwd()
     // the session's directory may have moved below the project (a shell cd): look upward for the environment
     for (let dir = cwd; dir && dir !== '/'; dir = dir.replace(/\/[^/]*$/, '') || '/') {
-      if (await $.fs.exists(`${dir}/${VENV_PYTHON}`)) return { python: `${dir}/${VENV_PYTHON}` }
+      if (await $.fs.exists(`${dir}/${VENV_PYTHON}`)) return { python: `${dir}/${VENV_PYTHON}`, dir }
     }
   } catch {
     // no file system here: treated as missing
@@ -96,11 +96,13 @@ async function venv($: EngineInterface): Promise<{ python: string } | { problem:
   }
 }
 
-/** Runs one of the research-tree Python tools with the session directory's .venv, in that directory. */
+/** Runs one of the research-tree Python tools with the project's .venv, in the project directory — also when the
+ *  session's directory moved below it (the tools find the project from their working directory). */
 async function runTool($: EngineInterface, cfg: Config, script: string, args: string[], timeoutMs = 60_000) {
   const env = await venv($)
   if ('problem' in env) return { exitCode: 127, stdout: '', stderr: env.problem }
-  return $.process.run([env.python, `${$.plugin.root}/tools/${script}`, ...args], { timeoutMs })
+  return $.process.run([env.python, `${$.plugin.root}/tools/${script}`, ...args],
+    { timeoutMs: Math.min(timeoutMs, MAX_PROCESS_MS), cwd: env.dir })
 }
 
 async function refresh($: EngineInterface, cfg: Config): Promise<ResearchSummary | null> {
@@ -675,7 +677,7 @@ ${budgetText(view)}
 ${platformText(view?.effective)}
 
 请作为 Research Leader 完成立项规划。本阶段不要启动 worker，也不要提交任何作业：
-1. 读原文。写 docs/project/goal.v1.md（研究目标）和 docs/project/min-setup.v1.md（最小实验设定：模型、数据、训练量、评测与评测类型（同协议的 eval_type）及其结论上限、主指标及优劣方向、其他比较指标、每个基线家族的合理调参机会、训练量与数据处理、${view?.db_fields.gate_seeds ?? 3}个统一seed、计划的实验框架与判定规则；单次运行上限、筛选预算与门槛照抄上面的项目配置）；再写两份 JSON 文档：docs/project/metric-spec.v1.json（指标规范：{"version": 1, "primary": 主指标, "metrics": [每个指标的 name、direction、input_unit、canonical_unit、effect_mode、minimum_practical_gain、aggregation（paired_run_mean），可选 allowed_regression、valid_range、relative_min_denominator]}，指标必须恰为主指标与其他比较指标）和 docs/project/protocol.v1.json（实验协议：{"version": 1, "eval_type": real_gt|synthetic_proxy|self_supervised_proxy|simulation_only|human_eval, "pair_fields": ["seed", ...], "match": {必须一致的设定}, "required_counts": {...}, "profile": "stage1_confirmed", "confirmation_seeds": [搜索中不用的 seed，至少 3 个], "max_confirmation_candidates": 2}）。都用 research_db 登记（register_document）并设为现行。${specText(view)}goal 文档含 “## 问题锚点” 一节，逐项写 底线问题、必须解决的瓶颈、非目标（取自 plan.md 的“非目标”节）、约束、成功条件；之后每份假说文档逐字复制这一节（改变所解决的问题即 drift：推回，或经用户同意改锚点并登记用户指令）。假说文档的 '## ' 章节：问题锚点、方法步骤（白话，先说做什么）、技术缺口、可证伪预测与竞争解释、最接近工作与差异、Claim map（表格，至多 design.max_primary_claims 条主 claim）、实验块（每块一个 '### ' 小节，至多 design.max_core_blocks 块，每块写明检验的 claim、数据与设定、成功判据与失败解释——实验前写定）、成本估计、停止条件、有意舍弃的复杂度；create_hypothesis 检查这些。原文的预算或门槛与项目配置不一致时，在立项计划中指出，请用户改配置文件，不要自行取舍。\n立项前发现（research-tree.yaml discovery.mode 不是 off 时，在写立项计划之前按 D0–D8 执行；用户假说是种子，与新发现的候选一起查新与评审；discovery 门通过前 post_to_ui(confirm_request) 会被拒绝）：\nD0 先完成第 1、2 步（goal 含问题锚点、最小设定、指标规范、协议、create_project），把用户假说写成 docs/project/discovery/user-hypotheses.json（[{\"title\", \"summary\"}]），运行 research_tree.py discovery start，然后 discovery set --stage brief --status done。每步完成后用 discovery set 记录状态与产物，中断后 discovery resume 返回第一个未完成的阶段。\nD1 文献：用 tools/literature.py search / verify / fetch 围绕方向与种子检索、核验存在性、缓存原文（cache/literature/）；每篇用 literature.py note 生成文献文档（front matter 记录 verification: verified/unverified，不要手改），读原文填写后登记为 literature 文档；unverified 的保留但不计入 min_related_work。完成后 discovery set --stage literature --status done --artifact <文献清单>，并 discovery accept --stage literature --verifier literature.py --evidence <核验输出>。\nD2（mode full）候选：为 discovery.lenses 中的每个通用 lens，以及为每条用户假说的 discovery.seed_lenses（variant、combination、competing、repair），各用 Agent 工具启动一个 subagent_type=\"research-tree:lens\" 的只读助手（可并行），任务说明写 lens、方向、种子与文献路径、输出文件 cache/discovery/shards/<lens>[-<种子序号>].json； 然后 discovery merge --user-hypotheses docs/project/discovery/user-hypotheses.json（按 dedup_key 机械去重，不按质量淘汰），discovery set --stage candidates --status done --artifact docs/project/discovery/candidates.json。\nD3 可行性：discovery feasibility（只按单次运行上限与筛选预算淘汰新候选；用户假说只注记），set done 后 discovery accept --stage feasibility --verifier discovery.feasibility --evidence docs/project/discovery/candidates.json。\nD4 triage：research_review(kind=triage, about=项目ID, brief 列出 candidates.json 路径)，再 discovery select --triage <评审文档ID>（用户假说总是入选，再加排名前 discovery.triage_top_n 的可行新候选），set done 后 discovery accept --stage triage --evidence <评审ID>。\nD5 查新：对每个入选候选 research_review(kind=novelty_precheck, about=CAND-编号)，brief 写方法、核心声明与候选论文清单的路径；ABANDON 必须点名论文。D6 批判性评审：每个入选候选一次 research_review(kind=critical_review, about=CAND-编号)。两阶段各自 set done 后用全部评审ID accept。用户假说得到 ABANDON 或 stance abandon 时不自动淘汰：在报告和立项计划中标“建议放弃，待用户决定”。\nD7 精炼：为每个幸存想法写假说文档（03 的章节），可选一轮 proposal_review；set --stage refine --status done。\nD8 写 docs/project/reports/discovery.v1.md（章节：## 用户假说（逐条查新与评审结论）、## 新发现候选（排序）、## 淘汰想法（阶段、理由、点名论文；没有写“无”））并登记，运行 discovery gate --report docs/project/reports/discovery.v1.md；PASS 后 create_hypothesis(candidate_id=CAND-编号) 建初始节点（接口核对该候选的查新与评审回执；建议放弃的用户假说只在用户决定保留后，带其用户指令 user_instruction_doc_id 建立）。立项计划把用户假说与新候选分栏列出各自的结论。\n是否新颖、是否值得做由评审文档或确定性门给出；reviewer 不可用时如实上报（REVIEW_UNAVAILABLE），不以你的判断代替。
+1. 读原文。写 docs/project/goal.v1.md（研究目标）和 docs/project/min-setup.v1.md（最小实验设定：模型、数据、训练量、评测与评测类型（同协议的 eval_type）及其结论上限、主指标及优劣方向、其他比较指标、每个基线家族的合理调参机会、训练量与数据处理、${view?.db_fields.gate_seeds ?? 3}个统一seed、计划的实验框架与判定规则；单次运行上限、筛选预算与门槛照抄上面的项目配置）；再写两份 JSON 文档：docs/project/metric-spec.v1.json（指标规范：{"version": 1, "primary": 主指标, "metrics": [每个指标的 name、direction、input_unit、canonical_unit、effect_mode、minimum_practical_gain、aggregation（paired_run_mean），可选 allowed_regression、valid_range、relative_min_denominator]}，指标必须恰为主指标与其他比较指标）和 docs/project/protocol.v1.json（实验协议：{"version": 1, "eval_type": real_gt|synthetic_proxy|self_supervised_proxy|simulation_only|human_eval, "pair_fields": ["seed", ...], "match": {必须一致的设定}, "required_counts": {...}, "profile": "stage1_confirmed", "confirmation_seeds": [搜索中不用的 seed，至少 3 个], "max_confirmation_candidates": 2}）。都用 research_db 登记（register_document）并设为现行。${specText(view)}goal 文档含 “## 问题锚点” 一节，逐项写 底线问题、必须解决的瓶颈、非目标（取自 plan.md 的“非目标”节）、约束、成功条件；之后每份假说文档逐字复制这一节（改变所解决的问题即 drift：推回，或经用户同意改锚点并登记用户指令）。假说文档的 '## ' 章节：问题锚点、方法步骤（白话，先说做什么）、技术缺口、可证伪预测与竞争解释、最接近工作与差异、Claim map（表格，至多 design.max_primary_claims 条主 claim）、实验块（每块一个 '### ' 小节，至多 design.max_core_blocks 块，每块写明检验的 claim、数据与设定、成功判据与失败解释——实验前写定）、成本估计、停止条件、有意舍弃的复杂度；create_hypothesis 检查这些。原文的预算或门槛与项目配置不一致时，在立项计划中指出，请用户改配置文件，不要自行取舍。\n立项前发现（research-tree.yaml discovery.mode 不是 off 时，在写立项计划之前按 D0–D8 执行；用户假说是种子，与新发现的候选一起查新与评审；discovery 门通过前 post_to_ui(confirm_request) 会被拒绝）：\nD0 先完成第 1、2 步（goal 含问题锚点、最小设定、指标规范、协议、create_project），把用户假说写成 docs/project/discovery/user-hypotheses.json（[{\"title\", \"summary\"}]），运行 research_tree.py discovery start，然后 discovery set --stage brief --status done。每步完成后用 discovery set 记录状态与产物，中断后 discovery resume 返回第一个未完成的阶段。\nD1 文献（两种模式都做）：用 tools/literature.py search / verify / fetch 围绕方向与种子检索、核验存在性、缓存原文（cache/literature/）；每篇用 literature.py note 生成文献文档（front matter 记录 verification: verified/unverified，不要手改），读原文填写后登记为 literature 文档并设为现行，再调用 research_db verify_literature(doc_id) 把核验结果记在文档记录上（只有记录为 verified 的计入；文件里的 verification 行不算数）；unverified 的保留但不计入 min_related_work。完成后 discovery set --stage literature --status done --artifact <文献清单>，并 discovery accept --stage literature --verifier literature.py --evidence <核验输出>。\nD2 候选：mode precheck 只运行 discovery merge --user-hypotheses …（用户假说都入选），跳过 lens、可行性与 triage；mode full：为 discovery.lenses 中的每个通用 lens，以及为每条用户假说的 discovery.seed_lenses（variant、combination、competing、repair），各用 Agent 工具启动一个 subagent_type=\"research-tree:lens\" 的只读助手（可并行），任务说明写 lens、方向、种子与文献路径、输出文件 cache/discovery/shards/<lens>[-<种子序号>].json； 然后 discovery merge --user-hypotheses docs/project/discovery/user-hypotheses.json（按 dedup_key 机械去重，不按质量淘汰），discovery set --stage candidates --status done --artifact docs/project/discovery/candidates.json。\nD3 可行性：discovery feasibility（只按单次运行上限与筛选预算淘汰新候选；用户假说只注记），set done 后 discovery accept --stage feasibility --verifier discovery.feasibility --evidence docs/project/discovery/candidates.json。\nD4 triage：research_review(kind=triage, about=项目ID, brief 列出 candidates.json 路径)，再 discovery select --triage <评审文档ID>（用户假说总是入选，再加排名前 discovery.triage_top_n 的可行新候选），set done 后 discovery accept --stage triage --evidence <评审ID>。\n每个入选候选用 discovery cite --candidate CAND-编号 --literature <D-…> 记下它引用的文献（门检查每个入选候选至少 min_related_work 篇已核验文献）。D5 查新：对每个入选候选 research_review(kind=novelty_precheck, about=CAND-编号)，brief 写方法、核心声明与候选论文清单的路径；ABANDON 必须点名论文。D6 批判性评审：每个入选候选一次 research_review(kind=critical_review, about=CAND-编号)。两阶段各自 set done 后用全部评审ID accept。用户假说得到 ABANDON 或 stance abandon 时不自动淘汰：在报告和立项计划中标“建议放弃，待用户决定”。\nD7 精炼：为每个幸存想法写假说文档（03 的章节），可选一轮 proposal_review；set --stage refine --status done。\nD8 写 docs/project/reports/discovery.v1.md（章节：## 用户假说（逐条查新与评审结论）、## 新发现候选（排序）、## 淘汰想法（阶段、理由、点名论文；没有写“无”））并登记，运行 discovery gate --report docs/project/reports/discovery.v1.md；PASS 后 create_hypothesis(candidate_id=CAND-编号) 建初始节点（接口核对该候选的查新与评审回执；建议放弃的用户假说只在用户决定保留后，带其用户指令 user_instruction_doc_id 建立）。立项计划把用户假说与新候选分栏列出各自的结论。\n是否新颖、是否值得做由评审文档或确定性门给出；reviewer 不可用时如实上报（REVIEW_UNAVAILABLE），不以你的判断代替。
 2. create_project：id 为 ${project.project_id}，repo_path 为本项目代码仓库的绝对路径（原文未给出就在 ${project.root}/../.. 下合适的位置新建 git 仓库），metric_spec_doc_id 与 protocol_doc_id 为上面两份文档；预算与门槛参数取自项目配置（${fields}），其余参数取自最小实验设定。
 3. 为原文中的每个初始假说检索并缓存相关研究（docs/literature/，每个节点至少${view?.db_fields.min_related_work ?? 3}篇，原文缓存到 cache/literature/），写假说文档（章节见第1步：问题锚点、Claim map、实验块等，并写创建理由与引用的相关研究）；文献用 ${pluginRoot}/tools/literature.py search / verify / fetch 检索，再用 literature.py note --title … [--arxiv-id/--doi] --out <docs/literature/LIT-编号.v1.md> --cache <cache/literature> 核验存在性、缓存原文并生成文献文档骨架（front matter 记录核验结果，不要手改；读原文后填写各节再登记；只有 verification: verified 的文献计入每个节点的文献下限，unverified 的保留但不计数），create_hypothesis 建初始节点（状态为待验证）。所有初始假说都不指定 parent_id：它们都是根节点的直接子节点、彼此平级，即使原文暗示了先后或包含关系也不在初始假说之间建立父子关系（只有验证完成、可拓展的节点才能派生子节点）。
 4. 根节点只存放 baselines：写 docs/tasks/T-0001/request.v1.md（章节为“任务与节点、问题与预测、干预与对照、范围与权限、资源与预算、验收与停止条件、交付”，内容见规则第4节），说明要实现的实验骨架与统计代码、按框架的输出调整项目目录的清理脚本 research-tree-cleanup.py（哪些文件是可删的权重、checkpoint 等），以及要运行的SOTA与其他基线方案；create_task(kind=harness, assignee_role=worker)，先不指派。
@@ -1107,9 +1109,12 @@ export const register: Register = (on, options) => {
   on('turn.complete', async ($, e, next) => {
     const done = await next(e)
     if (e.agentId === undefined && e.usage?.model && observedModels.get('main') !== e.usage.model) {
-      // the Leader's model: review_call.py refuses a reviewer of the same family (09 §2.1 step 3)
-      observedModels.set('main', e.usage.model)
-      if ((await $.state.get(projectRef)).value) await logAgentModel($, cfg, 'main', 'rld/main', 'observed', e.usage.model)
+      // the Leader's model: review_call.py refuses a reviewer of the same family (09 §2.1 step 3); recorded once a
+      // project exists (before init there is no log to write to), then again whenever the model changes
+      if ((await $.state.get(projectRef)).value ?? (await loadProject($))) {
+        observedModels.set('main', e.usage.model)
+        await logAgentModel($, cfg, 'main', 'rld/main', 'observed', e.usage.model)
+      }
     }
     if (e.agentId && e.usage?.model && observedModels.get(e.agentId) !== e.usage.model) {
       const actor = e.agentId === (await $.state.get(uiAgentRef)).value ? 'ui/ui'
@@ -1235,8 +1240,9 @@ export const register: Register = (on, options) => {
         ...(input.dimension ? ['--dimension', input.dimension] : []), ...(input.evaluation ? ['--evaluation', input.evaluation] : []),
         ...(input.code_ref ? ['--code-ref', input.code_ref] : []),
         ...(input.session ? ['--session', input.session] : []), ...(input.add_dirs ?? []).flatMap(d => ['--add-dir', d])]
-      // a reviewer reads files itself: review_call.py caps the whole call at 3600 s (MAX_CALL_S); wait a little longer
-      const out = await runTool($, cfg, 'review_call.py', args, 3_900_000)
+      // the host runs one process for at most 600 s: the review call's own deadline stays below that
+      const out = await runTool($, cfg, 'review_call.py', [...args, '--deadline-s', String(MAX_PROCESS_MS / 1000 - 30)],
+        MAX_PROCESS_MS)
       await refresh($, cfg)
       const text = (out.stdout || out.stderr).trim()
       return out.exitCode === 0 ? { result: text } : { result: text || `exit ${out.exitCode}`, isError: true as const }
@@ -1263,7 +1269,8 @@ export const register: Register = (on, options) => {
       if (input.type === 'confirm_request' && project?.phase === 'planning') {
         // 02 D8: with discovery on, the plan goes to the user only after the discovery gate passed
         const gate = await tree($, cfg, ['discovery', 'check'])
-        if (gate.ok && gate.result?.blocked) return { result: `post_to_ui 被拒绝：${gate.result.blocked}`, isError: true as const }
+        const blocked = gate.ok ? gate.result?.blocked : `无法检查 discovery 门（${gate.error}）`  // fail closed
+        if (blocked) return { result: `post_to_ui 被拒绝：${blocked}`, isError: true as const }
       }
       if (input.type === 'confirm_request' && project?.phase === 'planning') {
         const phased = await tree($, cfg, ['phase', '--set', 'awaiting_confirmation'])

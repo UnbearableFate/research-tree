@@ -39,6 +39,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 
 from jsonschema import Draft202012Validator  # noqa: E402
 
+import discovery  # noqa: E402
 import research_tree as tree  # noqa: E402
 from research_db import (CANDIDATE_ID_RE, RECHECK_DIMENSIONS, REVIEW_KINDS, ResearchDB,  # noqa: E402
                          ResearchDBError)
@@ -70,20 +71,7 @@ def now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-def family(model: str | None) -> str | None:
-    """The model family of a provider/model or a bare model id; None when it cannot be told."""
-    if not model:
-        return None
-    m = model.lower()
-    if "/" in m:
-        provider = m.split("/", 1)[0]
-        return {"gemini": "google", "google": "google"}.get(provider, provider)
-    for prefix, fam in (("claude", "anthropic"), ("gpt", "openai"), ("o1", "openai"), ("o3", "openai"),
-                        ("o4", "openai"), ("codex", "openai"), ("chatgpt", "openai"), ("gemini", "google"),
-                        ("deepseek", "deepseek")):
-        if m.startswith(prefix):
-            return fam
-    return None
+family = discovery.family  # one model-family table for every review decision
 
 
 def leader_model(root: Path) -> str | None:
@@ -366,7 +354,7 @@ def _front_matter(fields: dict) -> str:
 
 def review(cwd: Path, kind: str, brief: str, about: str, dimension: str | None = None,
            evaluation: str | None = None, session: str | None = None, add_dirs: list[str] | None = None,
-           actor: str = "rld/main", code_ref: str | None = None) -> dict:
+           actor: str = "rld/main", code_ref: str | None = None, deadline_s: int | None = None) -> dict:
     if not actor.startswith("rld/"):
         raise ReviewError("REVIEW_UNAVAILABLE", "the Leader (rld) organizes reviews; other roles ask the Leader")
     if kind not in REVIEW_KINDS:
@@ -411,7 +399,8 @@ def review(cwd: Path, kind: str, brief: str, about: str, dimension: str | None =
         rv, uid, version, first, state = _allocate(root, session, kind, about, backend.name)
     log_call(root, {"kind": kind, "about": about, "dimension": dimension, "session": rv, "outcome": "started",
                     "backend": backend.name})  # a call the host kills stays visible
-    deadline = time.monotonic() + min(2 * int(reviewer["timeout_s"]) + 120, MAX_CALL_S)
+    # the whole call: both rounds within the reviewer's timeout, the hard cap, and the host's own process limit
+    deadline = time.monotonic() + min(2 * int(reviewer["timeout_s"]) + 120, MAX_CALL_S, deadline_s or MAX_CALL_S)
     backend.deadline = deadline
     backend.code_ref = code_ref
     return _review(root, backend, reviewer, kind, brief_path, about, dimension, evaluation, add_dirs, schema,
@@ -544,6 +533,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--session", help="continue this review session (RV-xxxx): a new version of its review")
     p.add_argument("--add-dir", action="append", default=[], help="Claude Code backend: another readable directory")
     p.add_argument("--actor", default="rld/main")
+    p.add_argument("--deadline-s", type=int, help="the host's limit on this process (seconds); the call ends before it")
     args = p.parse_args(argv)
     cwd = Path.cwd()
     try:
@@ -554,7 +544,7 @@ def main(argv: list[str] | None = None) -> int:
     entry = {"kind": args.kind, "about": args.about, "dimension": args.dimension, "session": args.session}
     try:
         result = review(cwd, args.kind, args.brief, args.about, args.dimension, args.evaluation, args.session,
-                        args.add_dir, args.actor, args.code_ref)
+                        args.add_dir, args.actor, args.code_ref, args.deadline_s)
     except ReviewError as exc:
         record_failure(root, entry, exc)
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False))

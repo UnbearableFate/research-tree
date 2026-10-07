@@ -444,8 +444,6 @@ class CliTest(Base):
             self.assertEqual((code, payload["ok"]), (2, False))
 
 
-if __name__ == "__main__":
-    unittest.main()
 
 
 class NoteTest(unittest.TestCase):
@@ -465,3 +463,7 @@ class NoteTest(unittest.TestCase):
             self.assertIn("## 最近邻差异", text)
             with self.assertRaises(lit.LiteratureError):
                 lit.write_note({"title": "x"}, out)
+
+
+if __name__ == "__main__":
+    unittest.main()
