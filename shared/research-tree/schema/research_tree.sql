@@ -446,7 +446,7 @@ CREATE TABLE task (
     delivery_doc_id     TEXT,                  -- 交付文档
     accepted_by         TEXT,                  -- 验收者（不能是 assignee）
     accepted_evidence   TEXT_LIST,             -- 验收依据：evaluation、决定或文档 ID（plans/design 13 §2.1 accept）
-    failure_log         JSON,                  -- 失败预算（03 §8）：[{root_cause, remedy: patch|rewrite, by, at}]
+    failure_log         JSON,                  -- 失败预算（03 §8）：{entries: [{root_cause, remedy: patch|rewrite|blocked, by, at}]}
     blocked_reason      TEXT,                  -- 两次重写仍同样失败：任务阻塞，待 RLD 决定（unblock_task）
     created_at          TEXT NOT NULL,
     updated_at          TEXT NOT NULL

@@ -437,7 +437,7 @@ class Runtime:
             try:
                 result = review_call.review(self.cwd, args["kind"], args["brief"], args["about"], args.get("dimension"),
                                             args.get("evaluation"), args.get("session"), args.get("add_dirs") or [],
-                                            self.actor)
+                                            self.actor, args.get("code_ref"))
             except review_call.ReviewError as exc:
                 review_call.record_failure(self.root, entry, exc)
                 self.summary()

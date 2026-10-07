@@ -88,6 +88,15 @@ outside the research root (Claude Code backend). Report `REVIEW_UNAVAILABLE`, `R
 directly. `get_eligibility` lists in `rechecks` which review checked which evaluation or code, with backend and
 model.
 
+Before a method or ablation experiment is submitted (design.sanity_first / design.code_review), the node needs a
+valid `kind="sanity"` run of the same code and a cross-model code review of that commit: write the brief (code
+directory and commit, hypothesis document, protocol; no conclusions) and call `research_review(kind="code_review",
+about=<node>, code_ref=<commit>, add_dirs=[<code dir>])`; when the reviewer is unavailable, releasing it is your
+recorded decision (`waive_code_review` with a decision document). After a positive signal or candidate_ready ask
+for an `ablation_plan` review and register ablations as `kind="ablation"` with `ablation_of` and
+`source_review_id`. A task blocked by the failure budget (`task_blocked`) needs your decision document and
+`unblock_task`.
+
 ## User communication
 
 `research_control(action="ui_path")` returns a command the user runs in another terminal. That console

@@ -41,7 +41,7 @@ TOOLS = [
                                               "ablation_plan", "code_review", "candidate_recheck"]},
                             "brief": STRING, "about": STRING,
                             "dimension": {"enum": ["numbers", "protocol", "method_code", "novelty", "theory"]},
-                            "evaluation": STRING,
+                            "evaluation": STRING, "code_ref": STRING,
                             "session": STRING, "add_dirs": {"type": "array", "items": STRING}},
                            ["kind", "brief", "about"])},
     {"name": "requirement_draft", "description": "UI only: save a requirement draft with source user-message IDs; this does not submit it to RLD. Use a submit action in the UI's final response to submit.",

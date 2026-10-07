@@ -1933,7 +1933,7 @@ class ResearchDB:
                 raise PermissionDenied(f"{task_id} is not {self.role}/{self.agent}'s task")
             if task.get("blocked_reason"):
                 raise CodedError("FAILURE_BUDGET", f"{task_id} is blocked: {task['blocked_reason']}")
-            log = list(task.get("failure_log") or [])
+            log = list((task.get("failure_log") or {}).get("entries", []))
             same = [f for f in log if f["root_cause"] == cause]
             patches = sum(f["remedy"] == "patch" for f in same)
             rewrites = sum(f["remedy"] == "rewrite" for f in same)
@@ -1943,10 +1943,10 @@ class ResearchDB:
             entry = {"root_cause": cause, "remedy": remedy, "by": f"{self.role}/{self.agent}", "at": now_utc()}
             if remedy == "rewrite" and rewrites >= FAILURE_REWRITES:
                 reason = f"{cause!r} failed the same way after {rewrites} rewrites: the plan or the environment"
-                self._update(tx, task_id, {"failure_log": log + [{**entry, "remedy": "blocked"}],
+                self._update(tx, task_id, {"failure_log": {"entries": log + [{**entry, "remedy": "blocked"}]},
                                            "blocked_reason": reason})
                 return {"blocked": True, "reason": reason, "patches": patches, "rewrites": rewrites}
-            self._update(tx, task_id, {"failure_log": log + [entry]})
+            self._update(tx, task_id, {"failure_log": {"entries": log + [entry]}})
             return {"blocked": False, "patches": patches + (remedy == "patch"),
                     "rewrites": rewrites + (remedy == "rewrite")}
 
@@ -1960,7 +1960,7 @@ class ResearchDB:
                 raise ResearchDBError("unblocking needs a current decision document")
             if not task.get("blocked_reason"):
                 raise ResearchDBError(f"{task_id} is not blocked")
-            self._update(tx, task_id, {"blocked_reason": None, "failure_log": []})
+            self._update(tx, task_id, {"blocked_reason": None, "failure_log": {"entries": []}})
             tx.link("rel_describes", doc_id, task_id)
 
     def _confirm_setup(self, tx: _Tx, project: dict, protocol: dict, hyp: dict, code_ref: str) -> str:
@@ -3099,10 +3099,11 @@ class ResearchDB:
     def register_review(self, path: str, title: str, kind: str, about: list[str] | tuple[str, ...], result: str,
                         session: str, backend: str, reviewer_model: str, cost_usd: float,
                         dimension: str | None = None, evaluation_id: str | None = None,
-                        supersedes: str | None = None, summary: str | None = None) -> str:
+                        supersedes: str | None = None, summary: str | None = None, code_ref: str | None = None) -> str:
         """reviewer only (review_call.py, plans/design 09 §2.1 step 7): register a written review as current, with
         its kind, result, backend and observed model. A candidate_recheck names its dimension and the evaluation it
-        checked; it is bound to that evaluation and its code. supersedes: the earlier review of the same session
+        checked; it is bound to that evaluation and its code. A code_review names code_ref, the commit it read.
+        supersedes: the earlier review of the same session
         (a follow-up round writes a new version). The cost is added to the project's review_cost_usd."""
         self._require_role("reviewer")
         m = DOC_PATH_RE.match(path)
@@ -3137,6 +3138,13 @@ class ResearchDB:
                           "basis_code_ref": exp["code_ref"]}
             elif dimension or evaluation_id:
                 raise ResearchDBError("dimension and evaluation_id belong to a candidate_recheck")
+            if kind == "code_review":  # bound to the code it read (03 §8): a submission checks the same commit
+                resolved = _git_commit(project.get("repo_path") or "", code_ref or "") if code_ref else None
+                if resolved is None:
+                    raise ResearchDBError(f"a code_review names code_ref, a commit in {project.get('repo_path')}")
+                fields["basis_code_ref"] = resolved
+            elif code_ref:
+                raise ResearchDBError("code_ref belongs to a code_review")
             previous = None
             if supersedes:
                 previous = tx.require(supersedes, ("document",))

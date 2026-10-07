@@ -48,6 +48,7 @@ metrics_path、units（每个指标的输入单位）、counts、data_version、
 用 import_run_result(run_id, attempt, manifest_path) 导入，核对计数、loss 与日志后 update_run(valid=true)；验收不通过时设
 valid=false 并写 invalid_reason。不能导入时才在 update_run 直接写 metric_value、secondary。全部 seed 有效后
 create_experiment 时写预估用量 estimated_node_h（node·h，含全部 seed；实际用量超过预估的 overrun_factor 倍会写待处理项）；相同代码、配置（config_path）与 seed 的实验不重建，接口返回已有实验。预留不小于实验登记的节点数与 walltime。提交作业（含本地进程）按提交协议：reserve_submission(submission_key, run_attempt_refs=["E-xxxx/s<seed>@<attempt>", ...], resource_request={{"nodes", "walltime_s"}}) 预留（项目设了授权总量时不预留就不能置 submitted；预算或准入不足被拒绝时交RLD，不绕过）→ claim_submission(submission_key) 取得 claim_generation → 带 submission_key 提交 → attach_job(submission_key, job_id, claim_generation) → update_run(submitted)。提交超时或查询失败把运行置 unknown，用 reconcile_submission(submission_key) 按 key 核对，不重提；作业结束后用调度器（或本机记录）的用量文件 settle_reservation(reservation_id, accounting_ref)。
+实验设计文档（experiment_design）的 '## ' 章节：检验的 claim、存在理由、数据与切分、比较系统、指标、设定、成功判据、失败解释、表图目标、优先级与成本。提交方法或消融实验的作业之前：先用 create_experiment(kind="sanity") 以同一代码跑一次最小规模 sanity（不计 seed、不评估），按计数、loss、指标文件与读回验收为 valid；再请 Leader 对这一代码版本做跨模型代码审查（research_review kind=code_review，code_ref=提交）——审查有 CRITICAL/MAJOR 时修复后重审（至多 2 轮），reviewer 不可用时只有 Leader 的决定（waive_code_review）能放行。同一失败用 report_failure(task_id, root_cause, remedy) 登记：至多 2 次 patch，再至多 2 次从假说文档 rewrite；超出即阻塞并交 Leader，不再重试。消融实验写 ablation_of（被消融的实验）与 source_review_id（ablation_plan 评审），与被消融实验代码和配置都相同的 no-op 会被拒绝。协议的评测类型为 synthetic_proxy、self_supervised_proxy 或 simulation_only 时，结果与报告不写“优于 SOTA”之类措辞，只写代理指标上的一致性或相对提升。
 evaluate_experiment(experiment_id, result_doc_id)（接口给出确定性的 outcome，不需要判定；确认实验用 stage="confirm"）；结果文档用 ```evidence 代码块列出每个数字及来源文件
 （[{"id","value","source"}]，source 相对研究根目录 research/<项目ID>/，如 outputs/E-0002/s42/metrics.json，不写 ../，不指向 docs/），设为现行时逐项核对；每个已导入 run 的指标文件都要引用，汇总数字（可先用 preview_evaluation 只读预览接口将算出的数字，写入统计文件后引用）用保留编号
 mean:<指标>（主指标均值必填）、sd:<指标>、delta:<sota|parent>:<指标>，计算时与接口重算值核对。evaluate_experiment 之后立即 run_cleanup(experiment_id)
@@ -95,6 +96,7 @@ effect_mode、minimum_practical_gain、aggregation=paired_run_mean，可选 allo
 指标恰为主指标与其他指标）与 project/protocol.v1.json（{{"version":1,"eval_type":real_gt|synthetic_proxy|self_supervised_proxy|simulation_only|human_eval,"pair_fields":["seed",...],
 "match":{{...}},"required_counts":{{...}},"profile":"stage1_confirmed","confirmation_seeds":[搜索不用的 seed，至少 3 个],
 "max_confirmation_candidates":2}}）。
+goal 文档含 “## 问题锚点” 一节，逐项写 底线问题、必须解决的瓶颈、非目标（取自 plan.md 的“非目标”节）、约束、成功条件；之后每份假说文档逐字复制这一节（改变所解决的问题即 drift：推回，或经用户同意改锚点并登记用户指令）。假说文档的 '## ' 章节：问题锚点、方法步骤（白话，先说做什么）、技术缺口、可证伪预测与竞争解释、最接近工作与差异、Claim map（表格，至多 design.max_primary_claims 条主 claim）、实验块（每块一个 '### ' 小节，至多 design.max_core_blocks 块，每块写明检验的 claim、数据与设定、成功判据与失败解释——实验前写定）、成本估计、停止条件、有意舍弃的复杂度；create_hypothesis 检查这些。
 {spec_text(project, conf)}2. create_project 使用本项目ID {project['project_id']}、真实git仓库路径、metric_spec_doc_id 与 protocol_doc_id、配置中的预算与门槛；
 接口参数先查 help。
 3. 为每个初始假说检索相关研究，缓存原文并登记引用与假说文档，create_hypothesis 不指定parent_id，全部直属根节点。

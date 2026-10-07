@@ -365,7 +365,7 @@ def _front_matter(fields: dict) -> str:
 
 def review(cwd: Path, kind: str, brief: str, about: str, dimension: str | None = None,
            evaluation: str | None = None, session: str | None = None, add_dirs: list[str] | None = None,
-           actor: str = "rld/main") -> dict:
+           actor: str = "rld/main", code_ref: str | None = None) -> dict:
     if not actor.startswith("rld/"):
         raise ReviewError("REVIEW_UNAVAILABLE", "the Leader (rld) organizes reviews; other roles ask the Leader")
     if kind not in REVIEW_KINDS:
@@ -373,6 +373,8 @@ def review(cwd: Path, kind: str, brief: str, about: str, dimension: str | None =
     if kind == "candidate_recheck" and (dimension not in RECHECK_DIMENSIONS or not evaluation):
         raise ReviewError("REVIEW_INVALID", f"a candidate_recheck names --dimension ({', '.join(RECHECK_DIMENSIONS)}) "
                                             "and --evaluation (the evaluation it rechecks)")
+    if kind == "code_review" and not code_ref:
+        raise ReviewError("REVIEW_INVALID", "a code_review names --code-ref, the commit the reviewer reads")
     marker = tree.read_marker(cwd)
     root = Path(marker["root"])
     conf = tree.show_config(cwd)["effective"]
@@ -410,6 +412,7 @@ def review(cwd: Path, kind: str, brief: str, about: str, dimension: str | None =
                     "backend": backend.name})  # a call the host kills stays visible
     deadline = time.monotonic() + min(2 * int(reviewer["timeout_s"]) + 120, MAX_CALL_S)
     backend.deadline = deadline
+    backend.code_ref = code_ref
     return _review(root, backend, reviewer, kind, brief_path, about, dimension, evaluation, add_dirs, schema,
                    system_file, db, alert, so_far, rv, uid, version, first, state)
 
@@ -480,7 +483,8 @@ def _run_review(root, backend, reviewer, kind, brief_path, about, dimension, eva
     result = result_of(kind, data)
 
     rel = f"reviews/{rv}.v{version}.md"
-    fields = {"kind": kind, "about": about, "dimension": dimension, "evaluation_id": evaluation, "result": result,
+    fields = {"kind": kind, "about": about, "dimension": dimension, "evaluation_id": evaluation,
+              "code_ref": getattr(backend, "code_ref", None), "result": result,
               "backend": backend.name, "provider": rec["provider"], "model_requested": reviewer["model"],
               "model_observed": rec["model_observed"], "thinking": reviewer["thinking"], "session": rv,
               "session_id": uid, "brief": str(brief_path.relative_to(root)), "terminal_reason": rec["terminal_reason"],
@@ -498,6 +502,7 @@ def _run_review(root, backend, reviewer, kind, brief_path, about, dimension, eva
         doc_id = db.register_review(rel, f"{kind} {about}{' ' + dimension if dimension else ''}", kind, [about],
                                     result, rv, backend.name, rec["model_observed"], cost, dimension=dimension,
                                     evaluation_id=evaluation, supersedes=state.get("doc_id"),
+                                    code_ref=getattr(backend, "code_ref", None),
                                     summary=f"{backend.name} {rec['model_observed']}: {result}")
     except ResearchDBError as exc:
         raise ReviewError("REVIEW_INVALID", f"not registered: {exc}", cost) from None
@@ -534,6 +539,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--about", required=True)
     p.add_argument("--dimension", choices=list(RECHECK_DIMENSIONS))
     p.add_argument("--evaluation")
+    p.add_argument("--code-ref", help="code_review: the commit the reviewer reads")
     p.add_argument("--session", help="continue this review session (RV-xxxx): a new version of its review")
     p.add_argument("--add-dir", action="append", default=[], help="Claude Code backend: another readable directory")
     p.add_argument("--actor", default="rld/main")
@@ -547,7 +553,7 @@ def main(argv: list[str] | None = None) -> int:
     entry = {"kind": args.kind, "about": args.about, "dimension": args.dimension, "session": args.session}
     try:
         result = review(cwd, args.kind, args.brief, args.about, args.dimension, args.evaluation, args.session,
-                        args.add_dir, args.actor)
+                        args.add_dir, args.actor, args.code_ref)
     except ReviewError as exc:
         record_failure(root, entry, exc)
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False))

@@ -281,6 +281,12 @@ class ReviewCallTest(unittest.TestCase):
         self.assertIn("REVIEW_INVALID: the review ran on openai/gpt-6-luna", out["error"])
         self.assertEqual(self.rld.reviews(), [])
 
+    def test_code_review_names_its_commit(self):
+        self.project()
+        self.fake("pi")
+        out = self.call([{"text": block({"issues": [], "method_implemented": True})}], kind="code_review")
+        self.assertIn("REVIEW_INVALID: a code_review names --code-ref", out["error"])
+
     def test_r22_permission_denials_are_recorded(self):
         self.project(reviewer="anthropic/claude-sonnet-5-5", leader="gpt-6-luna")
         self.fake("claude")
