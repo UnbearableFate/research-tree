@@ -365,7 +365,7 @@ def _front_matter(fields: dict) -> str:
 
 def review(cwd: Path, kind: str, brief: str, about: str, dimension: str | None = None,
            evaluation: str | None = None, session: str | None = None, add_dirs: list[str] | None = None,
-           actor: str = "rld/main", code_ref: str | None = None) -> dict:
+           actor: str = "rld/main", code_ref: str | None = None, deadline_s: int | None = None) -> dict:
     if not actor.startswith("rld/"):
         raise ReviewError("REVIEW_UNAVAILABLE", "the Leader (rld) organizes reviews; other roles ask the Leader")
     if kind not in REVIEW_KINDS:
@@ -410,7 +410,8 @@ def review(cwd: Path, kind: str, brief: str, about: str, dimension: str | None =
         rv, uid, version, first, state = _allocate(root, session, kind, about, backend.name)
     log_call(root, {"kind": kind, "about": about, "dimension": dimension, "session": rv, "outcome": "started",
                     "backend": backend.name})  # a call the host kills stays visible
-    deadline = time.monotonic() + min(2 * int(reviewer["timeout_s"]) + 120, MAX_CALL_S)
+    # the whole call: both rounds within the reviewer's timeout, the hard cap, and the host's own process limit
+    deadline = time.monotonic() + min(2 * int(reviewer["timeout_s"]) + 120, MAX_CALL_S, deadline_s or MAX_CALL_S)
     backend.deadline = deadline
     backend.code_ref = code_ref
     return _review(root, backend, reviewer, kind, brief_path, about, dimension, evaluation, add_dirs, schema,
@@ -543,6 +544,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--session", help="continue this review session (RV-xxxx): a new version of its review")
     p.add_argument("--add-dir", action="append", default=[], help="Claude Code backend: another readable directory")
     p.add_argument("--actor", default="rld/main")
+    p.add_argument("--deadline-s", type=int, help="the host's limit on this process (seconds); the call ends before it")
     args = p.parse_args(argv)
     cwd = Path.cwd()
     try:
@@ -553,7 +555,7 @@ def main(argv: list[str] | None = None) -> int:
     entry = {"kind": args.kind, "about": args.about, "dimension": args.dimension, "session": args.session}
     try:
         result = review(cwd, args.kind, args.brief, args.about, args.dimension, args.evaluation, args.session,
-                        args.add_dir, args.actor, args.code_ref)
+                        args.add_dir, args.actor, args.code_ref, args.deadline_s)
     except ReviewError as exc:
         record_failure(root, entry, exc)
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False))
