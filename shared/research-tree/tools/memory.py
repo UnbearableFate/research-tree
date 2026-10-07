@@ -35,6 +35,8 @@ LESSON_STATUS = ("proposed", "observed", "verified", "contradicted", "stale")
 ROOT_CAUSE_STATUS = ("verified", "proposed", "unknown")
 PACK_LIMIT = 8000
 RUN_REF_RE = re.compile(r"(E-\d+/s-?\d+)@(\d+)")
+HEDGE_RE = re.compile(r"\b(?:guess|guessing|maybe|perhaps|probably|possibly|might|unverified|not\s+sure)\b|可能|猜|也许|大概|未验证|不确定",
+                      re.I)
 
 
 class MemoryError_(Exception):
@@ -81,6 +83,9 @@ def check(doc_type: str, text: str) -> dict:
         raise MemoryError_(f"root_cause_status is one of {ROOT_CAUSE_STATUS} (unknown when it is not established)")
     if data["status"] not in LESSON_STATUS:
         raise MemoryError_(f"lesson status is one of {LESSON_STATUS}")
+    if data["root_cause_status"] == "verified" and HEDGE_RE.search(str(data["root_cause"])):
+        raise MemoryError_("the root cause reads as a guess (guess / maybe / 可能 / 猜 / 未验证): mark it proposed or "
+                           "unknown until a log or a minimal test establishes it (K01)")
     if data["root_cause_status"] != "verified" and data["status"] != "proposed":
         raise MemoryError_(f"the root cause is {data['root_cause_status']}: the lesson is only proposed (K01)")
     if data["status"] == "verified" and not data.get("evidence_runs"):
