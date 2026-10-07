@@ -25,10 +25,10 @@ discovery:
   require_precheck: true
   lenses: [method-transfer, contradiction, untested-assumption, scaling-regime, diagnostic]
   seed_lenses: [variant, combination, competing, repair]
-  max_candidates: 12
+  max_candidates: 12   # 指引：本版本不由接口检查
   triage_top_n: 4
-  max_initial_nodes: 3
-  pi_generator: false
+  max_initial_nodes: 3   # 指引：本版本不由接口检查
+  pi_generator: false   # 指引：本版本不由接口检查
 
 # 从想法到实验设计（03）
 design:
@@ -116,6 +116,7 @@ notify:
 
 literature:
   min_related_work: 3         # 创建节点时至少引用的、经存在性核验的相关研究数
+  require_verified: true      # 只有 literature.py 核验存在的文献计入上面的数量
 
 models:
   ui: {model: inherit, effort: null}

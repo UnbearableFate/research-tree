@@ -146,6 +146,12 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         self.assertEqual([(r["kind"], r["outcome"]) for r in log],
                          [("confirm_request", "skipped: no notify.url"), ("alert", "skipped: no notify.url")])
 
+    def test_confirm_request_waits_for_the_discovery_gate(self):
+        with patch.object(research_tree, "discovery_blocks_confirmation", return_value="discovery 门尚未通过：x"):
+            with self.assertRaisesRegex(ValueError, "discovery 门尚未通过"):
+                self.runtime.post({"type": "confirm_request", "text": "确认？", "docs": ["project/reports/init-plan.v1.md"]})
+        self.assertEqual(self.runtime.marker["phase"], "planning")
+
     def test_research_review_handler(self):
         args = {"kind": "novelty_precheck", "brief": "docs/project/min-setup.v1.md", "about": "P-test"}
         worker = Runtime(self.cwd, "worker/root")

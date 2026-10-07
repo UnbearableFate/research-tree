@@ -177,6 +177,8 @@ flowchart TD
 
 **阶段 1 GO** 要求至少一个节点的当前 evaluation 仍然适用（框架、协议、指标规范、基线与所用 run 都未变）、在全部统一 seed 上达到优于 SOTA 的门槛并满足保护指标，且新颖性与理论正确性复核绑定到该实验的代码版本（`get_eligibility` 计算，不读缓存标签）。协议为 `stage1_confirmed`（默认）时，搜索中过门槛的节点只是 candidate_ready，GO 前还需在搜索从未用过的确认 seed 上对冻结代码做一次独立确认；任何未关闭的复核问题（obligation）都会阻挡 GO。它是继续研究的筛选信号，不等同于统计显著性或可发表结论。
 
+**立项前发现。** 版本 2 配置的 `discovery.mode`（默认 `full`）让 Leader 在写立项计划前走一遍发现流程：围绕方向与你的假说检索并核验文献（`tools/literature.py`：arXiv、Semantic Scholar、OpenAlex 检索，arXiv → CrossRef → Semantic Scholar 三层存在性核验），lens 助手从多个视角生成候选，去重与可行性检查，跨模型 triage、查新与批判性评审，最后由确定性的发现门检查各阶段证据。你的假说总会进入查新与评审；它们的否定结论只作建议，由你决定。`precheck` 只对你的假说做文献、查新与评审；`off` 沿用直接规划。发现门通过前不会请求立项确认。
+
 **从想法到实验设计。** 版本 2 配置下，目标文档写“问题锚点”（底线问题、必须解决的瓶颈、非目标、约束、成功条件），每份假说文档逐字复制，并写 Claim map（主 claim 不超过 `design.max_primary_claims`）与实验块（不超过 `design.max_core_blocks`，每块的成功判据与失败解释实验前写定）；接口检查这些章节。方法或消融实验提交作业前，须有同一代码的 sanity 运行（`kind=sanity`，不计 seed）与跨模型代码审查（`design.sanity_first`、`design.code_review`）；同一失败至多 2 次补丁、2 次重写，之后任务阻塞并上报；合成代理等评测类型的结果不能写“优于 SOTA”。对应的错误码为 `DESIGN_SECTION_MISSING`、`SANITY_REQUIRED`、`CODE_REVIEW_REQUIRED`、`FAILURE_BUDGET`、`CLAIM_EXCEEDS_EVAL_TYPE`。
 
 **跨模型复核。** `review.trigger: candidate_ready`（默认）时，GO 候选还需五个维度——数字完整性、协议合规、方法—代码对齐、新颖性、理论/论证——各一次跨模型、非交互的复核（`research_review`，kind `candidate_recheck`）。reviewer 由 `models.reviewer` 指定：`anthropic/*` 用 Claude Code CLI（`claude -p --safe-mode --restricted`，只读工具），其他 provider 用 [pi](https://github.com/badlogic/pi-mono)（`pi -p --mode json`）；两者互不降级，且须与 Leader 不同模型族（Claude 宿主的 Leader 因此走 pi）。每次复核是一个新会话，只读 Leader 写的 brief（文件路径与结构化元数据）；结果由 reviewer 角色登记为 `docs/reviews/RV-*.md`，Leader 不能登记或替换。reviewer 不可用、输出无效或评审费用达到 `budget.review_usd_alert` 时如实上报，不以 Leader 自评代替。`get_eligibility` 的 `rechecks` 说明每个 GO 基于哪次评估、检查了什么、由谁（后端与模型）复核。插件只依赖 `pi` / `claude` 已在 PATH 且已登录，不替你安装或登录。
@@ -235,6 +237,9 @@ Claude 版提供内嵌窗口、面板和状态栏；Codex 版使用独立终端�
 | `notify.url` | 可选：确认请求与用量提醒同时 POST 到这个地址；超时不等于同意，记录在 `logs/notify.jsonl` | `null` |
 | `literature.min_related_work` | 每个假说至少引用的相关研究数 | `3` |
 | `models.ui` / `models.worker` | 子代理的模型与 effort | `inherit` / 模型默认 |
+| `models.lens_assistant` | 发现阶段 lens 助手的模型与 effort（Claude 宿主） | `inherit` |
+| `discovery.mode` / `require_precheck` / `triage_top_n` | 立项前发现：`full`、`precheck` 或 `off`；初始节点须有查新与评审回执；triage 后进入查新的新候选数 | `full` / `true` / `4` |
+| `literature.require_verified` | 只有经 `verify_literature` 核验存在的文献计入 `min_related_work` | `true` |
 | `models.reviewer` | 跨模型评审：`provider/model`、thinking、`require_cross_family`、超时 | `openai/gpt-6-astra`，high |
 | `review.trigger` / `budget.review_usd_alert` | GO 候选须跨模型复核 / 累计评审费用提醒（达到后暂停评审调用） | `candidate_ready` / `null` |
 

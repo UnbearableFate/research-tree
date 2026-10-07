@@ -252,6 +252,9 @@ class Demo:
         config_text = project_config.template_text().replace(
             "  dev: |\n    在当前机器上运行。", "  dev: |\n    （虚构示例）在登录节点编辑代码；单元测试在交互式计算节点上运行。").replace(
             "  experiment: |\n    在当前机器上运行。", "  experiment: |\n    （虚构示例）训练与评测以批处理作业提交到集群的GPU节点。")
+        # fictional literature cannot be verified to exist, and the demo starts from its own hypotheses
+        config_text = config_text.replace("  require_verified: true ", "  require_verified: false").replace(
+            "  mode: full                 # off", "  mode: off                  # off")
         head, _, rest = config_text.partition("metric_specs:\n")  # version 2: the demo's own metric specification
         config_text = (head + "metric_specs:\n" + yaml.safe_dump(METRIC_SPECS["metrics"], allow_unicode=True,
                                                                 sort_keys=False, default_flow_style=None)

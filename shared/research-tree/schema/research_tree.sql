@@ -73,6 +73,8 @@ CREATE TABLE project (
     max_core_blocks     INTEGER NOT NULL DEFAULT 5,   -- 每个想法至多几个实验块（design.max_core_blocks）
     code_review_required BOOLEAN NOT NULL DEFAULT FALSE, -- 方法实验提交前须有该代码的跨模型代码审查（design.code_review）
     sanity_required     BOOLEAN NOT NULL DEFAULT FALSE,  -- 方法实验提交前须有同一代码的有效 sanity 运行（design.sanity_first）
+    require_precheck    BOOLEAN NOT NULL DEFAULT FALSE,  -- 建节点须有查新与批判性评审回执（discovery.require_precheck，02 §3）
+    literature_verification BOOLEAN NOT NULL DEFAULT FALSE, -- 只有存在性核验为 verified 的文献计入 min_related_work（08 §2）
     max_repairs_per_root_cause INTEGER NOT NULL DEFAULT 2,  -- 同一根因至多几次补丁（search.max_repairs_per_root_cause，03 §8）
     screen_seeds        INTEGER,               -- 筛选 seed 数上限（version 2：verification.screening_seeds 的个数）；空则只按筛选预算
     protocol_doc_id     TEXT,                  -- 现行实验协议（JSON 文档：评测类型、配对字段、必须一致的设定）
@@ -101,6 +103,7 @@ CREATE TABLE hypothesis (
     title               TEXT NOT NULL,
     statement           TEXT NOT NULL,         -- 一句话可证伪假说；完整内容见 doc
     doc_id              TEXT NOT NULL,         -- 假说文档
+    candidate_id        TEXT,                  -- 发现阶段的候选（CAND-编号）；其查新与评审回执在建节点时核对
     status              TEXT NOT NULL CHECK (status IN (
                             'pending',         -- 待验证
                             'verifying',       -- 验证中
@@ -406,6 +409,9 @@ CREATE TABLE document (
     basis_evaluation_id TEXT,                  -- candidate_recheck 所复核的 evaluation
     basis_code_ref      TEXT,                  -- 该 evaluation 的代码版本（只核实现的维度按它复用）
     review_session      TEXT,                  -- 评审会话（RV-编号）；同会话续接写新版本
+    review_about        TEXT,                  -- 评审对象不是数据库实体时（发现阶段的候选 CAND-编号）
+    literature_check    TEXT,                  -- literature：verify_literature 的结果（verified / unverified）；只有 verified 计入文献下限
+    literature_check_detail TEXT,              -- 核验方法与说明（arxiv / crossref / semantic_scholar_title …）
     created_at          TEXT NOT NULL
 );
 

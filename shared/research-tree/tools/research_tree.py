@@ -58,6 +58,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 
 import create_db  # noqa: E402
+import discovery  # noqa: E402
 import notify  # noqa: E402
 import project_config  # noqa: E402
 from project_config import CONFIG_NAME, ConfigError  # noqa: E402
@@ -475,6 +476,86 @@ def log_agent_model(root: Path, entry: dict) -> dict:
     return record
 
 
+def discovery_command(cwd: Path, args) -> dict:
+    """The discovery subcommand: the stage state lives in the research root; reviews and literature come from the
+    database (read-only here)."""
+    marker = read_marker(cwd)
+    root = Path(marker["root"])
+    reader = ResearchDB(Path(marker["db"]), "rld/main")
+    conf = show_config(cwd)["effective"]
+    if args.action == "start":
+        mode = (conf.get("discovery") or {}).get("mode", "off")
+        if mode == "off":
+            raise TreeError("discovery.mode is off in research-tree.yaml: plan from the user's hypotheses directly")
+        import review_call
+        return discovery.start(root, mode, review_call.leader_model(root))
+    if args.action == "status":
+        return {"state": discovery.load(root), "resume": discovery.resume_point(root) if discovery.load(root) else None,
+                "candidates": discovery.read_candidates(root)}
+    if args.action == "set":
+        return discovery.set_status(root, args.stage, args.status, args.artifact)
+    if args.action == "accept":
+        return discovery.accept(root, args.stage, args.evidence, reviewer_records(reader), args.verifier)
+    if args.action == "resume":
+        return {"resume": discovery.resume_point(root)}
+    if args.action == "cite":
+        for doc_id in args.literature:
+            doc = reader.get(doc_id)
+            if not doc or doc.get("doc_type") != "literature":
+                raise TreeError(f"{doc_id} is not a literature document")
+        return discovery.cite(root, args.candidate, args.literature)
+    if args.action == "check":  # may the start-up plan be put to the user?
+        return {"blocked": discovery_blocks_confirmation(cwd)}
+    if args.action == "merge":
+        users = json.loads((cwd / args.user_hypotheses).read_text(encoding="utf-8")) if args.user_hypotheses else []
+        merged = discovery.merge(discovery.read_shards(root), users)
+        return {"path": discovery.write_candidates(root, merged), "candidates": merged}
+    if args.action == "feasibility":
+        project = (reader.find("project") or [None])[0]
+        fields = project or project_config.db_fields(conf)
+        checked = discovery.feasibility(discovery.read_candidates(root), fields["max_nodes"], fields["max_walltime_s"],
+                                        fields["screen_budget_node_h"])
+        return {"path": discovery.write_candidates(root, checked), "candidates": checked}
+    if args.action == "select":
+        review = reader.get(args.triage) if args.triage else None
+        if not review or (review.get("doc_type"), review.get("review_kind"), review.get("status")) != (
+                "review", "triage", "current"):
+            raise TreeError("select reads the ranking of a current triage review (--triage RV document id)")
+        text = (root / "docs" / review["path"]).read_text(encoding="utf-8")
+        blocks = re.findall(r"```json[ \t]*\n(.*?)```", text, re.S)
+        ranking = json.loads(blocks[-1])["ranking"] if blocks else []
+        top_n = (conf.get("discovery") or {}).get("triage_top_n", 4)
+        chosen = discovery.select(discovery.read_candidates(root), ranking, top_n)
+        return {"path": discovery.write_candidates(root, chosen), "candidates": chosen}
+    if args.action == "gate":
+        literature = {d["id"]: d.get("literature_check") == "verified" for d in reader.find("document")
+                      if d["doc_type"] == "literature" and d["status"] == "current"}
+        project = (reader.find("project") or [None])[0]
+        need = (project or project_config.db_fields(conf))["min_related_work"]
+        result = discovery.evaluate(root, reviewer_records(reader), literature, need, args.report)
+        marker["discovery_gate"] = result["verdict"]
+        write_marker(cwd, marker)
+        return result
+    raise TreeError(f"unknown discovery action {args.action}")
+
+
+def reviewer_records(reader: ResearchDB) -> list[dict]:
+    return reader.reviews()
+
+
+def discovery_blocks_confirmation(cwd: Path) -> str | None:
+    """02 §2 D8: with discovery on, the start-up plan is put to the user only after the discovery gate passed."""
+    conf = show_config(cwd)["effective"]
+    if conf["version"] != 2 or (conf.get("discovery") or {}).get("mode", "off") == "off":
+        return None
+    state = discovery.load(Path(read_marker(cwd)["root"]))
+    if state is None or (state.get("gate") or {}).get("verdict") != "PASS":
+        reasons = (state or {}).get("gate", {}) or {}
+        return ("discovery 门尚未通过（research_tree.py discovery gate --report <报告>）："
+                + "；".join(reasons.get("reasons", [])[:5] or ["尚未运行"]))
+    return None
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description="Set up and steer a research project in the current directory.")
     sub = p.add_subparsers(dest="cmd", required=True)
@@ -525,6 +606,20 @@ def main(argv: list[str] | None = None) -> int:
     nt.add_argument("--text", required=True)
     nt.add_argument("--docs", nargs="*", default=[])
     sub.add_parser("inbox", help="messages to the RLD that still wait for its receipt or answer")
+    dv = sub.add_parser("discovery", help="discovery before the project starts (plans/design 02): stage state, "
+                                          "candidate pool, gates")
+    dv.add_argument("action", choices=("start", "status", "set", "accept", "resume", "merge", "feasibility",
+                                       "select", "gate", "check", "cite"))
+    dv.add_argument("--stage")
+    dv.add_argument("--status", choices=discovery.EXECUTOR_STATUSES)
+    dv.add_argument("--artifact", help="the stage's output, relative to the research root")
+    dv.add_argument("--evidence", nargs="*", default=[], help="accept: review document ids or verifier outputs")
+    dv.add_argument("--verifier", help="accept (literature, feasibility): the deterministic check")
+    dv.add_argument("--user-hypotheses", help="merge: JSON list of the user's hypotheses (title, summary, ...)")
+    dv.add_argument("--triage", help="select: the triage review document id")
+    dv.add_argument("--report", help="gate: the discovery report, relative to the research root")
+    dv.add_argument("--candidate", help="cite: the candidate (CAND-…)")
+    dv.add_argument("--literature", nargs="*", default=[], help="cite: literature document ids (D-…)")
     sub.add_parser("status")
     args = p.parse_args(argv)
     cwd = Path.cwd()
@@ -558,6 +653,8 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "notify":
             result = notify.send(Path(read_marker(cwd)["root"]), show_config(cwd)["effective"], args.kind, args.text,
                                  args.docs)
+        elif args.cmd == "discovery":
+            result = discovery_command(cwd, args)
         elif args.cmd == "inbox":
             import build_site
             result = build_site.unanswered(Path(read_marker(cwd)["root"]))

@@ -46,6 +46,7 @@
     │   │   └── stats.v1.json                # 统计代码的结构化输出（逐seed与配对比较），可选
     │   ├── decisions/prune-after-gate.v1.md # 节点决定的理由
     │   └── notes/                           # 补充分析、讨论（经rel_describes关联）
+    ├── project/discovery/                   # 立项前发现：user-hypotheses.json、candidates.json（候选池，CAND-编号）
     ├── reviews/                             # 跨模型非交互评审（review_call.py，作者 reviewer）
     │   ├── RV-0003.v1.md                    # 一次评审；同一会话的追问写 v2
     │   └── briefs/H-0007-numbers.v1.md      # RLD 写的 brief：只列路径与结构化元数据
@@ -107,7 +108,7 @@ created_at: 2026-10-03T10:21:00Z
 | `hypothesis` | RLD | 版本 2 配置下必需的 `## ` 章节（接口检查）：问题锚点（与 goal 逐字一致）、方法步骤、技术缺口、可证伪预测与竞争解释、最接近工作与差异、Claim map（表格，主 claim 不超过 `design.max_primary_claims`）、实验块（每块一个 `### `，不超过 `design.max_core_blocks`，每块含“成功判据”“失败解释”）、成本估计、停止条件、有意舍弃的复杂度。另写：一句话可证伪假说；**创建理由**：参考了哪些相关研究（列出被引用的literature文档ID）、它们留下的空白、为什么本节点具有基本的新颖性和理论正确性；机制；**计划的代码改动**；可证伪预测与实验计划；竞争解释；与父节点的差异 |
 | `novelty` | RLD | 节点优于SOTA后的复核：检索记录（查询词、来源、日期），范围不限于创建时引用的文献；最接近工作的逐项对比表（机制、适用条件、实验设定、已报告结果、差异）；结论 |
 | `theory` | RLD | 节点优于SOTA后的复核：推导或论证的逐步核对；关键假设；与实验结果是否一致；结论 |
-| `literature` | worker/助手 | 出处（标题、作者、年份、arXiv ID/DOI/URL）、访问日期、本地缓存路径、核心方法、实验设定与结果、与本项目的关系 |
+| `literature` | worker/助手 | 由 `literature.py note` 生成：front matter 含标题、作者、年份、arXiv ID/DOI/URL、访问日期、`verification`（verified/unverified，不手改）、核验方法、缓存路径与 sha256；正文章节：出处、核心方法、实验设定与结果、与本项目的关系、最近邻差异（机制是否相同、改变了什么假设、已有结果是否覆盖本项目声明） |
 | `experiment_design` | worker | 版本 2 配置下方法与消融实验必需的 `## ` 章节：检验的 claim、存在理由、数据与切分、比较系统、指标、设定、成功判据、失败解释、表图目标、优先级与成本。另写：要验证的代码改动；代码版本（含冻结框架）；配置；seed数（按筛选预算）；单次运行资源（不超过上限）；有效性验收标准 |
 | `experiment_result` | worker | 逐seed的主指标、其他指标、过程曲线路径、实际节点数与时长；与父节点和SOTA的配对差值及离散度（取自冻结统计代码写出的统计文件或 `preview_evaluation` 的只读预览，`evaluate_experiment` 再与接口重算值核对；不手算）；判定及依据；局限；原始产物路径。文中每个数字在一个 ` ```evidence ` 代码块里列出来源：`[{"id", "value", "source"}]`，`source` 相对研究根目录（如 `outputs/E-0002/s42/metrics.json`）；设为现行时接口逐项核对数值以精确十进制出现在来源文件中，找不到即拒绝（STAT_MISMATCH）。来源文件用常规 JSON（`"acc": 0.9` 或紧凑的 `"acc":0.9`）或以空格分隔的文本；CSV 的 `0.1,0.2` 这类逗号紧接的数字不会被识别（防止与千位分隔混淆）。汇总数字用保留编号：`mean:<指标>`（主指标均值必填）、`sd:<指标>`、`delta:<sota\|parent>:<指标>`，计算时按写出的小数位与重算值核对；每个已导入运行的指标文件都要引用 |
 | `decision` | RLD | 变更字段与前后取值；理由；依据（实验、文档、用户指令ID）；判定为“需要RLD复核”时RLD的判断理由 |

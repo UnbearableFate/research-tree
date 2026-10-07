@@ -449,12 +449,16 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "min_related_work"
+        "min_related_work",
+        "require_verified"
       ],
       "properties": {
         "min_related_work": {
           "type": "integer",
           "minimum": 0
+        },
+        "require_verified": {
+          "type": "boolean"
         }
       }
     },
