@@ -17,7 +17,7 @@ const MARKER = '.research-tree.json'
 const CONFIG_FILE = 'research-tree.yaml'
 const ALERT_KIND = 'usage_alert'
 // The host's longest wait for one process (process.run accepts 1..600000 ms).
-const MAX_PROCESS_MS = 600_000
+const MAX_PROCESS_MS = 600_000  // the host's cap on one process (ms)
 // research_db.READ_METHODS (a test keeps the two equal)
 const READ_ONLY = /^(help|get|find|edges|children|history|go_candidates|latest_result|screen_seed_count|export_snapshot|verify_document|resume_package|cleanup_due|get_eligibility|evaluations|preview_evaluation|obligations|budget_status|reconcile_submission|reviews)$/
 
@@ -79,13 +79,13 @@ async function loadProject($: EngineInterface): Promise<ResearchProject | null> 
 }
 
 /** The session directory's .venv interpreter, or why it cannot be used. */
-async function venv($: EngineInterface): Promise<{ python: string } | { problem: string }> {
+async function venv($: EngineInterface): Promise<{ python: string; dir: string } | { problem: string }> {
   let cwd = '当前目录'
   try {
     cwd = await $.session.cwd()
     // the session's directory may have moved below the project (a shell cd): look upward for the environment
     for (let dir = cwd; dir && dir !== '/'; dir = dir.replace(/\/[^/]*$/, '') || '/') {
-      if (await $.fs.exists(`${dir}/${VENV_PYTHON}`)) return { python: `${dir}/${VENV_PYTHON}` }
+      if (await $.fs.exists(`${dir}/${VENV_PYTHON}`)) return { python: `${dir}/${VENV_PYTHON}`, dir }
     }
   } catch {
     // no file system here: treated as missing
@@ -95,11 +95,13 @@ async function venv($: EngineInterface): Promise<{ python: string } | { problem:
   }
 }
 
-/** Runs one of the research-tree Python tools with the session directory's .venv, in that directory. */
+/** Runs one of the research-tree Python tools with the project's .venv, in the project directory — also when the
+ *  session's directory moved below it (the tools find the project from their working directory). */
 async function runTool($: EngineInterface, cfg: Config, script: string, args: string[], timeoutMs = 60_000) {
   const env = await venv($)
   if ('problem' in env) return { exitCode: 127, stdout: '', stderr: env.problem }
-  return $.process.run([env.python, `${$.plugin.root}/tools/${script}`, ...args], { timeoutMs })
+  return $.process.run([env.python, `${$.plugin.root}/tools/${script}`, ...args],
+    { timeoutMs: Math.min(timeoutMs, MAX_PROCESS_MS), cwd: env.dir })
 }
 
 async function refresh($: EngineInterface, cfg: Config): Promise<ResearchSummary | null> {
@@ -1089,9 +1091,12 @@ export const register: Register = (on, options) => {
   on('turn.complete', async ($, e, next) => {
     const done = await next(e)
     if (e.agentId === undefined && e.usage?.model && observedModels.get('main') !== e.usage.model) {
-      // the Leader's model: review_call.py refuses a reviewer of the same family (09 §2.1 step 3)
-      observedModels.set('main', e.usage.model)
-      if ((await $.state.get(projectRef)).value) await logAgentModel($, cfg, 'main', 'rld/main', 'observed', e.usage.model)
+      // the Leader's model: review_call.py refuses a reviewer of the same family (09 §2.1 step 3); recorded once a
+      // project exists (before init there is no log to write to), then again whenever the model changes
+      if ((await $.state.get(projectRef)).value ?? (await loadProject($))) {
+        observedModels.set('main', e.usage.model)
+        await logAgentModel($, cfg, 'main', 'rld/main', 'observed', e.usage.model)
+      }
     }
     if (e.agentId && e.usage?.model && observedModels.get(e.agentId) !== e.usage.model) {
       const actor = e.agentId === (await $.state.get(uiAgentRef)).value ? 'ui/ui'
@@ -1216,8 +1221,9 @@ export const register: Register = (on, options) => {
       const args = ['--kind', String(input.kind ?? ''), '--brief', String(input.brief ?? ''), '--about', String(input.about ?? ''),
         ...(input.dimension ? ['--dimension', input.dimension] : []), ...(input.evaluation ? ['--evaluation', input.evaluation] : []),
         ...(input.session ? ['--session', input.session] : []), ...(input.add_dirs ?? []).flatMap(d => ['--add-dir', d])]
-      // a reviewer reads files itself: review_call.py caps the whole call at 3600 s (MAX_CALL_S); wait a little longer
-      const out = await runTool($, cfg, 'review_call.py', args, 3_900_000)
+      // the host runs one process for at most 600 s: the review call's own deadline stays below that
+      const out = await runTool($, cfg, 'review_call.py', [...args, '--deadline-s', String(MAX_PROCESS_MS / 1000 - 30)],
+        MAX_PROCESS_MS)
       await refresh($, cfg)
       const text = (out.stdout || out.stderr).trim()
       return out.exitCode === 0 ? { result: text } : { result: text || `exit ${out.exitCode}`, isError: true as const }
