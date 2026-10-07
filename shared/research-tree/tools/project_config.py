@@ -66,6 +66,9 @@ def parse(text: str, source: str = CONFIG_NAME) -> dict:
     config = _merge(defaults(version), given)
     if version == 2 and "metric_specs" in given:
         config["metric_specs"] = given["metric_specs"]
+    if version == 2 and config["memory"]["cross_project"]:
+        raise ConfigError(f"{source}: memory.cross_project is not supported in this version (08 §1.5: it needs "
+                          "permission filtering first); keep it false")
     if version == 2 and config.get("discovery", {}).get("mode") is False:
         config["discovery"]["mode"] = "off"  # YAML 1.1 reads an unquoted off as false
     validator = Draft202012Validator(json.loads((SCHEMA_PATH if version == 2 else V1_SCHEMA_PATH).read_text(encoding="utf-8")))
@@ -154,6 +157,9 @@ def db_fields(config: dict) -> dict:
             # discovery (02, 08): receipts before initial nodes, only verified literature counts
             "require_precheck": config["discovery"]["mode"] != "off" and config["discovery"]["require_precheck"],
             "literature_verification": config["literature"]["require_verified"],
+            "memory_enabled": config["memory"]["enabled"], "memory_pack_limit": config["memory"]["pack_limit_chars"],
+            "memory_max_items": config["memory"]["max_items_per_task"],
+            "memory_counterevidence": config["memory"]["include_counterevidence"],
             "max_repairs_per_root_cause": config["search"]["max_repairs_per_root_cause"],
         }
     budget, stage1 = config["budget"], config["stage1"]

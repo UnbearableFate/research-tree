@@ -43,7 +43,7 @@ def assemble(target: str, destination: Path, repo: Path = REPO) -> dict:
     if manifest.get("name") != "research-tree" or not manifest.get("version"):
         raise ValueError(f"invalid plugin identity: {manifest_path}")
     for required in ("tools/prepare.sh", "tools/research_db.py", "tools/metrics.py", "tools/evidence.py",
-                     "tools/research_tree.py", "tools/project_config.py", "tools/notify.py", "tools/review_call.py", "tools/discovery.py", "tools/literature.py",
+                     "tools/research_tree.py", "tools/project_config.py", "tools/notify.py", "tools/review_call.py", "tools/discovery.py", "tools/literature.py", "tools/memory.py", "tools/threat_scan.py", "tools/capture_filter.py",
                      "schema/reviews/candidate_recheck.schema.json", "schema/reviews/candidate_recheck.md",
                      "schema/config.v1.schema.json", "schema/config.v1.template.yaml",
                      "tools/send_message.py", "tools/build_site.py", "schema/research_tree.sql",

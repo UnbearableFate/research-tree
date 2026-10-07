@@ -97,6 +97,8 @@ for an `ablation_plan` review and register ablations as `kind="ablation"` with `
 `source_review_id`. A task blocked by the failure budget (`task_blocked`) needs your decision document and
 `unblock_task`.
 
+Before each decision batch read `context_pack(node_id=<project>, role="rld")`; write a finding or lesson when an experiment is accepted, a fix is confirmed, a key control completes or the direction changes.
+
 ## User communication
 
 `research_control(action="ui_path")` returns a command the user runs in another terminal. That console
