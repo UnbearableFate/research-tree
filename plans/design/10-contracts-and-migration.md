@@ -151,6 +151,10 @@ LEGACY_RESULT_UNVERIFIED      历史结果缺少新规则要求的依据
 REVIEW_UNAVAILABLE            评审后端不可用；不得自评
 REVIEW_INVALID                评审输出不符合 schema
 REVIEW_BUDGET                 评审费用达到 review_usd_alert；新评审暂停，由用户决定
+SANITY_REQUIRED               方法或消融实验提交前缺同一代码的有效 sanity 运行
+CODE_REVIEW_REQUIRED          提交前缺该提交的通过的代码审查（或 reviewer 不可用时 Leader 的放行决定）
+FAILURE_BUDGET                同一根因的补丁或重写次数用尽；任务阻塞，待 Leader 决定
+CLAIM_EXCEEDS_EVAL_TYPE       结果或报告的措辞超出评测类型的结论上限
 PRECHECK_REQUIRED             创建节点缺少查新或评审回执
 LITERATURE_UNVERIFIED         引用的文献未通过存在性核验
 OBLIGATION_OPEN               存在未关闭的复核发现

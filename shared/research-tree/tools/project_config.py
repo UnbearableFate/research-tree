@@ -149,6 +149,7 @@ def db_fields(config: dict) -> dict:
             "design_required": True, "max_primary_claims": config["design"]["max_primary_claims"],
             "max_core_blocks": config["design"]["max_core_blocks"],
             "code_review_required": config["design"]["code_review"], "sanity_required": config["design"]["sanity_first"],
+            "max_repairs_per_root_cause": config["search"]["max_repairs_per_root_cause"],
         }
     budget, stage1 = config["budget"], config["stage1"]
     return {

@@ -34,8 +34,8 @@ discovery:
 design:
   max_primary_claims: 2
   max_core_blocks: 5
-  max_baseline_families: 3
-  proposal_review_rounds: 1
+  max_baseline_families: 3     # 立项计划的指引（Leader 照此写基线家族）；本版本不由接口检查
+  proposal_review_rounds: 1    # 指引：proposal_review 至多几轮；本版本不由接口检查
   code_review: true
   sanity_first: true
   overrun_factor: 2.0         # 实际用量达到预估的倍数，写待处理项（不取消作业）
@@ -92,7 +92,7 @@ budget:
 
 search:
   exploration_fraction: 0.15
-  max_repairs_per_root_cause: 2
+  max_repairs_per_root_cause: 2   # 同一根因至多几次补丁（失败预算，之后至多 2 次重写）
   require_selection_rationale: true
   allow_repair_from_retired_evidence: true
   stall_structural_at: 2
