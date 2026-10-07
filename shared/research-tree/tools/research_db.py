@@ -56,11 +56,11 @@ SPEC_PATH = Path(__file__).resolve().parent.parent / "schema" / "research_tree.s
 CLEANUP_SCRIPT = "research-tree-cleanup.py"
 CLEANUP_TEMPLATE = Path(__file__).resolve().parent.parent / "schema" / "cleanup.template.py"
 # The database layout this interface writes (schema/create_db.py SCHEMA_VERSION; a test keeps them equal).
-SCHEMA_VERSION = 9
+SCHEMA_VERSION = 10
 OPEN_ATTEMPTS = 40
 OPEN_RETRY_DELAY_S = 0.25
 
-ROLES = ("ui", "rld", "worker", "assistant", "web_builder")
+ROLES = ("ui", "rld", "worker", "assistant", "web_builder", "reviewer")
 
 ID_PREFIX = {
     "project": "P",
@@ -144,7 +144,14 @@ DOC_AUTHORS = {
     "experiment_result": ("worker", "assistant", "rld"),
     "task_delivery": ("worker", "assistant", "web_builder"),
     "other": ("ui", "rld", "worker", "assistant"),
+    "review": ("reviewer",),  # only through review_call.py (plans/design 09 §4)
 }
+REVIEW_KINDS = ("triage", "novelty_precheck", "critical_review", "proposal_review", "ablation_plan", "code_review",
+                "candidate_recheck")
+# A GO candidate's rechecks (07 §2): the dimensions about numbers are bound to the evaluation they checked, the
+# others to its code (they stay valid when seeds are added to the same code, 07 §3).
+RECHECK_DIMENSIONS = {"numbers": "evaluation", "protocol": "evaluation", "method_code": "code",
+                      "novelty": "code", "theory": "code"}
 
 CONCLUSIONS = ("no_gain", "beats_parent", "beats_sota", "inconclusive")
 # A decision resting on an inconclusive result lists what is missing and the next experiment (03 §9, 06 §7).
@@ -210,12 +217,13 @@ ATTEMPT_FIELDS = (REPORTED_FIELDS + RUN_MEASUREMENTS + IMPORT_FIELDS
                   + ("retracted_at", "retracted_reason", "submission_key"))
 # Settings from the project configuration (research-tree.yaml) besides the caps and gates above.
 LIMIT_FIELDS = ("max_parallel_workers", "alert_node_h", "config_doc_id", "total_limit", "search_limit",
-                "confirmation_limit", "repair_limit", "overrun_factor", "stall_structural_at", "stall_human_at", "screen_seeds")
+                "confirmation_limit", "repair_limit", "overrun_factor", "stall_structural_at", "stall_human_at",
+                "recheck_required", "review_usd_alert", "screen_seeds")
 # The documents evaluations are computed under (plans/design/04): protocol and metric specification.
 EVIDENCE_DOC_FIELDS = ("protocol_doc_id", "metric_spec_doc_id")
 # Caps the user authorizes (10 §1.5): an agent may lower them, raising one (or lifting it, None) needs the user.
 CAP_FIELDS = ("total_limit", "search_limit", "confirmation_limit", "repair_limit", "max_nodes", "max_walltime_s",
-              "alert_node_h")
+              "alert_node_h", "review_usd_alert")
 
 class ResearchDBError(Exception):
     pass
@@ -277,6 +285,8 @@ def _convert_default(value: str | None, col_type: str) -> Any:
         return int(value)
     if col_type == "REAL":
         return float(value)
+    if col_type == "BOOLEAN":
+        return value.upper() in ("TRUE", "1")
     return value
 
 
@@ -704,6 +714,8 @@ class ResearchDB:
                 self._check_evidence_docs(tx, final)
             raised = [k for k in CAP_FIELDS if k in changes and changes[k] != project.get(k) and (
                 changes[k] is None or (project.get(k) is not None and changes[k] > project[k]))]
+            if project.get("recheck_required") and changes.get("recheck_required") is False:
+                raised.append("recheck_required")  # dropping the cross-model recheck lowers the GO bar
             if raised:
                 instruction = user_instruction_doc_id and tx.get(user_instruction_doc_id)
                 if not instruction or (instruction.get("doc_type"), instruction.get("status")) != (
@@ -2847,12 +2859,119 @@ class ResearchDB:
             old = tx.require(old_id, ("document",))
             new = tx.require(new_id, ("document",))
             self._require_author(new)
+            if "review" in (old["doc_type"], new["doc_type"]) and self.role != "reviewer":
+                raise PermissionDenied("reviews are versioned only by review_call.py (a new review in the session)")
             if (old["status"], new["status"]) != ("current", "current"):
                 raise ResearchDBError("both documents must be current; the old one becomes superseded")
             if old["doc_type"] != new["doc_type"]:
                 raise ResearchDBError(f"cannot supersede a {old['doc_type']} with a {new['doc_type']}")
             self._update(tx, old_id, {"status": "superseded"})
             tx.link("rel_supersedes", new_id, old_id)
+
+    def register_review(self, path: str, title: str, kind: str, about: list[str] | tuple[str, ...], result: str,
+                        session: str, backend: str, reviewer_model: str, cost_usd: float,
+                        dimension: str | None = None, evaluation_id: str | None = None,
+                        supersedes: str | None = None, summary: str | None = None) -> str:
+        """reviewer only (review_call.py, plans/design 09 §2.1 step 7): register a written review as current, with
+        its kind, result, backend and observed model. A candidate_recheck names its dimension and the evaluation it
+        checked; it is bound to that evaluation and its code. supersedes: the earlier review of the same session
+        (a follow-up round writes a new version). The cost is added to the project's review_cost_usd."""
+        self._require_role("reviewer")
+        m = DOC_PATH_RE.match(path)
+        if not m or not path.startswith("reviews/"):
+            raise ResearchDBError(f"a review is written under reviews/ as <name>.v<N>.md: {path}")
+        if kind not in REVIEW_KINDS:
+            raise ResearchDBError(f"kind is one of {REVIEW_KINDS}")
+        if backend not in ("pi", "claude_code"):
+            raise ResearchDBError("backend is pi or claude_code")
+        if not isinstance(cost_usd, (int, float)) or isinstance(cost_usd, bool) or cost_usd < 0:
+            raise ResearchDBError("cost_usd is a number >= 0")
+        file = self.docs_root / path
+        if not file.is_file():
+            raise ResearchDBError(f"document file not found: {file}")
+        with self._writer() as tx:
+            project = self._project(tx)
+            if tx.ids("document", "WHERE n.path = $path", path=path):
+                raise ResearchDBError(f"{path} is already registered")
+            targets = [tx.require(entity) for entity in about]
+            fields = {}
+            if kind == "candidate_recheck":
+                if dimension not in RECHECK_DIMENSIONS:
+                    raise ResearchDBError(f"a candidate_recheck names its dimension: one of {list(RECHECK_DIMENSIONS)}")
+                if result not in ("pass", "fail", "uncertain", "not_applicable"):
+                    raise ResearchDBError("a candidate_recheck result is pass, fail, uncertain or not_applicable")
+                ev = tx.require(evaluation_id, ("evaluation",))
+                exp = tx.get(ev["experiment_id"])
+                if [t["id"] for t in targets] != [exp.get("hypothesis_id")]:
+                    raise ResearchDBError(f"a candidate_recheck is about the node of {evaluation_id}: "
+                                          f"{exp.get('hypothesis_id')}")
+                fields = {"review_dimension": dimension, "basis_evaluation_id": ev["id"],
+                          "basis_code_ref": exp["code_ref"]}
+            elif dimension or evaluation_id:
+                raise ResearchDBError("dimension and evaluation_id belong to a candidate_recheck")
+            previous = None
+            if supersedes:
+                previous = tx.require(supersedes, ("document",))
+                if (previous["doc_type"], previous.get("review_session"), previous["status"]) != ("review", session, "current"):
+                    raise ResearchDBError(f"{supersedes} is not the current review of session {session}")
+            doc_id = self._insert(tx, "document", {
+                "id": tx.next_id("document"), "path": path, "version": int(m.group(1)), "doc_type": "review",
+                "title": title, "summary": summary, "status": "current", "author_role": self.role,
+                "author_id": self.agent, "sha256": sha256_file(file), "review_kind": kind, "review_result": result,
+                "review_backend": backend, "reviewer_model": reviewer_model, "review_session": session, **fields})
+            for entity in about:
+                tx.link("rel_describes", doc_id, entity)
+            if previous:
+                self._update(tx, previous["id"], {"status": "superseded"})
+                tx.link("rel_supersedes", doc_id, previous["id"])
+            self._update(tx, project["id"], {"review_cost_usd": round((project.get("review_cost_usd") or 0) + cost_usd, 6)})
+            return doc_id
+
+    def add_review_cost(self, cost_usd: float) -> None:
+        """reviewer only (review_call.py): a failed or invalid call's cost, so the project's review cost is the one
+        the review_usd_alert gate counts."""
+        self._require_role("reviewer")
+        if not isinstance(cost_usd, (int, float)) or isinstance(cost_usd, bool) or cost_usd < 0:
+            raise ResearchDBError("cost_usd is a number >= 0")
+        with self._writer() as tx:
+            project = self._project(tx)
+            self._update(tx, project["id"], {"review_cost_usd": round((project.get("review_cost_usd") or 0) + cost_usd, 6)})
+
+    def reviews(self, about: str | None = None, kind: str | None = None) -> list[dict]:
+        """Review documents (current and superseded), oldest first, optionally of one entity or kind."""
+        with self.reader() as tx:
+            docs = [tx.get(i) for i in tx.ids("document", "WHERE n.doc_type = $t", t="review")]
+            if about:
+                docs = [d for d in docs if tx.edges("rel_describes", source=d["id"], target=about)]
+        out = [{k: v for k, v in d.items() if k != "_table"} for d in docs if not kind or d.get("review_kind") == kind]
+        return sorted(out, key=lambda d: int(d["id"].split("-")[1]))
+
+    def _candidate_rechecks(self, tx: _Tx, hyp: dict, evaluation_id: str, basis_exp: dict) -> tuple[list[dict], list[str]]:
+        """The node's latest current candidate_recheck per dimension and why the GO bar is not met yet."""
+        docs = [tx.get(i) for i in tx.ids("document", "WHERE n.doc_type = $t", t="review")]
+        docs = [d for d in docs if d["status"] == "current" and d.get("review_kind") == "candidate_recheck"
+                and tx.edges("rel_describes", source=d["id"], target=hyp["id"])]
+        rows, reasons = [], []
+        for dimension, binding in RECHECK_DIMENSIONS.items():
+            mine = [d for d in docs if d.get("review_dimension") == dimension]
+            if not mine:
+                rows.append({"dimension": dimension, "state": "missing", "required": evaluation_id
+                             if binding == "evaluation" else basis_exp["code_ref"]})
+                reasons.append("RECHECK_PENDING")
+                continue
+            d = max(mine, key=lambda x: int(x["id"].split("-")[1]))
+            bound = (d.get("basis_evaluation_id") == evaluation_id if binding == "evaluation"
+                     else d.get("basis_code_ref") == basis_exp["code_ref"])
+            state = ("stale" if not bound else {"pass": "pass", "not_applicable": "pass", "fail": "failed",
+                                                "uncertain": "uncertain"}[d["review_result"]])
+            rows.append({"dimension": dimension, "state": state, "required": evaluation_id if binding == "evaluation"
+                         else basis_exp["code_ref"], "review_id": d["id"], "path": d["path"],
+                         "result": d["review_result"], "backend": d.get("review_backend"),
+                         "reviewer_model": d.get("reviewer_model"), "evaluation_id": d.get("basis_evaluation_id"),
+                         "code_ref": d.get("basis_code_ref")})
+            reasons += {"stale": ["RECHECK_STALE"], "failed": ["RECHECK_FAILED"],
+                        "uncertain": ["RECHECK_UNCERTAIN"]}.get(state, [])
+        return rows, reasons
 
     def verify_document(self, doc_id: str) -> bool:
         """True when a current/superseded document's file still matches its recorded hash."""
@@ -3327,10 +3446,14 @@ class ResearchDB:
         evaluation; reasons name what is missing or no longer applies (HARNESS_CHANGED, BASELINE_CHANGED,
         PROTOCOL_CHANGED, METRIC_SPEC_CHANGED, STATISTICS_CHANGED, RUN_RETRACTED, INPUT_CHANGED,
         RESULT_REVISION_PENDING, LEGACY_RESULT_UNVERIFIED, EVAL_TYPE_MISSING, GATE_NOT_PASSED, GUARDRAIL_FAILED,
-        OBLIGATION_OPEN, DISPOSITION_RETIRED, RECHECK_PENDING, RECHECK_FAILED, RECHECK_STALE, CONFIRMATION_REQUIRED,
+        OBLIGATION_OPEN, DISPOSITION_RETIRED, RECHECK_PENDING, RECHECK_FAILED, RECHECK_STALE, RECHECK_UNCERTAIN,
+        CONFIRMATION_REQUIRED,
         CONFIRMATION_FAILED, CONFIRMATION_REUSED, CONFIRMATION_STALE). stage: candidate_ready once the search
         evidence passes the Type-A gates, confirmed after the confirmation; outcome: the basis's outcome, or invalid
-        when the node's runs all ended without a valid one."""
+        when the node's runs all ended without a valid one. rechecks (projects with recheck_required): per dimension
+        the cross-model review that checked this basis (review id, result, backend, reviewer model, evaluation or
+        code it is bound to, and the one it must be bound to) — what was checked and by whom; numbers and protocol
+        are bound to recheck_evaluation_id (the confirmation's evaluation once there is one)."""
         with self.reader() as tx:
             return self._eligibility(tx, self._project(tx), tx.require(hypothesis_id, ("hypothesis",)), protocol_id)
 
@@ -3357,7 +3480,8 @@ class ResearchDB:
         out = {"hypothesis_id": hyp["id"], "eligible": False, "basis_evaluation_id": None, "experiment_id": None,
                "evidence_state": "none", "reasons": ["NO_EVALUATION"], "verification_level": None,
                "gate_passed": None, "guardrails_passed": None, "stage": None, "outcome": None,
-               "confirmation_evaluation_id": None, "open_obligations": []}
+               "confirmation_evaluation_id": None, "open_obligations": [], "rechecks": None,
+               "recheck_evaluation_id": None}
         if not search:
             # an engineering failure is no evidence: no evaluation; the node's outcome reads 'invalid' (06 §2.1)
             tried = [e for e in exps if e["kind"] == "method" and (e.get("stage") or "screen") != "confirm"]
@@ -3403,12 +3527,19 @@ class ResearchDB:
                 reasons.append(why)
             elif stage == "candidate_ready":
                 stage = "confirmed"
+        rechecks, recheck_ev = None, None
+        if project.get("recheck_required"):  # cross-model rechecks of the candidate (07, 09 candidate_recheck)
+            # the numbers GO rests on: the confirmation's once there is one, else the search basis (07 §3, §6)
+            recheck_ev = confirmation or basis["id"]
+            rechecks, why = self._candidate_rechecks(tx, hyp, recheck_ev, basis_exp)
+            reasons += why
         reasons = list(dict.fromkeys(reasons))
         return {**out, "eligible": not reasons, "basis_evaluation_id": basis["id"],
                 "experiment_id": basis["experiment_id"], "evidence_state": state, "reasons": reasons,
                 "verification_level": basis["verification_level"], "gate_passed": basis.get("gate_passed"),
                 "guardrails_passed": basis.get("guardrails_passed"), "stage": stage, "outcome": basis.get("outcome"),
-                "confirmation_evaluation_id": confirmation, "open_obligations": opened}
+                "confirmation_evaluation_id": confirmation, "open_obligations": opened, "rechecks": rechecks,
+                "recheck_evaluation_id": recheck_ev}
 
     def _confirmation(self, tx: _Tx, project: dict, protocol: dict, hyp: dict, basis_exp: dict) -> tuple:
         """The node's independent confirmation of its candidate code (06 §2.2, §2.5): a current confirm-stage
@@ -3613,7 +3744,7 @@ def default_worker_id(node_id: str, table: str) -> str:
 READ_METHODS = ("help", "get", "find", "edges", "children", "history", "go_candidates", "latest_result",
                 "screen_seed_count", "export_snapshot", "verify_document", "resume_package", "cleanup_due",
                 "get_eligibility", "evaluations", "preview_evaluation", "obligations", "budget_status",
-                "reconcile_submission")
+                "reconcile_submission", "reviews")
 
 CLI_METHODS = sorted(
     name for name in vars(ResearchDB) if not name.startswith("_") and callable(getattr(ResearchDB, name))

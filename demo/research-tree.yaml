@@ -84,8 +84,8 @@ budget:
   confirmation_limit: null    # 其中独立确认（总量的一部分）
   repair_limit: null          # 其中修复
   screen_node_h: 10           # 筛选预算：按 SOTA 第一个 seed 的成本决定筛选实验的 seed 数
-  reserve_from_scheduler_limits: true
-  unknown_submission_policy: hold_and_reconcile
+  reserve_from_scheduler_limits: true    # 本版本固定：预留按申请的节点数 × walltime 上限计
+  unknown_submission_policy: hold_and_reconcile   # 本版本固定：提交状态未知时保留预留并按 submission_key 核对
   max_parallel_workers: null
   alert_node_h: null
   review_usd_alert: null      # 累计评审费用提醒阈值（M4 起）
@@ -107,7 +107,7 @@ memory:
 review:
   trigger: candidate_ready
   permanent_reviewer: false
-  require_method_code_alignment: true
+  require_method_code_alignment: true   # 本版本固定：方法—代码对齐（method_code）总在复核维度中，pass 须引用所读代码
 
 # 外部通知（可选）：确认请求与用量提醒时向这个地址 POST JSON；超时不等于同意。
 notify:

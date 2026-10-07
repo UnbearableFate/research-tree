@@ -104,7 +104,7 @@ export type ResearchConfigView = {
   file_error: string | null
   effective: ResearchConfig
   /** The project record's fields the configuration sets. */
-  db_fields: Record<string, number | number[] | null>
+  db_fields: Record<string, number | number[] | boolean | null>
   /** Version 2: the metric_spec document init registered from the configuration. */
   metric_spec?: { doc_id: string; path: string } | null
   /** Version 2: the protocol fields the configuration fixes. */

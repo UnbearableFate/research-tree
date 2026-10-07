@@ -33,7 +33,9 @@ ATTENTION_LABELS = {
     "cleanup_failed": "清理未完成", "evidence_stale": "证据已失效", "obligation_open": "未决问题",
     "stall": "停滞待换向", "confirmation_required": "待独立确认", "overrun": "用量超出预估",
     "admission_paused": "准入暂停", "submission_unknown": "提交状态待核对", "run_stale": "作业超时未更新",
+    "recheck_pending": "待跨模型复核", "review_unavailable": "评审不可用", "review_budget": "评审费用提醒",
 }
+RECHECK_STATES = {"missing": "缺", "stale": "依据已变", "failed": "未通过", "uncertain": "不确定", "pass": "通过"}
 DISPOSITION_LABELS = {"active": "继续投入", "paused": "暂停", "retired": "不再投入"}
 OUTCOME_LABELS = {"positive_signal": "正向信号", "negative_signal": "负向信号", "inconclusive": "不确定", "invalid": "无效"}
 VERIFICATION_LABELS = {"record_recomputed": "记录级重算", "artifact_imported": "产物级导入", "legacy_unverified": "旧记录（未核验）"}
@@ -302,6 +304,12 @@ def collect(db_path: Path) -> dict:
         if e.get("stage") == "candidate_ready" and "CONFIRMATION_REQUIRED" in e["reasons"]:
             attention.append({"kind": "confirmation_required", "id": n["id"],
                               "text": f"{n['id']} 搜索结果过门槛（candidate_ready），GO 前需在确认 seed 上独立确认"})
+        missing = [f"{r['dimension']}（{RECHECK_STATES[r['state']]}，须基于 {str(r['required'])[:12]}）"
+                   for r in e.get("rechecks") or [] if r["state"] != "pass"]
+        if e.get("stage") in ("candidate_ready", "confirmed") and missing:
+            attention.append({"kind": "recheck_pending", "id": n["id"],
+                              "text": f"{n['id']} 是 GO 候选，复核未通过或未完成：{'、'.join(missing)}（research_review "
+                                      "kind=candidate_recheck，每个维度一次新会话；不能以 Leader 自评代替）"})
         if e["evidence_state"] == "stale":
             attention.append({"kind": "evidence_stale", "id": n["id"],
                               "text": f"{n['id']} 的当前评估 {e['basis_evaluation_id']} 已不适用（{'、'.join(e['reasons'])}）："
@@ -311,6 +319,7 @@ def collect(db_path: Path) -> dict:
             attention.append({"kind": "task", "id": t["id"],
                               "text": f"{t['id']}（{t['kind']}，{t['assignee_role']}/{t.get('assignee_id') or '未指派'}）：{t['status']}"})
     attention += unanswered(root)
+    attention += review_attention(root, project)
     for d in ResearchDB(db_path, "web_builder/site").cleanup_due():
         attention.append({"kind": "cleanup_due", "id": d["node"] if d["node"] in {h["id"] for h in tables["hypothesis"]} else None,
                           "text": f"{d['experiment_id']}（{d['reason']}）由 {d['owner']} 运行 run_cleanup"})
@@ -367,6 +376,44 @@ def _worker(node: dict) -> dict:
     """A node's worker binding: identity, current agent session and the documents to resume from."""
     return {"id": node.get("worker_id"), "agent_id": node.get("worker_agent_id"),
             "session_at": node.get("worker_session_at"), "resume": node.get("resume_doc_ids") or []}
+
+
+def review_attention(root: Path, project: dict) -> list[dict]:
+    """The latest failed review call per (kind, about, dimension) with no later success, and the review cost alert
+    (logs/review_calls.jsonl, written by review_call.py)."""
+    log = root / "logs" / "review_calls.jsonl"
+    calls = []
+    if log.is_file():
+        for line in log.read_text(encoding="utf-8").splitlines():
+            try:
+                calls.append(json.loads(line))
+            except json.JSONDecodeError:
+                continue
+    latest = {}
+    for c in calls:
+        latest[(c.get("kind"), c.get("about"), c.get("dimension"))] = c
+    now = datetime.now(timezone.utc)
+    out = []
+    for c in latest.values():
+        if c.get("outcome") == "ok":
+            continue
+        if c.get("outcome") == "started":  # in progress, unless the host killed it long ago
+            try:
+                started = datetime.fromisoformat(c["ts"].replace("Z", "+00:00"))
+            except (KeyError, ValueError):
+                continue
+            if (now - started).total_seconds() < 4200:
+                continue
+            c = {**c, "error": "调用未结束（宿主可能已终止），费用未知"}
+        out.append({"kind": "review_unavailable", "id": c.get("about"),
+                    "text": f"{c.get('kind')} {c.get('about')}{' ' + c['dimension'] if c.get('dimension') else ''}："
+                            f"{(c.get('error') or c.get('outcome'))[:200]}"})
+    alert = project.get("review_usd_alert")
+    cost = sum(float(c.get("cost_usd") or 0) for c in calls)
+    if alert is not None and cost >= alert:
+        out.insert(0, {"kind": "review_budget", "id": project["id"],
+                       "text": f"评审费用 {cost:.2f} USD 已达提醒阈值 {alert}：新的评审调用暂停，由用户决定"})
+    return out
 
 
 def summary(data: dict, db_path: Path) -> dict:

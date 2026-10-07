@@ -150,6 +150,7 @@ LEGACY_RESULT_UNVERIFIED      历史结果缺少新规则要求的依据
 ```text
 REVIEW_UNAVAILABLE            评审后端不可用；不得自评
 REVIEW_INVALID                评审输出不符合 schema
+REVIEW_BUDGET                 评审费用达到 review_usd_alert；新评审暂停，由用户决定
 PRECHECK_REQUIRED             创建节点缺少查新或评审回执
 LITERATURE_UNVERIFIED         引用的文献未通过存在性核验
 OBLIGATION_OPEN               存在未关闭的复核发现

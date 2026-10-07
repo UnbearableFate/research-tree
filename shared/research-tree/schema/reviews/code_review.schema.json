@@ -1,0 +1,62 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "type": "object",
+ "required": [
+  "issues",
+  "method_implemented"
+ ],
+ "properties": {
+  "issues": {
+   "type": "array",
+   "items": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": [
+     "severity",
+     "file",
+     "line",
+     "category",
+     "description"
+    ],
+    "properties": {
+     "severity": {
+      "enum": [
+       "CRITICAL",
+       "MAJOR",
+       "MINOR"
+      ]
+     },
+     "file": {
+      "type": "string",
+      "minLength": 1
+     },
+     "line": {
+      "type": [
+       "integer",
+       "null"
+      ]
+     },
+     "category": {
+      "enum": [
+       "gt_source",
+       "normalization",
+       "dead_metric",
+       "seed_config",
+       "method_mismatch",
+       "other"
+      ]
+     },
+     "description": {
+      "type": "string",
+      "minLength": 1
+     }
+    }
+   },
+   "minItems": 0
+  },
+  "method_implemented": {
+   "type": "boolean"
+  }
+ },
+ "title": "code_review"
+}

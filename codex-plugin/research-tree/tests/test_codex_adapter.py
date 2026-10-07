@@ -146,6 +146,18 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         self.assertEqual([(r["kind"], r["outcome"]) for r in log],
                          [("confirm_request", "skipped: no notify.url"), ("alert", "skipped: no notify.url")])
 
+    def test_research_review_handler(self):
+        args = {"kind": "novelty_precheck", "brief": "docs/project/min-setup.v1.md", "about": "P-test"}
+        worker = Runtime(self.cwd, "worker/root")
+        with self.assertRaisesRegex(ValueError, "only the Leader"):
+            worker.dispatch("research_review", args)
+        # this fixture's configuration is version 1: no models.reviewer, so the call is unavailable and logged
+        with self.assertRaisesRegex(ValueError, "REVIEW_UNAVAILABLE: research-tree.yaml has no models.reviewer"):
+            self.runtime.dispatch("research_review", args)
+        log = [json.loads(x) for x in (self.runtime.root / "logs/review_calls.jsonl").read_text().splitlines()]
+        self.assertEqual((log[-1]["kind"], log[-1]["about"], log[-1]["outcome"]),
+                         ("novelty_precheck", "P-test", "REVIEW_UNAVAILABLE"))
+
     def test_bound_roles_cannot_impersonate_or_control_execution(self):
         ui = Runtime(self.cwd, "ui/ui")
         with self.assertRaisesRegex(ValueError, "only read"):
@@ -300,7 +312,17 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
                  ("ui/ui", f"{db_call} --actor ui/ui decide '{{}}'", True),
                  ("ui/ui", f"{db_call} --actor ui/ui get '{{}}'", False),
                  ("worker/root", "python tools/research_tree.py phase --set confirmed", True),
-                 ("rld/main", f"{db_call} --actor rld/main decide '{{}}'", False)]
+                 ("rld/main", f"{db_call} --actor rld/main decide '{{}}'", False),
+                 # reviews only through research_review: no direct pi / claude -p, no reviewer identity (09 §4)
+                 ("rld/main", "pi -p --mode json --model openai/gpt-6-astra 'review this'", True),
+                 ("rld/main", "cd x && env A=1 pi -p 'x'", True),
+                 ("rld/main", "claude -p --output-format json 'x'", True),
+                 ("rld/main", "claude --print 'x'", True),
+                 ("rld/main", "claude --version", False),
+                 ("rld/main", "echo pi", False),
+                 ("rld/main", f"{db_call} --actor reviewer/pi register_review '{{}}'", True),
+                 ("worker/root", "python tools/review_call.py --kind code_review --brief b --about H-0001", True),
+                 ("rld/main", "python tools/review_call.py --kind code_review --brief b --about H-0001", False)]
         for actor, command, denied in cases:
             event.update(tool_name="Bash", tool_input={"command": command})
             with patch.dict(os.environ, {"RESEARCH_TREE_ACTOR": actor}):
@@ -328,7 +350,7 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         self.assertEqual(proc.returncode, 0, proc.stderr)
         responses = [json.loads(x) for x in proc.stdout.splitlines()]
         self.assertEqual([r["id"] for r in responses], [1, 2, 3, 4])
-        self.assertEqual(len(responses[1]["result"]["tools"]), 5)
+        self.assertEqual(len(responses[1]["result"]["tools"]), 6)  # with research_review (09 §4)
         self.assertTrue(responses[2]["result"]["isError"])
         self.assertEqual(responses[3]["result"], {})
 

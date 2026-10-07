@@ -1,5 +1,5 @@
 ---
-id: "D-0049"
+id: "D-0054"
 doc_type: "hypothesis"
 version: 1
 title: "完整Kronecker二阶预条件"
@@ -7,7 +7,7 @@ summary: "对每层使用完整Kronecker因子预条件。"
 about: []
 author_role: "rld"
 author_id: "main"
-created_at: "2026-10-06T23:54:42Z"
+created_at: "2026-10-07T01:00:41Z"
 parent: "P-demo-lora-opt"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。

@@ -1,14 +1,14 @@
 ---
-id: "D-0054"
+id: "D-0046"
 doc_type: "experiment_design"
 version: 1
-title: "H-0007 实验设计"
-summary: "state-8bit"
+title: "H-0004 实验设计"
+summary: "momentum-rescale"
 about: []
 author_role: "worker"
-author_id: "h0007"
-created_at: "2026-10-06T23:54:49Z"
+author_id: "h0004"
+created_at: "2026-10-07T01:00:29Z"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
 
-代码 d5fff0abcb：state-8bit。
+代码 ed29a2ebd1：momentum-rescale。

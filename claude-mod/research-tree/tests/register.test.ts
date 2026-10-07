@@ -78,6 +78,19 @@ test('a subagent is never the RLD: a worker acts as itself, other helpers only r
   expect(internals.subagentCallBlock(internals.researchCalls("python tools/research_tree.py query get '{}'"), undefined)).toBeUndefined()
 })
 
+test('reviews go through research_review only: no direct pi or claude -p, no reviewer identity (09 §4)', () => {
+  for (const command of ["pi -p --mode json --model openai/gpt-6-astra 'x'", "cd x && env A=1 pi -p 'x'",
+    "claude -p --output-format json 'x'", "claude --print 'x'",
+    ".venv/bin/python tools/research_db.py --db d --actor reviewer/pi register_review '{}'"]) {
+    expect(internals.reviewerBypass(command)).toBeDefined()
+  }
+  for (const command of ['claude --version', 'echo pi', 'python tools/review_call.py --kind code_review --brief b --about H-0001']) {
+    expect(internals.reviewerBypass(command)).toBeUndefined()
+  }
+  expect(internals.subagentCallBlock(internals.researchCalls('python tools/review_call.py --kind triage --brief b --about P'), 'worker/h0001'))
+    .toContain('不发起评审')
+})
+
 test('a shell command writing the database file is refused', async ($, on) => {
   on('tool.call', { tool: 'Bash' }, () => ({ result: { stdout: 'ran', stderr: '', interrupted: false } } as never))
   const denied = await $.tool.call({ tool: 'Bash', command: 'rm demo/research/P-x/research_tree.db' })

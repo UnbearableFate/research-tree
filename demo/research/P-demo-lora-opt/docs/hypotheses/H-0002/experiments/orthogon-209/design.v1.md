@@ -1,14 +1,14 @@
 ---
-id: "D-0029"
+id: "D-0023"
 doc_type: "experiment_design"
 version: 1
-title: "H-0003 实验设计"
-summary: "moment-balance"
+title: "H-0002 实验设计"
+summary: "orthogonal-update"
 about: []
 author_role: "worker"
-author_id: "h0003"
-created_at: "2026-10-06T23:53:51Z"
+author_id: "h0002"
+created_at: "2026-10-07T01:00:00Z"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
 
-代码 f167b9f0aa：moment-balance。
+代码 de600cb114：orthogonal-update。

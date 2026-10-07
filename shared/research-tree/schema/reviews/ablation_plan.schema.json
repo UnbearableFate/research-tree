@@ -1,0 +1,75 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "type": "object",
+ "required": [
+  "ablations",
+  "coverage_assessment",
+  "unnecessary_ablations",
+  "suggested_order",
+  "estimated_compute"
+ ],
+ "properties": {
+  "ablations": {
+   "type": "array",
+   "items": {
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "type": "object",
+    "required": [
+     "name",
+     "what_it_tests",
+     "expected_if_component_matters",
+     "priority",
+     "config_only"
+    ],
+    "properties": {
+     "name": {
+      "type": "string",
+      "minLength": 1
+     },
+     "what_it_tests": {
+      "type": "string",
+      "minLength": 1
+     },
+     "expected_if_component_matters": {
+      "type": "string",
+      "minLength": 1
+     },
+     "priority": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 5
+     },
+     "config_only": {
+      "type": "boolean"
+     }
+    }
+   },
+   "minItems": 0
+  },
+  "coverage_assessment": {
+   "type": "string",
+   "minLength": 1
+  },
+  "unnecessary_ablations": {
+   "type": "array",
+   "items": {
+    "type": "string",
+    "minLength": 1
+   },
+   "minItems": 0
+  },
+  "suggested_order": {
+   "type": "array",
+   "items": {
+    "type": "string",
+    "minLength": 1
+   },
+   "minItems": 0
+  },
+  "estimated_compute": {
+   "type": "string",
+   "minLength": 1
+  }
+ },
+ "title": "ablation_plan"
+}

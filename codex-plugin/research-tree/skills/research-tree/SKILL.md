@@ -78,6 +78,16 @@ active node and a report covering unexplored, failed, uncertain, repeated, refut
 new findings per decision batch with `note_findings`; close review findings only through `resolve_obligation`
 (with evidence) or a user waiver. Accept tasks with `evidence_ids`.
 
+GO candidates (candidate_ready or confirmed) in a project whose configuration requires cross-model rechecks
+also need one `research_review(kind="candidate_recheck", dimension, evaluation)` per dimension (numbers,
+protocol, method_code, novelty, theory), each in a new reviewer session. Write the brief under
+`docs/reviews/briefs/` with file paths and structured metadata only (evaluation id, code version and directory,
+result document, protocol, metric files), never your summary or leaning; pass `add_dirs` for a code directory
+outside the research root (Claude Code backend). Report `REVIEW_UNAVAILABLE`, `REVIEW_INVALID` or
+`REVIEW_BUDGET` as they are; never replace a review with your own judgement, and never run `pi` or `claude -p`
+directly. `get_eligibility` lists in `rechecks` which review checked which evaluation or code, with backend and
+model.
+
 ## User communication
 
 `research_control(action="ui_path")` returns a command the user runs in another terminal. That console

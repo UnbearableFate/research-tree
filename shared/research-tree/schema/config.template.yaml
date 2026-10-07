@@ -107,7 +107,7 @@ memory:
 review:
   trigger: candidate_ready
   permanent_reviewer: false
-  require_method_code_alignment: true
+  require_method_code_alignment: true   # 本版本固定：方法—代码对齐（method_code）总在复核维度中，pass 须引用所读代码
 
 # 外部通知（可选）：确认请求与用量提醒时向这个地址 POST JSON；超时不等于同意。
 notify:

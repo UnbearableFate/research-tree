@@ -177,6 +177,8 @@ flowchart TD
 
 **阶段 1 GO** 要求至少一个节点的当前 evaluation 仍然适用（框架、协议、指标规范、基线与所用 run 都未变）、在全部统一 seed 上达到优于 SOTA 的门槛并满足保护指标，且新颖性与理论正确性复核绑定到该实验的代码版本（`get_eligibility` 计算，不读缓存标签）。协议为 `stage1_confirmed`（默认）时，搜索中过门槛的节点只是 candidate_ready，GO 前还需在搜索从未用过的确认 seed 上对冻结代码做一次独立确认；任何未关闭的复核问题（obligation）都会阻挡 GO。它是继续研究的筛选信号，不等同于统计显著性或可发表结论。
 
+**跨模型复核。** `review.trigger: candidate_ready`（默认）时，GO 候选还需五个维度——数字完整性、协议合规、方法—代码对齐、新颖性、理论/论证——各一次跨模型、非交互的复核（`research_review`，kind `candidate_recheck`）。reviewer 由 `models.reviewer` 指定：`anthropic/*` 用 Claude Code CLI（`claude -p --safe-mode --restricted`，只读工具），其他 provider 用 [pi](https://github.com/badlogic/pi-mono)（`pi -p --mode json`）；两者互不降级，且须与 Leader 不同模型族（Claude 宿主的 Leader 因此走 pi）。每次复核是一个新会话，只读 Leader 写的 brief（文件路径与结构化元数据）；结果由 reviewer 角色登记为 `docs/reviews/RV-*.md`，Leader 不能登记或替换。reviewer 不可用、输出无效或评审费用达到 `budget.review_usd_alert` 时如实上报，不以 Leader 自评代替。`get_eligibility` 的 `rechecks` 说明每个 GO 基于哪次评估、检查了什么、由谁（后端与模型）复核。插件只依赖 `pi` / `claude` 已在 PATH 且已登录，不替你安装或登录。
+
 每次计算给出确定性的结论：正向信号、负向信号或不确定；达到 seed 上限也可以停在不确定。是否继续投入（继续、暂停、不再投入）是另一项有理由与复议条件的决定，不由结论自动决定。结果文档中的数字须在 evidence 代码块中注明来源文件，由接口核对。
 
 **项目 NOT GO** 表示在当前问题、范围和证据下不建议继续投入：没有仍在投入的节点，报告逐项交代未探索、工程失败、不确定、重复方向、明确反证与投入价值判断，且 Leader 无法提出值得验证的新节点。预算不足、工程失败、作业仍在运行或结果缺失，都不能单独作为 NOT GO 的依据。Leader 按规则作出科学判断后直接报告，无需用户再次批准该判断。
@@ -231,6 +233,8 @@ Claude 版提供内嵌窗口、面板和状态栏；Codex 版使用独立终端�
 | `notify.url` | 可选：确认请求与用量提醒同时 POST 到这个地址；超时不等于同意，记录在 `logs/notify.jsonl` | `null` |
 | `literature.min_related_work` | 每个假说至少引用的相关研究数 | `3` |
 | `models.ui` / `models.worker` | 子代理的模型与 effort | `inherit` / 模型默认 |
+| `models.reviewer` | 跨模型评审：`provider/model`、thinking、`require_cross_family`、超时 | `openai/gpt-6-astra`，high |
+| `review.trigger` / `budget.review_usd_alert` | GO 候选须跨模型复核 / 累计评审费用提醒（达到后暂停评审调用） | `candidate_ready` / `null` |
 
 `go_margin` 由主指标的 `minimum_practical_gain` 给出，单位与方向逐指标声明（如 accuracy 以百分点计）。门槛与统一 seed 在第一个实验登记后不能再修改；之后更换指标规范或协议须引用用户指令，旧 evaluation 随之失效。
 

@@ -11,14 +11,15 @@ const UI_AGENT = 'research-tree:ui'
 const WORKER_AGENT = 'research-tree:worker'
 const TOOL = 'mcp__research-tree__research_db'
 const POST_TOOL = 'mcp__research-tree__post_to_ui'
+const REVIEW_TOOL = 'mcp__research-tree__research_review'
 const VENV_PYTHON = '.venv/bin/python'
 const MARKER = '.research-tree.json'
 const CONFIG_FILE = 'research-tree.yaml'
 const ALERT_KIND = 'usage_alert'
 // The host's longest wait for one process (process.run accepts 1..600000 ms).
-const MAX_PROCESS_MS = 600_000
+const MAX_PROCESS_MS = 600_000  // the host's cap on one process (ms)
 // research_db.READ_METHODS (a test keeps the two equal)
-const READ_ONLY = /^(help|get|find|edges|children|history|go_candidates|latest_result|screen_seed_count|export_snapshot|verify_document|resume_package|cleanup_due|get_eligibility|evaluations|preview_evaluation|obligations|budget_status|reconcile_submission)$/
+const READ_ONLY = /^(help|get|find|edges|children|history|go_candidates|latest_result|screen_seed_count|export_snapshot|verify_document|resume_package|cleanup_due|get_eligibility|evaluations|preview_evaluation|obligations|budget_status|reconcile_submission|reviews)$/
 
 const summaryRef = { plugin: 'research-tree', key: 'summary' } as const
 const errorRef = { plugin: 'research-tree', key: 'error' } as const
@@ -78,13 +79,13 @@ async function loadProject($: EngineInterface): Promise<ResearchProject | null> 
 }
 
 /** The session directory's .venv interpreter, or why it cannot be used. */
-async function venv($: EngineInterface): Promise<{ python: string } | { problem: string }> {
+async function venv($: EngineInterface): Promise<{ python: string; dir: string } | { problem: string }> {
   let cwd = '当前目录'
   try {
     cwd = await $.session.cwd()
     // the session's directory may have moved below the project (a shell cd): look upward for the environment
     for (let dir = cwd; dir && dir !== '/'; dir = dir.replace(/\/[^/]*$/, '') || '/') {
-      if (await $.fs.exists(`${dir}/${VENV_PYTHON}`)) return { python: `${dir}/${VENV_PYTHON}` }
+      if (await $.fs.exists(`${dir}/${VENV_PYTHON}`)) return { python: `${dir}/${VENV_PYTHON}`, dir }
     }
   } catch {
     // no file system here: treated as missing
@@ -94,11 +95,13 @@ async function venv($: EngineInterface): Promise<{ python: string } | { problem:
   }
 }
 
-/** Runs one of the research-tree Python tools with the session directory's .venv, in that directory. */
+/** Runs one of the research-tree Python tools with the project's .venv, in the project directory — also when the
+ *  session's directory moved below it (the tools find the project from their working directory). */
 async function runTool($: EngineInterface, cfg: Config, script: string, args: string[], timeoutMs = 60_000) {
   const env = await venv($)
   if ('problem' in env) return { exitCode: 127, stdout: '', stderr: env.problem }
-  return $.process.run([env.python, `${$.plugin.root}/tools/${script}`, ...args], { timeoutMs })
+  return $.process.run([env.python, `${$.plugin.root}/tools/${script}`, ...args],
+    { timeoutMs: Math.min(timeoutMs, MAX_PROCESS_MS), cwd: env.dir })
 }
 
 async function refresh($: EngineInterface, cfg: Config): Promise<ResearchSummary | null> {
@@ -452,7 +455,7 @@ function inPlace(tokens: ShellToken[], from: number): boolean {
   return false
 }
 
-type ToolCall = { script: 'research_db.py' | 'research_tree.py'; actor?: string; method?: string }
+type ToolCall = { script: 'research_db.py' | 'research_tree.py' | 'review_call.py'; actor?: string; method?: string }
 
 /** The research_db.py and research_tree.py calls in a shell command: the actor named, and the method (the
  *  subcommand for research_tree.py). */
@@ -462,7 +465,7 @@ function researchCalls(command: string): ToolCall[] {
   for (let k = 0; k < tokens.length; k++) {
     const t = tokens[k]!
     const script = 'word' in t ? t.word.split('/').pop() : undefined
-    if (script !== 'research_db.py' && script !== 'research_tree.py') continue
+    if (script !== 'research_db.py' && script !== 'research_tree.py' && script !== 'review_call.py') continue
     const call: ToolCall = { script }
     for (let j = k + 1; j < tokens.length; j++) {
       const a = tokens[j]!
@@ -480,11 +483,42 @@ function researchCalls(command: string): ToolCall[] {
   return calls
 }
 
+/** A review goes through research_review (review_call.py), which records it: never pi or claude -p directly, and
+ *  no one writes as the reviewer (plans/design 09 §4). */
+function reviewerBypass(command: string): string | undefined {
+  const tokens = shellTokens(command)
+  let start = true
+  for (let k = 0; k < tokens.length; k++) {
+    const t = tokens[k]!
+    if ('op' in t) {
+      start = [';', '&&', '||', '|', '&'].includes(t.op)
+      continue
+    }
+    const name = t.word.split('/').pop()
+    if (start && name === 'pi') return `评审只经 ${REVIEW_TOOL} 调用，它登记 review 文档并记录费用；不要直接运行 pi。`
+    if (start && name === 'claude') {
+      for (let j = k + 1; j < tokens.length; j++) {
+        const a = tokens[j]!
+        if ('op' in a) break
+        if (a.word === '-p' || a.word === '--print' || a.word.startsWith('--print=')) {
+          return `评审只经 ${REVIEW_TOOL} 调用；不要直接运行 claude -p / --print。`
+        }
+      }
+    }
+    start = start && (['env', 'nohup', 'timeout', 'exec', 'command'].includes(name ?? '') || t.word.includes('='))
+  }
+  for (const c of researchCalls(command)) {
+    if (c.script === 'research_db.py' && c.actor?.startsWith('reviewer/')) return `reviewer 身份只属于 review_call.py；评审用 ${REVIEW_TOOL}。`
+  }
+  return undefined
+}
+
 /** Why a subagent's shell command may not run: a worker acts only as itself, and the RLD's other helpers only
  *  read; research_tree.py (the mod's and the UI's entry) is not theirs except to query. `worker` is the
  *  subagent's worker/<id>, if it is a node's worker. */
 function subagentCallBlock(calls: ToolCall[], worker: string | undefined): string | undefined {
   for (const c of calls) {
+    if (c.script === 'review_call.py') return `子代理不发起评审：由 RLD 用 ${REVIEW_TOOL} 组织。`
     if (c.script === 'research_tree.py' && c.method !== 'query') {
       return `子代理不运行 research_tree.py ${c.method ?? ''}：它是 mod 与 UI 的入口；研究数据库用 ${TOOL} 工具读写。`
     }
@@ -641,7 +675,7 @@ function startPrompt(project: ResearchProject, confirmation: { doc_id: string; p
 
 const WORKFLOW = `## research-tree 工作流（由 research-tree mod 注入）
 - 研究项目的状态、节点、实验、判定和决定都在当前目录 research/<项目ID>/ 的 LatticeDB 研究数据库里；只能通过 ${'`'}${TOOL}${'`'} 工具（或 tools/research_db.py）读写，不要直接改数据库文件。
-- 实验优先：每个节点都要有实质性代码改动和实验；统计数字由 research_db 从 run 重算并记为 evaluation，每次计算给出确定性的 outcome（正向信号、负向信号、不确定；达到 seed 上限也可停在不确定，工程失败不是反证）。优于父节点→可拓展，优于SOTA→候选（candidate_ready），RLD复核新颖性与理论正确性（based_on 所复核的实验）；协议为 stage1_confirmed 时再在确认 seed 上独立确认。是否继续投入是单独的决定：decide_disposition（继续、暂停、不再投入，写理由、依据与复议条件）；转为可消灭也须写 reconsider_when。基于不确定结果的决定，决定文档写“缺失证据”“下一实验”。每个决策批次用 note_findings 登记子树的新发现数（连续无新发现须换向）。复核发现与 STAT_MISMATCH 等记入未决问题账本（obligations），只能带证据 resolve_obligation 或由用户 waive，未关闭时不能 GO。NOT GO 要求没有仍在投入的节点，报告逐项写未探索、工程失败、不确定、重复方向、明确反证、投入价值判断。验收任务用 update_task(status=accepted, evidence_ids)。GO 资格看 get_eligibility：只有当前仍适用的 evaluation（框架、协议、指标规范、基线、run 都未变）过门槛与保护指标、且复核绑定到同一代码时才可 GO。
+- 实验优先：每个节点都要有实质性代码改动和实验；统计数字由 research_db 从 run 重算并记为 evaluation，每次计算给出确定性的 outcome（正向信号、负向信号、不确定；达到 seed 上限也可停在不确定，工程失败不是反证）。优于父节点→可拓展，优于SOTA→候选（candidate_ready），RLD复核新颖性与理论正确性（based_on 所复核的实验）；协议为 stage1_confirmed 时再在确认 seed 上独立确认。是否继续投入是单独的决定：decide_disposition（继续、暂停、不再投入，写理由、依据与复议条件）；转为可消灭也须写 reconsider_when。基于不确定结果的决定，决定文档写“缺失证据”“下一实验”。每个决策批次用 note_findings 登记子树的新发现数（连续无新发现须换向）。复核发现与 STAT_MISMATCH 等记入未决问题账本（obligations），只能带证据 resolve_obligation 或由用户 waive，未关闭时不能 GO。NOT GO 要求没有仍在投入的节点，报告逐项写未探索、工程失败、不确定、重复方向、明确反证、投入价值判断。验收任务用 update_task(status=accepted, evidence_ids)。GO 资格看 get_eligibility：只有当前仍适用的 evaluation（框架、协议、指标规范、基线、run 都未变）过门槛与保护指标、且复核绑定到同一代码时才可 GO。GO 候选（candidate_ready 或已确认）在要求跨模型复核的项目中还须五个维度（numbers、protocol、method_code、novelty、theory）各一次 research_review(kind=candidate_recheck, dimension, evaluation=当前依据)：先在 docs/reviews/briefs/ 写 brief（只列文件路径与结构化元数据：评估ID、代码版本与目录、结果文档、协议、指标文件；不写你的总结或倾向），代码目录在研究目录外时传 add_dirs；REVIEW_UNAVAILABLE/REVIEW_INVALID/REVIEW_BUDGET 如实上报，不自评代替；不直接运行 pi 或 claude -p。get_eligibility 的 rechecks 列出每个维度由谁、基于哪次评估复核。
 - 搜索树的根节点只存放 baselines（冻结框架、SOTA与其他基线实验）；用户的初始假说都是根节点的直接子节点；只有验证完成、可拓展的节点才能派生子节点。
 - 已生效的文档不可修改，改动写新版本；节点代码中不能改动冻结框架。
 - 不确定 research_db 的方法或参数时，先调用 method="help"（kwargs {"method": "<方法名>"} 看完整说明），不要猜；接口拒绝时按错误信息改正，不要绕过。
@@ -987,6 +1021,30 @@ export const register: Register = (on, options) => {
         required: ['type', 'text'],
       },
     })
+    await $.tool.register({
+      name: 'research_review',
+      description:
+        'RLD: run one cross-model, non-interactive review (plans/design 09) through tools/review_call.py: kind ' +
+        'triage, novelty_precheck, critical_review, proposal_review, ablation_plan, code_review or ' +
+        'candidate_recheck (with dimension numbers / protocol / method_code / novelty / theory and the evaluation ' +
+        'it rechecks). brief is a file under the research root that lists paths and structured metadata only, ' +
+        'never your summary or leaning. The reviewer backend follows models.reviewer (anthropic/* -> Claude Code ' +
+        'CLI, else pi) and must be another model family than yours. The review is registered by the reviewer ' +
+        'role; REVIEW_UNAVAILABLE, REVIEW_INVALID and REVIEW_BUDGET are reported, never replaced by a self-review.',
+      inputSchema: {
+        type: 'object',
+        properties: {
+          kind: { type: 'string', enum: ['triage', 'novelty_precheck', 'critical_review', 'proposal_review', 'ablation_plan', 'code_review', 'candidate_recheck'] },
+          brief: { type: 'string', description: 'The brief file, relative to the research root (e.g. docs/reviews/briefs/H-0001-numbers.v1.md)' },
+          about: { type: 'string', description: 'The candidate or node id the review is about' },
+          dimension: { type: 'string', enum: ['numbers', 'protocol', 'method_code', 'novelty', 'theory'] },
+          evaluation: { type: 'string', description: 'candidate_recheck: the evaluation (EV-…) it rechecks' },
+          session: { type: 'string', description: 'Continue this review session (RV-…): a new version of its review' },
+          add_dirs: { type: 'array', items: { type: 'string' }, description: 'Claude Code backend: other readable directories, e.g. the code repository' },
+        },
+        required: ['kind', 'brief', 'about'],
+      },
+    })
     const project = await loadProject($)
     if (project) await loadChat($, project)
     await registerAgents($, project ? (await readConfig($, cfg))?.effective : null)
@@ -1032,6 +1090,14 @@ export const register: Register = (on, options) => {
 
   on('turn.complete', async ($, e, next) => {
     const done = await next(e)
+    if (e.agentId === undefined && e.usage?.model && observedModels.get('main') !== e.usage.model) {
+      // the Leader's model: review_call.py refuses a reviewer of the same family (09 §2.1 step 3); recorded once a
+      // project exists (before init there is no log to write to), then again whenever the model changes
+      if ((await $.state.get(projectRef)).value ?? (await loadProject($))) {
+        observedModels.set('main', e.usage.model)
+        await logAgentModel($, cfg, 'main', 'rld/main', 'observed', e.usage.model)
+      }
+    }
     if (e.agentId && e.usage?.model && observedModels.get(e.agentId) !== e.usage.model) {
       const actor = e.agentId === (await $.state.get(uiAgentRef)).value ? 'ui/ui'
         : (await $.state.get(agentsRef)).value?.[e.agentId] ?? workerActor((await $.state.get(summaryRef)).value, e.agentId)
@@ -1131,11 +1197,34 @@ export const register: Register = (on, options) => {
       const fixed = e.agentId === undefined ? undefined
         : (await $.state.get(agentsRef)).value?.[e.agentId] ?? workerActor((await $.state.get(summaryRef)).value, e.agentId)
       const actor = fixed ?? (typeof input.actor === 'string' && input.actor ? input.actor : cfg.actor)
+      if (actor.startsWith('reviewer/')) {
+        return { result: `reviewer 身份只属于 review_call.py；评审用 research_review。`, isError: true as const }
+      }
       // A cleanup deletes run outputs: it may take a while on shared storage.
       const out = await runTool($, cfg, 'research_db.py', [
         '--db', project.db, '--actor', actor, input.method, JSON.stringify(input.kwargs ?? {}),
       ], input.method === 'run_cleanup' ? MAX_PROCESS_MS : 60_000)
       if (!READ_ONLY.test(input.method)) await refresh($, cfg)
+      const text = (out.stdout || out.stderr).trim()
+      return out.exitCode === 0 ? { result: text } : { result: text || `exit ${out.exitCode}`, isError: true as const }
+    } catch (err) {
+      return toolFailure(err)
+    }
+  })
+
+  on('tool.call', { tool: REVIEW_TOOL }, async ($, e) => {
+    try {
+      if (e.agentId !== undefined) return { result: '只有 RLD（主会话）组织评审。', isError: true as const }
+      const input = e as unknown as { kind?: string; brief?: string; about?: string; dimension?: string; evaluation?: string; session?: string; add_dirs?: string[] }
+      const project = (await $.state.get(projectRef)).value ?? (await loadProject($))
+      if (!project) return { result: `当前目录没有研究项目：先运行 /${COMMAND} init`, isError: true as const }
+      const args = ['--kind', String(input.kind ?? ''), '--brief', String(input.brief ?? ''), '--about', String(input.about ?? ''),
+        ...(input.dimension ? ['--dimension', input.dimension] : []), ...(input.evaluation ? ['--evaluation', input.evaluation] : []),
+        ...(input.session ? ['--session', input.session] : []), ...(input.add_dirs ?? []).flatMap(d => ['--add-dir', d])]
+      // the host runs one process for at most 600 s: the review call's own deadline stays below that
+      const out = await runTool($, cfg, 'review_call.py', [...args, '--deadline-s', String(MAX_PROCESS_MS / 1000 - 30)],
+        MAX_PROCESS_MS)
+      await refresh($, cfg)
       const text = (out.stdout || out.stderr).trim()
       return out.exitCode === 0 ? { result: text } : { result: text || `exit ${out.exitCode}`, isError: true as const }
     } catch (err) {
@@ -1190,6 +1279,8 @@ export const register: Register = (on, options) => {
       return { deny: `${PLUGIN}: 不要直接改动研究项目的数据库文件；通过 research_db 工具或 tools/research_db.py 写入，它会检查规则并记录决定。` }
     }
     if (project && writesConfig(e.command, `${projectDir(project)}/${CONFIG_FILE}`)) return { deny: `${PLUGIN}: ${CONFIG_REASON}` }
+    const bypass = reviewerBypass(e.command)
+    if (bypass) return { deny: `${PLUGIN}: ${bypass}` }
     // A subagent is never the RLD: a worker acts as itself, other helpers read. (The UI's run has its own outbox.)
     if (e.agentId !== undefined && e.agentId !== (await $.state.get(uiAgentRef)).value) {
       const worker = (await $.state.get(agentsRef)).value?.[e.agentId] ?? workerActor((await $.state.get(summaryRef)).value, e.agentId)
@@ -1331,6 +1422,6 @@ function registerProgressPane(on: Parameters<Register>[0], cfg: Config): void {
 }
 
 export const internals = {
-  submitLater, guardReason, writesDatabase, writesConfig, researchCalls, subagentCallBlock, statusText, statusLine, workerBlock, parseInit, workerNode, workerActor, parallelBlock,
+  submitLater, guardReason, writesDatabase, writesConfig, researchCalls, subagentCallBlock, reviewerBypass, statusText, statusLine, workerBlock, parseInit, workerNode, workerActor, parallelBlock,
   workerPrompt, platformText, uiPrompt, configCommand, prepareCommand, carryOutUi,
 }

@@ -1,5 +1,5 @@
 ---
-id: "D-0057"
+id: "D-0062"
 doc_type: "task_request"
 version: 1
 title: "H-0005 扩展到3个seed"
@@ -7,7 +7,7 @@ summary: "扩展seed"
 about: []
 author_role: "rld"
 author_id: "main"
-created_at: "2026-10-06T23:54:56Z"
+created_at: "2026-10-07T01:00:49Z"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
 
