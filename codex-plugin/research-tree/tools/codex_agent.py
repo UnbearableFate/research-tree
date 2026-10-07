@@ -7,12 +7,24 @@ import signal
 import socket
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import research_tree as tree
 from codex_runtime import ROOT, Runtime
 from codex_state import read_json, write_json
 from research_db import now_utc
+
+
+def worker_sandbox():
+    """Honor the user's native Full access choice; ordinary workers keep workspace-write."""
+    config_dir = Path(os.environ.get("CODEX_HOME", str(Path.home() / ".codex")))
+    config = config_dir / "config.toml"
+    if config.is_file():
+        with config.open("rb") as source:
+            if tomllib.load(source).get("sandbox_mode") == "danger-full-access":
+                return "danger-full-access"
+    return "workspace-write"
 
 
 def command(spec, directory):
@@ -37,11 +49,13 @@ def command(spec, directory):
     configs = {
         "mcp_servers.research_tree.command": sys.executable,
         "mcp_servers.research_tree.args": [str(ROOT / "tools/codex_mcp.py"), "--project", spec["project"], "--actor", actor],
-        "mcp_servers.research_tree.tool_timeout_sec": 1800,  # run_cleanup may take a while
+        "mcp_servers.research_tree.env_vars": ["CODEX_HOME", "RESEARCH_TREE_PROJECT", "RESEARCH_TREE_ACTOR",
+                                              "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR"],
+        "mcp_servers.research_tree.tool_timeout_sec": 3900,  # covers the runtime's review and cleanup waits
         # Background exec sessions cannot answer approval prompts (approval_policy never): the plugin's own server
         # is pre-approved; it fixes the actor and applies every research gate itself.
         "mcp_servers.research_tree.default_tools_approval_mode": "approve",
-        "sandbox_mode": "read-only" if actor == "ui/ui" else "workspace-write",
+        "sandbox_mode": "read-only" if actor == "ui/ui" or actor.startswith("assistant/") else worker_sandbox(),
         "approval_policy": "never",
     }
     if effort is not None:

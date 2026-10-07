@@ -18,6 +18,8 @@ language: "zh-CN"
 
 复核由跨模型非交互评审执行（09，kind=`candidate_recheck`），每个维度一次新会话、只给文件路径；reviewer 不可用记 `REVIEW_UNAVAILABLE`，不得由 Leader 自评代替。现有规则"RLD 亲自复核"改为"RLD 组织复核并对结论负责"。
 
+RLD 仍须通过 `decide` 登记 `novelty_recheck` 与 `theory_recheck`，引用当前代码对应的实验及新颖性、理论文档作为依据。两项必须为 `pass` 且绑定到当前候选代码；当 `recheck_required=true` 时，另需下述五个跨模型维度通过。`get_eligibility.rld_rechecks` 分别显示两项 RLD 决策的状态及绑定结果，`rechecks` 显示跨模型维度；`RECHECK_PENDING` 可能来自任一部分。
+
 ## 2. 核验范围
 
 | 维度 | 首选方式 | 通过意味着什么 |

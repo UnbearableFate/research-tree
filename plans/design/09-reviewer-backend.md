@@ -94,7 +94,7 @@ review_call.py --db <db> --actor rld/main --kind <triage|novelty_precheck|critic
   ```
 
   续接加 `-c`。
-- **解析**：取最后一个 `turn_end`；`stopReason != "stop"` → `ok=false`；`text` = `message.content[].text`；`model_observed` = `turn_end.provider/model`；`cost_usd` = `usage.cost.total`。
+- **解析**：从最后一个 `turn_end` 读取终止原因、`text`、`model_observed` 与 `usage`；`stopReason != "stop"` → `ok=false`；`text` = `message.content[].text`；`model_observed` = `message.provider/model`。`cost_usd` 累加本次 CLI 调用所有 `turn_end` 的 `message.usage.cost.total`，包括工具读取回合和失败的终止回合；`message_end` / `agent_end` 中重复的消息不再计费。同会话的 JSON 补正调用另存原始输出，费用亦计入该次评审总额。
 
 ### 2.3 Claude Code 后端（Claude 模型）
 

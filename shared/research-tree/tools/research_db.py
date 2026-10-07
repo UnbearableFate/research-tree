@@ -1445,18 +1445,32 @@ class ResearchDB:
                                              "reconsider_when": reconsider_when})
             return decision_id
 
-    def note_findings(self, node_id: str, new_findings: int, direction: str | None = None,
-                      doc_id: str | None = None) -> dict:
+    def note_findings(self, node_id: str, new_findings: int, doc_id: str,
+                      direction: str | None = None) -> dict:
         """At each decision batch, the number of new findings in the subtree under node_id (06 §5). Consecutive
         batches with none: at project.stall_structural_at the subtree must change direction (a child with a
         direction already recorded in it is refused, STALL_STRUCTURAL); at stall_human_at the RLD reports to the
-        user (report_to_user). direction records the node's research direction when it has none yet. rld only."""
+        user (report_to_user). doc_id is the current decision document identifying this batch. A repeat for the
+        same node and document never recounts or resets it; it returns the node's current stall state. A corrected
+        count needs a new decision document. direction records the direction when it has none yet. rld only."""
         self._require_role("rld")
         if not isinstance(new_findings, int) or isinstance(new_findings, bool) or new_findings < 0:
             raise ResearchDBError("new_findings is a count >= 0")
+        if not isinstance(doc_id, str) or not doc_id:
+            raise ResearchDBError("note_findings needs a current decision document identifying the batch")
         with self._writer() as tx:
             project = self._project(tx)
             hyp = tx.require(node_id, ("hypothesis",))
+            doc = tx.require(doc_id, ("document",))
+            if doc["doc_type"] != "decision" or doc["status"] != "current":
+                raise ResearchDBError("note_findings needs a current decision document identifying the batch")
+            self._require_unchanged(doc)
+            if tx.query("MATCH (d:Decision)-[:DECIDES]->(h:Hypothesis {id: $node}) "
+                        "WHERE d.field = $field AND d.doc_id = $doc RETURN d.id AS id",
+                        node=node_id, field="findings", doc=doc_id):
+                state = hyp["stall_state"]
+                return {"node_id": node_id, "streak": hyp["new_findings_streak"], "stall_state": state,
+                        "report_to_user": state == "human"}
             streak = 0 if new_findings else (hyp.get("new_findings_streak") or 0) + 1
             state = ("human" if streak >= project.get("stall_human_at", 4) else
                      "structural" if streak >= project.get("stall_structural_at", 2) else "none")
@@ -1948,7 +1962,8 @@ class ResearchDB:
         most max_confirmation_candidates nodes are confirmed. selection_rationale (why now, how the result changes
         the next step) is required once the node's last two results were inconclusive. estimated_node_h (required)
         is the cost estimate; milestone M0..M4 (03 §6); budget_pool (search, confirmation, repair; by default from
-        the stage) is the budget part its reservations count against."""
+        the stage) is the budget part its reservations count against. An overlapping seed request for the same
+        node, code and configuration returns the existing experiment; extend_seeds explicitly adds missing seeds."""
         self._require_role("rld", "worker")
         self._only_fields(optional, ("config_path", "owner", "keep", "keep_reason", "stage", "selection_rationale",
                                      "estimated_node_h", "milestone", "budget_pool", "ablation_of",
@@ -2040,11 +2055,13 @@ class ResearchDB:
                                      optional, project)
             elif optional.get("ablation_of") or optional.get("source_review_id"):
                 raise ResearchDBError("ablation_of and source_review_id belong to an ablation")
-            # The same configuration is never run twice (05 §5): same code, configuration and seeds -> that experiment.
+            # Seed extension must not make the original request create a second copy of a run (05 §5).
+            # Reuse an overlapping experiment; callers add missing seeds through extend_seeds and its gates.
             config_hash = self._config_hash(project, resolved, kind, stage, method_name, nodes, walltime_s,
                                             optional.get("config_path"))
             for other in (tx.get(i) for i in tx.ids("experiment", "WHERE n.config_hash = $h", h=config_hash)):
-                if (other["code_ref"], other.get("hypothesis_id"), other["seeds"]) == (resolved, hypothesis_id, seeds):
+                if (other["code_ref"], other.get("hypothesis_id")) == (resolved, hypothesis_id) and \
+                        set(other["seeds"]) & set(seeds):
                     return other["id"]
             # The references a node experiment is compared with are fixed now (plans/design 05 §3.2): later
             # experiments of the parent or a new SOTA do not move them.
@@ -4075,7 +4092,9 @@ class ResearchDB:
         when the node's runs all ended without a valid one. rechecks (projects with recheck_required): per dimension
         the cross-model review that checked this basis (review id, result, backend, reviewer model, evaluation or
         code it is bound to, and the one it must be bound to) — what was checked and by whom; numbers and protocol
-        are bound to recheck_evaluation_id (the confirmation's evaluation once there is one)."""
+        are bound to recheck_evaluation_id (the confirmation's evaluation once there is one). rld_rechecks
+        separately reports the RLD's novelty/theory decisions (status and whether bound to the basis code);
+        these remain required alongside the cross-model dimensions."""
         with self.reader() as tx:
             return self._eligibility(tx, self._project(tx), tx.require(hypothesis_id, ("hypothesis",)), protocol_id)
 
@@ -4103,7 +4122,7 @@ class ResearchDB:
                "evidence_state": "none", "reasons": ["NO_EVALUATION"], "verification_level": None,
                "gate_passed": None, "guardrails_passed": None, "stage": None, "outcome": None,
                "confirmation_evaluation_id": None, "open_obligations": [], "rechecks": None,
-               "recheck_evaluation_id": None}
+               "recheck_evaluation_id": None, "rld_rechecks": None}
         if not search:
             # an engineering failure is no evidence: no evaluation; the node's outcome reads 'invalid' (06 §2.1)
             tried = [e for e in exps if e["kind"] == "method" and (e.get("stage") or "screen") != "confirm"]
@@ -4134,12 +4153,15 @@ class ResearchDB:
         # candidate_ready: the search evidence passes the Type-A gates; confirmation and rechecks come next
         stage = "candidate_ready" if not reasons else None
         basis_exp = tx.get(basis["experiment_id"])
-        for key in RECHECK_FIELDS:
+        rld_rechecks = {}
+        for key, dimension in RECHECK_FIELDS.items():
+            bound = hyp[key] == "pass" and self._recheck_bound(tx, hyp["id"], key, basis_exp)
+            rld_rechecks[dimension] = {"status": hyp[key], "bound": bound}
             if hyp[key] == "fail":
                 reasons.append("RECHECK_FAILED")
             elif hyp[key] != "pass":
                 reasons.append("RECHECK_PENDING")
-            elif not self._recheck_bound(tx, hyp["id"], key, basis_exp):
+            elif not bound:
                 reasons.append("RECHECK_STALE")
         confirmation = None
         protocol = self._protocol(tx, project)
@@ -4161,7 +4183,7 @@ class ResearchDB:
                 "verification_level": basis["verification_level"], "gate_passed": basis.get("gate_passed"),
                 "guardrails_passed": basis.get("guardrails_passed"), "stage": stage, "outcome": basis.get("outcome"),
                 "confirmation_evaluation_id": confirmation, "open_obligations": opened, "rechecks": rechecks,
-                "recheck_evaluation_id": recheck_ev}
+                "recheck_evaluation_id": recheck_ev, "rld_rechecks": rld_rechecks}
 
     def _confirmation(self, tx: _Tx, project: dict, protocol: dict, hyp: dict, basis_exp: dict) -> tuple:
         """The node's independent confirmation of its candidate code (06 §2.2, §2.5): a current confirm-stage

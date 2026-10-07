@@ -46,9 +46,12 @@ from research_db import (CANDIDATE_ID_RE, RECHECK_DIMENSIONS, REVIEW_KINDS, Rese
 
 REVIEWS_DIR = Path(__file__).resolve().parent.parent / "schema" / "reviews"
 PROMPT = ("Read the brief at {brief} and follow it. Executor notes are not evidence beyond the files they cite. "
-          "End with exactly one ```json block that matches the schema in your instructions.")
+          "End with exactly one ```json block containing a valid JSON data object that matches the schema "
+          "in your instructions. Put the required review fields and their values at the top level. "
+          "Do not output the JSON Schema or wrap your review in $schema, type, required or properties metadata.")
 FOLLOW_UP = ("Your answer did not contain one valid JSON block for the schema ({problem}). Output only that ```json "
-             "block now, nothing else.")
+             "block now, nothing else. Return a valid JSON data object with the required review fields at the "
+             "top level, not the JSON Schema or a properties wrapper. Close the JSON object before the code fence.")
 THINKING_TO_EFFORT = {"off": "low", "minimal": "low", "low": "low", "medium": "medium", "high": "high",
                       "xhigh": "xhigh", "max": "max"}
 JSON_BLOCK_RE = re.compile(r"```json[ \t]*\n(.*?)```", re.S)
@@ -105,14 +108,16 @@ def spent(root: Path) -> float:
 # -- backends -----------------------------------------------------------------------------------------------------
 
 
-def _run(cmd: list[str], cwd: Path, timeout: int, deadline: float | None = None) -> subprocess.CompletedProcess:
+def _run(cmd: list[str], cwd: Path, timeout: int, deadline: float | None = None,
+         input_text: str | None = None) -> subprocess.CompletedProcess:
     if deadline is not None:
         timeout = int(min(timeout, deadline - time.monotonic()))
         if timeout <= 0:
             raise ReviewError("REVIEW_UNAVAILABLE", f"the review call reached its overall deadline before {cmd[0]} ran")
     try:
+        input_args = {"stdin": subprocess.DEVNULL} if input_text is None else {"input": input_text}
         return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, check=False,
-                              stdin=subprocess.DEVNULL)
+                              **input_args)
     except subprocess.TimeoutExpired:
         raise ReviewError("REVIEW_UNAVAILABLE", f"{cmd[0]} did not answer within {timeout} s") from None
     except OSError as exc:
@@ -154,6 +159,7 @@ class PiBackend:
 
     def parse(self, stdout: str, stderr: str) -> dict:
         end = None
+        cost = 0.0
         for line in stdout.splitlines():
             try:
                 event = json.loads(line)
@@ -161,6 +167,9 @@ class PiBackend:
                 continue
             if event.get("type") == "turn_end":
                 end = event
+                # Each tool-reading turn is billed separately. message_end and agent_end repeat
+                # these messages, so count only turn_end, including failed terminal turns.
+                cost += float((((event.get("message") or {}).get("usage") or {}).get("cost") or {}).get("total") or 0)
         rec = {"backend": "pi", "provider": self.provider, "model_requested": self.model, "ok": False,
                "error": None, "text": "", "structured": None, "cost_usd": 0.0, "usage": None,
                "model_observed": None, "terminal_reason": None, "permission_denials": []}
@@ -170,13 +179,24 @@ class PiBackend:
         msg = end.get("message") or {}
         usage = msg.get("usage") or {}
         rec.update(text="".join(c.get("text", "") for c in msg.get("content") or [] if c.get("type") == "text"),
-                   cost_usd=float((usage.get("cost") or {}).get("total") or 0), usage=usage,
+                   cost_usd=cost, usage=usage,
                    model_observed=f"{msg.get('provider')}/{msg.get('model')}",
                    terminal_reason=msg.get("stopReason"))
         rec["ok"] = msg.get("stopReason") == "stop"
         if not rec["ok"]:
             rec["error"] = msg.get("errorMessage") or f"stopReason {msg.get('stopReason')}"
         return rec
+
+
+def _claude_schema(value):
+    """The CLI's draft-7 validator cannot resolve our draft-2020-12 annotations.
+
+    These review schemas use draft-7-compatible constraints. Remove only dialect
+    annotations for transport; the original schema still validates the result.
+    """
+    if isinstance(value, dict):
+        return {key: _claude_schema(item) for key, item in value.items() if key != "$schema"}
+    return [_claude_schema(item) for item in value] if isinstance(value, list) else value
 
 
 class ClaudeBackend:
@@ -207,17 +227,17 @@ class ClaudeBackend:
                "--safe-mode", "--restricted", "--strict-mcp-config",
                "--tools", "Read,Grep,Glob", "--permission-mode", "dontAsk", "--permission-prompts", "none",
                "--session-id" if first else "--resume", session,
-               "--append-system-prompt-file", str(system_file), "--json-schema", json.dumps(schema)]
+               "--append-system-prompt-file", str(system_file), "--json-schema", json.dumps(_claude_schema(schema))]
         for d in add_dirs:
             cmd += ["--add-dir", d]
         if budget is not None:
             cmd += ["--max-budget-usd", f"{max(budget, 0.01):.2f}"]
-        return cmd + [prompt]
+        return cmd
 
     def call(self, prompt: str, session: str, system_file: Path, first: bool, add_dirs: list[str],
              schema: dict, budget: float | None) -> tuple[dict, str]:
         out = _run(self.command(prompt, session, system_file, first, add_dirs, schema, budget), self.root,
-                   self.timeout, self.deadline)
+                   self.timeout, self.deadline, input_text=prompt)
         return self.parse(out.stdout, out.stderr), out.stdout
 
     def parse(self, stdout: str, stderr: str) -> dict:
@@ -364,6 +384,8 @@ def review(cwd: Path, kind: str, brief: str, about: str, dimension: str | None =
                                             "and --evaluation (the evaluation it rechecks)")
     if kind == "code_review" and not code_ref:
         raise ReviewError("REVIEW_INVALID", "a code_review names --code-ref, the commit the reviewer reads")
+    if code_ref and kind != "code_review":
+        raise ReviewError("REVIEW_INVALID", "code_ref belongs to a code_review")
     marker = tree.read_marker(cwd)
     root = Path(marker["root"])
     conf = tree.show_config(cwd)["effective"]

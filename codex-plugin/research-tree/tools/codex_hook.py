@@ -14,6 +14,7 @@ from codex_state import cache_dir, locked, project_dir, read_json, write_json
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = "research-tree.yaml"
+SHELL_BOUNDARIES = {";", "&&", "||", "|", "&", "\n"}
 # research_db.READ_METHODS; the hook runs without the project's packages, so the list is repeated (a test keeps
 # the two equal).
 READ_METHODS = {"help", "get", "find", "edges", "children", "history", "go_candidates", "latest_result",
@@ -60,7 +61,7 @@ def research_calls(tokens):
             continue
         actor = method = None
         j = i + 1
-        while j < len(tokens) and tokens[j] not in {";", "&&", "||", "|", "&"}:
+        while j < len(tokens) and tokens[j] not in SHELL_BOUNDARIES:
             flag, _, inline = tokens[j].partition("=")
             if flag in {"--actor", "--db", "--root"}:
                 value = inline or (tokens[j + 1] if j + 1 < len(tokens) else None)
@@ -78,7 +79,7 @@ def reviewer_bypass(tokens):
     (plans/design 09 §4)."""
     start = True
     for i, token in enumerate(tokens):
-        if token in {";", "&&", "||", "|", "&"}:
+        if token in SHELL_BOUNDARIES:
             start = True
             continue
         name = Path(token).name
@@ -87,7 +88,7 @@ def reviewer_bypass(tokens):
         if start and name == "claude":
             rest = []
             for t in tokens[i + 1:]:
-                if t in {";", "&&", "||", "|", "&"}:
+                if t in SHELL_BOUNDARIES:
                     break
                 rest.append(t)
             if any(t in {"-p", "--print"} or t.startswith("--print=") for t in rest):
@@ -113,9 +114,50 @@ def call_block(calls, actor):
             continue
         if actor.startswith("worker/") and named != actor:
             return f"{actor} 只能以自己的身份调用 research_db（--actor {actor}）；MCP research_db 自动固定身份。"
+        if not actor.startswith("worker/") and named != actor:
+            return f"{actor} 只能以自己的只读身份查询 research_db（--actor {actor}）。"
         if not actor.startswith("worker/") and method not in READ_METHODS:
             return f"{actor} 只读研究数据库（{method or '未知方法'} 会写入）。"
     return None
+
+
+def copy_destinations(tokens, start, cwd):
+    """Literal cp operands: sources are reads, including when copying into a directory."""
+    operands, target = [], None
+    no_directory = parents = literal = False
+    i = start
+    while i < len(tokens) and tokens[i] not in SHELL_BOUNDARIES and not re.fullmatch(r"[<>]+|>\||&>", tokens[i]):
+        token = tokens[i]
+        if literal:
+            operands.append(token)
+        elif token == "--":
+            literal = True
+        elif token == "--target-directory" or (token.startswith("-") and not token.startswith("--") and "t" in token[1:]):
+            suffix = token.split("t", 1)[1] if token != "--target-directory" else ""
+            if suffix:
+                target = suffix
+            elif i + 1 < len(tokens) and tokens[i + 1] not in SHELL_BOUNDARIES:
+                i += 1
+                target = tokens[i]
+        elif token.startswith("--target-directory="):
+            target = token.partition("=")[2]
+        elif token in {"--suffix", "-S"}:
+            i += 1  # backup suffix is not a destination path
+        elif token.startswith("-"):
+            no_directory |= token == "--no-target-directory" or (not token.startswith("--") and "T" in token[1:])
+            parents |= token == "--parents"
+        else:
+            operands.append(token)
+        i += 1
+    if target is None:
+        if len(operands) < 2:
+            return [], i
+        target = operands.pop()
+    destination = (cwd / target).resolve()
+    paths = [destination]
+    if not no_directory and destination.is_dir():
+        paths += [destination / (source.lstrip("/") if parents else Path(source).name) for source in operands]
+    return paths, i
 
 
 def guard(event, cwd, summary, marker):
@@ -124,7 +166,7 @@ def guard(event, cwd, summary, marker):
     if not isinstance(args, dict):
         return None
     if name in {"spawn_agent", "Agent"}:
-        return "项目代理通过 research_control worker 启动；UI由用户的独立入口启动。"
+        return "项目代理通过 research_control worker 或 lens 启动；UI由用户的独立入口启动。"
     db = Path(marker["db"]).resolve()
     if name in {"apply_patch", "Edit", "Write", "NotebookEdit"}:
         patch = args.get("command", args.get("input", ""))
@@ -141,7 +183,10 @@ def guard(event, cwd, summary, marker):
         # Shell parsing is deliberately bounded: direct writes, redirection, wrappers,
         # and literal protected paths. Arbitrary Python/shell indirection is not sandboxed.
         try:
-            tokens = list(shlex.shlex(command, posix=True, punctuation_chars=";&|<>"))
+            lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|<>\n")
+            lexer.whitespace = " \t\r"
+            tokens = [part for token in lexer for part in (re.findall(r"&&|\|\||&>|>\||>>|<<|[;&|<>\n]", token)
+                      if re.fullmatch(r"[;&|<>\n]+", token) else [token])]
         except ValueError:
             return None  # let the shell report its own syntax error
         blocked = (reviewer_bypass(tokens) or
@@ -149,11 +194,21 @@ def guard(event, cwd, summary, marker):
         if blocked:
             return blocked
         writer = False
+        copy_end = -1
         for i, token in enumerate(tokens):
-            if token in {";", "&&", "||", "|"}:
+            if i < copy_end:
+                continue
+            if token in SHELL_BOUNDARIES:
                 writer = False
                 continue
-            if Path(token).name in {"rm", "mv", "cp", "dd", "truncate", "sqlite3", "shred", "tee"}:
+            if Path(token).name == "cp":
+                paths, copy_end = copy_destinations(tokens, i + 1, cwd)
+                for path in paths:
+                    reason = protected(path, cwd, summary, db)
+                    if reason:
+                        return reason
+                continue
+            if Path(token).name in {"rm", "mv", "dd", "truncate", "sqlite3", "shred", "tee"}:
                 writer = True
             if Path(token).name in {"sed", "perl"} and any(t.startswith("-i") for t in tokens[i + 1:]):
                 writer = True
@@ -182,20 +237,55 @@ def handle(event):
                 write_json(cache / "leader.json", {"session_id": event["session_id"], "model": event.get("model") or previous.get("model")})
             else:
                 return {"systemMessage": "research-tree已有另一RLD会话；若需要接管，先核对原会话与作业，再用research_control attach登记交接。"}
-    if kind == "SessionStart" and event.get("model"):
+    if kind in {"SessionStart", "PostToolUse"} and event.get("model") and event.get("session_id"):
         # The model the session actually runs on: the observed side of rule 2's model records (for rld/main also
         # the Leader's family, which a reviewer must differ from: plans/design 09 §2.1 step 3).
         log = Path(marker["root"]) / "logs" / "agent_models.jsonl"
         log.parent.mkdir(parents=True, exist_ok=True)
-        with log.open("a", encoding="utf-8") as stream:
-            stream.write(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()), "agent": event.get("session_id"),
-                                     "actor": actor, "event": "observed", "model": event["model"]}, ensure_ascii=False) + "\n")
+        # init usually happens after SessionStart, before a project exists. Its first PostToolUse supplies the
+        # actual model too. Record that observation so cross-family reviews work without restarting the Leader.
+        # Subsequent tool events do not create duplicates; a real model change gets a new observation.
+        with locked(cache / "model-log.lock"):
+            previous_model = None
+            if log.is_file():
+                for line in reversed(log.read_text(encoding="utf-8").splitlines()):
+                    try:
+                        record = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if record.get("actor") == actor and record.get("agent") == event["session_id"] \
+                            and record.get("event") == "observed":
+                        previous_model = record.get("model")
+                        break
+            if previous_model != event["model"]:
+                with log.open("a", encoding="utf-8") as stream:
+                    stream.write(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+                                             "agent": event["session_id"], "actor": actor,
+                                             "event": "observed", "model": event["model"]}, ensure_ascii=False) + "\n")
     summary = read_json(cache / "summary.json", {})
     if kind == "PreToolUse":
         reason = guard(event, cwd, summary, marker)
         return deny(reason) if reason else {}
     if kind == "SessionStart":
-        return {"hookSpecificOutput": {"hookEventName": kind, "additionalContext": WORKFLOW +
+        if actor == "rld/main":
+            workflow = WORKFLOW
+        elif actor.startswith("worker/"):
+            workflow = f"""research-tree 固定身份 {actor}；你是节点 worker，主会话是唯一 Research Leader。
+读取 {ROOT / 'rules/research-tree-rules.md'}，按本轮任务用 research_db resume_package 恢复。
+只以自己的身份处理已指派任务、登记运行和交付；已生效文档写新版本，不改冻结框架。
+用 research_message 的 delivery/alert 通知 Leader。主会话的收件箱、用户决定与代理调度由 Leader 处理。
+"""
+        elif actor == "ui/ui":
+            workflow = f"""research-tree 固定身份 ui/ui；主会话是唯一 Research Leader。
+读取 {ROOT / 'rules/research-tree-rules.md'}。研究数据库与科学材料只读，不直接调用控制工具确认或调度代理、评审、训练。
+可用 requirement_draft 保存需求草稿；最终返回 reply/actions JSON。用户明确确认当前立项计划时，输出 confirm 动作转交控制器；控制器记录用户原话并执行确认，UI 不直接写项目状态。
+"""
+        else:
+            workflow = f"""research-tree 固定身份 {actor}；主会话是唯一 Research Leader。
+读取 {ROOT / 'rules/research-tree-rules.md'}。研究数据库与科学材料只读，不调度代理、评审或训练，不确认计划。
+只读本轮指定材料并返回候选 JSON，由 Leader 保存分片。
+"""
+        return {"hookSpecificOutput": {"hookEventName": kind, "additionalContext": workflow +
                                         f"\n项目 {marker['project_id']}：{marker['phase']}。当前数据摘要可能是旧快照，用status刷新。"}}
     if kind == "Stop" and actor == "rld/main":
         inbox = read_json(cache / "inbox.json", [])

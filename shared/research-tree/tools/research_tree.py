@@ -190,6 +190,26 @@ def init(cwd: Path, plan: Path, project_id: str | None, config: Path | None = No
     config_parsed = project_config.parse(config_text)
     if config_parsed["version"] == 2:  # the metric specification the Leader passes to create_project
         register_metric_spec(cwd, marker, ResearchDB(db, "rld/main"), config_parsed, None)
+    if (config_parsed.get("discovery", {}).get("mode", "off") != "off" or
+            config_parsed.get("review", {}).get("trigger")):
+        # Availability only: no model call, review receipt or scientific decision.
+        # An unavailable backend belongs in the proposal; it does not prevent init.
+        from review_call import ReviewError, backend_for
+        reviewer = config_parsed["models"].get("reviewer")
+        check = {"checked_at": now_utc(), "model": reviewer.get("model") if reviewer else None,
+                 "backend": None, "ok": False, "error": None}
+        if reviewer:
+            backend = backend_for(reviewer, root)
+            check["backend"] = backend.name
+            try:
+                backend.precheck()
+                check["ok"] = True
+            except ReviewError as exc:
+                check["error"] = str(exc)
+        else:
+            check["error"] = "REVIEW_UNAVAILABLE: configure models.reviewer before requesting reviews"
+        marker["reviewer_backend"] = check
+        write_marker(cwd, marker)
     return marker
 
 

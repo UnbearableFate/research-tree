@@ -128,6 +128,8 @@ get_eligibility(hypothesis_id, protocol_id=None)
 
 GO 需要有效、当前适用的 Evaluation，预定 gate 通过，保护指标满足，必要复核绑定到该方法和评估依据，且无撤回/失效阻断。单纯将 `experiment_status` 改成 `beats_sota` 无效。
 
+查询结果的 `rld_rechecks` 分别给出 RLD 新颖性、理论决策的 `status` 与代码绑定 `bound`；尚无依据 Evaluation 时为 null。项目要求跨模型复核时，`rechecks` 另列五个维度。两部分共同解释 `RECHECK_PENDING / RECHECK_FAILED / RECHECK_STALE`，跨模型维度全部通过不代替 RLD 的绑定决策（07）。
+
 ### 3.4 失效规则
 
 | 变化 | 默认处理 |
@@ -265,7 +267,7 @@ worker 会话重启不增加科研 run attempt。只有对应实验尝试确认�
 
 ## 5. 成本预估与超时
 
-`create_experiment` 增加必填 `estimated_node_h`（03 §8）；预留按申请资源与 walltime 上限计算；实际用量达到预估的 `design.overrun_factor` 倍写 attention。实验创建按 (code_ref, 配置快照哈希, seed) 去重，返回已有实验而不是新建（借 ARIS dse-loop "相同配置永不重跑"）。
+`create_experiment` 增加必填 `estimated_node_h`（03 §8）；预留按申请资源与 walltime 上限计算；实际用量达到预估的 `design.overrun_factor` 倍写 attention。实验创建按 (code_ref, 配置快照哈希, seed) 去重，返回已有实验而不是新建（借 ARIS dse-loop "相同配置永不重跑"）。同一节点、代码与配置的 seed 集合有重叠时返回已有实验，包括扩展 seed 后重发原请求；需要新增 seed 时显式调用 `extend_seeds`，继续遵守扩展门槛，不自动重复已有 seed。
 
 <!-- 引用链接 -->
 

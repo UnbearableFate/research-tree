@@ -70,6 +70,7 @@ export type ResearchProject = {
   config: { doc_id: string; path: string } | null
   /** Version 2: the metric_spec document registered from research-tree.yaml. */
   metric_spec?: { doc_id: string; path: string }
+  reviewer_backend?: { checked_at: string; model: string | null; backend: string | null; ok: boolean; error: string | null }
 }
 
 /** One subagent's model choice in research-tree.yaml. */
@@ -89,6 +90,7 @@ export type ResearchConfig = {
   }
   stage1?: { gate_seeds: number; go_margin: number; min_related_work: number }
   notify?: { url: string | null; timeout_s: number }
+  discovery?: { mode: 'off' | 'precheck' | 'full'; lenses: string[]; seed_lenses: string[] }
   models: { ui: ResearchModel; worker: ResearchModel; lens_assistant?: ResearchModel; reviewer?: unknown }
 }
 
@@ -128,7 +130,7 @@ declare module 'claude-code' {
       uiRun: { run: string; message: string; messageId?: string; attempt: number } | null
       /** The project of the session's directory; null when there is none. */
       project: ResearchProject | null
-      /** Subagent runs the mod started as workers: agentId -> worker/<id>. */
+      /** Subagent runs the mod started: agentId -> worker/<id> or assistant/lens_<name with hyphens replaced>. */
       agents: Record<string, string>
       /** The project configuration in effect; null without a project environment. */
       config: ResearchConfigView | null

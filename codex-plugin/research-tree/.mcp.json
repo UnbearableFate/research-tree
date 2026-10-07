@@ -4,8 +4,8 @@
       "command": "python3",
       "args": ["tools/codex_mcp.py"],
       "cwd": ".",
-      "tool_timeout_sec": 900,
-      "env_vars": ["RESEARCH_TREE_PROJECT", "RESEARCH_TREE_ACTOR"]
+      "tool_timeout_sec": 3900,
+      "env_vars": ["CODEX_HOME", "RESEARCH_TREE_PROJECT", "RESEARCH_TREE_ACTOR", "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR"]
     }
   }
 }

@@ -111,7 +111,7 @@ class ResearchControlVNext(Protocol):
 
 `settle_reservation` 从 accounting_ref 导入真实用量，不让模型随意填写结算值。平台无法提供独立用量时明确标记来源和不确定性。
 
-补充接口（拟议）：`review(kind, brief_doc_id, about, session=None)`（09）、`add_obligation / resolve_obligation / waive_obligation`（06）、`note_findings(node_id, new_findings, direction)`（06）、`context_pack(role, node_id)`（08）、`verify_literature(doc_id)`（08）。
+补充接口（拟议）：`review(kind, brief_doc_id, about, session=None)`（09）、`add_obligation / resolve_obligation / waive_obligation`（06）、`note_findings(node_id, new_findings, doc_id, direction=None)`（06；当前决定文档标识批次，同节点/文档不重复计数；旧匿名记录保留，新调用必须传文档）、`context_pack(role, node_id)`（08）、`verify_literature(doc_id)`（08）。
 
 ### 1.5 接口与角色
 

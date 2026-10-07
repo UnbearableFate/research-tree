@@ -1732,13 +1732,25 @@ class LedgerTest(Fixture):
 class StallTest(Fixture):
     """06 §5 (T01, T02)."""
 
+    def test_repeated_decision_batch_does_not_advance_or_reset_stall(self):
+        root = self.hypothesis()
+        first_doc, second_doc = self.decision_doc(), self.decision_doc()
+        first = self.rld.note_findings(root, 0, doc_id=first_doc)
+        before = self.rld.history(root)
+        self.assertEqual(self.rld.note_findings(root, 0, doc_id=first_doc), first)
+        self.assertEqual(self.rld.history(root), before)
+        second = self.rld.note_findings(root, 0, doc_id=second_doc)
+        self.assertEqual(second["streak"], 2)
+        self.assertEqual(self.rld.note_findings(root, 1, doc_id=first_doc), second)
+        self.assertEqual(self.rld.get(root)["new_findings_streak"], 2)
+
     def test_t01_t02(self):
         root = self.hypothesis()
         self.rld.update_hypothesis(root, title="root of the subtree")
-        self.rld.note_findings(root, 1, direction="optimizer-state")
-        first = self.rld.note_findings(root, 0)
+        self.rld.note_findings(root, 1, doc_id=self.decision_doc(), direction="optimizer-state")
+        first = self.rld.note_findings(root, 0, doc_id=self.decision_doc())
         self.assertEqual((first["streak"], first["stall_state"]), (1, "none"))
-        second = self.rld.note_findings(root, 0)
+        second = self.rld.note_findings(root, 0, doc_id=self.decision_doc())
         self.assertEqual(second["stall_state"], "structural")
         self.start(root)  # the subtree root must be expandable for children: make it so
         self.evaluate(self.method(root), None, sota=(0.3, 0.1, 0.1))
@@ -1750,10 +1762,23 @@ class StallTest(Fixture):
         with self.assertRaisesRegex(ResearchDBError, "STALL_STRUCTURAL"):
             self.rld.create_hypothesis("unnamed", "s", doc, self.literature, root)
         self.rld.create_hypothesis("other", "s", doc, self.literature, root, direction="data-order control")
-        self.rld.note_findings(root, 0)
-        human = self.rld.note_findings(root, 0)
+        self.rld.note_findings(root, 0, doc_id=self.decision_doc())
+        human = self.rld.note_findings(root, 0, doc_id=self.decision_doc())
         self.assertEqual((human["stall_state"], human["report_to_user"]), ("human", True))
-        self.assertEqual(self.rld.note_findings(root, 2)["stall_state"], "none")
+        self.assertEqual(self.rld.note_findings(root, 2, doc_id=self.decision_doc())["stall_state"], "none")
+
+    def test_stall_batch_requires_a_current_unchanged_decision(self):
+        root = self.hypothesis()
+        for doc in (None, self.doc(self.rld, "b/report.v1.md", "report"),
+                    self.doc(self.rld, "b/draft.v1.md", "decision", current=False)):
+            with self.assertRaisesRegex(ResearchDBError, "current decision"):
+                self.rld.note_findings(root, 0, doc_id=doc)
+        doc = self.decision_doc()
+        path = self.root / "docs" / self.rld.get(doc)["path"]
+        path.write_text(path.read_text() + "edited after registration\n")
+        with self.assertRaises(ResearchDBError):
+            self.rld.note_findings(root, 0, doc_id=doc)
+        self.assertFalse(self.rld.get(root).get("new_findings_streak"))
 
 
 class StateMigrationTest(Fixture):
@@ -2049,6 +2074,31 @@ class CostEstimateTest(Fixture):
         self.assertEqual(len(self.rld.get(self.method(h))["seeds"]), 3)  # the budget allows 3
         self.rld.update_project(screen_seeds=1)  # version 2: verification.screening_seeds has one seed
         self.assertEqual(len(self.rld.get(self.method(h))["seeds"]), 1)
+
+    def test_seed_extension_keeps_experiment_creation_idempotent(self):
+        h = self.hypothesis()
+        self.start(h)
+        design = self.doc(self.worker, "exp/extended.v1.md", "experiment_design")
+        code = self.commit()
+        kwargs = {"hypothesis_id": h, "estimated_node_h": 0.1}
+        first = self.worker.create_experiment("method", "m", design, code, 1, 60, n_seeds=1, **kwargs)
+        self.rld.extend_seeds(first, 3)
+        again = self.worker.create_experiment("method", "m", design, code, 1, 60, n_seeds=1, **kwargs)
+        self.assertEqual(again, first)
+        self.assertEqual(self.rld.get(first)["seeds"], SEEDS)
+
+    def test_larger_seed_request_reuses_experiment_before_explicit_extension(self):
+        h = self.hypothesis()
+        self.start(h)
+        design = self.doc(self.worker, "exp/reuse.v1.md", "experiment_design")
+        code = self.commit()
+        kwargs = {"hypothesis_id": h, "estimated_node_h": 0.1}
+        first = self.worker.create_experiment("method", "m", design, code, 1, 60, n_seeds=1, **kwargs)
+        again = self.worker.create_experiment("method", "m", design, code, 1, 60, n_seeds=3, **kwargs)
+        self.assertEqual(again, first)
+        self.assertEqual(self.rld.get(first)["seeds"], SEEDS[:1])
+        self.rld.extend_seeds(first, 3)
+        self.assertEqual(self.rld.get(first)["seeds"], SEEDS)
 
     def test_x04(self):
         h = self.hypothesis()
@@ -2683,6 +2733,28 @@ class CandidateRecheckTest(Fixture):
         self.review(h, "numbers", "pass", basis)
         self.assertTrue(self.rld.get_eligibility(h)["eligible"])
         self.assertEqual(self.rld.get("P-test")["review_cost_usd"], 0.08)
+
+    def test_completed_cross_model_reviews_explain_pending_rld_decisions(self):
+        h, exp = self.concluded("beats_sota")
+        self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
+        self.rld.update_project(recheck_required=True)
+        basis = self.rld.get_eligibility(h)["basis_evaluation_id"]
+        for dimension in ("numbers", "protocol", "method_code", "novelty", "theory"):
+            self.review(h, dimension, "pass", basis)
+        state = self.rld.get_eligibility(h)
+        self.assertEqual({r["state"] for r in state["rechecks"]}, {"pass"})
+        self.assertEqual(state["reasons"], ["RECHECK_PENDING"])
+        self.assertEqual(state["rld_rechecks"], {
+            "novelty": {"status": "pending", "bound": False},
+            "theory": {"status": "pending", "bound": False},
+        })
+        self.recheck_pass(h, exp)
+        state = self.rld.get_eligibility(h)
+        self.assertTrue(state["eligible"], state)
+        self.assertEqual(state["rld_rechecks"], {
+            "novelty": {"status": "pass", "bound": True},
+            "theory": {"status": "pass", "bound": True},
+        })
 
     def test_recheck_binding_and_permissions(self):
         h, exp = self.candidate()

@@ -195,7 +195,7 @@ Leader 每个决策批次比较三类行动：
 
 ## 5. 停滞计数与强制换向
 
-借 ARIS `tools/iteration_log.py`（143 行）：每个决策批次 Leader 在 `decide()` 时为相关子树填 `new_findings`（本批新增的 finding 数）。连续 `search.stall_structural_at`（默认 2）批为 0 → 该子树进入 `structural`：拒绝再创建与已记录 `direction` 相同的子节点，必须换机制、换对照或暂停；连续 `search.stall_human_at`（默认 4）批 → `post_to_ui` 上报用户。计数是纯确定性的，不需要模型判断质量；它与 9.5 的修复上限并列。
+借 ARIS `tools/iteration_log.py`（143 行）：每个决策批次 Leader 用 `note_findings(node_id, new_findings, doc_id)` 为相关子树填本批新增的 finding 数；`doc_id` 是本批次的现行决定文档。同节点/同文档的重复调用不追加账本、不累计或复位，返回当前停滞状态；改变计数须提交新的决定文档。连续 `search.stall_structural_at`（默认 2）个不同批次为 0 → 该子树进入 `structural`：拒绝再创建与已记录 `direction` 相同的子节点，必须换机制、换对照或暂停；连续 `search.stall_human_at`（默认 4）批 → `post_to_ui` 上报用户。计数是纯确定性的，不需要模型判断质量；它与 9.5 的修复上限并列。旧匿名批次账本保留，新调用不再接受缺失批次文档。
 
 ## 6. 未决问题账本
 

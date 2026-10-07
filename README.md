@@ -87,7 +87,7 @@ claude --plugin-dir /absolute/path/to/research-agent/dist/claude/plugins/researc
 
 ### 2. 填写计划与配置
 
-`plan.md` 按章节填写：**研究目标**和**初始假说**必填；期望使用的模型、训练与评测数据集（写 Hugging Face Hub 上的正式 ID，数据集加 config 与 split）、基线，评测与指标，实验范围，验收要求等各节默认写着“由 RLD 决定。”，保留时由 Leader 在立项计划中提出方案，经你确认后执行。插件会保留计划原文，Leader 再将其整理为可执行的立项计划。
+`plan.md` 按章节填写：**研究目标**和**初始假说**必填；没有具体假说时写“由发现流程产生。”并启用 full discovery。另写明非目标、已尝试与无效的方法；期望使用的模型、训练与评测数据集（写 Hugging Face Hub 上的正式 ID，数据集加 config 与 split）、基线，评测与指标，实验范围，验收要求等各节默认写着“由 RLD 决定。”，保留时由 Leader 在立项计划中提出方案，经你确认后执行。插件会保留计划原文，Leader 再将其整理为可执行的立项计划。
 
 在 `research-tree.yaml` 中设置开发与实验平台、资源预算、阶段1门槛和子代理模型；配置项见[项目配置](#项目配置)。
 
@@ -185,6 +185,8 @@ flowchart TD
 
 **跨模型复核。** `review.trigger: candidate_ready`（默认）时，GO 候选还需五个维度——数字完整性、协议合规、方法—代码对齐、新颖性、理论/论证——各一次跨模型、非交互的复核（`research_review`，kind `candidate_recheck`）。reviewer 由 `models.reviewer` 指定：`anthropic/*` 用 Claude Code CLI（`claude -p --safe-mode --restricted`，只读工具），其他 provider 用 [pi](https://github.com/badlogic/pi-mono)（`pi -p --mode json`）；两者互不降级，且须与 Leader 不同模型族（Claude 宿主的 Leader 因此走 pi）。每次复核是一个新会话，只读 Leader 写的 brief（文件路径与结构化元数据）；结果由 reviewer 角色登记为 `docs/reviews/RV-*.md`，Leader 不能登记或替换。reviewer 不可用、输出无效或评审费用达到 `budget.review_usd_alert` 时如实上报，不以 Leader 自评代替。`get_eligibility` 的 `rechecks` 说明每个 GO 基于哪次评估、检查了什么、由谁（后端与模型）复核。插件只依赖 `pi` / `claude` 已在 PATH 且已登录，不替你安装或登录。
 
+`init` 在发现或候选复核启用时检查配置所选基座的认证，把检查时间和结果交给 Leader 写入立项简报；认证成功不代替实际模型调用或评审回执。`budget.review_usd_alert` 是累计费用达到后暂停新调用的阈值，不是精确支出上限；Claude Code 的单次 `--max-budget-usd` 按分取整且至少为 0.01 USD。每次成功或失败的实际回传费用均保留入账。
+
 每次计算给出确定性的结论：正向信号、负向信号或不确定；达到 seed 上限也可以停在不确定。是否继续投入（继续、暂停、不再投入）是另一项有理由与复议条件的决定，不由结论自动决定。结果文档中的数字须在 evidence 代码块中注明来源文件，由接口核对。
 
 **项目 NOT GO** 表示在当前问题、范围和证据下不建议继续投入：没有仍在投入的节点，报告逐项交代未探索、工程失败、不确定、重复方向、明确反证与投入价值判断，且 Leader 无法提出值得验证的新节点。预算不足、工程失败、作业仍在运行或结果缺失，都不能单独作为 NOT GO 的依据。Leader 按规则作出科学判断后直接报告，无需用户再次批准该判断。
@@ -239,7 +241,7 @@ Claude 版提供内嵌窗口、面板和状态栏；Codex 版使用独立终端�
 | `notify.url` | 可选：确认请求与用量提醒同时 POST 到这个地址；超时不等于同意，记录在 `logs/notify.jsonl` | `null` |
 | `literature.min_related_work` | 每个假说至少引用的相关研究数 | `3` |
 | `models.ui` / `models.worker` | 子代理的模型与 effort | `inherit` / 模型默认 |
-| `models.lens_assistant` | 发现阶段 lens 助手的模型与 effort（Claude 宿主） | `inherit` |
+| `models.lens_assistant` | 发现阶段 lens 助手的模型与 effort | `inherit` |
 | `discovery.mode` / `require_precheck` / `triage_top_n` | 立项前发现：`full`、`precheck` 或 `off`；初始节点须有查新与评审回执；triage 后进入查新的新候选数 | `full` / `true` / `4` |
 | `literature.require_verified` | 只有经 `verify_literature` 核验存在的文献计入 `min_related_work` | `true` |
 | `models.reviewer` | 跨模型评审：`provider/model`、thinking、`require_cross_family`、超时 | `openai/gpt-6-astra`，high |
@@ -311,6 +313,10 @@ python3 scripts/build_plugins.py --target all
 | [schema/](shared/research-tree/schema/) | 数据库、配置、文档和消息格式 |
 | [Codex 插件说明](codex-plugin/research-tree/README.md) | Codex 功能对应、会话管理与故障恢复 |
 | [demo/](demo/) | 虚构示例项目，页面位于 `demo/research/P-demo-lora-opt/site/index.html` |
+
+## 本轮发布验证范围
+
+模拟/传输夹具验证接口与会话传输；真实 Codex/Claude 宿主测试包含实际插件与本地 CPU toy training，部分采用预声明 simulation_only 指标，另有 synthetic_proxy 的实际验证集 accuracy。本轮未执行 GPU、PBS 或集群科研训练；完整固定资源 A/B/C 科研 benchmark 仍 OPEN。测试数量不证明科学可靠性。详见随两个插件包发布的 [验证范围说明](shared/research-tree/RELEASE.md)。
 
 ## 开发与验证
 

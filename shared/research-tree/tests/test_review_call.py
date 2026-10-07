@@ -46,8 +46,15 @@ message = {"role": "assistant", "content": [{"type": "text", "text": answer.get(
            "usage": {"cost": {"total": answer.get("cost", 0.01)}}, "stopReason": answer.get("stop", "stop"),
            "errorMessage": answer.get("error")}
 print(json.dumps({"type": "session"}))
+tool_messages = []
+for cost in answer.get("tool_costs", []):
+    tool_message = {**message, "content": [], "stopReason": "toolUse", "usage": {"cost": {"total": cost}}}
+    tool_messages.append(tool_message)
+    print(json.dumps({"type": "message_end", "message": tool_message}))
+    print(json.dumps({"type": "turn_end", "message": tool_message, "toolResults": []}))
+print(json.dumps({"type": "message_end", "message": message}))
 print(json.dumps({"type": "turn_end", "message": message, "toolResults": []}))
-print(json.dumps({"type": "agent_end", "willRetry": False}))
+print(json.dumps({"type": "agent_end", "messages": [*tool_messages, message], "willRetry": False}))
 '''
 
 FAKE_CLAUDE = r'''
@@ -58,6 +65,32 @@ with open(os.environ["FAKE_LOG"], "a") as log:
 if args[:2] == ["auth", "status"]:
     print(json.dumps({"loggedIn": os.environ.get("FAKE_CLAUDE_AUTH", "ok") == "ok"}))
     sys.exit(0)
+if "FAKE_EXPECT_PROMPT" in os.environ:
+    import argparse
+    parser = argparse.ArgumentParser()
+    for flag in ("-p", "--safe-mode", "--restricted", "--strict-mcp-config"):
+        parser.add_argument(flag, action="store_true")
+    for flag in ("--tools", "--add-dir"):
+        parser.add_argument(flag, nargs="+")
+    for flag in ("--output-format", "--model", "--effort", "--permission-mode", "--permission-prompts",
+                 "--session-id", "--resume", "--append-system-prompt-file", "--json-schema", "--max-budget-usd"):
+        parser.add_argument(flag)
+    parser.add_argument("prompt", nargs="?")
+    parsed = parser.parse_args(args)
+    prompt = parsed.prompt or sys.stdin.read()
+    if prompt != os.environ["FAKE_EXPECT_PROMPT"]:
+        print("Error: missing or changed print-mode prompt", file=sys.stderr)
+        sys.exit(1)
+if "--json-schema" in args:
+    schema = json.loads(args[args.index("--json-schema") + 1])
+    def unsupported(value):
+        if isinstance(value, dict):
+            return value.get("$schema") == "https://json-schema.org/draft/2020-12/schema" or any(
+                unsupported(item) for item in value.values())
+        return isinstance(value, list) and any(unsupported(item) for item in value)
+    if unsupported(schema):
+        print('Error: --json-schema is not a valid JSON Schema: no schema with key or ref "https://json-schema.org/draft/2020-12/schema"', file=sys.stderr)
+        sys.exit(1)
 answers = json.loads(os.environ["FAKE_ANSWERS"])
 state = os.environ["FAKE_LOG"] + ".n"
 n = int(open(state).read()) if os.path.exists(state) else 0
@@ -140,6 +173,34 @@ class ReviewCallTest(unittest.TestCase):
     def calls(self) -> list[list[str]]:
         return [json.loads(line) for line in self.log.read_text().splitlines()] if self.log.exists() else []
 
+    def test_init_checks_the_selected_backend_without_review_or_blocking_planning(self):
+        cases = (("anthropic/claude-sonnet-5-5", "full", "ok", True, "claude_code"),
+                 ("anthropic/claude-sonnet-5-5", "full", "missing", False, "claude_code"),
+                 ("openai/gpt-6-astra", "off", "ok", True, "pi"))
+        self.fake("pi")
+        self.fake("claude")
+        for index, (model, mode, auth, ready, backend) in enumerate(cases):
+            with self.subTest(model=model, mode=mode, auth=auth):
+                cwd = self.cwd / str(index)
+                cwd.mkdir()
+                (cwd / "plan.md").write_text("# Fresh planning input\n")
+                text = (self.cwd / "research-tree.yaml").read_text().replace(
+                    "model: openai/gpt-6-astra", f"model: {model}").replace("mode: full", f"mode: {mode}")
+                (cwd / "research-tree.yaml").write_text(text)
+                self.log.unlink(missing_ok=True)
+                with patch.dict(os.environ, {**self.env, "FAKE_CLAUDE_AUTH": auth, "FAKE_PI_AUTH": auth}):
+                    marker = research_tree.init(cwd, cwd / "plan.md", f"P-init-{index}")
+                check = marker["reviewer_backend"]
+                self.assertEqual((check["ok"], check["backend"], check["model"]), (ready, backend, model))
+                self.assertEqual(research_tree.read_marker(cwd)["reviewer_backend"], check)
+                self.assertEqual(marker["phase"], "planning")
+                self.assertEqual(ResearchDB(Path(marker["db"]), "rld/main").reviews(), [])
+                self.assertTrue(self.calls())
+                self.assertTrue(all(c[0] == ("claude" if backend == "claude_code" else "pi") for c in self.calls()))
+                self.assertFalse(any("-p" in c for c in self.calls()))
+                if not ready:
+                    self.assertIn("REVIEW_UNAVAILABLE", check["error"])
+
     def test_r01_r18_r19_backend_routing_without_fallback(self):
         self.project()
         out = self.call([{"text": block(NOVELTY)}])  # R01: pi not on PATH
@@ -199,6 +260,29 @@ class ReviewCallTest(unittest.TestCase):
         self.assertIn("REVIEW_UNAVAILABLE: claude_code: is_error=True", out["error"])
         self.assertEqual(self.rld.reviews(), [])
 
+    def test_claude_schema_dialect_is_compatible_without_changing_the_review_contract(self):
+        from jsonschema import Draft7Validator
+        self.project(reviewer="anthropic/claude-sonnet-5-5", leader="gpt-6-luna")
+        self.fake("claude")
+        out = self.call([{"structured": NOVELTY, "text": json.dumps(NOVELTY)}])
+        self.assertTrue(out["ok"], out)
+        backend = review_call.ClaudeBackend("anthropic/claude-sonnet-5-5", "medium", self.root, 900)
+        for kind in review_call.REVIEW_KINDS:
+            with self.subTest(kind=kind):
+                source = json.loads((review_call.REVIEWS_DIR / f"{kind}.schema.json").read_text())
+                before = json.loads(json.dumps(source))
+                command = backend.command("Read brief", "session", Path("prompt.md"), True, [], source, None)
+                cli_schema = json.loads(command[command.index("--json-schema") + 1])
+                Draft7Validator.check_schema(cli_schema)
+                self.assertNotIn("https://json-schema.org/draft/2020-12/schema", json.dumps(cli_schema))
+                self.assertEqual(source, before)
+                validator = Draft7Validator(cli_schema)
+                self.assertFalse(validator.is_valid({}))
+                if kind == "novelty_precheck":
+                    self.assertTrue(validator.is_valid(NOVELTY))
+                    self.assertFalse(validator.is_valid({**NOVELTY, "score": 11}))
+                    self.assertFalse(validator.is_valid({**NOVELTY, "closest_prior_work": [{"title": "uncited"}]}))
+
     def test_r03_one_follow_up_then_invalid(self):
         self.project()
         self.fake("pi")
@@ -218,6 +302,24 @@ class ReviewCallTest(unittest.TestCase):
         out = self.call([{"text": block(NOVELTY)}])
         self.assertIn("REVIEW_UNAVAILABLE: reviewer openai/gpt-6-astra is the Leader's family", out["error"])
         self.assertFalse([c for c in self.calls() if "-p" in c])  # the model was never called
+
+    def test_inapplicable_code_ref_is_rejected_before_backend_and_cost(self):
+        self.project(reviewer="anthropic/claude-sonnet-5-5", leader="gpt-6-luna")
+        self.fake("claude")
+        cases = (("novelty_precheck", NOVELTY, {}),
+                 ("candidate_recheck", {"dimension": "numbers", "result": "pass",
+                                         "evidence_paths": ["docs/project/min-setup.v1.md"], "reason": "fixture"},
+                  {"dimension": "numbers", "evaluation": "EV-0001"}))
+        for kind, answer, params in cases:
+            with self.subTest(kind=kind):
+                self.log.unlink(missing_ok=True)
+                Path(str(self.log) + ".n").unlink(missing_ok=True)
+                before = self.rld.export_snapshot()
+                out = self.call([{"structured": answer}], kind=kind, code_ref="a" * 40, **params)
+                self.assertIn("REVIEW_INVALID", out["error"])
+                self.assertEqual(self.calls(), [])
+                self.assertEqual(review_call.spent(self.root), 0)
+                self.assertEqual(self.rld.export_snapshot(), before)
 
     def test_unknown_leader_model_is_unavailable(self):
         self.project(leader=None)
@@ -287,6 +389,17 @@ class ReviewCallTest(unittest.TestCase):
         out = self.call([{"text": block({"issues": [], "method_implemented": True})}], kind="code_review")
         self.assertIn("REVIEW_INVALID: a code_review names --code-ref", out["error"])
 
+    def test_claude_prompt_survives_variadic_read_directories_on_start_and_resume(self):
+        self.project(reviewer="anthropic/claude-sonnet-5-5", leader="gpt-6-luna")
+        self.fake("claude")
+        self.env["FAKE_EXPECT_PROMPT"] = review_call.PROMPT.format(brief=(self.root / self.brief).resolve())
+        first = self.call([{"structured": NOVELTY}], add_dir=str(self.cwd))
+        self.assertTrue(first["ok"], first)
+        resumed = self.call([{"structured": NOVELTY}], add_dir=str(self.cwd), session=first["result"]["session"])
+        self.assertTrue(resumed["ok"], resumed)
+        self.assertEqual(resumed["result"]["session"], first["result"]["session"])
+        self.assertEqual(self.rld.get(first["result"]["review_id"])["status"], "superseded")
+
     def test_r22_permission_denials_are_recorded(self):
         self.project(reviewer="anthropic/claude-sonnet-5-5", leader="gpt-6-luna")
         self.fake("claude")
@@ -345,6 +458,28 @@ class RecheckCallTest(ReviewCallTest):  # noqa: the base tests run again here
         out = self.call([{"text": "no json", "cost": 0.03}, {"text": "still none", "cost": 0.02}])
         self.assertIn("REVIEW_INVALID", out["error"])
         self.assertAlmostEqual(self.rld.get("P-r")["review_cost_usd"], 0.05)
+
+    def test_pi_tool_reading_turns_reach_the_review_budget_once(self):
+        self.project(alert=0.05)
+        self.fake("pi")
+        out = self.call([{"text": block(NOVELTY), "cost": 0.01, "tool_costs": [0.02, 0.03]}])
+        self.assertTrue(out["ok"], out)
+        self.assertAlmostEqual(self.rld.get("P-r")["review_cost_usd"], 0.06)
+        self.assertAlmostEqual(review_call.spent(self.root), 0.06)
+        before = self.calls()
+        out = self.call([{"text": block(NOVELTY)}])
+        self.assertIn("REVIEW_BUDGET", out["error"])
+        self.assertEqual(self.calls(), before)
+
+    def test_failed_pi_terminal_turn_preserves_tool_reading_charges(self):
+        self.project()
+        self.fake("pi")
+        out = self.call([{"text": "", "stop": "error", "error": "provider failure",
+                         "cost": 0.01, "tool_costs": [0.02, 0.03]}])
+        self.assertIn("REVIEW_UNAVAILABLE", out["error"])
+        self.assertEqual(self.rld.reviews(), [])
+        self.assertAlmostEqual(self.rld.get("P-r")["review_cost_usd"], 0.06)
+        self.assertAlmostEqual(review_call.spent(self.root), 0.06)
 
 
 def review_call_attention(root: Path, rld: ResearchDB) -> list[dict]:

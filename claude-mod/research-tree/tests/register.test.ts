@@ -1,6 +1,6 @@
 import { expect, test } from 'claude-code/testing'
 
-import { internals } from '../hooks/register'
+import { internals, register } from '../hooks/register'
 import type { ResearchSummary } from '../types'
 
 const PANE_PROPS = {
@@ -71,8 +71,14 @@ test('a subagent is never the RLD: a worker acts as itself, other helpers only r
   ])
   expect(internals.subagentCallBlock(calls, 'worker/h0001')).toContain('只能以自己的身份')
   expect(internals.subagentCallBlock(calls.slice(1), 'worker/h0001')).toBeUndefined()
-  expect(internals.subagentCallBlock(calls.slice(1), undefined)).toBeUndefined()
-  expect(internals.subagentCallBlock(calls, undefined)).toContain('只读')
+  expect(internals.subagentCallBlock(calls.slice(1), undefined)).toContain('未绑定身份')
+  expect(internals.subagentCallBlock(calls, undefined)).toContain('未绑定身份')
+  for (const actor of ['rld/main', 'worker/h0001', 'assistant/lens']) {
+    expect(internals.subagentCallBlock(internals.researchCalls(`${db} --actor ${actor} context_pack '{}'`), undefined))
+      .toContain('未绑定身份')
+  }
+  expect(internals.subagentCallBlock(internals.researchCalls(`${db} --actor assistant/lens context_pack '{}'`), 'assistant/lens'))
+    .toBeUndefined()
   expect(internals.subagentCallBlock(internals.researchCalls('python tools/research_tree.py phase --set confirmed'), 'worker/h0001'))
     .toContain('research_tree.py phase')
   expect(internals.subagentCallBlock(internals.researchCalls("python tools/research_tree.py query get '{}'"), undefined)).toBeUndefined()
@@ -97,6 +103,209 @@ test('a shell command writing the database file is refused', async ($, on) => {
   expect(denied.deny).toContain('research_db')
   const allowed = await $.tool.call({ tool: 'Bash', command: 'ls' })
   expect(allowed.isError).toBeUndefined()
+})
+
+test('research_db rejects a model-supplied actor before loading or running the project', async $ => {
+  for (const actor of ['worker/w1', 'reviewer/pi', 'rld/main', '', null]) {
+    const result = await $.tool.call({ tool: 'mcp__research-tree__research_db', method: 'get', kwargs: { entity_id: 'T-0001' }, actor } as never)
+    expect(result.isError).toBe(true)
+    expect(String(result.result)).toContain('actor')
+  }
+})
+
+function registeredTool(tool: string) {
+  let handler: ((host: never, event: never, next?: (event: never) => Promise<{ result: string }>) => Promise<{ result?: unknown; isError?: boolean; deny?: string }>) | undefined
+  register(((event: string, filter: { tool?: string }, fn: typeof handler) => {
+    if (event === 'tool.call' && filter?.tool === tool) handler = fn
+  }) as never, {})
+  expect(handler).toBeDefined()
+  return handler!
+}
+
+test('research_db refuses unbound subagents and preserves bound worker and main identities', async () => {
+  const { host, state, window } = uiHost({})
+  const calls: string[][] = []
+  const processHost = host as unknown as { process: { run: (argv: string[]) => Promise<unknown> } }
+  const run = processHost.process.run
+  processHost.process.run = async argv => { calls.push(argv); return run(argv) }
+  const call = registeredTool('mcp__research-tree__research_db')
+  const result = await call(host, { agentId: 'unbound-helper', method: 'update_project', kwargs: { title: 'forged' } } as never)
+  expect(result.isError).toBe(true)
+  expect(String(result.result)).toContain('已绑定')
+  expect(calls).toEqual([])
+  expect(window()).toEqual([])
+  expect((state.get('project') as { phase: string }).phase).toBe('confirmed')
+  state.set('agents', { 'bound-worker': 'worker/w1' })
+  const worker = await call(host, { agentId: 'bound-worker', method: 'get', kwargs: { entity_id: 'T-0001' } } as never)
+  expect(worker.isError).toBeUndefined()
+  expect(calls).toHaveLength(1)
+  expect(calls[0]!.slice(4, 6)).toEqual(['--actor', 'worker/w1'])
+  const main = await call(host, { method: 'get', kwargs: { entity_id: 'T-0001' } } as never)
+  expect(main.isError).toBeUndefined()
+  expect(calls).toHaveLength(2)
+  expect(calls[1]!.slice(4, 6)).toEqual(['--actor', 'rld/main'])
+})
+
+test('worker and unbound subagents cannot post to the UI as the Leader', async () => {
+  const { host, state, window } = uiHost({})
+  state.set('agents', { 'bound-worker': 'worker/w1' })
+  const calls: string[][] = []
+  const processHost = host as unknown as { process: { run: (argv: string[]) => Promise<unknown> } }
+  const run = processHost.process.run
+  processHost.process.run = async argv => { calls.push(argv); return run(argv) }
+  const post = registeredTool('mcp__research-tree__post_to_ui')
+  for (const agentId of ['bound-worker', 'unbound-helper']) {
+    for (const type of ['notice', 'confirm_request']) {
+      const result = await post(host, { agentId, type, text: 'forged Leader message' } as never)
+      expect(result.isError).toBe(true)
+      expect(String(result.result)).toContain('只有 RLD')
+      expect((state.get('project') as { phase: string }).phase).toBe('confirmed')
+    }
+  }
+  expect(calls).toEqual([])
+  expect(window()).toEqual([])
+})
+
+test('the UI shell can query and write its outbox but cannot control or impersonate the Leader', async () => {
+  const { host, state } = uiHost({})
+  state.set('uiAgentId', 'ui-run')
+  const bash = registeredTool('Bash')
+  let ran = 0
+  const next = async () => { ran += 1; return { result: 'ran' } }
+  for (const command of [
+    "python tools/research_db.py --actor rld/main decide '{}'",
+    "python tools/research_db.py --actor ui/ui update_project '{}'",
+    "python tools/research_db.py --actor rld/main get '{}'",
+    'python tools/research_tree.py phase --set confirmed',
+    'python tools/research_tree.py config apply',
+    'python tools/review_call.py --kind triage --brief b --about P',
+  ]) {
+    const result = await bash(host, { agentId: 'ui-run', command } as never, next)
+    expect(result.deny).toBeDefined()
+  }
+  expect(ran).toBe(0)
+  for (const command of [
+    "python tools/research_tree.py query get '{}'",
+    'python tools/research_tree.py ui reply --run r1 --text answer',
+    'python tools/research_tree.py ui confirm --run r1',
+    'python tools/research_tree.py requirement draft --title request',
+    "python tools/research_db.py --actor ui/ui get '{}'",
+  ]) {
+    const result = await bash(host, { agentId: 'ui-run', command } as never, next)
+    expect(result.deny).toBeUndefined()
+  }
+  expect(ran).toBe(5)
+})
+
+test('post_to_ui validates the character boundary before any UI side effect', async () => {
+  const { host, window } = uiHost({})
+  const post = registeredTool('mcp__research-tree__post_to_ui')
+  for (const text of ['', 'a'.repeat(201), null, 123]) {
+    const result = await post(host, { type: 'notice', text } as never)
+    expect(result.isError).toBe(true)
+    expect(String(result.result)).toContain('1..200')
+  }
+  expect(window()).toEqual([])
+  for (const text of ['a', '😀'.repeat(200)]) {
+    const result = await post(host, { type: 'notice', text } as never)
+    expect(result.isError).toBeUndefined()
+  }
+  expect(window()).toEqual(['a', '😀'.repeat(200)])
+})
+
+test('confirmation requests need document references before changing phase or notifying the UI', async () => {
+  const { host, state, files, window } = uiHost({})
+  const project = { project_id: 'p', phase: 'planning', root: '/w/study/research/p', db: '/w/study/research/p/research_tree.db' }
+  state.set('project', project)
+  files.set('/w/study/.research-tree.json', JSON.stringify(project))
+  const calls: string[][] = []
+  const processHost = host as unknown as { process: { run: (argv: string[]) => Promise<unknown> } }
+  processHost.process.run = async argv => {
+    calls.push(argv)
+    if (argv[2] === 'phase') {
+      files.set('/w/study/.research-tree.json', JSON.stringify({ ...project, phase: argv[argv.indexOf('--set') + 1] }))
+    }
+    return { exitCode: 0, stderr: '', stdout: argv[1]!.endsWith('send_message.py')
+      ? '{"id":"rld-0001","type":"confirm_request"}'
+      : JSON.stringify({ ok: true, result: { blocked: null } }) }
+  }
+  const post = registeredTool('mcp__research-tree__post_to_ui')
+  for (const docs of [undefined, []]) {
+    const result = await post(host, { type: 'confirm_request', text: 'Please confirm the plan.', docs } as never)
+    expect(result.isError).toBe(true)
+    expect((state.get('project') as { phase: string }).phase).toBe('planning')
+    expect(window()).toEqual([])
+    expect(calls).toEqual([])
+  }
+  const result = await post(host, { type: 'confirm_request', text: 'Please confirm the plan.', docs: ['project/reports/plan.v1.md'] } as never)
+  expect(result.isError).toBeUndefined()
+  expect((state.get('project') as { phase: string }).phase).toBe('awaiting_confirmation')
+  expect(calls[0]![2]).toBe('discovery')
+  const message = calls.find(argv => argv[1]!.endsWith('send_message.py'))!
+  expect(message.slice(-2)).toEqual(['--docs', 'project/reports/plan.v1.md'])
+  expect(window()).toHaveLength(1)
+  expect(window()[0]).toContain('project/reports/plan.v1.md')
+})
+
+test('a discovery refusal leaves no durable confirmation request or UI message', async () => {
+  const { host, state, window } = uiHost({})
+  state.set('project', { project_id: 'p', phase: 'planning', root: '/w/study/research/p', db: '/w/study/research/p/research_tree.db' })
+  const calls: string[][] = []
+  const processHost = host as unknown as { process: { run: (argv: string[]) => Promise<unknown> } }
+  processHost.process.run = async argv => {
+    calls.push(argv)
+    return { exitCode: 0, stderr: '', stdout: argv[1]!.endsWith('send_message.py')
+      ? '{"id":"rld-0001","type":"confirm_request"}'
+      : JSON.stringify({ ok: true, result: { blocked: 'Discovery incomplete' } }) }
+  }
+  const result = await registeredTool('mcp__research-tree__post_to_ui')(host, {
+    type: 'confirm_request', text: 'Please confirm the plan.', docs: ['project/reports/plan.v1.md'],
+  } as never)
+  expect(result.isError).toBe(true)
+  expect(String(result.result)).toContain('Discovery incomplete')
+  expect(calls).toHaveLength(1)
+  expect(calls[0]![2]).toBe('discovery')
+  expect((state.get('project') as { phase: string }).phase).toBe('planning')
+  expect(window()).toEqual([])
+})
+
+test('lens runs record requested and observed models while their bound identity remains read only', async () => {
+  const { host, state } = uiHost({})
+  state.set('project', { project_id: 'p', phase: 'planning', root: '/w/study/research/p', db: '/w/study/research/p/research_tree.db' })
+  const conf = { discovery: { mode: 'full', lenses: ['method-transfer'], seed_lenses: [] }, models: { lens_assistant: { model: 'inherit', effort: 'medium' } } }
+  const calls: string[][] = []
+  const processHost = host as unknown as { process: { run: (argv: string[]) => Promise<unknown> } }
+  processHost.process.run = async argv => {
+    calls.push(argv)
+    return { exitCode: 0, stderr: '', stdout: JSON.stringify({ ok: true, result: argv[2] === 'config' ? { effective: conf } : [] }) }
+  }
+  type Hook = (host: never, event: never, next: (event: never) => Promise<Record<string, unknown>>) => Promise<Record<string, unknown>>
+  let spawn: Hook | undefined, complete: Hook | undefined
+  register(((event: string, fn: Hook) => {
+    if (event === 'agent.spawn') spawn = fn
+    if (event === 'turn.complete') complete = fn
+  }) as never, {})
+  const spawned = { agentId: 'lens-model-log-test', model: 'requested-lens-model' }
+  expect(await spawn!(host, { subagentType: 'research-tree:lens', prompt: 'lens=method-transfer Read the plan.' } as never, async () => spawned)).toEqual(spawned)
+  expect((state.get('agents') as Record<string, string> | undefined)?.[spawned.agentId]).toBe('assistant/lens_method_transfer')
+  await complete!(host, { agentId: spawned.agentId, usage: { model: 'observed-lens-model' } } as never, async () => ({}))
+  const logs = calls.filter(argv => argv[2] === 'agent-log')
+  expect(logs).toHaveLength(2)
+  for (const [index, event, model] of [[0, 'requested', spawned.model], [1, 'observed', 'observed-lens-model']] as const) {
+    const argv = logs[index]!
+    expect(argv[argv.indexOf('--actor') + 1]).toBe('assistant/lens_method_transfer')
+    expect(argv[argv.indexOf('--agent') + 1]).toBe(spawned.agentId)
+    expect(argv[argv.indexOf('--event') + 1]).toBe(event)
+    expect(argv[argv.indexOf('--model') + 1]).toBe(model)
+  }
+  expect(logs[0]![logs[0]!.indexOf('--effort') + 1]).toBe('medium')
+  const before = calls.length
+  const denied = await registeredTool('mcp__research-tree__research_db')(host, { agentId: spawned.agentId, method: 'update_project', kwargs: { title: 'forged' } } as never)
+  expect(denied.isError).toBe(true)
+  expect(String(denied.result)).toContain('只读')
+  const bash = await registeredTool('Bash')(host, { agentId: spawned.agentId, command: "python tools/research_db.py --actor assistant/lens_method_transfer update_project '{}'" } as never, async () => ({ result: 'ran' }))
+  expect(bash.deny).toContain('只读')
+  expect(calls).toHaveLength(before)
 })
 
 const RUN = { origin: { kind: 'composer' as const }, presentation: { isFullscreen: true, columns: 160 } }
@@ -159,6 +368,30 @@ test('the start-up rule follows the confirmation phase', () => {
   expect(internals.workerBlock(project)).toContain('尚未经用户确认')
   expect(internals.workerBlock({ ...project!, phase: 'awaiting_confirmation' })).toContain('等待用户确认')
   expect(internals.workerBlock({ ...project!, phase: 'confirmed' })).toBeUndefined()
+})
+
+test('lens starts only for configured full-discovery planning', () => {
+  const project = { phase: 'planning' } as Parameters<typeof internals.lensBlock>[0]
+  const conf = { discovery: { mode: 'full', lenses: ['method-transfer'], seed_lenses: ['variant'] },
+    models: { lens_assistant: { model: 'inherit', effort: 'medium' } } } as Parameters<typeof internals.lensBlock>[1]
+  expect(internals.lensBlock(null, conf, 'method-transfer')).toContain('planning')
+  expect(internals.lensBlock({ ...project!, phase: 'confirmed' }, conf, 'method-transfer')).toContain('planning')
+  expect(internals.lensBlock(project, { ...conf!, discovery: { ...conf!.discovery!, mode: 'off' } }, 'method-transfer')).toContain('full')
+  expect(internals.lensBlock(project, conf, 'unknown')).toContain('已配置')
+  expect(internals.lensBlock(project, conf, undefined)).toContain('已配置')
+  expect(internals.lensBlock(project, { ...conf!, models: { ...conf!.models, lens_assistant: undefined } }, 'method-transfer')).toContain('lens_assistant')
+  expect(internals.lensBlock(project, conf, 'method-transfer')).toBeUndefined()
+  expect(internals.lensBlock(project, conf, 'variant')).toBeUndefined()
+})
+
+test('the registered lens has only read tools and returns candidates for the Leader', async () => {
+  const agents: { name: string; tools?: string[]; prompt?: string }[] = []
+  const host = { agent: { register: async (input: typeof agents[number]) => { agents.push(input) } } }
+  await internals.registerAgents(host as never, null)
+  const lens = agents.find(agent => agent.name === 'lens')!
+  expect(lens.tools).toEqual(['Read', 'Grep', 'Glob'])
+  expect(lens.prompt).toContain('你不写任何文件')
+  expect(lens.prompt).toContain('最终回答只包含 JSON')
 })
 
 test('worker identities resolve to their node, and bound sessions to their identity', () => {
@@ -267,7 +500,7 @@ function uiHost(outboxes: Record<string, string>) {
     ui: { toast: () => undefined, open: async () => undefined, status: () => undefined },
   }
   const window = () => (files.get(`${root}/messages/window.jsonl`) ?? '').split('\n').filter(Boolean).map(l => JSON.parse(l).text as string)
-  return { host: host as never, state, spawns, prompts, window }
+  return { host: host as never, state, files, spawns, prompts, window }
 }
 
 test('a UI run that leaves nothing is retried once, then the message goes to the RLD verbatim', async () => {

@@ -3,6 +3,7 @@
 
 This checks CLI protocol/flags/session persistence, not model reasoning. It uses no
 account credentials and makes no paid model calls. Run on a compute node on Miyabi.
+The fixture has no live Leader session: it covers the worker queue, not notifications to the Leader.
 """
 from __future__ import annotations
 
@@ -61,6 +62,7 @@ def main():
     evidence.mkdir(parents=True, exist_ok=False)
     sys.path.insert(0, str(plugin / "tools"))
     import research_tree
+    import project_config
     from codex_runtime import Runtime
     from metrics import minimal_documents
     from research_db import TASK_SECTIONS
@@ -73,13 +75,13 @@ def main():
     server.entered = threading.Event()
     server.release = threading.Event()
     threading.Thread(target=server.serve_forever, daemon=True).start()
-    home, project = evidence / "codex-home", evidence / "project"
-    home.mkdir()
+    test_home, project = evidence / "codex-home", evidence / "project"
+    test_home.mkdir()
     project.mkdir()
-    os.environ["CODEX_HOME"] = str(home)
+    os.environ["CODEX_HOME"] = str(test_home)
     for key in ("OPENAI_API_KEY", "CODEX_API_KEY", "RESEARCH_TREE_PROJECT", "RESEARCH_TREE_ACTOR", "CODEX_THREAD_ID"):
         os.environ.pop(key, None)
-    (home / "config.toml").write_text(f'''model_provider = "fixture"
+    (test_home / "config.toml").write_text(f'''model_provider = "fixture"
 model = "fixture-model"
 [model_providers.fixture]
 name = "Local deterministic fixture"
@@ -90,6 +92,10 @@ supports_websockets = false
 ''')
     (project / ".venv").symlink_to(Path(sys.prefix), target_is_directory=True)
     (project / "plan.md").write_text("# Fixture only\nNo experiments authorized.\n")
+    # The local provider only replies with fixed text; it cannot perform the separate real-host discovery test.
+    fixture_documents = minimal_documents("acc", "higher", [])
+    (project / "research-tree.yaml").write_text(json.dumps({
+        "version": 2, "discovery": {"mode": "off"}, "metric_specs": fixture_documents[0]["metrics"]}))
     research_tree.init(project, project / "plan.md", "P-cli")
     runtime = Runtime(project)
     db = runtime.db()
@@ -104,7 +110,10 @@ supports_websockets = false
 
     setup = document("project/min-setup.v1.md", "min_setup")
     docs = {}
-    for kind, content in zip(("metric_spec", "protocol"), minimal_documents("acc", "higher", [])):
+    for kind, content in zip(("metric_spec", "protocol"), fixture_documents):
+        if kind == "protocol":
+            content.update(project_config.protocol_requirements(
+                project_config.parse((project / "research-tree.yaml").read_text())))
         (runtime.root / "docs" / "project" / f"{kind}.v1.json").write_text(json.dumps(content))
         docs[f"{kind}_doc_id"] = db.register_document(f"project/{kind}.v1.json", kind, kind)
         db.set_document_current(docs[f"{kind}_doc_id"])
@@ -134,6 +143,13 @@ supports_websockets = false
         if not server.entered.wait(30):
             raise AssertionError("native worker did not reach the fixture provider")
         try:
+            # The provider request and the supervisor's thread.started handling run concurrently.
+            # Wait for the durable binding while the provider is held, before requesting a live follow-up.
+            deadline = time.monotonic() + 10
+            while not read_json(Path(started["directory"]) / "state.json").get("thread_id"):
+                if time.monotonic() >= deadline:
+                    raise AssertionError("native worker did not persist its thread identity")
+                time.sleep(0.05)
             followup = runtime.start_worker("P-cli", "Fixture queued continuation; no tools.")
             write_json(evidence / "followup.json", followup)
             if followup.get("delivery") != "queued":

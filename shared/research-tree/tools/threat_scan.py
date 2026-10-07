@@ -85,6 +85,7 @@ _PATTERNS: List[Tuple[str, str, str]] = [
     (r'\bcommand\s+and\s+control\b', "c2_explicit_long", "context"),
 
     # ── Exfiltration (everywhere / strict) ───────────────────────────
+    (r'\b(?:disclose|reveal)\s+(?:the\s+)?(?:secret|private)\s+(?:credentials|(?:access[_ -]?|api[_ -]?)?tokens?|api[_ -]?keys?|passwords?)\b', "credential_disclosure", "all"),
     (r'curl\s+[^\n]*\$\{?\w*(KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|API)', "exfil_curl", "all"),
     (r'wget\s+[^\n]*\$\{?\w*(KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|API)', "exfil_wget", "all"),
     # [^\n>] stops the match at a redirect, so "cat > ~/.qzcli/.env" (a WRITE,

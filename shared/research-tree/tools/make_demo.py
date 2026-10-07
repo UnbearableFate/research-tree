@@ -578,8 +578,12 @@ class Demo:
         fix.write_text("（虚构）seed 列表已与协议核对一致：42, 43, 44\n", encoding="utf-8")
         rld.resolve_obligation(ob["obligation_id"], "code_fixed", "outputs/fixes/seed-config-check.txt")
         # Decision batch: the H-0001 subtree brought one finding (H-0003), the next batch none.
-        rld.note_findings(h1, 1, direction="二阶矩估计")
-        rld.note_findings(h1, 0)
+        batch1 = self.decision(f"hypotheses/{h1}/decisions/batch-1.v1.md", "首个决策批次",
+                               "（虚构）本批H-0003带来一个新发现。", h1)
+        batch2 = self.decision(f"hypotheses/{h1}/decisions/batch-2.v1.md", "下一决策批次",
+                               "（虚构）本批没有新发现。", h1)
+        rld.note_findings(h1, 1, doc_id=batch1, direction="二阶矩估计")
+        rld.note_findings(h1, 0, doc_id=batch2)
 
     def close_branch(self, h: str, worker: ResearchDB, wt: Path, to_status: str, reason: str) -> None:
         br = self.rld.find("branch", hypothesis_id=h)[0]["id"]

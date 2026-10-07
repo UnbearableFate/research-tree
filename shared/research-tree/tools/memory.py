@@ -11,7 +11,7 @@ Findings (docs/findings/, doc_type finding) and lessons (docs/lessons/, doc_type
     status: observed | supported | contradicted | stale
 
 Facts and interpretation stay apart. A lesson whose root cause is a guess is only `proposed` (K01); a lesson's fix
-must not be operational noise (capture_filter); neither may carry an injection or ask to widen permissions, gates
+is screened with its symptom and root cause for operational noise (capture_filter); neither may carry an injection or ask to widen permissions, gates
 or budgets (threat_scan, strict scope, K04). Lessons never change permissions, the evaluator or the protocol.
 
 context_pack(role, node) gives a worker or the Leader a fixed-size, deterministic summary in a fixed order: the goal
@@ -90,10 +90,11 @@ def check(doc_type: str, text: str) -> dict:
         raise MemoryError_(f"the root cause is {data['root_cause_status']}: the lesson is only proposed (K01)")
     if data["status"] == "verified" and not data.get("evidence_runs"):
         raise MemoryError_("a verified lesson cites the runs that verified the fix (evidence_runs E-…/s…@attempt)")
-    noise = capture_filter.screen(str(data["fix"]))
-    if noise:
-        raise MemoryError_(f"the fix reads as operational noise ({', '.join(noise)}): store how to fix it, not that "
-                           "something failed — " + capture_filter.reason_detail(noise[0]))
+    for field in ("symptom", "root_cause", "fix"):
+        noise = capture_filter.screen(str(data[field]))
+        if noise:
+            raise MemoryError_(f"the {field} reads as operational noise ({', '.join(noise)}): store how to fix it, "
+                               "not that something failed — " + capture_filter.reason_detail(noise[0]))
     for ref in data.get("evidence_runs") or []:
         if not RUN_REF_RE.fullmatch(str(ref)):
             raise MemoryError_(f"evidence_runs names run attempts like E-0008/s42@2, not {ref!r}")

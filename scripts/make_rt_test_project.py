@@ -199,7 +199,8 @@ SOTA 基线为 `--method adam --lr 0.05`；另一个基线 `--method momentum`�
 ## 评测与指标
 
 主指标 accuracy（越高越好；metrics.json 中是 0–1 的比例，比较与门槛按百分点：go_margin 0.5 即 0.5 个百分点）；
-其他指标 final_loss（越低越好）、train_time_s（越低越好，秒）。
+final_loss（越低越好）与 train_time_s（秒）作为诊断保留在原始产物，不进入统计比较或 gate；
+本测试配置的 MetricSpec 只声明 accuracy。
 
 ## 实验范围
 
@@ -252,6 +253,7 @@ def config(host: str, alert: float | None, with_reviewer: bool = False, version:
           experiment: |
             在当前机器上运行，不提交集群作业。训练命令：
             cd <worktree 或 code/> && <项目目录>/.venv/bin/python -m toytrain.train --method <m> --seed <s> --out <输出目录>
+            上述命令仅训练；根 worker 还须实现输出完整 manifest 的 runner。框架验收后，方法与 sanity 都通过该 runner 运行并导入原始 manifest，不能只调用 train 后补造产物。
             每次不到几秒；--sanity 为最小规模检查。用量按 1 个节点记，walltime_used_s 为墙钟时间向上取整到整秒、至少 1 秒。
           skills: []
 
@@ -294,6 +296,7 @@ def config_v2(host: str, alert_text: str, reviewer: str, with_reviewer: bool, to
           experiment: |
             在当前机器上运行，不提交集群作业。训练命令：
             cd <worktree 或 code/> && <项目目录>/.venv/bin/python -m toytrain.train --method <m> --seed <s> --out <输出目录>
+            上述命令仅训练；根 worker 还须实现输出完整 manifest 的 runner。框架验收后，方法与 sanity 都通过该 runner 运行并导入原始 manifest，不能只调用 train 后补造产物。
             每次不到几秒；--sanity 为最小规模检查。用量按 1 个节点记，walltime_used_s 为墙钟时间向上取整到整秒、至少 1 秒。
             本机没有调度器：提交身份（submission_key）就是本次运行的输出目录名；"作业"即本地进程，job_id 用 local-<submission_key>。
             用量文件由 worker 写在输出目录：{{"job_id": ..., "nodes_used": 1, "walltime_used_s": ...}}。

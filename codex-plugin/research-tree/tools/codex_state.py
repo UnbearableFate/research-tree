@@ -46,7 +46,7 @@ def lock_busy(path: Path) -> bool:
 
 
 def actor_key(actor: str) -> str:
-    if not re.fullmatch(r"(?:rld/main|ui/ui|worker/[A-Za-z0-9_.]+)", actor):
+    if not re.fullmatch(r"(?:rld/main|ui/ui|worker/[A-Za-z0-9_.]+|assistant/lens_[A-Za-z0-9_.]+)", actor):
         raise ValueError(f"invalid adapter actor: {actor}")
     return actor.replace("/", "-")
 

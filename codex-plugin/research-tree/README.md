@@ -54,10 +54,19 @@ codex plugin add research-tree@research-tree
 MCP服务从插件目录启动，主会话每次调用需要 `project`（研究项目的绝对目录）。UI和worker由
 控制器注入固定project/actor。主会话先 `research_db(method="help")` 查API；`research_control(action="help")`
 列控制参数。不要让模型构造actor字段，也不要用原生spawn工具绕过确认或身份检查。
+MCP 工具等待上限为 3900 秒，覆盖评审包装器的整次调用上限（3600 秒）与运行时退出余量；
+后台会话使用相同上限。MCP 服务的评审子进程上限为 3800 秒，先于客户端结束以便返回失败信息。
+Claude 宿主当前另有 570 秒的整次评审 deadline；该限制不适用于 Codex 宿主。
+观察超时后仍须核对原评审或清理进程，不自动重复调用。
 
 worker模型与effort来自现行配置。`inherit` 使用hooks记录的主会话模型；无法取得时明确失败，
 不擅自更换模型。平台技能名会写入worker指令，worker须实际读取可用技能；不存在时要报告缺失。
-worker在登记的checkout/worktree中运行，并允许写研究项目目录；使用workspace-write沙箱。
+full discovery 的规划阶段用 `research_control lens` 启动只读候选助手，模型来自 models.lens_assistant。
+助手使用固定 assistant 身份，不写科学记录或文件，也不继承 worker 的 Full access；实际输出由控制器保存，Leader 核验后合并。
+worker在登记的checkout/worktree中运行，并允许写研究项目目录；默认使用workspace-write沙箱。
+用户在当前 CODEX_HOME/config.toml 明确设置 `sandbox_mode = "danger-full-access"` 时，worker 继承该 Full access 选择。
+插件 MCP 传递 CODEX_HOME，确保后台会话、登录、插件/hooks 与消息队列使用同一隔离配置目录。
+若启动 Codex 时设置了 `CLAUDE_CONFIG_DIR` 或 `PI_CODING_AGENT_DIR`，插件及后台 MCP 也传递这些配置目录，所选评审后端使用同一登录环境；未设置时保留各 CLI 的默认配置路径。
 UI使用read-only沙箱。后台exec不提供交互式权限提升，失败应交Leader处理，不自动关闭沙箱。
 
 `research_control worker` 返回的starting只表示已受理。`agents` 查看活跃锁、线程ID、退出码和运行路径；
@@ -73,6 +82,7 @@ UI动作执行前写入applying状态，异常或中断后保留账本，核对�
 hooks需要用户信任，文件保护是工作流护栏，不能防御任意shell程序绕过。没有hook上下文时，
 可用 `research_control attach` 登记实际主会话ID和模型。已有另一个Leader时不自动覆盖地址，
 交接前核对原会话与科研作业。此版本用终端窗口和HTML提供界面，不修改Codex的TUI源码。
+attach 支持地址与 inherit 模型登记，不构成 observed 模型证据；跨族评审仍需要可信 hooks 的实际观察记录，否则返回 REVIEW_UNAVAILABLE。
 
 ## 验证
 
@@ -93,3 +103,6 @@ python3 scripts/build_plugins.py --target all
 接口依据：[OpenAI插件打包文档](https://developers.openai.com/plugins/build/plugins)、
 [MCP配置](https://developers.openai.com/codex/mcp)、
 [hooks文档](https://learn.chatgpt.com/docs/hooks)。
+
+
+发布包内的 `RELEASE.md` 区分模拟/传输夹具、真实宿主 CPU toy training 与未执行的 GPU/调度器科研训练，并保留完整 A/B/C benchmark 开放项。

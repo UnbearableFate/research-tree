@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import fcntl
+import hashlib
 import json
 import os
 import socket
@@ -34,6 +35,8 @@ HELP = {
                     "understanding": "interpretation and scope", "kind": "指令", "about": ["project or node ID"]},
     "worker": {"node_id": "assigned project or H-id", "task": "this turn's task",
                "restart": "false; true starts a new session only when previous run is no longer active"},
+    "lens": {"lens": "configured discovery lens or variant/combination/competing/repair",
+             "task": "candidate-generation task with read-only source paths; full discovery, planning only"},
     "agents": {}, "inbox": {}, "acknowledge": {"ids": ["event-id"]},
     "chat": {}, "ui_path": {}, "attach": {"session_id": "main Codex session UUID", "model": "current model"},
 }
@@ -137,6 +140,8 @@ class Runtime:
         return entry
 
     def log_message(self, sender, recipient, kind, text, docs=None, about=None, re=None, need=None):
+        if kind not in messaging.DEFAULT_NEED:
+            raise ValueError(f"unknown message type {kind!r}; use one of {', '.join(messaging.DEFAULT_NEED)} (failure/blocker: alert)")
         message = {"ts": now_utc(), "project": None, "from": sender, "to": recipient,
                    "type": kind, "text": text, "need": need or messaging.DEFAULT_NEED[kind]}
         for key, value in (("docs", docs), ("about", about), ("re", re)):
@@ -282,6 +287,26 @@ class Runtime:
         write_json(path, receipt)
         return receipt
 
+    def start_lens(self, lens, task):
+        """A planning-only, read-only candidate generator; it never owns a scientific node."""
+        self.require_rld()
+        if self.marker["phase"] != "planning":
+            raise ValueError("lens generation runs during planning, before the confirmation request")
+        conf = tree.show_config(self.cwd)["effective"]
+        if conf.get("discovery", {}).get("mode") != "full":
+            raise ValueError("lens generation requires discovery.mode full")
+        allowed = set(conf["discovery"]["lenses"]) | set(conf["discovery"].get("seed_lenses", []))
+        if not isinstance(lens, str) or lens not in allowed:
+            raise ValueError(f"lens must be configured, or a seed lens: {', '.join(sorted(allowed))}")
+        if not isinstance(task, str) or not task.strip():
+            raise ValueError("lens needs a concrete candidate-generation task and source paths")
+        model = conf["models"].get("lens_assistant")
+        if not model:
+            raise ValueError("configure models.lens_assistant before generating candidates")
+        actor = "assistant/lens_" + hashlib.sha256(lens.encode()).hexdigest()[:12]
+        with locked(self.cache / "control.lock"):
+            return {"lens": lens, **self.start_agent(actor, codex_prompts.lens(self.marker, lens, task), model)}
+
     def start_ui(self, text):
         # This is called by the human-facing CLI, never exposed as an RLD MCP action.
         self.require_rld()
@@ -396,6 +421,8 @@ class Runtime:
             return {"path": str(page), "data_version": data["meta"]["data_version"]}
         if action == "worker":
             return self.start_worker(**params)
+        if action == "lens":
+            return self.start_lens(**params)
         if action == "agents":
             return self.agents()
         if action == "attach":
@@ -423,8 +450,8 @@ class Runtime:
                 return describe(**kwargs)
             if method not in CLI_METHODS:
                 raise ValueError("unknown research_db method; use help")
-            if self.actor == "ui/ui" and method not in READS:
-                raise ValueError("UI may only read scientific records")
+            if (self.actor == "ui/ui" or self.actor.startswith("assistant/")) and method not in READS:
+                raise ValueError(f"{self.actor} may only read scientific records")
             if self.actor.startswith("worker/") and self.marker["phase"] != "confirmed":
                 raise ValueError("worker access requires a confirmed plan")
             result = getattr(self.db(), method)(**kwargs)
@@ -458,13 +485,13 @@ class Runtime:
                 raise ValueError("only UI drafts requirements")
             fields = args.get("fields", {})
             if set(fields) - set(tree.REQ_FIELDS):
-                raise ValueError("unknown requirement field")
+                raise ValueError(f"unknown requirement field; use {', '.join(tree.REQ_FIELDS)} (authorization and questions belong in open)")
             with locked(self.cache / "control.lock"):
                 return tree.draft_requirement(self.cwd, args.get("req"), args.get("title"), fields,
                                               args.get("messages", []), args.get("about", []))
         if name == "research_message":
-            if self.actor == "ui/ui":
-                raise ValueError("UI sends actions through its response, not directly")
+            if self.actor == "ui/ui" or self.actor.startswith("assistant/"):
+                raise ValueError("UI and lens assistants return their response; they do not send messages directly")
             if args.get("resend"):
                 mid = args["resend"]
                 if not messaging.MESSAGE_ID_RE.fullmatch(mid):
@@ -476,6 +503,8 @@ class Runtime:
                 if message["from"] != self.actor or message["to"] != "rld/main":
                     raise ValueError("can only resend this actor's messages to RLD")
             else:
+                if "type" not in args or "text" not in args:
+                    raise ValueError("research_message needs type and text, or resend=<message id>")
                 message = self.log_message(self.actor, "rld/main", args["type"], args["text"],
                                            args.get("docs"), args.get("about"), args.get("re"))
             return {"message": message, "delivery": self.enqueue(json.dumps(message, ensure_ascii=False), message["id"], retry=bool(args.get("resend")))}

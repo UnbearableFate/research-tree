@@ -152,6 +152,16 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
                 self.runtime.post({"type": "confirm_request", "text": "确认？", "docs": ["project/reports/init-plan.v1.md"]})
         self.assertEqual(self.runtime.marker["phase"], "planning")
 
+    def test_post_text_boundary_preserves_rejected_messages(self):
+        before = self.runtime.chat()
+        for text in ("", "a" * 201, None, 123):
+            with self.assertRaisesRegex(ValueError, "1..200"):
+                self.runtime.post({"type": "notice", "text": text})
+        self.assertEqual(self.runtime.chat(), before)
+        for text in ("a", "😀" * 200):
+            self.runtime.post({"type": "notice", "text": text})
+        self.assertEqual([r["text"] for r in self.runtime.chat()[len(before):]], ["a", "😀" * 200])
+
     def test_research_review_handler(self):
         args = {"kind": "novelty_precheck", "brief": "docs/project/min-setup.v1.md", "about": "P-test"}
         worker = Runtime(self.cwd, "worker/root")
@@ -163,6 +173,46 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         log = [json.loads(x) for x in (self.runtime.root / "logs/review_calls.jsonl").read_text().splitlines()]
         self.assertEqual((log[-1]["kind"], log[-1]["about"], log[-1]["outcome"]),
                          ("novelty_precheck", "P-test", "REVIEW_UNAVAILABLE"))
+
+    def test_review_deadlines_leave_time_to_return_the_runtime_failure(self):
+        from review_call import MAX_CALL_S
+        client_timeout = json.loads((ROOT / ".mcp.json").read_text())["mcpServers"]["research_tree"]["tool_timeout_sec"]
+        spec = {"project": str(self.cwd), "actor": "worker/root", "model": {"model": "fixture-model"}}
+        argv = codex_agent.command(spec, self.cwd)
+        configs = dict(arg.split("=", 1) for arg in argv if arg.startswith("mcp_servers."))
+        self.assertEqual(json.loads(configs["mcp_servers.research_tree.tool_timeout_sec"]), client_timeout)
+        python = self.cwd / ".venv/bin/python"
+        python.parent.mkdir(parents=True)
+        python.symlink_to(sys.executable)
+        failure = {"ok": False, "error": "REVIEW_UNAVAILABLE: the review call reached its overall deadline"}
+        with patch("codex_mcp.subprocess.run", return_value=subprocess.CompletedProcess([], 1, json.dumps(failure), "")) as run:
+            self.assertEqual(codex_mcp.run_request(self.cwd, "rld/main", "research_review",
+                             {"kind": "code_review", "brief": "docs/request.md", "about": "P-test"}), failure)
+        self.assertLess(MAX_CALL_S, run.call_args.kwargs["timeout"])
+        self.assertLess(run.call_args.kwargs["timeout"], client_timeout)
+
+    def test_worker_honors_native_full_access_and_ui_remains_read_only(self):
+        config_dir = self.cwd / "isolated-codex"
+        config_dir.mkdir()
+        config = config_dir / "config.toml"
+        spec = {"project": str(self.cwd), "actor": "worker/root", "model": {"model": "fixture-model"}}
+        with patch.dict(os.environ, {"CODEX_HOME": str(config_dir)}):
+            self.assertIn('sandbox_mode="workspace-write"', codex_agent.command(spec, self.cwd))
+            config.write_text('sandbox_mode = "danger-full-access"\n')
+            argv = codex_agent.command(spec, self.cwd)
+            self.assertIn('sandbox_mode="danger-full-access"', argv)
+            forwarded = next(a.split("=", 1)[1] for a in argv if a.startswith("mcp_servers.research_tree.env_vars="))
+            forwarded_names = set(json.loads(forwarded))
+            self.assertTrue({"CODEX_HOME", "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR"} <= forwarded_names)
+            spec["actor"] = "ui/ui"
+            self.assertIn('sandbox_mode="read-only"', codex_agent.command(spec, self.cwd))
+            spec["actor"] = "assistant/lens_test"
+            self.assertIn('sandbox_mode="read-only"', codex_agent.command(spec, self.cwd))
+            config.write_text('sandbox_mode = "workspace-write"\n')
+            spec["actor"] = "worker/root"
+            self.assertIn('sandbox_mode="workspace-write"', codex_agent.command(spec, self.cwd))
+        manifest_names = set(json.loads((ROOT / ".mcp.json").read_text())["mcpServers"]["research_tree"]["env_vars"])
+        self.assertEqual(forwarded_names, manifest_names)
 
     def test_bound_roles_cannot_impersonate_or_control_execution(self):
         ui = Runtime(self.cwd, "ui/ui")
@@ -180,6 +230,57 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
             worker.dispatch("research_db", {"method": "update_project", "kwargs": {"title": "oops"}})
         worker.dispatch("research_db", {"method": "update_task", "kwargs": {"task_id": self.task, "status": "in_progress"}})
         self.assertEqual(self.db.get(self.task)["status"], "in_progress")
+        with self.assertRaisesRegex(ValueError, "failure/blocker: alert"):
+            worker.dispatch("research_message", {"type": "blocker", "text": "test"})
+        for arguments in ({}, {"type": "alert"}, {"text": "test"}):
+            with self.assertRaisesRegex(ValueError, "needs type and text, or resend"):
+                worker.dispatch("research_message", arguments)
+        alert = worker.dispatch("research_message", {"type": "alert", "text": "test blocker", "about": [self.task]})
+        self.assertEqual(alert["message"]["from"], "worker/root")
+
+    def test_lens_has_a_fixed_read_only_identity_and_cannot_be_duplicated(self):
+        (self.cwd / "research-tree.yaml").write_text(json.dumps({"version": 2,
+            "discovery": {"mode": "full", "lenses": ["contradiction"]},
+            "models": {"lens_assistant": {"model": "fixture-model", "effort": "medium"}}}))
+        hold = Path(self.temp.name) / "hold"
+        hold.touch()
+        task = {"lens": "contradiction", "task": "Read the plan and propose candidates only."}
+        started = self.runtime.control("lens", task)
+        self.assertTrue(started["actor"].startswith("assistant/lens_"))
+        with self.assertRaisesRegex(ValueError, "live"):
+            self.runtime.control("lens", task)
+        helper = Runtime(self.cwd, started["actor"])
+        self.assertEqual(helper.dispatch("research_db", {"method": "get", "kwargs": {"entity_id": "P-test"}})["id"], "P-test")
+        for method in ("create_experiment", "register_document", "update_project"):
+            with self.assertRaisesRegex(ValueError, "only read"):
+                helper.dispatch("research_db", {"method": method, "kwargs": {}})
+        for action in ("worker", "lens", "confirm", "instruction", "attach"):
+            with self.assertRaisesRegex(ValueError, "only RLD"):
+                helper.control(action, {})
+        with self.assertRaisesRegex(ValueError, "only the Leader"):
+            helper.dispatch("research_review", {})
+        with self.assertRaisesRegex(ValueError, "do not send"):
+            helper.dispatch("research_message", {"type": "alert", "text": "x"})
+        hold.unlink()
+        state = self.wait_run(started)
+        self.assertEqual(state["status"], "completed", state)
+        self.assertEqual(self.runtime.marker["phase"], "planning")
+        self.assertFalse(self.db.get("P-test").get("worker_agent_id"))
+        self.assertEqual(self.db.find("experiment"), [])
+
+    def test_lens_requires_full_discovery_planning_and_a_configured_lens(self):
+        with self.assertRaisesRegex(ValueError, "mode full"):
+            self.runtime.control("lens", {"lens": "contradiction", "task": "generate"})
+        (self.cwd / "research-tree.yaml").write_text(json.dumps({"version": 2,
+            "discovery": {"mode": "full", "lenses": ["contradiction"]}}))
+        with self.assertRaisesRegex(ValueError, "configured"):
+            self.runtime.control("lens", {"lens": "unknown", "task": "generate"})
+        with self.assertRaisesRegex(ValueError, "concrete"):
+            self.runtime.control("lens", {"lens": "contradiction", "task": ""})
+        shutil.copyfile(ROOT / "schema/config.v1.template.yaml", self.cwd / "research-tree.yaml")
+        self.confirm()
+        with self.assertRaisesRegex(ValueError, "during planning"):
+            self.runtime.control("lens", {"lens": "contradiction", "task": "generate"})
 
     def test_direct_main_instruction_preserves_words_and_scope(self):
         words = "暂停新实验；已提交的作业先核对状态。"
@@ -250,6 +351,10 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
     def test_requirement_draft_submission_and_revision(self):
         source = self.runtime.say("user", "只研究优化器，先做小规模比较。")
         ui = Runtime(self.cwd, "ui/ui")
+        with self.assertRaisesRegex(ValueError, "questions belong in open"):
+            ui.dispatch("requirement_draft", {"title": "优化器范围", "fields": {"authorization": "未授权"},
+                                              "messages": [source["id"]]})
+        self.assertEqual(research_tree.list_requirements(self.cwd), [])
         draft = ui.dispatch("requirement_draft", {"title": "优化器范围", "fields": {"goal": "比较优化器", "scope": "小规模"},
                                                   "messages": [source["id"]], "about": ["P-test"]})
         directory = self.runtime.cache / "runs/ui-draft"
@@ -261,6 +366,27 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         self.assertIn(source["text"], text)
         ui.dispatch("requirement_draft", {"req": draft["id"], "fields": {"scope": "单机"}})
         self.assertEqual(research_tree.list_requirements(self.cwd)[0]["status"], "open")
+
+    def test_invalid_ui_reference_preserves_draft_and_failed_action_without_replay(self):
+        source = self.runtime.say("user", "先保存草稿，澄清后再提交。")
+        ui = Runtime(self.cwd, "ui/ui")
+        draft = ui.dispatch("requirement_draft", {"title": "图表", "fields": {"open": "待澄清"},
+                                                  "messages": [source["id"]], "about": ["P-test"]})
+        directory = self.runtime.cache / "runs/ui-invalid-reference"
+        write_json(directory / "spec.json", {"actor": "ui/ui", "user_message": source})
+        response = {"reply": "请澄清 seed。", "actions": [{"type": "question", "text": "seed?",
+                    "docs": [], "about": [draft["id"]], "req": ""}]}
+        before = self.runtime.marker["phase"]
+        result = self.runtime.apply_ui(directory, response)
+        self.assertEqual(result[0]["status"], "failed", result)
+        self.assertIn(draft["id"], result[0]["error"])
+        self.assertEqual(read_json(directory / "actions.json"), result)
+        self.assertEqual(research_tree.list_requirements(self.cwd)[0], draft)
+        self.assertEqual(self.runtime.marker["phase"], before)
+        self.assertEqual(self.runtime.control("inbox", {}), [])
+        with self.assertRaisesRegex(ValueError, "already attempted"):
+            self.runtime.apply_ui(directory, response)
+        self.assertFalse((self.runtime.root / "docs/requirements/REQ-0001.v1.md").exists())
 
     def test_queue_failure_is_durable_and_acknowledgement_is_separate(self):
         with patch.dict(os.environ, {"FAKE_QUEUE_EXIT": "1"}):
@@ -317,6 +443,10 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
                  ("worker/root", f"{db_call} --actor worker/root update_run '{{}}'", False),
                  ("ui/ui", f"{db_call} --actor ui/ui decide '{{}}'", True),
                  ("ui/ui", f"{db_call} --actor ui/ui get '{{}}'", False),
+                 ("ui/ui", f"{db_call} --actor rld/main get '{{}}'", True),
+                 ("ui/ui", f"{db_call} --actor worker/root get '{{}}'", True),
+                 ("assistant/lens_test", f"{db_call} --actor rld/main get '{{}}'", True),
+                 ("assistant/lens_test", f"{db_call} --actor assistant/lens_test get '{{}}'", False),
                  ("worker/root", "python tools/research_tree.py phase --set confirmed", True),
                  ("rld/main", f"{db_call} --actor rld/main decide '{{}}'", False),
                  # reviews only through research_review: no direct pi / claude -p, no reviewer identity (09 §4)
@@ -336,12 +466,78 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         self.assertEqual(codex_hook.READ_METHODS, set(READ_METHODS))
         prior = read_json(self.runtime.cache / "leader.json")
         with patch.dict(os.environ, {"RESEARCH_TREE_ACTOR": "worker/root", "RESEARCH_TREE_PROJECT": str(self.cwd)}):
-            codex_hook.handle({"hook_event_name": "SessionStart", "cwd": str(self.cwd), "session_id": "worker-thread", "model": "child"})
+            worker_context = codex_hook.handle({"hook_event_name": "SessionStart", "cwd": str(self.cwd), "session_id": "worker-thread", "model": "child"})["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("worker/root", worker_context)
+        self.assertNotIn("用research_control inbox", worker_context)
+        self.assertNotIn("需要用户决定时post_to_ui", worker_context)
         self.assertEqual(prior, read_json(self.runtime.cache / "leader.json"))
         observed = json.loads((self.runtime.root / "logs/agent_models.jsonl").read_text().splitlines()[-1])
         self.assertEqual((observed["actor"], observed["event"], observed["model"]), ("worker/root", "observed", "child"))
+        for actor in ("ui/ui", "assistant/lens_123456789abc"):
+            with patch.dict(os.environ, {"RESEARCH_TREE_ACTOR": actor, "RESEARCH_TREE_PROJECT": str(self.cwd)}):
+                context = codex_hook.handle({"hook_event_name": "SessionStart", "cwd": str(self.cwd)})["hookSpecificOutput"]["additionalContext"]
+            self.assertIn(actor, context)
+            self.assertIn("只读", context)
+            self.assertNotIn("用research_control inbox", context)
+            self.assertNotIn("确认后先assign_worker", context)
+        with patch.dict(os.environ, {"RESEARCH_TREE_ACTOR": "rld/main"}):
+            context = codex_hook.handle({"hook_event_name": "SessionStart", "cwd": str(self.cwd), "session_id": prior["session_id"]})["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("用research_control inbox", context)
+        self.assertEqual(prior["session_id"], read_json(self.runtime.cache / "leader.json")["session_id"])
         codex_hook.handle({"hook_event_name": "SessionStart", "cwd": str(self.cwd), "session_id": "other-main", "model": "other"})
-        self.assertEqual(prior, read_json(self.runtime.cache / "leader.json"))
+        self.assertEqual(prior["session_id"], read_json(self.runtime.cache / "leader.json")["session_id"])
+
+    def test_copy_reads_protected_sources_but_guards_its_actual_destinations(self):
+        self.runtime.summary()
+        config = self.cwd / "research-tree.yaml"
+        current = self.runtime.root / "docs/project/min-setup.v1.md"
+        fresh = self.runtime.root / "docs/project/config.v2.yaml"
+        destination = self.cwd / "copies"
+        destination.mkdir()
+        # The real planning command writes new documents, then copies the user
+        # configuration into a new version. Reading either source is allowed.
+        allowed = (f"cp '{config}' '{fresh}'",
+                   f"cat > '{fresh}' <<'EOF'\nnew draft\nEOF\ncp '{config}' '{fresh}'",
+                   f"cp '{current}' '{destination}'",
+                   f"cp '{config}' '{current}' '{destination}'",
+                   f"cp -t '{destination}' '{config}' '{current}'",
+                   f"cp --target-directory='{destination}' '{config}'")
+        denied = (f"cp '{fresh}' '{config}'",
+                  f"cp '{fresh}' '{current}'",
+                  f"cp '{config}' '{self.cwd}'",
+                  f"cp -t '{self.cwd}' '{config}'",
+                  f"cp --target-directory='{current.parent}' '{current}'",
+                  f"cp -T '{fresh}' '{config}'",
+                  f"cp '{config}' '{fresh}'\nrm '{config}'")
+        event = {"hook_event_name": "PreToolUse", "cwd": str(self.cwd), "tool_name": "exec_command"}
+        for command, expected in [(c, False) for c in allowed] + [(c, True) for c in denied]:
+            with self.subTest(command=command):
+                event["tool_input"] = {"cmd": command}
+                self.assertEqual(bool(codex_hook.handle(event)), expected)
+
+    def test_init_in_live_session_observes_the_model_on_the_first_tool_event(self):
+        fresh = self.cwd / "fresh"
+        fresh.mkdir()
+        (fresh / "plan.md").write_text("# A project initialized in an existing Codex session\n")
+        shutil.copyfile(ROOT / "schema/config.v1.template.yaml", fresh / "research-tree.yaml")
+        event = {"hook_event_name": "SessionStart", "cwd": str(fresh),
+                 "session_id": "fresh-main", "model": "gpt-6-luna"}
+        with patch.dict(os.environ, {"RESEARCH_TREE_ACTOR": "rld/main", "RESEARCH_TREE_PROJECT": str(fresh)}):
+            self.assertEqual(codex_hook.handle(event), {})  # no project at session startup
+            marker = research_tree.init(fresh, fresh / "plan.md", "P-fresh")
+            event["hook_event_name"] = "PostToolUse"
+            codex_hook.handle(event)
+            from review_call import leader_model
+            self.assertEqual(leader_model(Path(marker["root"])), "gpt-6-luna")
+            codex_hook.handle(event)
+            log = Path(marker["root"]) / "logs/agent_models.jsonl"
+            self.assertEqual(len(log.read_text().splitlines()), 1)
+            event.pop("model")
+            codex_hook.handle(event)
+            self.assertEqual(leader_model(Path(marker["root"])), "gpt-6-luna")
+            event["model"] = "gpt-6-astra"
+            codex_hook.handle(event)
+            self.assertEqual(leader_model(Path(marker["root"])), "gpt-6-astra")
 
     def test_mcp_protocol_and_error_recovery_without_project_environment(self):
         requests = [

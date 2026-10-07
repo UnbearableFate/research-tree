@@ -91,7 +91,9 @@ def check(marketplace: Path, work: Path):
             if len(entries) != 1:
                 raise AssertionError(f"expected one installed server, got {servers}")
             server = entries[0]
-            if len(server.get("tools", {})) != 5:
+            expected_tools = {"research_db", "research_control", "post_to_ui", "research_message",
+                              "research_review", "requirement_draft"}
+            if set(server.get("tools", {})) != expected_tools:
                 raise AssertionError(f"MCP discovery failed: {server}")
             result = client.request("mcpServer/tool/call", {"threadId": thread_id, "server": server["name"],
                                                              "tool": "research_control", "arguments": {"action": "status", "project": str(project)}})
@@ -114,6 +116,8 @@ def check(marketplace: Path, work: Path):
             (work / "prepare.log").write_text(prepared.stdout + prepared.stderr)
             if prepared.returncode:
                 raise RuntimeError(prepared.stderr + prepared.stdout)
+            # This transport fixture authorizes no discovery or experiments; the real-host tests cover discovery.
+            (project / "research-tree.yaml").write_text("version: 2\ndiscovery:\n  mode: off\n")
             initialized = call("research_control", action="init", params={"project_id": "P-native"})
             root = Path(initialized["project"]["root"])
 

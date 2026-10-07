@@ -48,6 +48,9 @@ _ENV_FAILURE = [
     (re.compile(r"\bPermission denied\b", re.I), "env_failure"),
     (re.compile(r"\bconnection (refused|timed out|reset)\b", re.I), "transient_error"),
     (re.compile(r"\b(rate limit|429|quota exceeded|503|502|temporarily unavailable)\b", re.I), "transient_error"),
+    (re.compile(r"\b(?:transient|temporary) operational timeout\b", re.I), "transient_error"),
+    (re.compile(r"\b(?:transient|temporary) (?:batch )?scheduler (?:interruption|congestion)\b", re.I),
+     "transient_error"),
     (re.compile(r"\bCUDA out of memory\b|\bOOM\b", re.I), "transient_error"),
 ]
 
