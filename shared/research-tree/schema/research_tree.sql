@@ -75,6 +75,8 @@ CREATE TABLE project (
     sanity_required     BOOLEAN NOT NULL DEFAULT FALSE,  -- 方法实验提交前须有同一代码的有效 sanity 运行（design.sanity_first）
     require_precheck    BOOLEAN NOT NULL DEFAULT FALSE,  -- 建节点须有查新与批判性评审回执（discovery.require_precheck，02 §3）
     literature_verification BOOLEAN NOT NULL DEFAULT FALSE, -- 只有存在性核验为 verified 的文献计入 min_related_work（08 §2）
+    memory_max_items    INTEGER NOT NULL DEFAULT 5,   -- 上下文包中至多几条经验（memory.max_items_per_task）
+    memory_counterevidence BOOLEAN NOT NULL DEFAULT TRUE, -- 经验与其反例一起返回（memory.include_counterevidence，K03）
     max_repairs_per_root_cause INTEGER NOT NULL DEFAULT 2,  -- 同一根因至多几次补丁（search.max_repairs_per_root_cause，03 §8）
     screen_seeds        INTEGER,               -- 筛选 seed 数上限（version 2：verification.screening_seeds 的个数）；空则只按筛选预算
     protocol_doc_id     TEXT,                  -- 现行实验协议（JSON 文档：评测类型、配对字段、必须一致的设定）
@@ -387,6 +389,8 @@ CREATE TABLE document (
                             'workflow', 'report', 'config',
                             'protocol', 'metric_spec',
                             'review',          -- 跨模型非交互评审（review_call.py，作者只能是 reviewer）
+                            'finding',         -- 研究发现（08 §1.1：事实与解释分开，带证据与局限）
+                            'lesson',          -- 运行经验（08 §1.2：症状、根因与状态、已验证的修复、适用范围、反例）
                             'other'
                         )),
     title               TEXT NOT NULL,
