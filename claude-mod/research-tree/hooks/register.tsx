@@ -1213,8 +1213,8 @@ export const register: Register = (on, options) => {
       const args = ['--kind', String(input.kind ?? ''), '--brief', String(input.brief ?? ''), '--about', String(input.about ?? ''),
         ...(input.dimension ? ['--dimension', input.dimension] : []), ...(input.evaluation ? ['--evaluation', input.evaluation] : []),
         ...(input.session ? ['--session', input.session] : []), ...(input.add_dirs ?? []).flatMap(d => ['--add-dir', d])]
-      // a reviewer reads files itself: up to models.reviewer.timeout_s per round, two rounds at most
-      const out = await runTool($, cfg, 'review_call.py', args, 2 * MAX_PROCESS_MS)
+      // a reviewer reads files itself: review_call.py caps the whole call at 3600 s (MAX_CALL_S); wait a little longer
+      const out = await runTool($, cfg, 'review_call.py', args, 3_900_000)
       await refresh($, cfg)
       const text = (out.stdout || out.stderr).trim()
       return out.exitCode === 0 ? { result: text } : { result: text || `exit ${out.exitCode}`, isError: true as const }

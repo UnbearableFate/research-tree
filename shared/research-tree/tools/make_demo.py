@@ -462,7 +462,7 @@ class Demo:
         wk3.evaluate_experiment(conf, c_result)
         # Cross-model rechecks of the candidate (09 candidate_recheck), as review_call.py records them (fictional).
         reviewer = ResearchDB(db_path, "reviewer/pi")
-        basis = rld.get_eligibility(h3)["basis_evaluation_id"]
+        basis = rld.get_eligibility(h3)["recheck_evaluation_id"]  # the confirmation the GO rests on
         notes = {"numbers": "结果文档的数字均可在所引指标文件中找到；归一化与评测标签来源无问题（虚构）。",
                  "protocol": "训练步数、评测条数与协议一致（虚构）。",
                  "method_code": "尺度平衡在优化器 step 中执行，并被训练脚本调用（虚构）。",

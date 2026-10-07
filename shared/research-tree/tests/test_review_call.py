@@ -293,6 +293,54 @@ class ReviewCallTest(unittest.TestCase):
         self.assertIn("/etc/hostname", text.split("---")[1])
 
 
+class RecheckCallTest(ReviewCallTest):  # noqa: the base tests run again here
+    """K06 and concurrency through review_call itself."""
+
+    def test_k06_method_code_pass_must_cite_code(self):
+        self.project()
+        self.fake("pi")
+        recheck = {"dimension": "method_code", "result": "pass", "evidence_paths": ["docs/hypotheses/H-0001/result.v1.md"],
+                   "reason": "the report says the method is implemented"}
+        found = review_call.problems("candidate_recheck", recheck, json.loads(
+            (TOOLS.parent / "schema/reviews/candidate_recheck.schema.json").read_text()), "method_code")
+        self.assertTrue(any("K06" in f for f in found), found)
+        ok = {**recheck, "evidence_paths": ["code/toytrain/methods.py"]}
+        self.assertEqual(review_call.problems("candidate_recheck", ok, json.loads(
+            (TOOLS.parent / "schema/reviews/candidate_recheck.schema.json").read_text()), "method_code"), [])
+        empty = {**recheck, "dimension": "numbers", "evidence_paths": []}
+        self.assertIn("evidence_paths", "; ".join(review_call.problems("candidate_recheck", empty, json.loads(
+            (TOOLS.parent / "schema/reviews/candidate_recheck.schema.json").read_text()), "numbers")))
+
+    def test_concurrent_reviews_get_their_own_numbers(self):
+        import threading
+        self.project()
+        self.fake("pi")
+        self.env["FAKE_ANSWERS"] = json.dumps([{"text": block(NOVELTY)}])
+        results = []
+        with patch.dict(os.environ, self.env):
+            def go():
+                try:
+                    results.append(review_call.review(self.cwd, "novelty_precheck", self.brief, "P-r"))
+                except Exception as exc:  # noqa: BLE001
+                    results.append(exc)
+            threads = [threading.Thread(target=go) for _ in range(3)]
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join()
+        self.assertTrue(all(isinstance(r, dict) for r in results), results)
+        self.assertEqual(len({r["path"] for r in results}), 3)
+        for d in self.rld.reviews():  # every registered file still matches its hash
+            self.assertTrue(self.rld.verify_document(d["id"]))
+
+    def test_failed_call_cost_reaches_the_project(self):
+        self.project()
+        self.fake("pi")
+        out = self.call([{"text": "no json", "cost": 0.03}, {"text": "still none", "cost": 0.02}])
+        self.assertIn("REVIEW_INVALID", out["error"])
+        self.assertAlmostEqual(self.rld.get("P-r")["review_cost_usd"], 0.05)
+
+
 def review_call_attention(root: Path, rld: ResearchDB) -> list[dict]:
     import build_site
     return build_site.review_attention(root, rld.get("P-r"))

@@ -2925,6 +2925,16 @@ class ResearchDB:
             self._update(tx, project["id"], {"review_cost_usd": round((project.get("review_cost_usd") or 0) + cost_usd, 6)})
             return doc_id
 
+    def add_review_cost(self, cost_usd: float) -> None:
+        """reviewer only (review_call.py): a failed or invalid call's cost, so the project's review cost is the one
+        the review_usd_alert gate counts."""
+        self._require_role("reviewer")
+        if not isinstance(cost_usd, (int, float)) or isinstance(cost_usd, bool) or cost_usd < 0:
+            raise ResearchDBError("cost_usd is a number >= 0")
+        with self._writer() as tx:
+            project = self._project(tx)
+            self._update(tx, project["id"], {"review_cost_usd": round((project.get("review_cost_usd") or 0) + cost_usd, 6)})
+
     def reviews(self, about: str | None = None, kind: str | None = None) -> list[dict]:
         """Review documents (current and superseded), oldest first, optionally of one entity or kind."""
         with self.reader() as tx:
@@ -2934,7 +2944,7 @@ class ResearchDB:
         out = [{k: v for k, v in d.items() if k != "_table"} for d in docs if not kind or d.get("review_kind") == kind]
         return sorted(out, key=lambda d: int(d["id"].split("-")[1]))
 
-    def _candidate_rechecks(self, tx: _Tx, hyp: dict, basis: dict, basis_exp: dict) -> tuple[list[dict], list[str]]:
+    def _candidate_rechecks(self, tx: _Tx, hyp: dict, evaluation_id: str, basis_exp: dict) -> tuple[list[dict], list[str]]:
         """The node's latest current candidate_recheck per dimension and why the GO bar is not met yet."""
         docs = [tx.get(i) for i in tx.ids("document", "WHERE n.doc_type = $t", t="review")]
         docs = [d for d in docs if d["status"] == "current" and d.get("review_kind") == "candidate_recheck"
@@ -2943,15 +2953,17 @@ class ResearchDB:
         for dimension, binding in RECHECK_DIMENSIONS.items():
             mine = [d for d in docs if d.get("review_dimension") == dimension]
             if not mine:
-                rows.append({"dimension": dimension, "state": "missing"})
+                rows.append({"dimension": dimension, "state": "missing", "required": evaluation_id
+                             if binding == "evaluation" else basis_exp["code_ref"]})
                 reasons.append("RECHECK_PENDING")
                 continue
             d = max(mine, key=lambda x: int(x["id"].split("-")[1]))
-            bound = (d.get("basis_evaluation_id") == basis["id"] if binding == "evaluation"
+            bound = (d.get("basis_evaluation_id") == evaluation_id if binding == "evaluation"
                      else d.get("basis_code_ref") == basis_exp["code_ref"])
             state = ("stale" if not bound else {"pass": "pass", "not_applicable": "pass", "fail": "failed",
                                                 "uncertain": "uncertain"}[d["review_result"]])
-            rows.append({"dimension": dimension, "state": state, "review_id": d["id"], "path": d["path"],
+            rows.append({"dimension": dimension, "state": state, "required": evaluation_id if binding == "evaluation"
+                         else basis_exp["code_ref"], "review_id": d["id"], "path": d["path"],
                          "result": d["review_result"], "backend": d.get("review_backend"),
                          "reviewer_model": d.get("reviewer_model"), "evaluation_id": d.get("basis_evaluation_id"),
                          "code_ref": d.get("basis_code_ref")})
@@ -3438,7 +3450,8 @@ class ResearchDB:
         evidence passes the Type-A gates, confirmed after the confirmation; outcome: the basis's outcome, or invalid
         when the node's runs all ended without a valid one. rechecks (projects with recheck_required): per dimension
         the cross-model review that checked this basis (review id, result, backend, reviewer model, evaluation or
-        code it is bound to) — what was checked and by whom."""
+        code it is bound to, and the one it must be bound to) — what was checked and by whom; numbers and protocol
+        are bound to recheck_evaluation_id (the confirmation's evaluation once there is one)."""
         with self.reader() as tx:
             return self._eligibility(tx, self._project(tx), tx.require(hypothesis_id, ("hypothesis",)), protocol_id)
 
@@ -3465,7 +3478,8 @@ class ResearchDB:
         out = {"hypothesis_id": hyp["id"], "eligible": False, "basis_evaluation_id": None, "experiment_id": None,
                "evidence_state": "none", "reasons": ["NO_EVALUATION"], "verification_level": None,
                "gate_passed": None, "guardrails_passed": None, "stage": None, "outcome": None,
-               "confirmation_evaluation_id": None, "open_obligations": [], "rechecks": None}
+               "confirmation_evaluation_id": None, "open_obligations": [], "rechecks": None,
+               "recheck_evaluation_id": None}
         if not search:
             # an engineering failure is no evidence: no evaluation; the node's outcome reads 'invalid' (06 §2.1)
             tried = [e for e in exps if e["kind"] == "method" and (e.get("stage") or "screen") != "confirm"]
@@ -3503,10 +3517,6 @@ class ResearchDB:
                 reasons.append("RECHECK_PENDING")
             elif not self._recheck_bound(tx, hyp["id"], key, basis_exp):
                 reasons.append("RECHECK_STALE")
-        rechecks = None
-        if project.get("recheck_required"):  # cross-model rechecks of the candidate (07, 09 candidate_recheck)
-            rechecks, why = self._candidate_rechecks(tx, hyp, basis, basis_exp)
-            reasons += why
         confirmation = None
         protocol = self._protocol(tx, project)
         if protocol and protocol.get("profile", "stage1_confirmed") == "stage1_confirmed":
@@ -3515,12 +3525,19 @@ class ResearchDB:
                 reasons.append(why)
             elif stage == "candidate_ready":
                 stage = "confirmed"
+        rechecks, recheck_ev = None, None
+        if project.get("recheck_required"):  # cross-model rechecks of the candidate (07, 09 candidate_recheck)
+            # the numbers GO rests on: the confirmation's once there is one, else the search basis (07 §3, §6)
+            recheck_ev = confirmation or basis["id"]
+            rechecks, why = self._candidate_rechecks(tx, hyp, recheck_ev, basis_exp)
+            reasons += why
         reasons = list(dict.fromkeys(reasons))
         return {**out, "eligible": not reasons, "basis_evaluation_id": basis["id"],
                 "experiment_id": basis["experiment_id"], "evidence_state": state, "reasons": reasons,
                 "verification_level": basis["verification_level"], "gate_passed": basis.get("gate_passed"),
                 "guardrails_passed": basis.get("guardrails_passed"), "stage": stage, "outcome": basis.get("outcome"),
-                "confirmation_evaluation_id": confirmation, "open_obligations": opened, "rechecks": rechecks}
+                "confirmation_evaluation_id": confirmation, "open_obligations": opened, "rechecks": rechecks,
+                "recheck_evaluation_id": recheck_ev}
 
     def _confirmation(self, tx: _Tx, project: dict, protocol: dict, hyp: dict, basis_exp: dict) -> tuple:
         """The node's independent confirmation of its candidate code (06 §2.2, §2.5): a current confirm-stage

@@ -23,7 +23,9 @@ cost reached budget.review_usd_alert). Nothing here calls a model except the bac
 from __future__ import annotations
 
 import argparse
+import fcntl
 import json
+import time
 import re
 import shutil
 import subprocess
@@ -49,6 +51,10 @@ THINKING_TO_EFFORT = {"off": "low", "minimal": "low", "low": "low", "medium": "m
                       "xhigh": "xhigh", "max": "max"}
 JSON_BLOCK_RE = re.compile(r"```json[ \t]*\n(.*?)```", re.S)
 CALL_LOG = Path("logs") / "review_calls.jsonl"
+# One call's whole wall time is capped (both rounds and the prechecks); the hosts wait a little longer than this.
+MAX_CALL_S = 3600
+CODE_SUFFIXES = (".py", ".pyx", ".c", ".cc", ".cpp", ".cu", ".h", ".hpp", ".rs", ".go", ".jl", ".java", ".js",
+                 ".ts", ".sh", ".lua", ".r", ".m", ".scala")
 
 
 class ReviewError(Exception):
@@ -110,7 +116,11 @@ def spent(root: Path) -> float:
 # -- backends -----------------------------------------------------------------------------------------------------
 
 
-def _run(cmd: list[str], cwd: Path, timeout: int) -> subprocess.CompletedProcess:
+def _run(cmd: list[str], cwd: Path, timeout: int, deadline: float | None = None) -> subprocess.CompletedProcess:
+    if deadline is not None:
+        timeout = int(min(timeout, deadline - time.monotonic()))
+        if timeout <= 0:
+            raise ReviewError("REVIEW_UNAVAILABLE", f"the review call reached its overall deadline before {cmd[0]} ran")
     try:
         return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, check=False,
                               stdin=subprocess.DEVNULL)
@@ -122,6 +132,7 @@ def _run(cmd: list[str], cwd: Path, timeout: int) -> subprocess.CompletedProcess
 
 class PiBackend:
     name = "pi"
+    deadline: float | None = None
 
     def __init__(self, model: str, thinking: str, root: Path, timeout: int):
         self.model, self.thinking, self.root, self.timeout = model, thinking, root, timeout
@@ -147,8 +158,9 @@ class PiBackend:
                "--tools", "read,grep,find,ls", "--session-id", session,
                "--session-dir", str(self.root / "cache" / "review-sessions"),
                "--append-system-prompt", str(system_file)]
-        # the same --session-id continues the session (pi 1.0.4 creates it on the first call)
-        out = _run(cmd + [prompt], self.root, self.timeout)
+        # the same --session-id continues the session (pi 1.0.4 creates it on the first call; checked 2026-10-07:
+        # a second call with the id answered from the first one's context, so -c is not needed)
+        out = _run(cmd + [prompt], self.root, self.timeout, self.deadline)
         return self.parse(out.stdout, out.stderr), out.stdout
 
     def parse(self, stdout: str, stderr: str) -> dict:
@@ -180,6 +192,7 @@ class PiBackend:
 
 class ClaudeBackend:
     name = "claude_code"
+    deadline: float | None = None
 
     def __init__(self, model: str, thinking: str, root: Path, timeout: int):
         self.model, self.root, self.timeout = model, root, timeout
@@ -215,7 +228,7 @@ class ClaudeBackend:
     def call(self, prompt: str, session: str, system_file: Path, first: bool, add_dirs: list[str],
              schema: dict, budget: float | None) -> tuple[dict, str]:
         out = _run(self.command(prompt, session, system_file, first, add_dirs, schema, budget), self.root,
-                   self.timeout)
+                   self.timeout, self.deadline)
         return self.parse(out.stdout, out.stderr), out.stdout
 
     def parse(self, stdout: str, stderr: str) -> dict:
@@ -279,6 +292,12 @@ def problems(kind: str, data: dict | None, schema: dict, dimension: str | None) 
     if kind == "candidate_recheck":
         if data["dimension"] != dimension:
             found.append(f"dimension is {data['dimension']!r}, the brief asked for {dimension!r}")
+        if data["result"] == "pass" and not data["evidence_paths"]:
+            found.append("a pass lists the files it relied on (evidence_paths)")
+        if dimension == "method_code" and data["result"] == "pass" and not any(
+                Path(p).suffix.lower() in CODE_SUFFIXES for p in data["evidence_paths"]):
+            found.append("method_code pass without reading code: cite the code files checked (K06; reading the "
+                         "report alone does not verify method-code alignment)")
         if data["result"] == "not_applicable" and not data["reason"].strip():
             found.append("not_applicable needs the reason the dimension is not part of the claim")
     return found
@@ -301,6 +320,23 @@ def result_of(kind: str, data: dict) -> str:
 
 
 # -- the call -----------------------------------------------------------------------------------------------------
+
+
+class _Lock:
+    """An exclusive lock on cache/reviews/.lock: RV numbers and review files are allocated one call at a time."""
+
+    def __init__(self, root: Path):
+        self.path = root / "cache" / "reviews" / ".lock"
+
+    def __enter__(self):
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.handle = self.path.open("w")
+        fcntl.flock(self.handle, fcntl.LOCK_EX)
+        return self
+
+    def __exit__(self, *exc):
+        fcntl.flock(self.handle, fcntl.LOCK_UN)
+        self.handle.close()
 
 
 def _sessions(root: Path) -> dict:
@@ -368,21 +404,50 @@ def review(cwd: Path, kind: str, brief: str, about: str, dimension: str | None =
         if tx.get(about) is None:
             raise ReviewError("REVIEW_INVALID", f"{about} does not exist")
 
+    with _Lock(root):
+        rv, uid, version, first, state = _allocate(root, session, kind, about, backend.name)
+    log_call(root, {"kind": kind, "about": about, "dimension": dimension, "session": rv, "outcome": "started",
+                    "backend": backend.name})  # a call the host kills stays visible
+    deadline = time.monotonic() + min(2 * int(reviewer["timeout_s"]) + 120, MAX_CALL_S)
+    backend.deadline = deadline
+    return _review(root, backend, reviewer, kind, brief_path, about, dimension, evaluation, add_dirs, schema,
+                   system_file, db, alert, so_far, rv, uid, version, first, state)
+
+
+def _allocate(root: Path, session: str | None, kind: str, about: str, backend: str) -> tuple:
     sessions = _sessions(root)
     if session:
         if session not in sessions:
             raise ReviewError("REVIEW_INVALID", f"no review session {session}")
         state = sessions[session]
-        if (state["kind"], state["about"], state["backend"]) != (kind, about, backend.name):
+        if (state["kind"], state["about"], state["backend"]) != (kind, about, backend):
             raise ReviewError("REVIEW_INVALID", f"{session} is a {state['kind']} of {state['about']} on "
                                                 f"{state['backend']}")
         rv, uid, version, first = session, state["uuid"], state["version"] + 1, False
     else:
         rv, uid, version, first = _next_rv(root, sessions), str(uuid.uuid4()), 1, True
-        state = {"uuid": uid, "kind": kind, "about": about, "backend": backend.name, "version": 0, "doc_id": None}
-    sessions[rv] = state
+        state = {"uuid": uid, "kind": kind, "about": about, "backend": backend, "version": 0, "doc_id": None}
+    if session and state.get("busy"):
+        raise ReviewError("REVIEW_INVALID", f"{session} has a round in progress")
+    sessions[rv] = {**state, "busy": True}
     _save_sessions(root, sessions)  # the number is taken before the call: a failed call never reuses it
+    return rv, uid, version, first, state
 
+
+def _review(root, backend, reviewer, kind, brief_path, about, dimension, evaluation, add_dirs, schema, system_file,
+            db, alert, so_far, rv, uid, version, first, state) -> dict:
+    try:
+        return _run_review(root, backend, reviewer, kind, brief_path, about, dimension, evaluation, add_dirs, schema,
+                           system_file, db, alert, so_far, rv, uid, version, first, state)
+    finally:
+        with _Lock(root):
+            sessions = _sessions(root)
+            sessions[rv] = {**sessions.get(rv, state), "busy": False}
+            _save_sessions(root, sessions)
+
+
+def _run_review(root, backend, reviewer, kind, brief_path, about, dimension, evaluation, add_dirs, schema,
+                system_file, db, alert, so_far, rv, uid, version, first, state) -> dict:
     raw_dir = root / "cache" / "reviews"
     raw_dir.mkdir(parents=True, exist_ok=True)
     budget = None if alert is None else alert - so_far
@@ -425,7 +490,10 @@ def review(cwd: Path, kind: str, brief: str, about: str, dimension: str | None =
             f"\n# {kind}：{about}{'（' + dimension + '）' if dimension else ''}\n\n## 评审原文\n\n{rec['text'].strip()}\n\n"
             f"## 结构化结论\n\n```json\n{json.dumps(data, ensure_ascii=False, indent=1)}\n```\n")
     (root / "docs" / "reviews").mkdir(parents=True, exist_ok=True)
-    (root / "docs" / rel).write_text(body, encoding="utf-8")
+    with _Lock(root):
+        if (root / "docs" / rel).exists():  # never overwrite a review
+            raise ReviewError("REVIEW_INVALID", f"{rel} exists already", cost)
+        (root / "docs" / rel).write_text(body, encoding="utf-8")
     try:
         doc_id = db.register_review(rel, f"{kind} {about}{' ' + dimension if dimension else ''}", kind, [about],
                                     result, rv, backend.name, rec["model_observed"], cost, dimension=dimension,
@@ -433,12 +501,23 @@ def review(cwd: Path, kind: str, brief: str, about: str, dimension: str | None =
                                     summary=f"{backend.name} {rec['model_observed']}: {result}")
     except ResearchDBError as exc:
         raise ReviewError("REVIEW_INVALID", f"not registered: {exc}", cost) from None
-    state.update(version=version, doc_id=doc_id)
-    sessions[rv] = state
-    _save_sessions(root, sessions)
+    with _Lock(root):
+        sessions = _sessions(root)
+        sessions[rv] = {**state, "version": version, "doc_id": doc_id, "busy": False}
+        _save_sessions(root, sessions)
     return {"review_id": doc_id, "path": rel, "session": rv, "kind": kind, "result": result, "backend": backend.name,
             "model_observed": rec["model_observed"], "cost_usd": round(cost, 6),
             "permission_denials": rec["permission_denials"], "structured": data}
+
+
+def record_failure(root: Path, entry: dict, exc: ReviewError) -> None:
+    """Log a failed call; its cost, if any, also goes to the project record (the figure review_usd_alert gates)."""
+    log_call(root, {**entry, "outcome": exc.code, "error": str(exc)[:600], "cost_usd": exc.cost})
+    if exc.cost:
+        try:
+            ResearchDB(root / "research_tree.db", "reviewer/cost").add_review_cost(exc.cost)
+        except ResearchDBError:
+            pass
 
 
 def log_call(root: Path, entry: dict) -> None:
@@ -470,7 +549,7 @@ def main(argv: list[str] | None = None) -> int:
         result = review(cwd, args.kind, args.brief, args.about, args.dimension, args.evaluation, args.session,
                         args.add_dir, args.actor)
     except ReviewError as exc:
-        log_call(root, {**entry, "outcome": exc.code, "error": str(exc)[:600], "cost_usd": exc.cost})
+        record_failure(root, entry, exc)
         print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False))
         return 2
     log_call(root, {**entry, "outcome": "ok", "review_id": result["review_id"], "session": result["session"],

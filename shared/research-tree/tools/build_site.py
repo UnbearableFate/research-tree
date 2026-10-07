@@ -35,6 +35,7 @@ ATTENTION_LABELS = {
     "admission_paused": "准入暂停", "submission_unknown": "提交状态待核对", "run_stale": "作业超时未更新",
     "recheck_pending": "待跨模型复核", "review_unavailable": "评审不可用", "review_budget": "评审费用提醒",
 }
+RECHECK_STATES = {"missing": "缺", "stale": "依据已变", "failed": "未通过", "uncertain": "不确定", "pass": "通过"}
 DISPOSITION_LABELS = {"active": "继续投入", "paused": "暂停", "retired": "不再投入"}
 OUTCOME_LABELS = {"positive_signal": "正向信号", "negative_signal": "负向信号", "inconclusive": "不确定", "invalid": "无效"}
 VERIFICATION_LABELS = {"record_recomputed": "记录级重算", "artifact_imported": "产物级导入", "legacy_unverified": "旧记录（未核验）"}
@@ -303,10 +304,11 @@ def collect(db_path: Path) -> dict:
         if e.get("stage") == "candidate_ready" and "CONFIRMATION_REQUIRED" in e["reasons"]:
             attention.append({"kind": "confirmation_required", "id": n["id"],
                               "text": f"{n['id']} 搜索结果过门槛（candidate_ready），GO 前需在确认 seed 上独立确认"})
-        missing = [r["dimension"] for r in e.get("rechecks") or [] if r["state"] != "pass"]
+        missing = [f"{r['dimension']}（{RECHECK_STATES[r['state']]}，须基于 {str(r['required'])[:12]}）"
+                   for r in e.get("rechecks") or [] if r["state"] != "pass"]
         if e.get("stage") in ("candidate_ready", "confirmed") and missing:
             attention.append({"kind": "recheck_pending", "id": n["id"],
-                              "text": f"{n['id']} 是 GO 候选，复核未完成：{'、'.join(missing)}（research_review "
+                              "text": f"{n['id']} 是 GO 候选，复核未通过或未完成：{'、'.join(missing)}（research_review "
                                       "kind=candidate_recheck，每个维度一次新会话；不能以 Leader 自评代替）"})
         if e["evidence_state"] == "stale":
             attention.append({"kind": "evidence_stale", "id": n["id"],
@@ -390,10 +392,22 @@ def review_attention(root: Path, project: dict) -> list[dict]:
     latest = {}
     for c in calls:
         latest[(c.get("kind"), c.get("about"), c.get("dimension"))] = c
-    out = [{"kind": "review_unavailable", "id": c.get("about"),
-            "text": f"{c.get('kind')} {c.get('about')}{' ' + c['dimension'] if c.get('dimension') else ''}："
-                    f"{(c.get('error') or c.get('outcome'))[:200]}"}
-           for c in latest.values() if c.get("outcome") != "ok"]
+    now = datetime.now(timezone.utc)
+    out = []
+    for c in latest.values():
+        if c.get("outcome") == "ok":
+            continue
+        if c.get("outcome") == "started":  # in progress, unless the host killed it long ago
+            try:
+                started = datetime.fromisoformat(c["ts"].replace("Z", "+00:00"))
+            except (KeyError, ValueError):
+                continue
+            if (now - started).total_seconds() < 4200:
+                continue
+            c = {**c, "error": "调用未结束（宿主可能已终止），费用未知"}
+        out.append({"kind": "review_unavailable", "id": c.get("about"),
+                    "text": f"{c.get('kind')} {c.get('about')}{' ' + c['dimension'] if c.get('dimension') else ''}："
+                            f"{(c.get('error') or c.get('outcome'))[:200]}"})
     alert = project.get("review_usd_alert")
     cost = sum(float(c.get("cost_usd") or 0) for c in calls)
     if alert is not None and cost >= alert:

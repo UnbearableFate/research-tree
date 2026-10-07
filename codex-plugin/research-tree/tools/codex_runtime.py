@@ -439,8 +439,7 @@ class Runtime:
                                             args.get("evaluation"), args.get("session"), args.get("add_dirs") or [],
                                             self.actor)
             except review_call.ReviewError as exc:
-                review_call.log_call(self.root, {**entry, "outcome": exc.code, "error": str(exc)[:600],
-                                                 "cost_usd": exc.cost})
+                review_call.record_failure(self.root, entry, exc)
                 self.summary()
                 raise ValueError(str(exc)) from None
             review_call.log_call(self.root, {**entry, "outcome": "ok", "review_id": result["review_id"],
