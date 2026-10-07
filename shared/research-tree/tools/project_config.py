@@ -152,6 +152,7 @@ def db_fields(config: dict) -> dict:
             # discovery (02, 08): receipts before initial nodes, only verified literature counts
             "require_precheck": config["discovery"]["mode"] != "off" and config["discovery"]["require_precheck"],
             "literature_verification": True,
+            "max_repairs_per_root_cause": config["search"]["max_repairs_per_root_cause"],
         }
     budget, stage1 = config["budget"], config["stage1"]
     return {

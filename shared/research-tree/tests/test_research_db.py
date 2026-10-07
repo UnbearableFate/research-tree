@@ -2744,7 +2744,7 @@ class DesignTest(Fixture):
         return self.rld.create_hypothesis("h", "s", doc, self.literature)
 
     def test_x01_x03_hypothesis_document_gates(self):
-        with self.assertRaisesRegex(ResearchDBError, "lacks the sections Claim map"):  # X01
+        with self.assertRaisesRegex(ResearchDBError, "DESIGN_SECTION_MISSING: .*lacks the sections Claim map"):  # X01
             self.create(self.hyp_doc(omit=("Claim map",)))
         with self.assertRaisesRegex(ResearchDBError, "lacks 失败解释"):  # X01: a block without its interpretation
             self.create(self.hyp_doc(blocks=("成功判据：x",)))
@@ -2766,7 +2766,7 @@ class DesignTest(Fixture):
 
     def test_experiment_design_sections(self):
         h = self.node()
-        with self.assertRaisesRegex(ResearchDBError, "an experiment design has the '## ' sections"):
+        with self.assertRaisesRegex(ResearchDBError, "DESIGN_SECTION_MISSING: .*an experiment design has the"):
             self.method(h)
         self.worker.create_experiment("method", "m", self.design(), self.commit(), 1, 60, hypothesis_id=h,
                                       estimated_node_h=0.1)
@@ -2822,14 +2822,32 @@ class DesignTest(Fixture):
             ResearchDB(self.db, "ui/ui"), "instructions/UI-0400.v1.md", "user_instruction"))
         with self.assertRaisesRegex(ResearchDBError, "CODE_REVIEW_REQUIRED"):
             self.submit(other)
+        with self.assertRaisesRegex(ResearchDBError, "no REVIEW_UNAVAILABLE code_review call"):
+            self.rld.waive_code_review(other, self.decision_doc())
+        log = self.root / "logs" / "review_calls.jsonl"
+        log.parent.mkdir(exist_ok=True)
+        log.write_text(json.dumps({"kind": "code_review", "about": h, "outcome": "REVIEW_UNAVAILABLE"}) + "\n")
         self.rld.waive_code_review(other, self.decision_doc())
         self.submit(other)
+        # a waiver never overrides a review that found blocking issues; the latest review of a commit decides
+        third_code = self.commit()
+        third = self.worker.create_experiment("method", "m", self.design(), third_code, 1, 60, hypothesis_id=h,
+                                              n_seeds=1, estimated_node_h=0.1, selection_rationale="y")
+        for n, result in ((3, "clear"), (4, "blocking")):
+            (reviewer.docs_root / f"reviews/RV-{n:04d}.v1.md").write_text(result, encoding="utf-8")
+            reviewer.register_review(f"reviews/RV-{n:04d}.v1.md", "cr", "code_review", [h], result, f"RV-{n:04d}",
+                                     "pi", "openai/gpt-6-astra", 0.0, code_ref=third_code)
+        with self.assertRaisesRegex(ResearchDBError, "has blocking issues"):
+            self.submit(third)
+        with self.assertRaisesRegex(ResearchDBError, "a waiver is only for an unavailable reviewer"):
+            self.rld.waive_code_review(third, self.decision_doc())
 
     def test_x06_x07_failure_budget(self):
         h = self.node()
         request = self.doc(self.rld, "tasks/T-9/request.v1.md", "task_request")
         task = self.rld.create_task("experiment", "worker", request, target_id=h)
         self.rld.update_task(task, assignee_id="w1")
+        self.assertEqual(self.rld.get("P-test")["max_repairs_per_root_cause"], 2)
         for _ in range(2):
             self.worker.report_failure(task, "NaN loss at step 3", "patch")
         with self.assertRaisesRegex(ResearchDBError, "FAILURE_BUDGET: .*rewrite"):  # X06

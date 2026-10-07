@@ -1,4 +1,4 @@
--- 研究假说树 LatticeDB 数据模型（schema_version 9，2026-10-06）
+-- 研究假说树 LatticeDB 数据模型（schema_version 11，2026-10-07：M3 预留与预算、M4 评审文档与复核、M5 设计门、sanity、失败预算）
 --
 -- 说明
 -- * LatticeDB 是属性图数据库（Cypher 查询），不执行 SQL。本文件用 SQL DDL 作为可读的
@@ -75,6 +75,7 @@ CREATE TABLE project (
     sanity_required     BOOLEAN NOT NULL DEFAULT FALSE,  -- 方法实验提交前须有同一代码的有效 sanity 运行（design.sanity_first）
     require_precheck    BOOLEAN NOT NULL DEFAULT FALSE,  -- 建节点须有查新与批判性评审回执（discovery.require_precheck，02 §3）
     literature_verification BOOLEAN NOT NULL DEFAULT FALSE, -- 只有存在性核验为 verified 的文献计入 min_related_work（08 §2）
+    max_repairs_per_root_cause INTEGER NOT NULL DEFAULT 2,  -- 同一根因至多几次补丁（search.max_repairs_per_root_cause，03 §8）
     screen_seeds        INTEGER,               -- 筛选 seed 数上限（version 2：verification.screening_seeds 的个数）；空则只按筛选预算
     protocol_doc_id     TEXT,                  -- 现行实验协议（JSON 文档：评测类型、配对字段、必须一致的设定）
     metric_spec_doc_id  TEXT,                  -- 现行指标规范（JSON 文档：每个指标的方向、单位、效应、最小实际收益、保护阈值）

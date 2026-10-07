@@ -238,7 +238,7 @@ LIMIT_FIELDS = ("max_parallel_workers", "alert_node_h", "config_doc_id", "total_
                 "confirmation_limit", "repair_limit", "overrun_factor", "stall_structural_at", "stall_human_at",
                 "recheck_required", "review_usd_alert", "screen_seeds", "design_required", "max_primary_claims",
                 "max_core_blocks", "code_review_required", "sanity_required", "require_precheck",
-                "literature_verification")
+                "literature_verification", "max_repairs_per_root_cause")
 # The documents evaluations are computed under (plans/design/04): protocol and metric specification.
 EVIDENCE_DOC_FIELDS = ("protocol_doc_id", "metric_spec_doc_id")
 # Caps the user authorizes (10 §1.5): an agent may lower them, raising one (or lifting it, None) needs the user.
@@ -934,38 +934,38 @@ class ResearchDB:
         goal = project.get("goal_doc_id")
         anchor = self._anchor(tx, goal) if goal else None
         if not anchor or not all(f in anchor for f in ANCHOR_FIELDS):
-            raise ResearchDBError(f"the goal document {goal} needs a '## {ANCHOR_SECTION}' section with "
+            raise CodedError("DESIGN_SECTION_MISSING", f"the goal document {goal} needs a '## {ANCHOR_SECTION}' section with "
                                   f"{', '.join(ANCHOR_FIELDS)} (03 §2); register a goal version with it "
                                   "(update_project goal_doc_id)")
         sections, path = self._doc_sections(tx, doc_id)
         missing = [name for name in HYPOTHESIS_SECTIONS if self._section(sections, name) is None]
         if missing:
-            raise ResearchDBError(f"{doc_id} ({path}) lacks the sections {', '.join(missing)}; a hypothesis document "
+            raise CodedError("DESIGN_SECTION_MISSING", f"{doc_id} ({path}) lacks the sections {', '.join(missing)}; a hypothesis document "
                                   f"has the '## ' sections {', '.join(HYPOTHESIS_SECTIONS)} (03 §10)")
         if self._anchor(tx, doc_id) != anchor:
-            raise ResearchDBError(f"{doc_id}'s {ANCHOR_SECTION} differs from the goal's ({goal}): the anchor is copied "
+            raise CodedError("DESIGN_SECTION_MISSING", f"{doc_id}'s {ANCHOR_SECTION} differs from the goal's ({goal}): the anchor is copied "
                                   "verbatim; a change of the problem is drift — push back, or change the anchor in "
                                   "the goal with the user's instruction")
         rows = [line for line in self._section(sections, "Claim map").splitlines() if line.strip().startswith("|")]
         claims = [r for r in rows[2:] if r.strip("|").strip()]  # header and separator rows first
         if not 1 <= len(claims) <= project.get("max_primary_claims", 2):
-            raise ResearchDBError(f"{doc_id}: the claim map has {len(claims)} claims; 1..{project.get('max_primary_claims', 2)} "
+            raise CodedError("DESIGN_SECTION_MISSING", f"{doc_id}: the claim map has {len(claims)} claims; 1..{project.get('max_primary_claims', 2)} "
                                   "primary claims (design.max_primary_claims)")
         blocks = re.split(r"^###[ \t]+", self._section(sections, "实验块"), flags=re.M)[1:]
         if not 1 <= len(blocks) <= project.get("max_core_blocks", 5):
-            raise ResearchDBError(f"{doc_id}: {len(blocks)} experiment blocks ('### ' under 实验块); "
+            raise CodedError("DESIGN_SECTION_MISSING", f"{doc_id}: {len(blocks)} experiment blocks ('### ' under 实验块); "
                                   f"1..{project.get('max_core_blocks', 5)} (design.max_core_blocks)")
         for block in blocks:
             lacking = [f for f in BLOCK_FIELDS if f not in block]
             if lacking:
-                raise ResearchDBError(f"{doc_id}: experiment block '{block.splitlines()[0].strip()}' lacks "
+                raise CodedError("DESIGN_SECTION_MISSING", f"{doc_id}: experiment block '{block.splitlines()[0].strip()}' lacks "
                                       f"{', '.join(lacking)}: written before the experiment, never after the result")
 
     def _check_design_doc(self, tx: _Tx, doc_id: str) -> None:
         sections, path = self._doc_sections(tx, doc_id)
         missing = [name for name in EXPERIMENT_DESIGN_SECTIONS if self._section(sections, name) is None]
         if missing:
-            raise ResearchDBError(f"{doc_id} ({path}) lacks the sections {', '.join(missing)}; an experiment design "
+            raise CodedError("DESIGN_SECTION_MISSING", f"{doc_id} ({path}) lacks the sections {', '.join(missing)}; an experiment design "
                                   f"has the '## ' sections {', '.join(EXPERIMENT_DESIGN_SECTIONS)} (03 §4, §10)")
 
     def _literature_verified(self, tx: _Tx, doc_id: str) -> bool:
@@ -1017,6 +1017,9 @@ class ResearchDB:
         self._only_fields(changes, ("title", "statement", "doc_id", "owner"))
         with self._writer() as tx:
             tx.require(hypothesis_id, ("hypothesis",))
+            project = self._project(tx)
+            if "doc_id" in changes and project.get("design_required"):
+                self._check_hypothesis_doc(tx, project, changes["doc_id"])
             self._update(tx, hypothesis_id, changes)
 
     # -- decisions --------------------------------------------------------------
@@ -1791,6 +1794,8 @@ class ResearchDB:
         self._only_fields(optional, ("config_path", "owner", "keep", "keep_reason", "stage", "selection_rationale",
                                      "estimated_node_h", "milestone", "budget_pool", "ablation_of",
                                      "source_review_id"))
+        if optional.get("milestone") is None:  # 03 §6: sanity M0, ablation M3, screen/replicate/confirm M2
+            optional["milestone"] = {"sanity": "M0", "baseline": "M1", "ablation": "M3"}.get(kind, "M2")
         estimate = optional.get("estimated_node_h")
         if not (isinstance(estimate, (int, float)) and not isinstance(estimate, bool) and estimate > 0):
             raise ResearchDBError("estimated_node_h (the experiment's cost estimate over all its seeds, node-h > 0) "
@@ -1957,31 +1962,59 @@ class ResearchDB:
                 raise CodedError("SANITY_REQUIRED", f"{exp['id']}: run a sanity experiment (kind sanity) of code "
                                                     f"{exp['code_ref'][:10]} first and accept its run (valid=true: "
                                                     "counts, loss, metric file, reload) — the exit code is not enough")
-        if project.get("code_review_required") and not exp.get("code_review_waiver_doc_id"):
-            reviews = [d for d in (tx.get(i) for i in tx.ids("document", "WHERE n.doc_type = $t", t="review"))
-                       if d["status"] == "current" and d.get("review_kind") == "code_review"
-                       and d.get("basis_code_ref") == exp["code_ref"]]
-            if not any(d["review_result"] == "clear" for d in reviews):
-                why = "has blocking issues; fix them and review again (at most 2 rounds)" if reviews else "is missing"
+        latest = self._latest_code_review(tx, exp["code_ref"])
+        if project.get("code_review_required") and (latest is not None or not exp.get("code_review_waiver_doc_id")):
+            if latest is None or latest["review_result"] != "clear":
+                why = ("has blocking issues; fix them and review again (at most 2 rounds)" if latest else "is missing")
                 raise CodedError("CODE_REVIEW_REQUIRED", f"{exp['id']}: the code review of {exp['code_ref'][:10]} "
                                                          f"{why} (research_review kind=code_review with code_ref); "
                                                          "when the reviewer is unavailable the Leader may release it "
                                                          "with a decision document (waive_code_review)")
 
+    def _latest_code_review(self, tx: _Tx, code_ref: str) -> dict | None:
+        """The most recent current code_review of a commit: a later blocking review overrides an earlier clear one."""
+        reviews = [d for d in (tx.get(i) for i in tx.ids("document", "WHERE n.doc_type = $t", t="review"))
+                   if d["status"] == "current" and d.get("review_kind") == "code_review"
+                   and d.get("basis_code_ref") == code_ref]
+        return max(reviews, key=lambda d: int(d["id"].split("-")[1])) if reviews else None
+
     def waive_code_review(self, experiment_id: str, doc_id: str) -> None:
-        """rld: release an experiment without a clear code review (the reviewer was unavailable, 03 §8, X10); doc_id
-        is the current decision document that records why."""
+        """rld: release an experiment without a clear code review — only when the reviewer was unavailable for it
+        (a REVIEW_UNAVAILABLE code_review call about the node in logs/review_calls.jsonl) and no review of the
+        commit found blocking issues (03 §8, X10); doc_id is the current decision document that records why."""
         self._require_role("rld")
         with self._writer() as tx:
-            tx.require(experiment_id, ("experiment",))
+            exp = tx.require(experiment_id, ("experiment",))
+            latest = self._latest_code_review(tx, exp["code_ref"])
+            if latest is not None:
+                raise CodedError("CODE_REVIEW_REQUIRED", f"{exp['code_ref'][:10]} has a code review ({latest['id']}, "
+                                                         f"{latest['review_result']}): fix and review again; a waiver "
+                                                         "is only for an unavailable reviewer")
+            if not self._review_unavailable(exp.get("hypothesis_id")):
+                raise CodedError("CODE_REVIEW_REQUIRED", "no REVIEW_UNAVAILABLE code_review call is recorded for "
+                                                         f"{exp.get('hypothesis_id')}: request the review first")
             doc = tx.require(doc_id, ("document",))
             if (doc["doc_type"], doc["status"]) != ("decision", "current"):
                 raise ResearchDBError("waiving the code review needs a current decision document")
             self._update(tx, experiment_id, {"code_review_waiver_doc_id": doc_id})
             tx.link("rel_describes", doc_id, experiment_id)
 
+    def _review_unavailable(self, about: str | None) -> bool:
+        log = self.db_path.parent / "logs" / "review_calls.jsonl"
+        if not about or not log.is_file():
+            return False
+        for line in log.read_text(encoding="utf-8").splitlines():
+            try:
+                entry = json.loads(line)
+            except json.JSONDecodeError:
+                continue
+            if (entry.get("kind"), entry.get("about"), entry.get("outcome")) == ("code_review", about,
+                                                                                 "REVIEW_UNAVAILABLE"):
+                return True
+        return False
+
     def report_failure(self, task_id: str, root_cause: str, remedy: str) -> dict:
-        """03 §8 failure budget, per task and root cause: at most 2 patches, then at most 2 rewrites from the
+        """03 §8 failure budget, per task and root cause: at most search.max_repairs_per_root_cause patches (2), then at most 2 rewrites from the
         hypothesis document; a 3rd patch is refused (rewrite or report); a failure after 2 rewrites blocks the task
         and reports it (an attention item) — the plan or the environment is to blame, no more retries."""
         if remedy not in ("patch", "rewrite"):
@@ -1999,7 +2032,8 @@ class ResearchDB:
             same = [f for f in log if f["root_cause"] == cause]
             patches = sum(f["remedy"] == "patch" for f in same)
             rewrites = sum(f["remedy"] == "rewrite" for f in same)
-            if remedy == "patch" and (patches >= FAILURE_PATCHES or rewrites):
+            limit = self._project(tx).get("max_repairs_per_root_cause") or FAILURE_PATCHES
+            if remedy == "patch" and (patches >= limit or rewrites):
                 raise CodedError("FAILURE_BUDGET", f"{cause!r} was patched {patches} time(s): rewrite from the "
                                                    "hypothesis document, or report to the Leader")
             entry = {"root_cause": cause, "remedy": remedy, "by": f"{self.role}/{self.agent}", "at": now_utc()}
