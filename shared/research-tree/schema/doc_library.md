@@ -102,13 +102,13 @@ created_at: 2026-10-03T10:21:00Z
 
 | doc_type | 作者 | 必需内容 |
 |---|---|---|
-| `goal` | RLD（据用户指令） | 研究问题、目标场景、发表目标、范围与排除项、所依据的用户指令ID |
+| `goal` | RLD（据用户指令） | 研究问题、目标场景、发表目标、范围与排除项、所依据的用户指令ID；**`## 问题锚点`**：底线问题、必须解决的瓶颈、非目标、约束、成功条件（版本 2 配置下，假说文档逐字复制，接口核对） |
 | `min_setup` | RLD | 模型、数据、训练量、评测（模型与数据集写 Hugging Face Hub 正式 ID，数据集含 config 与 split）；主指标及优劣方向、是否百分比指标；其他比较指标（过程loss、显存、训练时间等）；统一seed顺序；评测类型（与协议的 eval_type 相同）及它限制的结论措辞；SOTA基线方法与来源，以及每个基线家族的合理调参机会、训练量与数据处理（不能以一个未调好的单一配置代表现有方法）；单次运行上限与筛选预算；**冻结的实验框架与统计代码**：版本、文件清单、记录的指标与曲线、配对比较方法、判定规则（无提升/差不多/优于父节点/优于SOTA/需要RLD复核的具体口径） |
-| `hypothesis` | RLD | 一句话可证伪假说；**创建理由**：参考了哪些相关研究（列出被引用的literature文档ID）、它们留下的空白、为什么本节点具有基本的新颖性和理论正确性；机制；**计划的代码改动**；可证伪预测与实验计划；竞争解释；与父节点的差异 |
+| `hypothesis` | RLD | 版本 2 配置下必需的 `## ` 章节（接口检查）：问题锚点（与 goal 逐字一致）、方法步骤、技术缺口、可证伪预测与竞争解释、最接近工作与差异、Claim map（表格，主 claim 不超过 `design.max_primary_claims`）、实验块（每块一个 `### `，不超过 `design.max_core_blocks`，每块含“成功判据”“失败解释”）、成本估计、停止条件、有意舍弃的复杂度。另写：一句话可证伪假说；**创建理由**：参考了哪些相关研究（列出被引用的literature文档ID）、它们留下的空白、为什么本节点具有基本的新颖性和理论正确性；机制；**计划的代码改动**；可证伪预测与实验计划；竞争解释；与父节点的差异 |
 | `novelty` | RLD | 节点优于SOTA后的复核：检索记录（查询词、来源、日期），范围不限于创建时引用的文献；最接近工作的逐项对比表（机制、适用条件、实验设定、已报告结果、差异）；结论 |
 | `theory` | RLD | 节点优于SOTA后的复核：推导或论证的逐步核对；关键假设；与实验结果是否一致；结论 |
 | `literature` | worker/助手 | 出处（标题、作者、年份、arXiv ID/DOI/URL）、访问日期、本地缓存路径、核心方法、实验设定与结果、与本项目的关系 |
-| `experiment_design` | worker | 要验证的代码改动；代码版本（含冻结框架）；配置；seed数（按筛选预算）；单次运行资源（不超过上限）；有效性验收标准 |
+| `experiment_design` | worker | 版本 2 配置下方法与消融实验必需的 `## ` 章节：检验的 claim、存在理由、数据与切分、比较系统、指标、设定、成功判据、失败解释、表图目标、优先级与成本。另写：要验证的代码改动；代码版本（含冻结框架）；配置；seed数（按筛选预算）；单次运行资源（不超过上限）；有效性验收标准 |
 | `experiment_result` | worker | 逐seed的主指标、其他指标、过程曲线路径、实际节点数与时长；与父节点和SOTA的配对差值及离散度（取自冻结统计代码写出的统计文件或 `preview_evaluation` 的只读预览，`evaluate_experiment` 再与接口重算值核对；不手算）；判定及依据；局限；原始产物路径。文中每个数字在一个 ` ```evidence ` 代码块里列出来源：`[{"id", "value", "source"}]`，`source` 相对研究根目录（如 `outputs/E-0002/s42/metrics.json`）；设为现行时接口逐项核对数值以精确十进制出现在来源文件中，找不到即拒绝（STAT_MISMATCH）。来源文件用常规 JSON（`"acc": 0.9` 或紧凑的 `"acc":0.9`）或以空格分隔的文本；CSV 的 `0.1,0.2` 这类逗号紧接的数字不会被识别（防止与千位分隔混淆）。汇总数字用保留编号：`mean:<指标>`（主指标均值必填）、`sd:<指标>`、`delta:<sota\|parent>:<指标>`，计算时按写出的小数位与重算值核对；每个已导入运行的指标文件都要引用 |
 | `decision` | RLD | 变更字段与前后取值；理由；依据（实验、文档、用户指令ID）；判定为“需要RLD复核”时RLD的判断理由 |
 | `user_instruction` | UI | 用户原话（逐字）；UI的理解；类型（指令/偏好/问题/讨论）；生效范围；取代的旧指令ID |
@@ -118,7 +118,7 @@ created_at: 2026-10-03T10:21:00Z
 | `report` | RLD | 阶段总结、GO/NOT GO报告（第6、7节要求的内容） |
 | `metric_spec` | RLD | JSON：`{"version": 1, "primary": <主指标>, "metrics": [...]}`，每个指标 `name`、`direction`（higher/lower）、`input_unit`（run 报告的单位，如 fraction、percentage、seconds、gib）、`canonical_unit`（比较单位，如 percentage_point）、`effect_mode`（absolute 或 relative_to_reference_mean）、`minimum_practical_gain`、`aggregation`（paired_run_mean），可选 `allowed_regression`（保护指标允许的最大退化）、`valid_range`（输入单位的合法范围；fraction 默认 [0,1]、percentage 默认 [0,100]。百分数指标收到 0–1 的比例时默认范围查不出，需要时把 valid_range 收紧到实际可能的区间）、`relative_min_denominator`（相对效应必填）；指标恰为项目的主指标与其他比较指标。设为现行时接口校验 |
 | `protocol` | RLD | JSON：`{"version": 1, "eval_type": real_gt/synthetic_proxy/self_supervised_proxy/simulation_only/human_eval, "pair_fields": ["seed", ...], "match": {必须一致的设定}, "required_counts": {计数: 值}}`，可选 `gate_comparison`（">" 或 ">="，默认 ">"）、`min_pairs`、`require_artifact_import`、`description`；`profile`（`stage1_confirmed`（默认）：GO 需要独立确认；`screening`：搜索过门槛即 candidate_ready，GO 报告须写明未经独立确认）、`confirmation_seeds`（与搜索 seed 不重叠，至少 `min_confirmation_pairs` 个，默认 3）、`max_confirmation_candidates`、`independence_fields`（共享这些 manifest 字段的运行只算一次独立重复）。设为现行时接口校验 |
-| `review` | reviewer（只经 `review_call.py`） | front matter：kind、about、dimension 与 evaluation_id（candidate_recheck）、result、backend（pi/claude_code）、provider、请求与 observed 的模型、thinking、会话、brief 路径、终止原因、费用与用量、permission_denials、原始输出路径（`cache/reviews/`）；正文为 reviewer 原文与结构化 JSON。Leader 不能登记或替换 review 文档 |
+| `review` | reviewer（只经 `review_call.py`） | front matter：kind、about、dimension 与 evaluation_id（candidate_recheck）、code_ref（code_review：所读提交，提交作业时核对同一提交）、result、backend（pi/claude_code）、provider、请求与 observed 的模型、thinking、会话、brief 路径、终止原因、费用与用量、permission_denials、原始输出路径（`cache/reviews/`）；正文为 reviewer 原文与结构化 JSON。Leader 不能登记或替换 review 文档 |
 | `config` | RLD（mod 代用户登记） | 项目目录 `research-tree.yaml` 的原文：开发与实验平台、资源预算、阶段1门槛、子代理模型；立项确认与每次 `/research-tree config apply` 时登记新版本 |
 
 ## 5. 写入权限

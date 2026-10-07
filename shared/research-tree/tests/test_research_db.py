@@ -2707,3 +2707,212 @@ class CandidateRecheckTest(Fixture):
         self.assertEqual(states, {"numbers": "stale", "protocol": "stale", "method_code": "pass", "novelty": "pass",
                                   "theory": "pass"})
         self.assertIn("RECHECK_STALE", state["reasons"])
+
+
+ANCHOR = ("## 问题锚点\n\n- 底线问题：玩具优化器在相同轮数下的验证准确率\n- 必须解决的瓶颈：早期震荡\n"
+          "- 非目标：不换模型\n- 约束：CPU、秒级\n- 成功条件：配对提升超过门槛\n\n")
+DESIGN_BODY = "".join(f"## {name}\n\n内容\n\n" for name in rdb.EXPERIMENT_DESIGN_SECTIONS)
+
+
+class DesignTest(Fixture):
+    """03 §13 X01–X03, X05–X07, X09–X11: from idea to experiment design."""
+
+    def setUp(self):
+        super().setUp()
+        goal = self.doc(self.rld, "project/goal.v1.md", "goal", body="# 目标\n\n" + ANCHOR)
+        self.rld.update_project(goal_doc_id=goal, design_required=True)
+
+    def hyp_doc(self, anchor: str = ANCHOR, claims: int = 1, blocks: tuple[str, ...] = ("成功判据：x\n失败解释：y",),
+                omit: tuple[str, ...] = ()) -> str:
+        parts = []
+        for name in rdb.HYPOTHESIS_SECTIONS:
+            if name in omit:
+                continue
+            if name == "问题锚点":
+                parts.append(anchor)
+            elif name == "Claim map":
+                rows = "".join(f"| C{i} | 重要 | 证据 | 反claim | B1 |\n" for i in range(claims))
+                parts.append("## Claim map\n\n| Claim | 为什么重要 | 最小证据 | 反 claim | 实验块 |\n|---|---|---|---|---|\n"
+                             + rows + "\n")
+            elif name == "实验块":
+                parts.append("## 实验块\n\n" + "".join(f"### B{i}\n{b}\n\n" for i, b in enumerate(blocks)))
+            else:
+                parts.append(f"## {name}\n\n内容\n\n")
+        return self.doc(self.rld, f"h/d{self.n}/hypothesis.v1.md", "hypothesis", body="".join(parts))
+
+    def create(self, doc: str) -> str:
+        return self.rld.create_hypothesis("h", "s", doc, self.literature)
+
+    def test_x01_x03_hypothesis_document_gates(self):
+        with self.assertRaisesRegex(ResearchDBError, "DESIGN_SECTION_MISSING: .*lacks the sections Claim map"):  # X01
+            self.create(self.hyp_doc(omit=("Claim map",)))
+        with self.assertRaisesRegex(ResearchDBError, "lacks 失败解释"):  # X01: a block without its interpretation
+            self.create(self.hyp_doc(blocks=("成功判据：x",)))
+        with self.assertRaisesRegex(ResearchDBError, "drift"):  # X02
+            self.create(self.hyp_doc(anchor=ANCHOR.replace("早期震荡", "收敛慢")))
+        with self.assertRaisesRegex(ResearchDBError, "the claim map has 3 claims"):  # X03
+            self.create(self.hyp_doc(claims=3))
+        with self.assertRaisesRegex(ResearchDBError, "6 experiment blocks"):
+            self.create(self.hyp_doc(blocks=("成功判据 失败解释",) * 6))
+        self.assertTrue(self.create(self.hyp_doc(claims=2)).startswith("H-"))
+
+    def node(self) -> str:
+        h = self.create(self.hyp_doc())
+        self.start(h)
+        return h
+
+    def design(self) -> str:
+        return self.doc(self.worker, f"exp/full{self.n}/design.v1.md", "experiment_design", body=DESIGN_BODY)
+
+    def test_experiment_design_sections(self):
+        h = self.node()
+        with self.assertRaisesRegex(ResearchDBError, "DESIGN_SECTION_MISSING: .*an experiment design has the"):
+            self.method(h)
+        self.worker.create_experiment("method", "m", self.design(), self.commit(), 1, 60, hypothesis_id=h,
+                                      estimated_node_h=0.1)
+
+    def test_x05_sanity_counts_toward_nothing(self):
+        h = self.node()
+        code = self.commit()
+        before = self.rld.screen_seed_count()
+        sanity = self.worker.create_experiment("sanity", "smoke", self.design(), code, 1, 60, hypothesis_id=h,
+                                               estimated_node_h=0.01)
+        self.assertEqual(len(self.rld.get(sanity)["seeds"]), 1)
+        self.finish_runs(self.worker, sanity)
+        self.assertEqual(self.rld.screen_seed_count(), before)
+        with self.assertRaisesRegex(ResearchDBError, "sanity check"):
+            self.worker.evaluate_experiment(sanity, self.result_doc(exp=sanity))
+        with self.assertRaisesRegex(ResearchDBError, "not extended"):
+            self.worker.extend_seeds(sanity, 2)
+        self.assertIsNone(self.rld.get_eligibility(h)["basis_evaluation_id"])
+
+    def submit(self, exp: str) -> None:
+        run = f"{exp}/s{self.rld.get(exp)['seeds'][0]}"
+        if self.rld.get(run) is None:
+            self.worker.create_run(exp, self.rld.get(exp)["seeds"][0])
+        self.worker.update_run(run, exec_status="submitted")
+
+    def test_sanity_and_code_review_before_submission_x10(self):
+        h = self.node()
+        code = self.commit()
+        self.rld.update_project(sanity_required=True, code_review_required=True)
+        exp = self.worker.create_experiment("method", "m", self.design(), code, 1, 60, hypothesis_id=h, n_seeds=1,
+                                            estimated_node_h=0.1)
+        with self.assertRaisesRegex(ResearchDBError, "SANITY_REQUIRED"):
+            self.submit(exp)
+        sanity = self.worker.create_experiment("sanity", "smoke", self.design(), code, 1, 60, hypothesis_id=h,
+                                               estimated_node_h=0.01)
+        self.finish_runs(self.worker, sanity)
+        with self.assertRaisesRegex(ResearchDBError, "CODE_REVIEW_REQUIRED: .*is missing"):
+            self.submit(exp)
+        reviewer = ResearchDB(self.db, "reviewer/pi")
+        (reviewer.docs_root / "reviews").mkdir(exist_ok=True)
+        for n, result in ((1, "blocking"), (2, "clear")):
+            (reviewer.docs_root / f"reviews/RV-{n:04d}.v1.md").write_text(result, encoding="utf-8")
+            reviewer.register_review(f"reviews/RV-{n:04d}.v1.md", "cr", "code_review", [h], result, f"RV-{n:04d}",
+                                     "pi", "openai/gpt-6-astra", 0.0, code_ref=code)
+            if result == "blocking":
+                with self.assertRaisesRegex(ResearchDBError, "has blocking issues"):
+                    self.submit(exp)
+        self.submit(exp)
+        # X10: the reviewer is unavailable for other code: the Leader releases it with a decision record
+        other = self.worker.create_experiment("method", "m", self.design(), self.commit(), 1, 60, hypothesis_id=h,
+                                              n_seeds=1, estimated_node_h=0.1, selection_rationale="x")
+        self.rld.update_project(sanity_required=False, user_instruction_doc_id=self.doc(
+            ResearchDB(self.db, "ui/ui"), "instructions/UI-0400.v1.md", "user_instruction"))
+        with self.assertRaisesRegex(ResearchDBError, "CODE_REVIEW_REQUIRED"):
+            self.submit(other)
+        with self.assertRaisesRegex(ResearchDBError, "no REVIEW_UNAVAILABLE code_review call"):
+            self.rld.waive_code_review(other, self.decision_doc())
+        log = self.root / "logs" / "review_calls.jsonl"
+        log.parent.mkdir(exist_ok=True)
+        log.write_text(json.dumps({"kind": "code_review", "about": h, "outcome": "REVIEW_UNAVAILABLE"}) + "\n")
+        self.rld.waive_code_review(other, self.decision_doc())
+        self.submit(other)
+        # a waiver never overrides a review that found blocking issues; the latest review of a commit decides
+        third_code = self.commit()
+        third = self.worker.create_experiment("method", "m", self.design(), third_code, 1, 60, hypothesis_id=h,
+                                              n_seeds=1, estimated_node_h=0.1, selection_rationale="y")
+        for n, result in ((3, "clear"), (4, "blocking")):
+            (reviewer.docs_root / f"reviews/RV-{n:04d}.v1.md").write_text(result, encoding="utf-8")
+            reviewer.register_review(f"reviews/RV-{n:04d}.v1.md", "cr", "code_review", [h], result, f"RV-{n:04d}",
+                                     "pi", "openai/gpt-6-astra", 0.0, code_ref=third_code)
+        with self.assertRaisesRegex(ResearchDBError, "has blocking issues"):
+            self.submit(third)
+        with self.assertRaisesRegex(ResearchDBError, "a waiver is only for an unavailable reviewer"):
+            self.rld.waive_code_review(third, self.decision_doc())
+
+    def test_x06_x07_failure_budget(self):
+        h = self.node()
+        request = self.doc(self.rld, "tasks/T-9/request.v1.md", "task_request")
+        task = self.rld.create_task("experiment", "worker", request, target_id=h)
+        self.rld.update_task(task, assignee_id="w1")
+        self.assertEqual(self.rld.get("P-test")["max_repairs_per_root_cause"], 2)
+        for _ in range(2):
+            self.worker.report_failure(task, "NaN loss at step 3", "patch")
+        with self.assertRaisesRegex(ResearchDBError, "FAILURE_BUDGET: .*rewrite"):  # X06
+            self.worker.report_failure(task, "nan loss at step 3", "patch")
+        for _ in range(2):
+            self.assertFalse(self.worker.report_failure(task, "NaN loss at step 3", "rewrite")["blocked"])
+        self.assertTrue(self.worker.report_failure(task, "NaN loss at step 3", "rewrite")["blocked"])  # X07
+        with self.assertRaisesRegex(ResearchDBError, "FAILURE_BUDGET: .*blocked"):
+            self.worker.create_experiment("method", "m", self.design(), self.commit(), 1, 60, hypothesis_id=h,
+                                          estimated_node_h=0.1)
+        import build_site
+        kinds = [a["kind"] for a in build_site.build(self.db, self.root / "site" / "index.html")["attention"]]
+        self.assertIn("task_blocked", kinds)
+        self.rld.unblock_task(task, self.decision_doc())
+        self.worker.create_experiment("method", "m", self.design(), self.commit(), 1, 60, hypothesis_id=h,
+                                      estimated_node_h=0.1)
+
+    def test_x09_no_op_ablation(self):
+        h = self.node()
+        code = self.commit()
+        base = self.worker.create_experiment("method", "m", self.design(), code, 1, 60, hypothesis_id=h,
+                                             estimated_node_h=0.1)
+        reviewer = ResearchDB(self.db, "reviewer/pi")
+        (reviewer.docs_root / "reviews").mkdir(exist_ok=True)
+        (reviewer.docs_root / "reviews/RV-0001.v1.md").write_text("plan", encoding="utf-8")
+        plan = reviewer.register_review("reviews/RV-0001.v1.md", "ap", "ablation_plan", [h], "planned", "RV-0001",
+                                        "pi", "openai/gpt-6-astra", 0.0)
+        with self.assertRaisesRegex(ResearchDBError, "names source_review_id"):
+            self.worker.create_experiment("ablation", "m", self.design(), code, 1, 60, hypothesis_id=h,
+                                          ablation_of=base, estimated_node_h=0.1)
+        with self.assertRaisesRegex(ResearchDBError, "no-op ablation"):
+            self.worker.create_experiment("ablation", "m", self.design(), code, 1, 60, hypothesis_id=h,
+                                          ablation_of=base, source_review_id=plan, estimated_node_h=0.1)
+        self.worker.create_experiment("ablation", "m - component A", self.design(), self.commit(), 1, 60,
+                                      hypothesis_id=h, ablation_of=base, source_review_id=plan, estimated_node_h=0.1)
+
+
+class ProxyWordingTest(Fixture):
+    """X11: a synthetic-proxy evaluation bounds the wording of results."""
+
+    protocol_content = {**PROTOCOL, "eval_type": "synthetic_proxy"}
+
+    def test_x11(self):
+        doc = self.doc(self.rld, "reports/x11.v1.md", "report", current=False, body="# 结果\n\n本方法优于 SOTA。\n")
+        with self.assertRaisesRegex(ResearchDBError, "CLAIM_EXCEEDS_EVAL_TYPE: .*synthetic_proxy"):
+            self.rld.set_document_current(doc)
+        ok = self.doc(self.rld, "reports/x11b.v1.md", "report", body="# 结果\n\n在合成代理指标上相对提升 0.3 个百分点。\n")
+        self.assertEqual(self.rld.get(ok)["status"], "current")
+
+
+class SanityScaleTest(Fixture):
+    """03 §8: a sanity run is minimal; the protocol's scale (required counts, matched settings) is asked of the
+    runs that join comparisons, not of it."""
+
+    def test_minimal_sanity_run_is_imported_without_the_protocol_scale(self):
+        from unittest import mock
+        h = self.hypothesis()
+        self.start(h)
+        design = self.doc(self.worker, "exp/s.v1.md", "experiment_design")
+        sanity = self.worker.create_experiment("sanity", "smoke", design, self.commit(), 1, 60, hypothesis_id=h,
+                                               estimated_node_h=0.01)
+        method = self.method(h, n_seeds=1)
+        scaled = {**PROTOCOL, "required_counts": {"n_val": 400}}
+        with mock.patch.object(rdb.ResearchDB, "_protocol", return_value=scaled):
+            self.imported(sanity, counts={"n_val": 10})
+            with self.assertRaisesRegex(ResearchDBError, "PAIRING_MISMATCH: .*the protocol requires 400"):
+                self.imported(method, counts={"n_val": 10})
+        self.assertTrue(self.rld.get(f"{sanity}/s{self.rld.get(sanity)['seeds'][0]}")["valid"])

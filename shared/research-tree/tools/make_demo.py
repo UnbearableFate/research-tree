@@ -60,6 +60,21 @@ def task_body(*contents: str, kind: str = "task_request") -> str:
     return "".join(f"## {name}\n\n{text}\n\n" for name, text in zip(TASK_SECTIONS[kind], contents, strict=True))
 
 
+ANCHOR = ("## 问题锚点\n\n- 底线问题：LoRA 微调中优化器在小批量下的二阶矩估计噪声\n"
+          "- 必须解决的瓶颈：最强基线在 1000 步内精度不稳定\n- 非目标：不改模型结构、不扩大数据\n"
+          "- 约束：单次运行 8 nodes × 1 h，筛选预算 10 node·h\n- 成功条件：3 个统一 seed 上配对领先超过最小实际收益\n\n")
+
+
+def design_body(lead: str) -> str:
+    """An experiment design's sections (plans/design 03 §4): one experiment block."""
+    return (f"{lead}\n\n## 检验的 claim\n\n相同步数下 acc 更高。\n\n## 存在理由\n\n主锚定结果。\n\n"
+            "## 数据与切分\n\n常识推理训练集 2K 条，8 任务评测（虚构）。\n\n## 比较系统\n\nSOTA 基线与父节点。\n\n"
+            "## 指标\n\nacc（主），final_loss、loss_auc、peak_mem_gb、train_time_s。\n\n"
+            "## 设定\n\n0.5B 模型，LoRA 秩 16，1000 步，统一 seed。\n\n## 成功判据\n\n配对领先超过 0.05 个百分点。\n\n"
+            "## 失败解释\n\n不过门槛：该改动在此设定下不足以改进。\n\n## 表图目标\n\n主结果表一行。\n\n"
+            "## 优先级与成本\n\nMUST；约 12 node·h。\n")
+
+
 FICTION = "> 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。\n\n"
 
 
@@ -86,6 +101,26 @@ class Demo:
         self.git("-c", "user.name=demo-worker", "-c", "user.email=demo@example.invalid", "commit", "-q", "-m",
                  message, cwd=cwd)
         return self.git("rev-parse", "HEAD", cwd=cwd)
+
+    def ready(self, worker: ResearchDB, h: str, code: str, folder: str, change: str) -> None:
+        """03 §8 before a method experiment is submitted: a sanity run of the same code and a cross-model code
+        review of that commit (both fictional here)."""
+        sdesign = self.doc(worker, f"{folder}/sanity-design.v1.md", "experiment_design", f"{h} sanity",
+                           design_body(f"最小规模 sanity：代码 {code[:10]}。"), "sanity")
+        sanity = worker.create_experiment("sanity", f"{change}（sanity）", sdesign, code, 1, 600, hypothesis_id=h,
+                                          estimated_node_h=0.2)
+        self.values[sanity] = self.finish_experiment(worker, sanity, {}, nodes=1)
+        self.git("tag", f"exp/{sanity}", code)
+        reviewer = ResearchDB(self.root / "research_tree.db", "reviewer/pi")
+        n = len(reviewer.reviews()) + 1
+        rel = f"reviews/RV-{n:04d}.v1.md"
+        (self.docs / "reviews").mkdir(parents=True, exist_ok=True)
+        (self.docs / rel).write_text(f"---\nkind: code_review\nabout: {h}\ncode_ref: {code}\nresult: clear\n"
+                                     "backend: pi\nmodel_observed: openai/gpt-6-astra\n---\n\n" + FICTION +
+                                     f"# code_review：{h}\n\n方法在优化器 step 中实现并被调用；评测标签取自数据集切分；"
+                                     "未发现 CRITICAL/MAJOR 问题（虚构）。\n", encoding="utf-8")
+        reviewer.register_review(rel, f"code_review {h}", "code_review", [h], "clear", f"RV-{n:04d}", "pi",
+                                 "openai/gpt-6-astra", 0.03, code_ref=code, summary="pi openai/gpt-6-astra: clear")
 
     def doc(self, actor: ResearchDB, path: str, doc_type: str, title: str, body: str, summary: str,
             about: tuple[str, ...] = (), parent: str | None = None) -> str:
@@ -199,7 +234,7 @@ class Demo:
                          "## UI的理解\n\n- 类型：指令\n- 范围：阶段1快速验证；阶段2另行授权\n", "立项指令（虚构）")
         goal = self.doc(rld, "project/goal.v1.md", "goal", "研究目标",
                         "## 研究问题\n\n能否改进LoRA微调的优化器，使小模型常识推理平均精度稳定超过最强基线？\n\n"
-                        f"## 依据\n\n用户指令 {instr}。\n", "LoRA优化器方法发现（虚构）")
+                        f"## 依据\n\n用户指令 {instr}。\n\n" + ANCHOR, "LoRA优化器方法发现（虚构）")
         setup_body = (
             "## 最小实验设定\n\n| 项目 | 设定 |\n|---|---|\n| 模型 | 0.5B参数的小型语言模型（虚构） |\n"
             "| 数据 | 常识推理混合训练集2K条（虚构） |\n| 训练 | LoRA秩16，1000步 |\n"
@@ -289,9 +324,17 @@ class Demo:
 
         def node(title, statement, refs, parent=None, rationale=""):
             n = len(rld.find("hypothesis")) + 1
-            body = (f"## 假说\n\n{statement}\n\n## 创建理由\n\n参考：{', '.join(refs)}。{rationale}\n\n"
-                    "## 计划的代码改动\n\n在 `methods/` 中实现该优化器变体，不改动 `harness/`。\n\n"
-                    "## 实验计划\n\n按筛选预算运行，结果接近时扩展到3个seed。\n")
+            body = (f"## 假说\n\n{statement}\n\n## 创建理由\n\n参考：{', '.join(refs)}。{rationale}\n\n" + ANCHOR +
+                    "## 方法步骤\n\n在 `methods/` 中实现该优化器变体（不改动 `harness/`），其余训练设定与SOTA相同。\n\n"
+                    "## 技术缺口\n\n最强基线的二阶矩估计在小批量下噪声大；加数据或调学习率不能消除它。\n\n"
+                    f"## 可证伪预测与竞争解释\n\n预测：{statement} 竞争解释：有效学习率变化；对照：调参后的SOTA。\n\n"
+                    f"## 最接近工作与差异\n\n见 {', '.join(refs[:2])}。\n\n"
+                    "## Claim map\n\n| Claim | 为什么重要 | 最小说服性证据 | 要排除的反 claim | 实验块 |\n|---|---|---|---|---|\n"
+                    "| 相同步数下 acc 更高 | 主结果 | 3 个 seed 配对领先超过门槛 | 学习率效应 | B1 |\n\n"
+                    "## 实验块\n\n### B1 主锚定结果\n检验的 claim：相同步数下 acc 更高。\n成功判据：3 个 seed 配对领先超过 0.05 个百分点。\n"
+                    "失败解释：领先不超过门槛则该机制在此设定下不足以改进。\n\n"
+                    "## 成本估计\n\n每个 seed 4 nodes × 1 h。\n\n## 停止条件\n\n3 个 seed 仍不过门槛即停止投入。\n\n"
+                    "## 有意舍弃的复杂度\n\n不引入额外的预条件矩阵。\n")
             doc = self.doc(rld, f"hypotheses/H-{n:04d}/hypothesis.v1.md", "hypothesis", title, body, statement,
                            parent=parent or PROJECT_ID)
             return rld.create_hypothesis(title, statement, doc, refs, parent)
@@ -307,8 +350,10 @@ class Demo:
 
         def experiment(h, worker, wt, change, effect, verdict_fn, n_seeds=None):
             code = self.commit(wt, {f"methods/{h.lower()}.py": f"# 虚构示例：{change}\n# rev {self.rng.random():.6f}\n"}, change)
-            dsg = self.doc(worker, f"hypotheses/{h}/experiments/{change[:8]}-{self.rng.randint(100, 999)}/design.v1.md",
-                           "experiment_design", f"{h} 实验设计", f"代码 {code[:10]}：{change}。\n", change)
+            folder = f"hypotheses/{h}/experiments/{change[:8]}-{self.rng.randint(100, 999)}"
+            dsg = self.doc(worker, f"{folder}/design.v1.md", "experiment_design", f"{h} 实验设计",
+                           design_body(f"代码 {code[:10]}：{change}。"), change)
+            self.ready(worker, h, code, folder, change)
             exp = worker.create_experiment("method", change, dsg, code, 4, 3600, hypothesis_id=h, n_seeds=n_seeds, estimated_node_h=12.0)
             self.git("tag", f"exp/{exp}", code)
             self.values[exp] = self.finish_experiment(worker, exp, effect, nodes=4)
@@ -451,7 +496,8 @@ class Demo:
                              "确认 seed 上的基线结果。\n" + self.evidence(cbase), "确认基线")
         w_root.evaluate_experiment(cbase, cb_result)
         c_design = self.doc(wk3, f"hypotheses/{h3}/experiments/confirm/design.v1.md", "experiment_design",
-                            f"{h3} 独立确认", f"冻结代码 {rld.get(e3)['code_ref'][:10]}，确认 seed 1042–1044。\n", "独立确认")
+                            f"{h3} 独立确认", design_body(f"冻结代码 {rld.get(e3)['code_ref'][:10]}，确认 seed 1042–1044。"),
+                            "独立确认")
         conf = wk3.create_experiment("method", "moment-balance（确认）", c_design, rld.get(e3)["code_ref"], 4, 3600,
                                      hypothesis_id=h3, stage="confirm", estimated_node_h=12.0)
         self.values[conf] = self.finish_experiment(wk3, conf, {"acc": 0.24, "peak_mem_gb": 1.0, "loss_auc": -0.02}, nodes=4)
@@ -468,7 +514,8 @@ class Demo:
                  "method_code": "尺度平衡在优化器 step 中执行，并被训练脚本调用（虚构）。",
                  "novelty": "最接近的文献A、B未同时处理二阶矩与因子尺度（虚构）。",
                  "theory": "尺度平衡的论证与 loss_auc 的改善一致，结论范围未超出证据（虚构）。"}
-        for n, (dimension, note) in enumerate(notes.items(), 1):
+        first = len(reviewer.reviews()) + 1  # after the code reviews
+        for n, (dimension, note) in enumerate(notes.items(), first):
             rel = f"reviews/RV-{n:04d}.v1.md"
             (self.docs / "reviews").mkdir(parents=True, exist_ok=True)
             (self.docs / rel).write_text(

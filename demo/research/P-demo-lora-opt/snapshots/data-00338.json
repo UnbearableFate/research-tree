@@ -1,0 +1,6646 @@
+{
+ "meta": {
+  "schema_version": 11,
+  "data_version": 338,
+  "updated_at": "2026-10-07T01:10:42Z"
+ },
+ "tables": {
+  "project": [
+   {
+    "id": "P-demo-lora-opt",
+    "title": "虚构示例：LoRA优化器方法发现",
+    "min_setup_doc_id": "D-0003",
+    "primary_metric": "acc",
+    "metric_direction": "higher",
+    "metric_is_percent": true,
+    "secondary_metrics": [
+     "final_loss",
+     "loss_auc",
+     "peak_mem_gb",
+     "train_time_s"
+    ],
+    "seeds": [
+     42,
+     43,
+     44
+    ],
+    "stage": "stage1",
+    "status": "active",
+    "owner": "main",
+    "goal_doc_id": "D-0002",
+    "repo_path": "code",
+    "config_doc_id": "D-0004",
+    "metric_spec_doc_id": "D-0005",
+    "protocol_doc_id": "D-0006",
+    "max_nodes": 8,
+    "max_walltime_s": 3600,
+    "screen_budget_node_h": 10,
+    "gate_seeds": 3,
+    "screen_seeds": 1,
+    "go_margin": 0.05,
+    "min_related_work": 3,
+    "stall_structural_at": 2,
+    "stall_human_at": 4,
+    "overrun_factor": 2.0,
+    "recheck_required": true,
+    "design_required": true,
+    "max_primary_claims": 2,
+    "max_core_blocks": 5,
+    "code_review_required": true,
+    "sanity_required": true,
+    "resume_doc_ids": [
+     "D-0003",
+     "D-0002",
+     "D-0007",
+     "D-0010"
+    ],
+    "review_cost_usd": 0.43,
+    "created_at": "2026-10-07T01:09:18Z",
+    "updated_at": "2026-10-07T01:10:37Z",
+    "worker_id": "root",
+    "harness_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "harness_paths": [
+     "harness"
+    ],
+    "sota_experiment_id": "E-0001"
+   }
+  ],
+  "hypothesis": [
+   {
+    "id": "H-0001",
+    "project_id": "P-demo-lora-opt",
+    "title": "子批次二阶矩预条件",
+    "statement": "用未裁剪的微批次梯度平方替代全批次二阶矩，可改善LoRA更新方向。",
+    "doc_id": "D-0016",
+    "status": "expandable",
+    "experiment_status": "beats_parent",
+    "novelty_recheck": "pending",
+    "theory_recheck": "pending",
+    "priority": 0,
+    "owner": "main",
+    "resume_doc_ids": [
+     "D-0016"
+    ],
+    "disposition": "active",
+    "new_findings_streak": 1,
+    "stall_state": "none",
+    "created_at": "2026-10-07T01:09:30Z",
+    "updated_at": "2026-10-07T01:10:42Z",
+    "worker_id": "h0001",
+    "concluded_at": "2026-10-07T01:09:37Z",
+    "started_at": "2026-10-07T01:09:31Z",
+    "status_reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
+    "first_experiment_at": "2026-10-07T01:09:33Z",
+    "first_result_at": "2026-10-07T01:09:36Z",
+    "direction": "二阶矩估计",
+    "parent_id": "P-demo-lora-opt"
+   },
+   {
+    "id": "H-0002",
+    "project_id": "P-demo-lora-opt",
+    "title": "正交化LoRA更新",
+    "statement": "对LoRA因子更新做正交化可改善条件数，提高精度。",
+    "doc_id": "D-0023",
+    "status": "prunable",
+    "experiment_status": "no_gain",
+    "novelty_recheck": "pending",
+    "theory_recheck": "pending",
+    "priority": 0,
+    "owner": "main",
+    "resume_doc_ids": [
+     "D-0023"
+    ],
+    "disposition": "retired",
+    "new_findings_streak": 0,
+    "stall_state": "none",
+    "created_at": "2026-10-07T01:09:37Z",
+    "updated_at": "2026-10-07T01:09:44Z",
+    "worker_id": "h0002",
+    "concluded_at": "2026-10-07T01:09:44Z",
+    "started_at": "2026-10-07T01:09:39Z",
+    "status_reason": "所有指标都不优于SOTA，按规则消灭。",
+    "first_experiment_at": "2026-10-07T01:09:41Z",
+    "first_result_at": "2026-10-07T01:09:43Z",
+    "disposition_reason": "所有指标都不优于SOTA，按规则消灭。",
+    "reconsider_when": "出现能修复该缺陷的新机制依据",
+    "parent_id": "P-demo-lora-opt"
+   },
+   {
+    "id": "H-0003",
+    "project_id": "P-demo-lora-opt",
+    "title": "子批次二阶矩 + 因子尺度平衡",
+    "statement": "在子批次二阶矩基础上平衡A、B因子尺度，可进一步提升精度。",
+    "doc_id": "D-0031",
+    "status": "expandable",
+    "experiment_status": "beats_sota",
+    "novelty_recheck": "pass",
+    "theory_recheck": "pass",
+    "priority": 0,
+    "owner": "main",
+    "resume_doc_ids": [
+     "D-0031"
+    ],
+    "disposition": "active",
+    "new_findings_streak": 0,
+    "stall_state": "none",
+    "created_at": "2026-10-07T01:09:47Z",
+    "updated_at": "2026-10-07T01:09:59Z",
+    "worker_id": "h0003",
+    "concluded_at": "2026-10-07T01:09:59Z",
+    "started_at": "2026-10-07T01:09:48Z",
+    "status_reason": "优于SOTA且复核通过，可拓展",
+    "first_experiment_at": "2026-10-07T01:09:51Z",
+    "first_result_at": "2026-10-07T01:09:54Z",
+    "beats_sota_at": "2026-10-07T01:09:58Z",
+    "parent_id": "H-0001"
+   },
+   {
+    "id": "H-0004",
+    "project_id": "P-demo-lora-opt",
+    "title": "子批次二阶矩 + 动量重标度",
+    "statement": "按子批次方差重标度动量可减少噪声。",
+    "doc_id": "D-0050",
+    "status": "prunable",
+    "experiment_status": "no_gain",
+    "novelty_recheck": "pending",
+    "theory_recheck": "pending",
+    "priority": 0,
+    "owner": "main",
+    "resume_doc_ids": [
+     "D-0050"
+    ],
+    "disposition": "retired",
+    "new_findings_streak": 0,
+    "stall_state": "none",
+    "created_at": "2026-10-07T01:10:10Z",
+    "updated_at": "2026-10-07T01:10:19Z",
+    "worker_id": "h0004",
+    "concluded_at": "2026-10-07T01:10:19Z",
+    "started_at": "2026-10-07T01:10:12Z",
+    "status_reason": "相对父节点各项指标都不更好，按规则消灭。",
+    "first_experiment_at": "2026-10-07T01:10:15Z",
+    "first_result_at": "2026-10-07T01:10:18Z",
+    "disposition_reason": "相对父节点各项指标都不更好，按规则消灭。",
+    "reconsider_when": "出现能修复该缺陷的新机制依据",
+    "parent_id": "H-0001"
+   },
+   {
+    "id": "H-0005",
+    "project_id": "P-demo-lora-opt",
+    "title": "Kronecker因子对角近似",
+    "statement": "对Kronecker预条件取对角近似，在低秩上以低成本获得二阶信息。",
+    "doc_id": "D-0058",
+    "status": "verifying",
+    "experiment_status": "running",
+    "novelty_recheck": "pending",
+    "theory_recheck": "pending",
+    "priority": 0,
+    "owner": "main",
+    "resume_doc_ids": [
+     "D-0058",
+     "D-0074"
+    ],
+    "disposition": "active",
+    "new_findings_streak": 0,
+    "stall_state": "none",
+    "created_at": "2026-10-07T01:10:22Z",
+    "updated_at": "2026-10-07T01:10:23Z",
+    "worker_id": "h0005",
+    "started_at": "2026-10-07T01:10:23Z",
+    "status_reason": "开始代码改进与实验",
+    "first_experiment_at": "2026-10-07T01:10:26Z",
+    "first_result_at": "2026-10-07T01:10:29Z",
+    "parent_id": "P-demo-lora-opt"
+   },
+   {
+    "id": "H-0006",
+    "project_id": "P-demo-lora-opt",
+    "title": "完整Kronecker二阶预条件",
+    "statement": "对每层使用完整Kronecker因子预条件。",
+    "doc_id": "D-0064",
+    "status": "prunable",
+    "experiment_status": "todo",
+    "novelty_recheck": "pending",
+    "theory_recheck": "pending",
+    "priority": 0,
+    "owner": "main",
+    "resume_doc_ids": [
+     "D-0064"
+    ],
+    "disposition": "retired",
+    "new_findings_streak": 0,
+    "stall_state": "none",
+    "created_at": "2026-10-07T01:10:30Z",
+    "updated_at": "2026-10-07T01:10:31Z",
+    "concluded_at": "2026-10-07T01:10:31Z",
+    "status_reason": "用户决定放弃（超出单次运行上限）",
+    "disposition_reason": "用户决定放弃（超出单次运行上限）",
+    "reconsider_when": "用户提供新的预算或资源",
+    "parent_id": "P-demo-lora-opt"
+   },
+   {
+    "id": "H-0007",
+    "project_id": "P-demo-lora-opt",
+    "title": "8-bit优化器状态",
+    "statement": "以8-bit存储优化器状态，在精度不变时显著降低显存。",
+    "doc_id": "D-0067",
+    "status": "verifying",
+    "experiment_status": "running",
+    "novelty_recheck": "pending",
+    "theory_recheck": "pending",
+    "priority": 0,
+    "owner": "main",
+    "resume_doc_ids": [
+     "D-0067"
+    ],
+    "disposition": "paused",
+    "new_findings_streak": 0,
+    "stall_state": "none",
+    "created_at": "2026-10-07T01:10:32Z",
+    "updated_at": "2026-10-07T01:10:41Z",
+    "worker_id": "h0007",
+    "started_at": "2026-10-07T01:10:33Z",
+    "status_reason": "开始代码改进与实验",
+    "first_experiment_at": "2026-10-07T01:10:36Z",
+    "first_result_at": "2026-10-07T01:10:39Z",
+    "disposition_reason": "精度持平、只省显存；阶段1目标是精度，暂不投入",
+    "reconsider_when": "用户把显存列为阶段目标，或出现精度改进的组合依据",
+    "parent_id": "P-demo-lora-opt"
+   },
+   {
+    "id": "H-0008",
+    "project_id": "P-demo-lora-opt",
+    "title": "自适应秩分配",
+    "statement": "按层的子批次方差分配LoRA秩，可在同等参数量下提升精度。",
+    "doc_id": "D-0073",
+    "status": "pending",
+    "experiment_status": "todo",
+    "novelty_recheck": "pending",
+    "theory_recheck": "pending",
+    "priority": 0,
+    "owner": "main",
+    "resume_doc_ids": [
+     "D-0073"
+    ],
+    "disposition": "active",
+    "new_findings_streak": 0,
+    "stall_state": "none",
+    "created_at": "2026-10-07T01:10:40Z",
+    "updated_at": "2026-10-07T01:10:40Z",
+    "parent_id": "H-0003"
+   }
+  ],
+  "experiment": [
+   {
+    "id": "E-0001",
+    "project_id": "P-demo-lora-opt",
+    "kind": "baseline",
+    "method_name": "BaseOpt-A（虚构SOTA）",
+    "design_doc_id": "D-0008",
+    "code_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "seeds": [
+     42,
+     43,
+     44
+    ],
+    "nodes": 4,
+    "walltime_s": 3600,
+    "stage": "screen",
+    "config_hash": "b8cb4bc2a19dddd556c9a78788e0d470",
+    "owner": "root",
+    "estimated_node_h": 12.0,
+    "created_at": "2026-10-07T01:09:22Z",
+    "metric_mean": 71.40016666666666,
+    "metric_sd": 0.0415175063477257,
+    "result_doc_id": "D-0009",
+    "harness_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "evaluated_at": "2026-10-07T01:09:26Z",
+    "evaluation_id": "EV-0001",
+    "cleanup": {
+     "1": {
+      "at": "2026-10-07T01:09:26Z",
+      "by": "worker/root",
+      "reason": "statistics recorded",
+      "kept": [],
+      "freed_bytes": 0,
+      "unlocated": [],
+      "items": [],
+      "covered": [
+       "E-0001/s42@1",
+       "E-0001/s43@1",
+       "E-0001/s44@1"
+      ],
+      "failed": 0
+     }
+    }
+   },
+   {
+    "id": "E-0002",
+    "project_id": "P-demo-lora-opt",
+    "kind": "sanity",
+    "method_name": "subbatch-moment（sanity）",
+    "design_doc_id": "D-0019",
+    "code_ref": "5f00fec5313893385de89e023f8ef35e5c63ea0e",
+    "seeds": [
+     42
+    ],
+    "nodes": 1,
+    "walltime_s": 600,
+    "stage": "screen",
+    "config_hash": "9872789242834abf3537a6f05c450f77",
+    "owner": "h0001",
+    "estimated_node_h": 0.2,
+    "created_at": "2026-10-07T01:09:33Z",
+    "hypothesis_id": "H-0001"
+   },
+   {
+    "id": "E-0003",
+    "project_id": "P-demo-lora-opt",
+    "kind": "method",
+    "method_name": "subbatch-moment",
+    "design_doc_id": "D-0018",
+    "code_ref": "5f00fec5313893385de89e023f8ef35e5c63ea0e",
+    "seeds": [
+     42
+    ],
+    "nodes": 4,
+    "walltime_s": 3600,
+    "stage": "screen",
+    "config_hash": "55793ee696504cc6ce4ec7e4516d1db4",
+    "owner": "h0001",
+    "baseline_experiment_id": "E-0001",
+    "estimated_node_h": 12.0,
+    "created_at": "2026-10-07T01:09:34Z",
+    "verdict": "beats_parent",
+    "metric_mean": 71.5654,
+    "result_doc_id": "D-0021",
+    "harness_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "evaluated_at": "2026-10-07T01:09:36Z",
+    "evaluation_id": "EV-0002",
+    "cleanup": {
+     "1": {
+      "at": "2026-10-07T01:09:36Z",
+      "by": "worker/h0001",
+      "reason": "statistics recorded",
+      "kept": [],
+      "freed_bytes": 0,
+      "unlocated": [],
+      "items": [],
+      "covered": [
+       "E-0003/s42@1"
+      ],
+      "failed": 0
+     }
+    },
+    "hypothesis_id": "H-0001"
+   },
+   {
+    "id": "E-0004",
+    "project_id": "P-demo-lora-opt",
+    "kind": "sanity",
+    "method_name": "orthogonal-update（sanity）",
+    "design_doc_id": "D-0026",
+    "code_ref": "0ec19877e03876569e73aa8c2a4b04ffe0e6a667",
+    "seeds": [
+     42
+    ],
+    "nodes": 1,
+    "walltime_s": 600,
+    "stage": "screen",
+    "config_hash": "9d8cbae0b9f6076d3d1719ed633c9d6b",
+    "owner": "h0002",
+    "estimated_node_h": 0.2,
+    "created_at": "2026-10-07T01:09:40Z",
+    "hypothesis_id": "H-0002"
+   },
+   {
+    "id": "E-0005",
+    "project_id": "P-demo-lora-opt",
+    "kind": "method",
+    "method_name": "orthogonal-update",
+    "design_doc_id": "D-0025",
+    "code_ref": "0ec19877e03876569e73aa8c2a4b04ffe0e6a667",
+    "seeds": [
+     42
+    ],
+    "nodes": 4,
+    "walltime_s": 3600,
+    "stage": "screen",
+    "config_hash": "a2123d7a91f63e9c19842f73e191cf19",
+    "owner": "h0002",
+    "baseline_experiment_id": "E-0001",
+    "estimated_node_h": 12.0,
+    "created_at": "2026-10-07T01:09:42Z",
+    "verdict": "no_gain",
+    "metric_mean": 71.1512,
+    "result_doc_id": "D-0028",
+    "harness_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "evaluated_at": "2026-10-07T01:09:43Z",
+    "evaluation_id": "EV-0003",
+    "cleanup": {
+     "1": {
+      "at": "2026-10-07T01:09:44Z",
+      "by": "worker/h0002",
+      "reason": "statistics recorded",
+      "kept": [],
+      "freed_bytes": 0,
+      "unlocated": [],
+      "items": [],
+      "covered": [
+       "E-0005/s42@1"
+      ],
+      "failed": 0
+     }
+    },
+    "hypothesis_id": "H-0002"
+   },
+   {
+    "id": "E-0006",
+    "project_id": "P-demo-lora-opt",
+    "kind": "sanity",
+    "method_name": "moment-balance（sanity）",
+    "design_doc_id": "D-0034",
+    "code_ref": "f226df77612fb789edb9638080b0218b36e4cabe",
+    "seeds": [
+     42
+    ],
+    "nodes": 1,
+    "walltime_s": 600,
+    "stage": "screen",
+    "config_hash": "769a7e111a090f3fb4452e83a3bf356d",
+    "owner": "h0003",
+    "estimated_node_h": 0.2,
+    "created_at": "2026-10-07T01:09:50Z",
+    "hypothesis_id": "H-0003"
+   },
+   {
+    "id": "E-0007",
+    "project_id": "P-demo-lora-opt",
+    "kind": "method",
+    "method_name": "moment-balance",
+    "design_doc_id": "D-0033",
+    "code_ref": "f226df77612fb789edb9638080b0218b36e4cabe",
+    "seeds": [
+     42,
+     43,
+     44
+    ],
+    "nodes": 4,
+    "walltime_s": 3600,
+    "stage": "screen",
+    "config_hash": "6b5d4e3c5cf15d3c68548761d92e96c6",
+    "owner": "h0003",
+    "baseline_experiment_id": "E-0001",
+    "parent_experiment_id": "E-0003",
+    "estimated_node_h": 12.0,
+    "created_at": "2026-10-07T01:09:52Z",
+    "verdict": "beats_sota",
+    "metric_mean": 71.64136666666667,
+    "metric_sd": 0.03925892679803191,
+    "result_doc_id": "D-0037",
+    "harness_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "evaluated_at": "2026-10-07T01:09:57Z",
+    "evaluation_id": "EV-0005",
+    "cleanup": {
+     "1": {
+      "at": "2026-10-07T01:09:54Z",
+      "by": "worker/h0003",
+      "reason": "statistics recorded",
+      "kept": [],
+      "freed_bytes": 0,
+      "unlocated": [],
+      "items": [],
+      "covered": [
+       "E-0007/s42@1"
+      ],
+      "failed": 0
+     },
+     "2": {
+      "at": "2026-10-07T01:09:57Z",
+      "by": "worker/h0003",
+      "reason": "statistics recorded",
+      "kept": [],
+      "freed_bytes": 0,
+      "unlocated": [],
+      "items": [],
+      "covered": [
+       "E-0007/s42@1",
+       "E-0007/s43@1",
+       "E-0007/s44@1"
+      ],
+      "failed": 0
+     }
+    },
+    "hypothesis_id": "H-0003"
+   },
+   {
+    "id": "E-0008",
+    "project_id": "P-demo-lora-opt",
+    "kind": "baseline",
+    "method_name": "BaseOpt-A（确认基线）",
+    "design_doc_id": "D-0041",
+    "code_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "seeds": [
+     1042,
+     1043,
+     1044
+    ],
+    "nodes": 4,
+    "walltime_s": 3600,
+    "stage": "confirm",
+    "config_hash": "ffc924351bb2f8609732aa0e97429489",
+    "owner": "root",
+    "estimated_node_h": 12.0,
+    "created_at": "2026-10-07T01:10:00Z",
+    "metric_mean": 71.39286666666668,
+    "metric_sd": 0.03691941675234285,
+    "result_doc_id": "D-0042",
+    "harness_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "evaluated_at": "2026-10-07T01:10:03Z",
+    "evaluation_id": "EV-0006"
+   },
+   {
+    "id": "E-0009",
+    "project_id": "P-demo-lora-opt",
+    "kind": "method",
+    "method_name": "moment-balance（确认）",
+    "design_doc_id": "D-0043",
+    "code_ref": "f226df77612fb789edb9638080b0218b36e4cabe",
+    "seeds": [
+     1042,
+     1043,
+     1044
+    ],
+    "nodes": 4,
+    "walltime_s": 3600,
+    "stage": "confirm",
+    "config_hash": "6dfe2534a3f738f5372f1a62688bf225",
+    "owner": "h0003",
+    "baseline_experiment_id": "E-0008",
+    "estimated_node_h": 12.0,
+    "created_at": "2026-10-07T01:10:04Z",
+    "metric_mean": 71.6318,
+    "metric_sd": 0.026685389260785654,
+    "result_doc_id": "D-0044",
+    "harness_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "evaluated_at": "2026-10-07T01:10:08Z",
+    "evaluation_id": "EV-0007",
+    "hypothesis_id": "H-0003"
+   },
+   {
+    "id": "E-0010",
+    "project_id": "P-demo-lora-opt",
+    "kind": "sanity",
+    "method_name": "momentum-rescale（sanity）",
+    "design_doc_id": "D-0053",
+    "code_ref": "b10fece380060361826aeef8d0dd4f32b58a454e",
+    "seeds": [
+     42
+    ],
+    "nodes": 1,
+    "walltime_s": 600,
+    "stage": "screen",
+    "config_hash": "3f9a2e5769f47e9fb927c36920312d1d",
+    "owner": "h0004",
+    "estimated_node_h": 0.2,
+    "created_at": "2026-10-07T01:10:14Z",
+    "hypothesis_id": "H-0004"
+   },
+   {
+    "id": "E-0011",
+    "project_id": "P-demo-lora-opt",
+    "kind": "method",
+    "method_name": "momentum-rescale",
+    "design_doc_id": "D-0052",
+    "code_ref": "b10fece380060361826aeef8d0dd4f32b58a454e",
+    "seeds": [
+     42
+    ],
+    "nodes": 4,
+    "walltime_s": 3600,
+    "stage": "screen",
+    "config_hash": "c7cf36e2805d2ac727526b2904e15bd1",
+    "owner": "h0004",
+    "baseline_experiment_id": "E-0001",
+    "parent_experiment_id": "E-0003",
+    "estimated_node_h": 12.0,
+    "created_at": "2026-10-07T01:10:16Z",
+    "verdict": "no_gain",
+    "metric_mean": 71.4047,
+    "result_doc_id": "D-0055",
+    "harness_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "evaluated_at": "2026-10-07T01:10:18Z",
+    "evaluation_id": "EV-0008",
+    "cleanup": {
+     "1": {
+      "at": "2026-10-07T01:10:19Z",
+      "by": "worker/h0004",
+      "reason": "statistics recorded",
+      "kept": [],
+      "freed_bytes": 0,
+      "unlocated": [],
+      "items": [],
+      "covered": [
+       "E-0011/s42@1"
+      ],
+      "failed": 0
+     }
+    },
+    "hypothesis_id": "H-0004"
+   },
+   {
+    "id": "E-0012",
+    "project_id": "P-demo-lora-opt",
+    "kind": "sanity",
+    "method_name": "kron-diag（sanity）",
+    "design_doc_id": "D-0061",
+    "code_ref": "8030b00b7b1fdea63d23ddc3104c95a4035f0669",
+    "seeds": [
+     42
+    ],
+    "nodes": 1,
+    "walltime_s": 600,
+    "stage": "screen",
+    "config_hash": "aa5cc52cd48c794b2c98ff17f16f72ba",
+    "owner": "h0005",
+    "estimated_node_h": 0.2,
+    "created_at": "2026-10-07T01:10:25Z",
+    "hypothesis_id": "H-0005"
+   },
+   {
+    "id": "E-0013",
+    "project_id": "P-demo-lora-opt",
+    "kind": "method",
+    "method_name": "kron-diag",
+    "design_doc_id": "D-0060",
+    "code_ref": "8030b00b7b1fdea63d23ddc3104c95a4035f0669",
+    "seeds": [
+     42
+    ],
+    "nodes": 4,
+    "walltime_s": 3600,
+    "stage": "screen",
+    "config_hash": "51bdc1ba72b1f6aab624467853770e6b",
+    "owner": "h0005",
+    "baseline_experiment_id": "E-0001",
+    "estimated_node_h": 12.0,
+    "created_at": "2026-10-07T01:10:27Z",
+    "verdict": "close",
+    "metric_mean": 71.4655,
+    "result_doc_id": "D-0063",
+    "harness_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "evaluated_at": "2026-10-07T01:10:29Z",
+    "evaluation_id": "EV-0009",
+    "cleanup": {
+     "1": {
+      "at": "2026-10-07T01:10:29Z",
+      "by": "worker/h0005",
+      "reason": "statistics recorded",
+      "kept": [],
+      "freed_bytes": 0,
+      "unlocated": [],
+      "items": [],
+      "covered": [
+       "E-0013/s42@1"
+      ],
+      "failed": 0
+     }
+    },
+    "hypothesis_id": "H-0005"
+   },
+   {
+    "id": "E-0014",
+    "project_id": "P-demo-lora-opt",
+    "kind": "sanity",
+    "method_name": "state-8bit（sanity）",
+    "design_doc_id": "D-0070",
+    "code_ref": "8877378e8fb77588aae77bb789e460b7247f6097",
+    "seeds": [
+     42
+    ],
+    "nodes": 1,
+    "walltime_s": 600,
+    "stage": "screen",
+    "config_hash": "be99f2eebea9700cd8f3aaf66a3ef9cb",
+    "owner": "h0007",
+    "estimated_node_h": 0.2,
+    "created_at": "2026-10-07T01:10:35Z",
+    "hypothesis_id": "H-0007"
+   },
+   {
+    "id": "E-0015",
+    "project_id": "P-demo-lora-opt",
+    "kind": "method",
+    "method_name": "state-8bit",
+    "design_doc_id": "D-0069",
+    "code_ref": "8877378e8fb77588aae77bb789e460b7247f6097",
+    "seeds": [
+     42
+    ],
+    "nodes": 4,
+    "walltime_s": 3600,
+    "stage": "screen",
+    "config_hash": "6be142f6219bb5d13388df250df00eaa",
+    "owner": "h0007",
+    "baseline_experiment_id": "E-0001",
+    "estimated_node_h": 12.0,
+    "created_at": "2026-10-07T01:10:37Z",
+    "verdict": "close",
+    "metric_mean": 71.4136,
+    "result_doc_id": "D-0072",
+    "harness_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "evaluated_at": "2026-10-07T01:10:39Z",
+    "evaluation_id": "EV-0010",
+    "cleanup": {
+     "1": {
+      "at": "2026-10-07T01:10:40Z",
+      "by": "worker/h0007",
+      "reason": "statistics recorded",
+      "kept": [],
+      "freed_bytes": 0,
+      "unlocated": [],
+      "items": [],
+      "covered": [
+       "E-0015/s42@1"
+      ],
+      "failed": 0
+     }
+    },
+    "hypothesis_id": "H-0007"
+   }
+  ],
+  "branch": [
+   {
+    "id": "BR-0001",
+    "repo_path": "code",
+    "name": "node/H-0001",
+    "base_ref": "main",
+    "base_commit": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "worktree_path": "worktrees/H-0001",
+    "owner": "h0001",
+    "status": "active",
+    "created_at": "2026-10-07T01:09:31Z",
+    "hypothesis_id": "H-0001"
+   },
+   {
+    "id": "BR-0002",
+    "repo_path": "code",
+    "name": "node/H-0002",
+    "base_ref": "main",
+    "base_commit": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "owner": "main",
+    "status": "deleted",
+    "created_at": "2026-10-07T01:09:38Z",
+    "head_commit": "0ec19877e03876569e73aa8c2a4b04ffe0e6a667",
+    "returned_at": "2026-10-07T01:09:45Z",
+    "closed_at": "2026-10-07T01:09:46Z",
+    "hypothesis_id": "H-0002"
+   },
+   {
+    "id": "BR-0003",
+    "repo_path": "code",
+    "name": "node/H-0003",
+    "base_ref": "node/H-0001",
+    "base_commit": "5f00fec5313893385de89e023f8ef35e5c63ea0e",
+    "worktree_path": "worktrees/H-0003",
+    "owner": "h0003",
+    "status": "active",
+    "created_at": "2026-10-07T01:09:48Z",
+    "hypothesis_id": "H-0003"
+   },
+   {
+    "id": "BR-0004",
+    "repo_path": "code",
+    "name": "node/H-0004",
+    "base_ref": "node/H-0001",
+    "base_commit": "5f00fec5313893385de89e023f8ef35e5c63ea0e",
+    "owner": "main",
+    "status": "deleted",
+    "created_at": "2026-10-07T01:10:11Z",
+    "head_commit": "b10fece380060361826aeef8d0dd4f32b58a454e",
+    "returned_at": "2026-10-07T01:10:20Z",
+    "closed_at": "2026-10-07T01:10:21Z",
+    "hypothesis_id": "H-0004"
+   },
+   {
+    "id": "BR-0005",
+    "repo_path": "code",
+    "name": "node/H-0005",
+    "base_ref": "main",
+    "base_commit": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "worktree_path": "worktrees/H-0005",
+    "owner": "h0005",
+    "status": "active",
+    "created_at": "2026-10-07T01:10:23Z",
+    "hypothesis_id": "H-0005"
+   },
+   {
+    "id": "BR-0006",
+    "repo_path": "code",
+    "name": "node/H-0007",
+    "base_ref": "main",
+    "base_commit": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "worktree_path": "worktrees/H-0007",
+    "owner": "h0007",
+    "status": "active",
+    "created_at": "2026-10-07T01:10:33Z",
+    "hypothesis_id": "H-0007"
+   }
+  ],
+  "document": [
+   {
+    "id": "D-0001",
+    "path": "instructions/UI-0001.v1.md",
+    "version": 1,
+    "doc_type": "user_instruction",
+    "title": "立项：寻找可发表的LoRA优化器改进",
+    "summary": "立项指令（虚构）",
+    "status": "current",
+    "author_role": "ui",
+    "author_id": "ui",
+    "created_at": "2026-10-07T01:09:17Z",
+    "sha256": "72f5b872cd3721ea9dfcce00a7d04723e451582d41803f9c51d022cc2b087166"
+   },
+   {
+    "id": "D-0002",
+    "path": "project/goal.v1.md",
+    "version": 1,
+    "doc_type": "goal",
+    "title": "研究目标",
+    "summary": "LoRA优化器方法发现（虚构）",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:09:17Z",
+    "sha256": "976b9852b1790fc72be1be9d5e21d21ed81d5915a081e2372cf98d54086d8448"
+   },
+   {
+    "id": "D-0003",
+    "path": "project/min-setup.v1.md",
+    "version": 1,
+    "doc_type": "min_setup",
+    "title": "最小实验设定与判定规则",
+    "summary": "0.5B模型、1000步、8任务均值；冻结框架与判定规则",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:09:17Z",
+    "sha256": "c223184fca07f1182f39f0f4f4ae6f2cc772877f0afcb1db85de099b5b1ee6d6"
+   },
+   {
+    "id": "D-0004",
+    "path": "project/config.v1.yaml",
+    "version": 1,
+    "doc_type": "config",
+    "title": "项目配置",
+    "summary": "research-tree.yaml：开发与实验平台、资源预算、阶段1门槛、子代理模型",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:09:18Z",
+    "sha256": "81390d7adc47aa88065468c674e91a70a1d029dd9df8421c47b559f0cad47f02"
+   },
+   {
+    "id": "D-0005",
+    "path": "project/metric-spec.v1.json",
+    "version": 1,
+    "doc_type": "metric_spec",
+    "title": "指标规范",
+    "summary": "主指标acc（百分点）与4个次指标的方向、单位与保护阈值",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:09:18Z",
+    "sha256": "45cb4bf064c2622c7e6623d14d33f1d0f1a94e9db3ba46ae5c9da59a44584237"
+   },
+   {
+    "id": "D-0006",
+    "path": "project/protocol.v1.json",
+    "version": 1,
+    "doc_type": "protocol",
+    "title": "实验协议",
+    "summary": "real_gt；按seed与数据版本配对；1000步",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:09:18Z",
+    "sha256": "ffedfdbb2dd88224f6e7c26cf4bf3cf99e41e8915da1fdf1bdbbd7b9bd80967d"
+   },
+   {
+    "id": "D-0007",
+    "path": "tasks/T-0001/request.v1.md",
+    "version": 1,
+    "doc_type": "task_request",
+    "title": "根节点：实现实验框架并运行SOTA",
+    "summary": "根节点框架任务",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:09:21Z",
+    "sha256": "6fb326a43275d850adc41d8df92e9e0a02746769d8fe53f3b45318fdebefcd09"
+   },
+   {
+    "id": "D-0008",
+    "path": "baselines/E-0001/design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "SOTA基线 BaseOpt-A",
+    "summary": "SOTA基线设计",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "root",
+    "created_at": "2026-10-07T01:09:22Z",
+    "sha256": "08070544647178e7b9e830068324f261c1f8fd99e8bf033ffaea045ace92b503"
+   },
+   {
+    "id": "D-0009",
+    "path": "baselines/E-0001/result.v1.md",
+    "version": 1,
+    "doc_type": "experiment_result",
+    "title": "SOTA基线结果",
+    "summary": "BaseOpt-A 均值 71.40",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "root",
+    "created_at": "2026-10-07T01:09:25Z",
+    "sha256": "441bc992c9c1a6d1da710f70a32daf636a4b91e33f92041368216ba12c24ff9f"
+   },
+   {
+    "id": "D-0010",
+    "path": "tasks/T-0001/delivery.v1.md",
+    "version": 1,
+    "doc_type": "task_delivery",
+    "title": "根节点交付",
+    "summary": "框架与SOTA完成",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "root",
+    "created_at": "2026-10-07T01:09:26Z",
+    "sha256": "96780ae4f5114cf72244f3b4858be5e8e0fa43fae6f7697dca57fb794e472942"
+   },
+   {
+    "id": "D-0011",
+    "path": "literature/LIT-0001.v1.md",
+    "version": 1,
+    "doc_type": "literature",
+    "title": "子批次梯度统计用于自适应预条件（虚构文献A）",
+    "summary": "用微批次梯度平方估计二阶矩",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "lit",
+    "created_at": "2026-10-07T01:09:27Z",
+    "sha256": "af5e27994c22d111ea749c9148093aca0a252d5b7f75811328e568e64c794d3d"
+   },
+   {
+    "id": "D-0012",
+    "path": "literature/LIT-0002.v1.md",
+    "version": 1,
+    "doc_type": "literature",
+    "title": "低秩适配中的因子不平衡（虚构文献B）",
+    "summary": "LoRA的A、B因子尺度失衡导致有效学习率偏差",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "lit",
+    "created_at": "2026-10-07T01:09:28Z",
+    "sha256": "3aa928041bf78849db1eacbecf0029e5f431391ff28d1992a9b3a646c73a3c7f"
+   },
+   {
+    "id": "D-0013",
+    "path": "literature/LIT-0003.v1.md",
+    "version": 1,
+    "doc_type": "literature",
+    "title": "正交化更新在矩阵参数上的作用（虚构文献C）",
+    "summary": "对更新做正交化可改善条件数",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "lit",
+    "created_at": "2026-10-07T01:09:28Z",
+    "sha256": "aa877fcbe724c709fc7667fa12de57c2d2e5040ea044986c1355f453b5d443a1"
+   },
+   {
+    "id": "D-0014",
+    "path": "literature/LIT-0004.v1.md",
+    "version": 1,
+    "doc_type": "literature",
+    "title": "Kronecker因子预条件的近似（虚构文献D）",
+    "summary": "用对角或低秩近似降低Kronecker预条件成本",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "lit",
+    "created_at": "2026-10-07T01:09:29Z",
+    "sha256": "bd97174248684e4e6cbbd6a486d6dbfa5a94007366b3ddf71194f8a4bb05a218"
+   },
+   {
+    "id": "D-0015",
+    "path": "literature/LIT-0005.v1.md",
+    "version": 1,
+    "doc_type": "literature",
+    "title": "优化器状态低比特压缩（虚构文献E）",
+    "summary": "8-bit状态在多数任务上精度损失可忽略",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "lit",
+    "created_at": "2026-10-07T01:09:29Z",
+    "sha256": "b6f5e95e6a692992aaa20bf09eaf9ff9ed92a151bc0faa179d310df5de199f87"
+   },
+   {
+    "id": "D-0016",
+    "path": "hypotheses/H-0001/hypothesis.v1.md",
+    "version": 1,
+    "doc_type": "hypothesis",
+    "title": "子批次二阶矩预条件",
+    "summary": "用未裁剪的微批次梯度平方替代全批次二阶矩，可改善LoRA更新方向。",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:09:29Z",
+    "sha256": "b72dd40a64a3d24ab4fccc838e6dac1c841b3e2b9a63c63bc187e8ab2c2eda66"
+   },
+   {
+    "id": "D-0017",
+    "path": "hypotheses/H-0001/decisions/start.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0001 开始验证",
+    "summary": "H-0001 开始验证",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:09:31Z",
+    "sha256": "c9b9b1fa601929c98c4d2597b46f7bcef977c735664d144d64d6c537fca40c30"
+   },
+   {
+    "id": "D-0018",
+    "path": "hypotheses/H-0001/experiments/subbatch-246/design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "H-0001 实验设计",
+    "summary": "subbatch-moment",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0001",
+    "created_at": "2026-10-07T01:09:32Z",
+    "sha256": "1286d4c09e1799411af3336d33daa814e9ed71bde48798650ee7e6af533aaf8e"
+   },
+   {
+    "id": "D-0019",
+    "path": "hypotheses/H-0001/experiments/subbatch-246/sanity-design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "H-0001 sanity",
+    "summary": "sanity",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0001",
+    "created_at": "2026-10-07T01:09:32Z",
+    "sha256": "022a248ae23a498b6c9f219f4bb3afd0f7b47110e37b7006203e8edb5b8476ba"
+   },
+   {
+    "id": "D-0020",
+    "path": "reviews/RV-0001.v1.md",
+    "version": 1,
+    "doc_type": "review",
+    "title": "code_review H-0001",
+    "summary": "pi openai/gpt-6-astra: clear",
+    "status": "current",
+    "author_role": "reviewer",
+    "author_id": "pi",
+    "sha256": "a0b52d35e9520f68b210c9f1cfd91b0436c444dfcdf8b124f964687760b61431",
+    "review_kind": "code_review",
+    "review_result": "clear",
+    "review_backend": "pi",
+    "reviewer_model": "openai/gpt-6-astra",
+    "review_session": "RV-0001",
+    "basis_code_ref": "5f00fec5313893385de89e023f8ef35e5c63ea0e",
+    "created_at": "2026-10-07T01:09:34Z"
+   },
+   {
+    "id": "D-0021",
+    "path": "hypotheses/H-0001/experiments/E-0003/result.v1.md",
+    "version": 1,
+    "doc_type": "experiment_result",
+    "title": "E-0003 统计结果",
+    "summary": "E-0003 判定 beats_parent",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0001",
+    "created_at": "2026-10-07T01:09:35Z",
+    "sha256": "d08f5bfc06b8e9ad54fd235a96f7ccff3d59457e6ccdfa5eb1d034d61e7ed81c"
+   },
+   {
+    "id": "D-0022",
+    "path": "hypotheses/H-0001/decisions/expandable.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0001 结论",
+    "summary": "H-0001 结论",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:09:36Z",
+    "sha256": "ac06849ab1c227f5ccd430229b7bd3fd9f99209aeea0efbec6a39cd771b3b0c2"
+   },
+   {
+    "id": "D-0023",
+    "path": "hypotheses/H-0002/hypothesis.v1.md",
+    "version": 1,
+    "doc_type": "hypothesis",
+    "title": "正交化LoRA更新",
+    "summary": "对LoRA因子更新做正交化可改善条件数，提高精度。",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:09:37Z",
+    "sha256": "f5b80dbdf81eb9fbbe72be824a2aef1516991939872c424450cdd9bd28369b8d"
+   },
+   {
+    "id": "D-0024",
+    "path": "hypotheses/H-0002/decisions/start.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0002 开始验证",
+    "summary": "H-0002 开始验证",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:09:38Z",
+    "sha256": "baee2de5f40d250e5f520fcf30497ee8e22f1ad6ee0860acb36bbc2a0263be1e"
+   },
+   {
+    "id": "D-0025",
+    "path": "hypotheses/H-0002/experiments/orthogon-735/design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "H-0002 实验设计",
+    "summary": "orthogonal-update",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0002",
+    "created_at": "2026-10-07T01:09:39Z",
+    "sha256": "9ceb37b30ca2ec95a3fb6bc2ba9b2f75d1fcc85d123cdb06a8af782a1a8cffa3"
+   },
+   {
+    "id": "D-0026",
+    "path": "hypotheses/H-0002/experiments/orthogon-735/sanity-design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "H-0002 sanity",
+    "summary": "sanity",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0002",
+    "created_at": "2026-10-07T01:09:40Z",
+    "sha256": "0d8c93269801c21957d730fed55f6981763e521dd12522325a0c4e1875b21e28"
+   },
+   {
+    "id": "D-0027",
+    "path": "reviews/RV-0002.v1.md",
+    "version": 1,
+    "doc_type": "review",
+    "title": "code_review H-0002",
+    "summary": "pi openai/gpt-6-astra: clear",
+    "status": "current",
+    "author_role": "reviewer",
+    "author_id": "pi",
+    "sha256": "bc2452491d61b6b7e7c629608ac6d25956dde762c4e0b02d5fd91f29918f1225",
+    "review_kind": "code_review",
+    "review_result": "clear",
+    "review_backend": "pi",
+    "reviewer_model": "openai/gpt-6-astra",
+    "review_session": "RV-0002",
+    "basis_code_ref": "0ec19877e03876569e73aa8c2a4b04ffe0e6a667",
+    "created_at": "2026-10-07T01:09:42Z"
+   },
+   {
+    "id": "D-0028",
+    "path": "hypotheses/H-0002/experiments/E-0005/result.v1.md",
+    "version": 1,
+    "doc_type": "experiment_result",
+    "title": "E-0005 统计结果",
+    "summary": "E-0005 判定 no_gain",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0002",
+    "created_at": "2026-10-07T01:09:43Z",
+    "sha256": "401badd4efcbafcc3e1cf75763390c1d229921fe2e85144dc52849fc9288828a"
+   },
+   {
+    "id": "D-0029",
+    "path": "hypotheses/H-0002/decisions/prunable.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0002 结论",
+    "summary": "H-0002 结论",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:09:44Z",
+    "sha256": "562c8ca5cecd72b2172993111ea51ce76c8cadf699710104225bf40d8c18aa81"
+   },
+   {
+    "id": "D-0030",
+    "path": "hypotheses/H-0002/decisions/branch-deleted.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0002 分支处置",
+    "summary": "H-0002 分支处置",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:09:46Z",
+    "sha256": "c2d89acc02e7aa55c253e287e7b0b890c496fdd1a0f0889b3d90fcb4b5df08a1"
+   },
+   {
+    "id": "D-0031",
+    "path": "hypotheses/H-0003/hypothesis.v1.md",
+    "version": 1,
+    "doc_type": "hypothesis",
+    "title": "子批次二阶矩 + 因子尺度平衡",
+    "summary": "在子批次二阶矩基础上平衡A、B因子尺度，可进一步提升精度。",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:09:46Z",
+    "sha256": "bfec62921e1a21571d04275fd0f5d2575f9b1e30e769b3dcf047110a9094f554"
+   },
+   {
+    "id": "D-0032",
+    "path": "hypotheses/H-0003/decisions/start.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0003 开始验证",
+    "summary": "H-0003 开始验证",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:09:48Z",
+    "sha256": "66350ac8f218ff6ae586e9ad4d83a79e632b603f789bf8824d043a30617c3e4d"
+   },
+   {
+    "id": "D-0033",
+    "path": "hypotheses/H-0003/experiments/moment-b-118/design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "H-0003 实验设计",
+    "summary": "moment-balance",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0003",
+    "created_at": "2026-10-07T01:09:49Z",
+    "sha256": "2aa926f7ba1b6b2a782fb0a5fdfbaacc03ad65d340150dc916d420f0e30788ed"
+   },
+   {
+    "id": "D-0034",
+    "path": "hypotheses/H-0003/experiments/moment-b-118/sanity-design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "H-0003 sanity",
+    "summary": "sanity",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0003",
+    "created_at": "2026-10-07T01:09:49Z",
+    "sha256": "638888aae1348158f3ac97b3cec1d408516a6746f181f3b1493299e54e304406"
+   },
+   {
+    "id": "D-0035",
+    "path": "reviews/RV-0003.v1.md",
+    "version": 1,
+    "doc_type": "review",
+    "title": "code_review H-0003",
+    "summary": "pi openai/gpt-6-astra: clear",
+    "status": "current",
+    "author_role": "reviewer",
+    "author_id": "pi",
+    "sha256": "07b43581eb19c257e319c60595690298f2fabd7842bfc42b8443845dc16a5fc0",
+    "review_kind": "code_review",
+    "review_result": "clear",
+    "review_backend": "pi",
+    "reviewer_model": "openai/gpt-6-astra",
+    "review_session": "RV-0003",
+    "basis_code_ref": "f226df77612fb789edb9638080b0218b36e4cabe",
+    "created_at": "2026-10-07T01:09:52Z"
+   },
+   {
+    "id": "D-0036",
+    "path": "hypotheses/H-0003/experiments/E-0007/result.v1.md",
+    "version": 1,
+    "doc_type": "experiment_result",
+    "title": "E-0007 统计结果",
+    "summary": "E-0007 判定 beats_parent",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0003",
+    "created_at": "2026-10-07T01:09:53Z",
+    "sha256": "67a539f965795046de92812fa6d8aed721dd2d73c7015ae93266c8fb73517fc8"
+   },
+   {
+    "id": "D-0037",
+    "path": "hypotheses/H-0003/experiments/E-0007/result.v3.md",
+    "version": 3,
+    "doc_type": "experiment_result",
+    "title": "E-0007 统计结果",
+    "summary": "E-0007 判定 beats_sota",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0003",
+    "created_at": "2026-10-07T01:09:57Z",
+    "sha256": "279a3177c98276d7632b201b1493873aefeff02462aac92c777b0dd4eac8a9ca"
+   },
+   {
+    "id": "D-0038",
+    "path": "hypotheses/H-0003/novelty.v1.md",
+    "version": 1,
+    "doc_type": "novelty",
+    "title": "H-0003 新颖性复核",
+    "summary": "未被直接覆盖",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:09:58Z",
+    "sha256": "f6a830ed3ce26d2422dcb6861a48426fc2df6559d6f11e6341d6baffe4375a6a"
+   },
+   {
+    "id": "D-0039",
+    "path": "hypotheses/H-0003/theory.v1.md",
+    "version": 1,
+    "doc_type": "theory",
+    "title": "H-0003 理论复核",
+    "summary": "推导核对无误",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:09:58Z",
+    "sha256": "10e3f13990204b957d3698195226af1cd473b05b819dd7c5fb8ca6f88147d3fe"
+   },
+   {
+    "id": "D-0040",
+    "path": "hypotheses/H-0003/decisions/expandable.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0003 可拓展",
+    "summary": "H-0003 可拓展",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:09:59Z",
+    "sha256": "aeddcfd330f33934d79ed48a099140597fb3bd5a30632bb9f3087ffe1f83a2bc"
+   },
+   {
+    "id": "D-0041",
+    "path": "baselines/confirm/design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "确认基线",
+    "summary": "确认基线设计",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "root",
+    "created_at": "2026-10-07T01:09:59Z",
+    "sha256": "0735afe25bab20cedda5fe24f1433040fa5264c3455a9858bef905505c56b5f2"
+   },
+   {
+    "id": "D-0042",
+    "path": "baselines/confirm/result.v1.md",
+    "version": 1,
+    "doc_type": "experiment_result",
+    "title": "确认基线结果",
+    "summary": "确认基线",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "root",
+    "created_at": "2026-10-07T01:10:03Z",
+    "sha256": "73dd7ea683e4316efff139b2008ae7a342ab9df318c7bf9d510c0fbe4b69f138"
+   },
+   {
+    "id": "D-0043",
+    "path": "hypotheses/H-0003/experiments/confirm/design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "H-0003 独立确认",
+    "summary": "独立确认",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0003",
+    "created_at": "2026-10-07T01:10:04Z",
+    "sha256": "d289cc410f3b705797b8cd32d18032fa552f1e9dbf881675396203d27dfc05c3"
+   },
+   {
+    "id": "D-0044",
+    "path": "hypotheses/H-0003/experiments/E-0009/result.v3.md",
+    "version": 3,
+    "doc_type": "experiment_result",
+    "title": "E-0009 确认结果",
+    "summary": "E-0009 独立确认",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0003",
+    "created_at": "2026-10-07T01:10:08Z",
+    "sha256": "40696e1bc8de38e7c64cce6df59cbb327792a1a5ea1ed31c049156e2b3574728"
+   },
+   {
+    "id": "D-0045",
+    "path": "reviews/RV-0004.v1.md",
+    "version": 1,
+    "doc_type": "review",
+    "title": "candidate_recheck H-0003 numbers",
+    "summary": "pi openai/gpt-6-astra: pass",
+    "status": "current",
+    "author_role": "reviewer",
+    "author_id": "pi",
+    "sha256": "d6586ce1445c924b9919866f354b244a18afe2c15d88312f5844475d826e483f",
+    "review_kind": "candidate_recheck",
+    "review_result": "pass",
+    "review_backend": "pi",
+    "reviewer_model": "openai/gpt-6-astra",
+    "review_session": "RV-0004",
+    "review_dimension": "numbers",
+    "basis_evaluation_id": "EV-0007",
+    "basis_code_ref": "f226df77612fb789edb9638080b0218b36e4cabe",
+    "created_at": "2026-10-07T01:10:09Z"
+   },
+   {
+    "id": "D-0046",
+    "path": "reviews/RV-0005.v1.md",
+    "version": 1,
+    "doc_type": "review",
+    "title": "candidate_recheck H-0003 protocol",
+    "summary": "pi openai/gpt-6-astra: pass",
+    "status": "current",
+    "author_role": "reviewer",
+    "author_id": "pi",
+    "sha256": "39034fc7a1b267e71cac26f61dbce7118d84acefcd35eaf2835d7971a8d53ff5",
+    "review_kind": "candidate_recheck",
+    "review_result": "pass",
+    "review_backend": "pi",
+    "reviewer_model": "openai/gpt-6-astra",
+    "review_session": "RV-0005",
+    "review_dimension": "protocol",
+    "basis_evaluation_id": "EV-0007",
+    "basis_code_ref": "f226df77612fb789edb9638080b0218b36e4cabe",
+    "created_at": "2026-10-07T01:10:09Z"
+   },
+   {
+    "id": "D-0047",
+    "path": "reviews/RV-0006.v1.md",
+    "version": 1,
+    "doc_type": "review",
+    "title": "candidate_recheck H-0003 method_code",
+    "summary": "pi openai/gpt-6-astra: pass",
+    "status": "current",
+    "author_role": "reviewer",
+    "author_id": "pi",
+    "sha256": "9877370a4b1417bb3473ef4993d52d2353eaa40fcfdfd6573fca4d6dc01c475e",
+    "review_kind": "candidate_recheck",
+    "review_result": "pass",
+    "review_backend": "pi",
+    "reviewer_model": "openai/gpt-6-astra",
+    "review_session": "RV-0006",
+    "review_dimension": "method_code",
+    "basis_evaluation_id": "EV-0007",
+    "basis_code_ref": "f226df77612fb789edb9638080b0218b36e4cabe",
+    "created_at": "2026-10-07T01:10:09Z"
+   },
+   {
+    "id": "D-0048",
+    "path": "reviews/RV-0007.v1.md",
+    "version": 1,
+    "doc_type": "review",
+    "title": "candidate_recheck H-0003 novelty",
+    "summary": "pi openai/gpt-6-astra: pass",
+    "status": "current",
+    "author_role": "reviewer",
+    "author_id": "pi",
+    "sha256": "16394904371d306c302f931605f0238a951f03f12ee968db4c1ab9029dcb6a86",
+    "review_kind": "candidate_recheck",
+    "review_result": "pass",
+    "review_backend": "pi",
+    "reviewer_model": "openai/gpt-6-astra",
+    "review_session": "RV-0007",
+    "review_dimension": "novelty",
+    "basis_evaluation_id": "EV-0007",
+    "basis_code_ref": "f226df77612fb789edb9638080b0218b36e4cabe",
+    "created_at": "2026-10-07T01:10:09Z"
+   },
+   {
+    "id": "D-0049",
+    "path": "reviews/RV-0008.v1.md",
+    "version": 1,
+    "doc_type": "review",
+    "title": "candidate_recheck H-0003 theory",
+    "summary": "pi openai/gpt-6-astra: pass",
+    "status": "current",
+    "author_role": "reviewer",
+    "author_id": "pi",
+    "sha256": "14fb269c956478627f468438952242b3d94506671b1133889909ae4d809881c1",
+    "review_kind": "candidate_recheck",
+    "review_result": "pass",
+    "review_backend": "pi",
+    "reviewer_model": "openai/gpt-6-astra",
+    "review_session": "RV-0008",
+    "review_dimension": "theory",
+    "basis_evaluation_id": "EV-0007",
+    "basis_code_ref": "f226df77612fb789edb9638080b0218b36e4cabe",
+    "created_at": "2026-10-07T01:10:10Z"
+   },
+   {
+    "id": "D-0050",
+    "path": "hypotheses/H-0004/hypothesis.v1.md",
+    "version": 1,
+    "doc_type": "hypothesis",
+    "title": "子批次二阶矩 + 动量重标度",
+    "summary": "按子批次方差重标度动量可减少噪声。",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:10:10Z",
+    "sha256": "ab2143f979d1232d79da9197c7bca0400326852be627851399c7d13a88738cfa"
+   },
+   {
+    "id": "D-0051",
+    "path": "hypotheses/H-0004/decisions/start.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0004 开始验证",
+    "summary": "H-0004 开始验证",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:10:11Z",
+    "sha256": "07dfa5849b8d3f2efe09e262f7d8dcd4f4468c10c7f042e2c873d9554428b24d"
+   },
+   {
+    "id": "D-0052",
+    "path": "hypotheses/H-0004/experiments/momentum-448/design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "H-0004 实验设计",
+    "summary": "momentum-rescale",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0004",
+    "created_at": "2026-10-07T01:10:13Z",
+    "sha256": "a975b375ed506dbe1b6c366b17785a6d88cf18f91f327bd06bd2e85bc09e2ec4"
+   },
+   {
+    "id": "D-0053",
+    "path": "hypotheses/H-0004/experiments/momentum-448/sanity-design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "H-0004 sanity",
+    "summary": "sanity",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0004",
+    "created_at": "2026-10-07T01:10:14Z",
+    "sha256": "57caea30f2f02fb12737d8b31d89b9254110444fbab420cb39e640d86f63c3a9"
+   },
+   {
+    "id": "D-0054",
+    "path": "reviews/RV-0009.v1.md",
+    "version": 1,
+    "doc_type": "review",
+    "title": "code_review H-0004",
+    "summary": "pi openai/gpt-6-astra: clear",
+    "status": "current",
+    "author_role": "reviewer",
+    "author_id": "pi",
+    "sha256": "a82fb2247c08d5cdcda0dd876d9d1709e5ade236c5d2a22ca33f31313f8075f6",
+    "review_kind": "code_review",
+    "review_result": "clear",
+    "review_backend": "pi",
+    "reviewer_model": "openai/gpt-6-astra",
+    "review_session": "RV-0009",
+    "basis_code_ref": "b10fece380060361826aeef8d0dd4f32b58a454e",
+    "created_at": "2026-10-07T01:10:16Z"
+   },
+   {
+    "id": "D-0055",
+    "path": "hypotheses/H-0004/experiments/E-0011/result.v1.md",
+    "version": 1,
+    "doc_type": "experiment_result",
+    "title": "E-0011 统计结果",
+    "summary": "E-0011 判定 no_gain",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0004",
+    "created_at": "2026-10-07T01:10:18Z",
+    "sha256": "6c4a856081bceaeba7f78f73495a8393d120b2b531c0c42c05e7338fd8112d42"
+   },
+   {
+    "id": "D-0056",
+    "path": "hypotheses/H-0004/decisions/prunable.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0004 结论",
+    "summary": "H-0004 结论",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:10:19Z",
+    "sha256": "67d858df1e2afc202a6bdf9919c4412adc9845d5b12f60d80eaefc865105a959"
+   },
+   {
+    "id": "D-0057",
+    "path": "hypotheses/H-0004/decisions/branch-deleted.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0004 分支处置",
+    "summary": "H-0004 分支处置",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:10:20Z",
+    "sha256": "3257a44d60a26418ca03033d786dc190fa1ab048ce3bf318d4e68fc26e5a2d6a"
+   },
+   {
+    "id": "D-0058",
+    "path": "hypotheses/H-0005/hypothesis.v1.md",
+    "version": 1,
+    "doc_type": "hypothesis",
+    "title": "Kronecker因子对角近似",
+    "summary": "对Kronecker预条件取对角近似，在低秩上以低成本获得二阶信息。",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:10:21Z",
+    "sha256": "1fad4d1b89b4e69ef8212beafd2a96b7cc47467091a796e03ee10edcf67a062b"
+   },
+   {
+    "id": "D-0059",
+    "path": "hypotheses/H-0005/decisions/start.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0005 开始验证",
+    "summary": "H-0005 开始验证",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:10:23Z",
+    "sha256": "a5500fbd25b3a884a6ea8911f88153b67fa384b3a1a08b02d89e81c3d20ac46e"
+   },
+   {
+    "id": "D-0060",
+    "path": "hypotheses/H-0005/experiments/kron-dia-621/design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "H-0005 实验设计",
+    "summary": "kron-diag",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0005",
+    "created_at": "2026-10-07T01:10:24Z",
+    "sha256": "411c95547dcee8fd7231c81a081790ff1408d77e1ad38b00b36a4c13d6914f33"
+   },
+   {
+    "id": "D-0061",
+    "path": "hypotheses/H-0005/experiments/kron-dia-621/sanity-design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "H-0005 sanity",
+    "summary": "sanity",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0005",
+    "created_at": "2026-10-07T01:10:25Z",
+    "sha256": "57a14a6f0d9c81793c2947183882fed1435b75d67641fb099bd0442bd922c6fd"
+   },
+   {
+    "id": "D-0062",
+    "path": "reviews/RV-0010.v1.md",
+    "version": 1,
+    "doc_type": "review",
+    "title": "code_review H-0005",
+    "summary": "pi openai/gpt-6-astra: clear",
+    "status": "current",
+    "author_role": "reviewer",
+    "author_id": "pi",
+    "sha256": "83d17c7acf29687948c4016f269a0b46ddf24d281c4bcfa03d77a6e61f368285",
+    "review_kind": "code_review",
+    "review_result": "clear",
+    "review_backend": "pi",
+    "reviewer_model": "openai/gpt-6-astra",
+    "review_session": "RV-0010",
+    "basis_code_ref": "8030b00b7b1fdea63d23ddc3104c95a4035f0669",
+    "created_at": "2026-10-07T01:10:27Z"
+   },
+   {
+    "id": "D-0063",
+    "path": "hypotheses/H-0005/experiments/E-0013/result.v1.md",
+    "version": 1,
+    "doc_type": "experiment_result",
+    "title": "E-0013 统计结果",
+    "summary": "E-0013 判定 close",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0005",
+    "created_at": "2026-10-07T01:10:28Z",
+    "sha256": "0edb0d51e5864d6e8e9434f4e347fe4b1f795094bfe04f4b2fad0744dcd31e17"
+   },
+   {
+    "id": "D-0064",
+    "path": "hypotheses/H-0006/hypothesis.v1.md",
+    "version": 1,
+    "doc_type": "hypothesis",
+    "title": "完整Kronecker二阶预条件",
+    "summary": "对每层使用完整Kronecker因子预条件。",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:10:30Z",
+    "sha256": "e7271072823793a39971ca964bae931acc4d4793204f46e4f3a642ca72bb5a14"
+   },
+   {
+    "id": "D-0065",
+    "path": "instructions/UI-0002.v1.md",
+    "version": 1,
+    "doc_type": "user_instruction",
+    "title": "放弃H-0006",
+    "summary": "用户决定放弃H-0006",
+    "status": "current",
+    "author_role": "ui",
+    "author_id": "ui",
+    "created_at": "2026-10-07T01:10:30Z",
+    "sha256": "a9547132f35f421618e997902475343054426c89e369b3c7d30862bb17e12e93"
+   },
+   {
+    "id": "D-0066",
+    "path": "hypotheses/H-0006/decisions/infeasible.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0006 无法在上限内实验",
+    "summary": "H-0006 无法在上限内实验",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:10:31Z",
+    "sha256": "3b68ae9045be0e40de6620a06e46e5a5d59faa7b6571ffc88252b4e0a37f5661"
+   },
+   {
+    "id": "D-0067",
+    "path": "hypotheses/H-0007/hypothesis.v1.md",
+    "version": 1,
+    "doc_type": "hypothesis",
+    "title": "8-bit优化器状态",
+    "summary": "以8-bit存储优化器状态，在精度不变时显著降低显存。",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:10:31Z",
+    "sha256": "254aed01dfb97b2c25f452d0be537dc9c7c5b856de4975fe83cfefeb646cabe8"
+   },
+   {
+    "id": "D-0068",
+    "path": "hypotheses/H-0007/decisions/start.v1.md",
+    "version": 1,
+    "doc_type": "decision",
+    "title": "H-0007 开始验证",
+    "summary": "H-0007 开始验证",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:10:33Z",
+    "sha256": "77a563f642aeb1e22fff89847098fd141586fac20344f4fcafdcdfb1c000e8fa"
+   },
+   {
+    "id": "D-0069",
+    "path": "hypotheses/H-0007/experiments/state-8b-132/design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "H-0007 实验设计",
+    "summary": "state-8bit",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0007",
+    "created_at": "2026-10-07T01:10:34Z",
+    "sha256": "6f9917e2d1edd81022586bdd20b6db79c899aa8de147f27f71d3b776bda23d13"
+   },
+   {
+    "id": "D-0070",
+    "path": "hypotheses/H-0007/experiments/state-8b-132/sanity-design.v1.md",
+    "version": 1,
+    "doc_type": "experiment_design",
+    "title": "H-0007 sanity",
+    "summary": "sanity",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0007",
+    "created_at": "2026-10-07T01:10:35Z",
+    "sha256": "ff0e7d10b1056126f4a4376127677a7db08f7121648645fcda2f03e1dee0b6dc"
+   },
+   {
+    "id": "D-0071",
+    "path": "reviews/RV-0011.v1.md",
+    "version": 1,
+    "doc_type": "review",
+    "title": "code_review H-0007",
+    "summary": "pi openai/gpt-6-astra: clear",
+    "status": "current",
+    "author_role": "reviewer",
+    "author_id": "pi",
+    "sha256": "76a011a17255fc8e4e9faec341c38ebc7c711609823b06994b1bac045601e2a3",
+    "review_kind": "code_review",
+    "review_result": "clear",
+    "review_backend": "pi",
+    "reviewer_model": "openai/gpt-6-astra",
+    "review_session": "RV-0011",
+    "basis_code_ref": "8877378e8fb77588aae77bb789e460b7247f6097",
+    "created_at": "2026-10-07T01:10:37Z"
+   },
+   {
+    "id": "D-0072",
+    "path": "hypotheses/H-0007/experiments/E-0015/result.v1.md",
+    "version": 1,
+    "doc_type": "experiment_result",
+    "title": "E-0015 统计结果",
+    "summary": "E-0015 判定 close",
+    "status": "current",
+    "author_role": "worker",
+    "author_id": "h0007",
+    "created_at": "2026-10-07T01:10:39Z",
+    "sha256": "1849068e7a917a5bd53e5cc7f41b481fa04097dae18b215d1dbce3751495dad9"
+   },
+   {
+    "id": "D-0073",
+    "path": "hypotheses/H-0008/hypothesis.v1.md",
+    "version": 1,
+    "doc_type": "hypothesis",
+    "title": "自适应秩分配",
+    "summary": "按层的子批次方差分配LoRA秩，可在同等参数量下提升精度。",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:10:40Z",
+    "sha256": "1eae1657b73d46f2d4f19289723f5d4961cf99ec338ded8c1719ef81c666ca39"
+   },
+   {
+    "id": "D-0074",
+    "path": "tasks/T-0002/request.v1.md",
+    "version": 1,
+    "doc_type": "task_request",
+    "title": "H-0005 扩展到3个seed",
+    "summary": "扩展seed",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "created_at": "2026-10-07T01:10:41Z",
+    "sha256": "3294de4b90a35cbb9404dd3be8ce218b3a2519dfb2af4406d3280c7c4e6980db"
+   }
+  ],
+  "decision": [
+   {
+    "id": "DEC-0001",
+    "field": "experiment_status",
+    "from_value": "todo",
+    "to_value": "running",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0017",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:09:31Z",
+    "target_id": "H-0001"
+   },
+   {
+    "id": "DEC-0002",
+    "field": "status",
+    "from_value": "pending",
+    "to_value": "verifying",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0017",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:09:31Z",
+    "target_id": "H-0001"
+   },
+   {
+    "id": "DEC-0003",
+    "field": "experiment_status",
+    "from_value": "running",
+    "to_value": "beats_parent",
+    "reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
+    "doc_id": "D-0022",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:09:37Z",
+    "target_id": "H-0001"
+   },
+   {
+    "id": "DEC-0004",
+    "field": "status",
+    "from_value": "verifying",
+    "to_value": "expandable",
+    "reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
+    "doc_id": "D-0022",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:09:37Z",
+    "target_id": "H-0001"
+   },
+   {
+    "id": "DEC-0005",
+    "field": "experiment_status",
+    "from_value": "todo",
+    "to_value": "running",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0024",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:09:39Z",
+    "target_id": "H-0002"
+   },
+   {
+    "id": "DEC-0006",
+    "field": "status",
+    "from_value": "pending",
+    "to_value": "verifying",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0024",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:09:39Z",
+    "target_id": "H-0002"
+   },
+   {
+    "id": "DEC-0007",
+    "field": "experiment_status",
+    "from_value": "running",
+    "to_value": "no_gain",
+    "reason": "所有指标都不优于SOTA，按规则消灭。",
+    "doc_id": "D-0029",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:09:44Z",
+    "target_id": "H-0002"
+   },
+   {
+    "id": "DEC-0008",
+    "field": "status",
+    "from_value": "verifying",
+    "to_value": "prunable",
+    "reason": "所有指标都不优于SOTA，按规则消灭。",
+    "doc_id": "D-0029",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:09:44Z",
+    "target_id": "H-0002"
+   },
+   {
+    "id": "DEC-0009",
+    "field": "disposition",
+    "from_value": "active",
+    "to_value": "retired",
+    "reason": "所有指标都不优于SOTA，按规则消灭。",
+    "doc_id": "D-0029",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:09:44Z",
+    "target_id": "H-0002"
+   },
+   {
+    "id": "DEC-0010",
+    "field": "branch_status",
+    "from_value": "returned",
+    "to_value": "deleted",
+    "reason": "无提升，删除分支（实验提交已打标签）。",
+    "doc_id": "D-0030",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:09:46Z",
+    "target_id": "BR-0002"
+   },
+   {
+    "id": "DEC-0011",
+    "field": "experiment_status",
+    "from_value": "todo",
+    "to_value": "running",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0032",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:09:48Z",
+    "target_id": "H-0003"
+   },
+   {
+    "id": "DEC-0012",
+    "field": "status",
+    "from_value": "pending",
+    "to_value": "verifying",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0032",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:09:48Z",
+    "target_id": "H-0003"
+   },
+   {
+    "id": "DEC-0013",
+    "field": "experiment_status",
+    "from_value": "running",
+    "to_value": "beats_sota",
+    "reason": "3个seed判定",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:09:58Z",
+    "target_id": "H-0003"
+   },
+   {
+    "id": "DEC-0014",
+    "field": "novelty_recheck",
+    "from_value": "pending",
+    "to_value": "pass",
+    "reason": "复核通过",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:09:58Z",
+    "target_id": "H-0003"
+   },
+   {
+    "id": "DEC-0015",
+    "field": "theory_recheck",
+    "from_value": "pending",
+    "to_value": "pass",
+    "reason": "复核通过",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:09:58Z",
+    "target_id": "H-0003"
+   },
+   {
+    "id": "DEC-0016",
+    "field": "status",
+    "from_value": "verifying",
+    "to_value": "expandable",
+    "reason": "优于SOTA且复核通过，可拓展",
+    "doc_id": "D-0040",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:09:59Z",
+    "target_id": "H-0003"
+   },
+   {
+    "id": "DEC-0017",
+    "field": "experiment_status",
+    "from_value": "todo",
+    "to_value": "running",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0051",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:10:12Z",
+    "target_id": "H-0004"
+   },
+   {
+    "id": "DEC-0018",
+    "field": "status",
+    "from_value": "pending",
+    "to_value": "verifying",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0051",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:10:12Z",
+    "target_id": "H-0004"
+   },
+   {
+    "id": "DEC-0019",
+    "field": "experiment_status",
+    "from_value": "running",
+    "to_value": "no_gain",
+    "reason": "相对父节点各项指标都不更好，按规则消灭。",
+    "doc_id": "D-0056",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:10:19Z",
+    "target_id": "H-0004"
+   },
+   {
+    "id": "DEC-0020",
+    "field": "status",
+    "from_value": "verifying",
+    "to_value": "prunable",
+    "reason": "相对父节点各项指标都不更好，按规则消灭。",
+    "doc_id": "D-0056",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:10:19Z",
+    "target_id": "H-0004"
+   },
+   {
+    "id": "DEC-0021",
+    "field": "disposition",
+    "from_value": "active",
+    "to_value": "retired",
+    "reason": "相对父节点各项指标都不更好，按规则消灭。",
+    "doc_id": "D-0056",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:10:19Z",
+    "target_id": "H-0004"
+   },
+   {
+    "id": "DEC-0022",
+    "field": "branch_status",
+    "from_value": "returned",
+    "to_value": "deleted",
+    "reason": "无提升，删除分支。",
+    "doc_id": "D-0057",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:10:21Z",
+    "target_id": "BR-0004"
+   },
+   {
+    "id": "DEC-0023",
+    "field": "experiment_status",
+    "from_value": "todo",
+    "to_value": "running",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0059",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:10:23Z",
+    "target_id": "H-0005"
+   },
+   {
+    "id": "DEC-0024",
+    "field": "status",
+    "from_value": "pending",
+    "to_value": "verifying",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0059",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:10:23Z",
+    "target_id": "H-0005"
+   },
+   {
+    "id": "DEC-0025",
+    "field": "status",
+    "from_value": "pending",
+    "to_value": "prunable",
+    "reason": "用户决定放弃（超出单次运行上限）",
+    "doc_id": "D-0066",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:10:31Z",
+    "target_id": "H-0006"
+   },
+   {
+    "id": "DEC-0026",
+    "field": "disposition",
+    "from_value": "active",
+    "to_value": "retired",
+    "reason": "用户决定放弃（超出单次运行上限）",
+    "doc_id": "D-0066",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:10:31Z",
+    "target_id": "H-0006"
+   },
+   {
+    "id": "DEC-0027",
+    "field": "experiment_status",
+    "from_value": "todo",
+    "to_value": "running",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0068",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:10:33Z",
+    "target_id": "H-0007"
+   },
+   {
+    "id": "DEC-0028",
+    "field": "status",
+    "from_value": "pending",
+    "to_value": "verifying",
+    "reason": "开始代码改进与实验",
+    "doc_id": "D-0068",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:10:33Z",
+    "target_id": "H-0007"
+   },
+   {
+    "id": "DEC-0029",
+    "field": "disposition",
+    "from_value": "active",
+    "to_value": "paused",
+    "reason": "精度持平、只省显存；阶段1目标是精度，暂不投入",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:10:41Z",
+    "target_id": "H-0007"
+   },
+   {
+    "id": "DEC-0030",
+    "field": "findings",
+    "from_value": "0",
+    "to_value": "0",
+    "reason": "1 new finding(s) this batch; stall none",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:10:42Z",
+    "target_id": "H-0001"
+   },
+   {
+    "id": "DEC-0031",
+    "field": "findings",
+    "from_value": "0",
+    "to_value": "1",
+    "reason": "0 new finding(s) this batch; stall none",
+    "decided_by": "main",
+    "decided_at": "2026-10-07T01:10:42Z",
+    "target_id": "H-0001"
+   }
+  ],
+  "task": [
+   {
+    "id": "T-0001",
+    "kind": "harness",
+    "status": "accepted",
+    "assignee_role": "worker",
+    "assignee_id": "root",
+    "request_doc_id": "D-0007",
+    "created_at": "2026-10-07T01:09:21Z",
+    "updated_at": "2026-10-07T01:09:27Z",
+    "delivery_doc_id": "D-0010",
+    "accepted_by": "rld/main",
+    "accepted_evidence": [
+     "E-0001",
+     "D-0010"
+    ],
+    "target_id": "P-demo-lora-opt"
+   },
+   {
+    "id": "T-0002",
+    "kind": "experiment",
+    "status": "in_progress",
+    "assignee_role": "worker",
+    "assignee_id": "h0005",
+    "request_doc_id": "D-0074",
+    "created_at": "2026-10-07T01:10:41Z",
+    "updated_at": "2026-10-07T01:10:41Z",
+    "target_id": "H-0005"
+   }
+  ],
+  "evaluation": [
+   {
+    "id": "EV-0001",
+    "result_revision": 1,
+    "run_attempt_refs": [
+     "E-0001/s42@1",
+     "E-0001/s43@1",
+     "E-0001/s44@1"
+    ],
+    "input_revisions": {
+     "E-0001/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3907,
+      "secondary": {
+       "final_loss": 0.9142,
+       "loss_auc": 1.2773,
+       "peak_mem_gb": 38.0428,
+       "train_time_s": 2983.973
+      },
+      "retracted_at": null,
+      "import": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0"
+     },
+     "E-0001/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4456,
+      "secondary": {
+       "final_loss": 0.9124,
+       "loss_auc": 1.2831,
+       "peak_mem_gb": 37.901,
+       "train_time_s": 2997.7651
+      },
+      "retracted_at": null,
+      "import": "e0386148c42cd8ea61da0ad1f7042b2a8c6d507bd344ae53b0883aec634c6708"
+     },
+     "E-0001/s44": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3642,
+      "secondary": {
+       "final_loss": 0.9107,
+       "loss_auc": 1.2825,
+       "peak_mem_gb": 37.9461,
+       "train_time_s": 3021.8327
+      },
+      "retracted_at": null,
+      "import": "82a37fc2e7493d2ccaf8c64f8226df791347a939461908f55cf910abdecba6c9"
+     }
+    },
+    "pair_keys": {},
+    "method_code_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "harness_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "harness_paths": [
+     "harness"
+    ],
+    "protocol_doc_id": "D-0006",
+    "metric_spec_doc_id": "D-0005",
+    "result_doc_id": "D-0009",
+    "metrics": {
+     "acc": {
+      "n": 3,
+      "mean": 71.40016666666666,
+      "values": [
+       71.3907,
+       71.4456,
+       71.3642
+      ],
+      "sd": 0.0415175063477257,
+      "unit": "percentage_point",
+      "seeds": [
+       42,
+       43,
+       44
+      ]
+     },
+     "final_loss": {
+      "n": 3,
+      "mean": 0.9124333333333333,
+      "values": [
+       0.9142,
+       0.9124,
+       0.9107
+      ],
+      "sd": 0.0017502380790433729,
+      "unit": "nats",
+      "seeds": [
+       42,
+       43,
+       44
+      ]
+     },
+     "loss_auc": {
+      "n": 3,
+      "mean": 1.2809666666666668,
+      "values": [
+       1.2773,
+       1.2831,
+       1.2825
+      ],
+      "sd": 0.003189566323708087,
+      "unit": "raw",
+      "seeds": [
+       42,
+       43,
+       44
+      ]
+     },
+     "peak_mem_gb": {
+      "n": 3,
+      "mean": 37.963300000000004,
+      "values": [
+       38.0428,
+       37.901,
+       37.9461
+      ],
+      "sd": 0.0724478433081327,
+      "unit": "gib",
+      "seeds": [
+       42,
+       43,
+       44
+      ]
+     },
+     "train_time_s": {
+      "n": 3,
+      "mean": 3001.1902666666665,
+      "values": [
+       2983.973,
+       2997.7651,
+       3021.8327
+      ],
+      "sd": 19.160846694322576,
+      "unit": "seconds",
+      "seeds": [
+       42,
+       43,
+       44
+      ]
+     }
+    },
+    "comparisons": {},
+    "stage": "screen",
+    "eval_type": "real_gt",
+    "limitations": [],
+    "verification_level": "artifact_imported",
+    "artifact_refs": [
+     "outputs/E-0001/s42/metrics.json",
+     "outputs/E-0001/s43/metrics.json",
+     "outputs/E-0001/s44/metrics.json"
+    ],
+    "statistics_version": "rt-stats-1",
+    "parser_version": "rt-manifest-1",
+    "fingerprint": "e20c908c27abe018e817b5ce29c6b273815eea1d8c2f302a1bfbb24e9c9e7fd4",
+    "inputs_digest": "99f7c0e649f44f4a0fe35e7b7b038f34c0d2c1655da17d270fc28d500360f9e3",
+    "created_by": "worker/root",
+    "created_at": "2026-10-07T01:09:26Z",
+    "experiment_id": "E-0001"
+   },
+   {
+    "id": "EV-0002",
+    "result_revision": 1,
+    "run_attempt_refs": [
+     "E-0001/s42@1",
+     "E-0001/s43@1",
+     "E-0001/s44@1",
+     "E-0003/s42@1"
+    ],
+    "input_revisions": {
+     "E-0003/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.5654,
+      "secondary": {
+       "final_loss": 0.9121,
+       "loss_auc": 1.2774,
+       "peak_mem_gb": 39.1613,
+       "train_time_s": 3004.0644
+      },
+      "retracted_at": null,
+      "import": "c1ddce2e7874bc5212c02641714c12dc46094fb9b2cd61cff8ec3242c80ad6d4"
+     },
+     "E-0001/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3907,
+      "secondary": {
+       "final_loss": 0.9142,
+       "loss_auc": 1.2773,
+       "peak_mem_gb": 38.0428,
+       "train_time_s": 2983.973
+      },
+      "retracted_at": null,
+      "import": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0"
+     },
+     "E-0001/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4456,
+      "secondary": {
+       "final_loss": 0.9124,
+       "loss_auc": 1.2831,
+       "peak_mem_gb": 37.901,
+       "train_time_s": 2997.7651
+      },
+      "retracted_at": null,
+      "import": "e0386148c42cd8ea61da0ad1f7042b2a8c6d507bd344ae53b0883aec634c6708"
+     },
+     "E-0001/s44": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3642,
+      "secondary": {
+       "final_loss": 0.9107,
+       "loss_auc": 1.2825,
+       "peak_mem_gb": 37.9461,
+       "train_time_s": 3021.8327
+      },
+      "retracted_at": null,
+      "import": "82a37fc2e7493d2ccaf8c64f8226df791347a939461908f55cf910abdecba6c9"
+     }
+    },
+    "pair_keys": {
+     "sota": [
+      "seed=42/data_version=commonsense-mix-v1（虚构）"
+     ]
+    },
+    "method_code_ref": "5f00fec5313893385de89e023f8ef35e5c63ea0e",
+    "harness_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "harness_paths": [
+     "harness"
+    ],
+    "protocol_doc_id": "D-0006",
+    "metric_spec_doc_id": "D-0005",
+    "baseline_experiment_id": "E-0001",
+    "baseline_evaluation_id": "EV-0001",
+    "result_doc_id": "D-0021",
+    "metrics": {
+     "acc": {
+      "n": 1,
+      "mean": 71.5654,
+      "values": [
+       71.5654
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "percentage_point",
+      "seeds": [
+       42
+      ]
+     },
+     "final_loss": {
+      "n": 1,
+      "mean": 0.9121,
+      "values": [
+       0.9121
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "nats",
+      "seeds": [
+       42
+      ]
+     },
+     "loss_auc": {
+      "n": 1,
+      "mean": 1.2774,
+      "values": [
+       1.2774
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "raw",
+      "seeds": [
+       42
+      ]
+     },
+     "peak_mem_gb": {
+      "n": 1,
+      "mean": 39.1613,
+      "values": [
+       39.1613
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "gib",
+      "seeds": [
+       42
+      ]
+     },
+     "train_time_s": {
+      "n": 1,
+      "mean": 3004.0644,
+      "values": [
+       3004.0644
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "seconds",
+      "seeds": [
+       42
+      ]
+     }
+    },
+    "comparisons": {
+     "sota": {
+      "target_id": "E-0001",
+      "n_paired": 1,
+      "n_independent": 1,
+      "metrics": {
+       "acc": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "percentage_point",
+        "deltas": [
+         0.1747000000000014
+        ],
+        "delta_mean": 0.1747000000000014,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "final_loss": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "nats",
+        "deltas": [
+         0.0020999999999999908
+        ],
+        "delta_mean": 0.0020999999999999908,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "loss_auc": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "raw",
+        "deltas": [
+         -9.999999999998899e-05
+        ],
+        "delta_mean": -9.999999999998899e-05,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "peak_mem_gb": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "gib",
+        "deltas": [
+         -1.1184999999999974
+        ],
+        "delta_mean": -1.1184999999999974,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "train_time_s": {
+        "n_paired": 1,
+        "effect_mode": "relative_to_reference_mean",
+        "unit": "fraction",
+        "delta_mean": -0.006733103818298707,
+        "delta_sd": null,
+        "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
+       }
+      },
+      "delta_mean": 0.1747000000000014,
+      "delta_sd": null,
+      "deltas": {
+       "final_loss": 0.0020999999999999908,
+       "loss_auc": -9.999999999998899e-05,
+       "peak_mem_gb": -1.1184999999999974,
+       "train_time_s": -0.006733103818298707
+      },
+      "guardrails": {
+       "peak_mem_gb": {
+        "allowed_regression": 2.0,
+        "effect": -1.1184999999999974,
+        "passed": true
+       },
+       "train_time_s": {
+        "allowed_regression": 0.1,
+        "effect": -0.006733103818298707,
+        "passed": true
+       }
+      },
+      "passes_gate": false
+     }
+    },
+    "verdict": "beats_parent",
+    "outcome": "positive_signal",
+    "outcome_reason": "effect 0.1747 clears the minimum practical gain 0.05",
+    "stage": "screen",
+    "gate_passed": false,
+    "guardrails_passed": true,
+    "eval_type": "real_gt",
+    "limitations": [
+     "n=1: no standard deviation"
+    ],
+    "verification_level": "artifact_imported",
+    "artifact_refs": [
+     "outputs/E-0001/s42/metrics.json",
+     "outputs/E-0001/s43/metrics.json",
+     "outputs/E-0001/s44/metrics.json",
+     "outputs/E-0003/s42/metrics.json"
+    ],
+    "statistics_version": "rt-stats-1",
+    "parser_version": "rt-manifest-1",
+    "fingerprint": "2eb22c85d14657d1ebee58c8074f0289f6d1f3be9a901514df3f027d5f1568b2",
+    "inputs_digest": "fe0cff0d74fe650ff101a1ddf3dcbb136daa4500d61a6aa700db5b88d8032b56",
+    "created_by": "worker/h0001",
+    "created_at": "2026-10-07T01:09:36Z",
+    "experiment_id": "E-0003"
+   },
+   {
+    "id": "EV-0003",
+    "result_revision": 1,
+    "run_attempt_refs": [
+     "E-0001/s42@1",
+     "E-0001/s43@1",
+     "E-0001/s44@1",
+     "E-0005/s42@1"
+    ],
+    "input_revisions": {
+     "E-0005/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.1512,
+      "secondary": {
+       "final_loss": 0.9258,
+       "loss_auc": 1.3088,
+       "peak_mem_gb": 38.5906,
+       "train_time_s": 3118.1007
+      },
+      "retracted_at": null,
+      "import": "86701fb69bdedba6fa5fb18ffb8a22c7b22e6021cf97589c24bde87cdac3cb4c"
+     },
+     "E-0001/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3907,
+      "secondary": {
+       "final_loss": 0.9142,
+       "loss_auc": 1.2773,
+       "peak_mem_gb": 38.0428,
+       "train_time_s": 2983.973
+      },
+      "retracted_at": null,
+      "import": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0"
+     },
+     "E-0001/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4456,
+      "secondary": {
+       "final_loss": 0.9124,
+       "loss_auc": 1.2831,
+       "peak_mem_gb": 37.901,
+       "train_time_s": 2997.7651
+      },
+      "retracted_at": null,
+      "import": "e0386148c42cd8ea61da0ad1f7042b2a8c6d507bd344ae53b0883aec634c6708"
+     },
+     "E-0001/s44": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3642,
+      "secondary": {
+       "final_loss": 0.9107,
+       "loss_auc": 1.2825,
+       "peak_mem_gb": 37.9461,
+       "train_time_s": 3021.8327
+      },
+      "retracted_at": null,
+      "import": "82a37fc2e7493d2ccaf8c64f8226df791347a939461908f55cf910abdecba6c9"
+     }
+    },
+    "pair_keys": {
+     "sota": [
+      "seed=42/data_version=commonsense-mix-v1（虚构）"
+     ]
+    },
+    "method_code_ref": "0ec19877e03876569e73aa8c2a4b04ffe0e6a667",
+    "harness_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "harness_paths": [
+     "harness"
+    ],
+    "protocol_doc_id": "D-0006",
+    "metric_spec_doc_id": "D-0005",
+    "baseline_experiment_id": "E-0001",
+    "baseline_evaluation_id": "EV-0001",
+    "result_doc_id": "D-0028",
+    "metrics": {
+     "acc": {
+      "n": 1,
+      "mean": 71.1512,
+      "values": [
+       71.1512
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "percentage_point",
+      "seeds": [
+       42
+      ]
+     },
+     "final_loss": {
+      "n": 1,
+      "mean": 0.9258,
+      "values": [
+       0.9258
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "nats",
+      "seeds": [
+       42
+      ]
+     },
+     "loss_auc": {
+      "n": 1,
+      "mean": 1.3088,
+      "values": [
+       1.3088
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "raw",
+      "seeds": [
+       42
+      ]
+     },
+     "peak_mem_gb": {
+      "n": 1,
+      "mean": 38.5906,
+      "values": [
+       38.5906
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "gib",
+      "seeds": [
+       42
+      ]
+     },
+     "train_time_s": {
+      "n": 1,
+      "mean": 3118.1007,
+      "values": [
+       3118.1007
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "seconds",
+      "seeds": [
+       42
+      ]
+     }
+    },
+    "comparisons": {
+     "sota": {
+      "target_id": "E-0001",
+      "n_paired": 1,
+      "n_independent": 1,
+      "metrics": {
+       "acc": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "percentage_point",
+        "deltas": [
+         -0.2394999999999925
+        ],
+        "delta_mean": -0.2394999999999925,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "final_loss": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "nats",
+        "deltas": [
+         -0.011599999999999944
+        ],
+        "delta_mean": -0.011599999999999944,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "loss_auc": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "raw",
+        "deltas": [
+         -0.03149999999999986
+        ],
+        "delta_mean": -0.03149999999999986,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "peak_mem_gb": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "gib",
+        "deltas": [
+         -0.5478000000000023
+        ],
+        "delta_mean": -0.5478000000000023,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "train_time_s": {
+        "n_paired": 1,
+        "effect_mode": "relative_to_reference_mean",
+        "unit": "fraction",
+        "delta_mean": -0.044949367839454316,
+        "delta_sd": null,
+        "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
+       }
+      },
+      "delta_mean": -0.2394999999999925,
+      "delta_sd": null,
+      "deltas": {
+       "final_loss": -0.011599999999999944,
+       "loss_auc": -0.03149999999999986,
+       "peak_mem_gb": -0.5478000000000023,
+       "train_time_s": -0.044949367839454316
+      },
+      "guardrails": {
+       "peak_mem_gb": {
+        "allowed_regression": 2.0,
+        "effect": -0.5478000000000023,
+        "passed": true
+       },
+       "train_time_s": {
+        "allowed_regression": 0.1,
+        "effect": -0.044949367839454316,
+        "passed": true
+       }
+      },
+      "passes_gate": false
+     }
+    },
+    "verdict": "no_gain",
+    "outcome": "inconclusive",
+    "outcome_reason": "effect -0.2395 over 1 pair(s): neither clear of 0.05 nor below -0.05 with at least 3 pairs (what a negative signal needs)",
+    "stage": "screen",
+    "gate_passed": false,
+    "guardrails_passed": true,
+    "eval_type": "real_gt",
+    "limitations": [
+     "n=1: no standard deviation"
+    ],
+    "verification_level": "artifact_imported",
+    "artifact_refs": [
+     "outputs/E-0001/s42/metrics.json",
+     "outputs/E-0001/s43/metrics.json",
+     "outputs/E-0001/s44/metrics.json",
+     "outputs/E-0005/s42/metrics.json"
+    ],
+    "statistics_version": "rt-stats-1",
+    "parser_version": "rt-manifest-1",
+    "fingerprint": "caaf643420e2e0a54afba9ccac47a987ee2a503ee41a8cca091b4184cc4d02f0",
+    "inputs_digest": "3cb62851551f31f67724ed2b527a784cd97c06155b62be6917c929524dffe27d",
+    "created_by": "worker/h0002",
+    "created_at": "2026-10-07T01:09:43Z",
+    "experiment_id": "E-0005"
+   },
+   {
+    "id": "EV-0004",
+    "result_revision": 1,
+    "run_attempt_refs": [
+     "E-0001/s42@1",
+     "E-0001/s43@1",
+     "E-0001/s44@1",
+     "E-0003/s42@1",
+     "E-0007/s42@1"
+    ],
+    "input_revisions": {
+     "E-0007/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.6523,
+      "secondary": {
+       "final_loss": 0.9125,
+       "loss_auc": 1.2725,
+       "peak_mem_gb": 39.0426,
+       "train_time_s": 3006.8881
+      },
+      "retracted_at": null,
+      "import": "2f1dd44520747b568904c41d1a600bac1160afd8d8ff5fa31e4000a3c503ff1d"
+     },
+     "E-0001/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3907,
+      "secondary": {
+       "final_loss": 0.9142,
+       "loss_auc": 1.2773,
+       "peak_mem_gb": 38.0428,
+       "train_time_s": 2983.973
+      },
+      "retracted_at": null,
+      "import": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0"
+     },
+     "E-0001/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4456,
+      "secondary": {
+       "final_loss": 0.9124,
+       "loss_auc": 1.2831,
+       "peak_mem_gb": 37.901,
+       "train_time_s": 2997.7651
+      },
+      "retracted_at": null,
+      "import": "e0386148c42cd8ea61da0ad1f7042b2a8c6d507bd344ae53b0883aec634c6708"
+     },
+     "E-0001/s44": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3642,
+      "secondary": {
+       "final_loss": 0.9107,
+       "loss_auc": 1.2825,
+       "peak_mem_gb": 37.9461,
+       "train_time_s": 3021.8327
+      },
+      "retracted_at": null,
+      "import": "82a37fc2e7493d2ccaf8c64f8226df791347a939461908f55cf910abdecba6c9"
+     },
+     "E-0003/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.5654,
+      "secondary": {
+       "final_loss": 0.9121,
+       "loss_auc": 1.2774,
+       "peak_mem_gb": 39.1613,
+       "train_time_s": 3004.0644
+      },
+      "retracted_at": null,
+      "import": "c1ddce2e7874bc5212c02641714c12dc46094fb9b2cd61cff8ec3242c80ad6d4"
+     }
+    },
+    "pair_keys": {
+     "sota": [
+      "seed=42/data_version=commonsense-mix-v1（虚构）"
+     ],
+     "parent": [
+      "seed=42/data_version=commonsense-mix-v1（虚构）"
+     ]
+    },
+    "method_code_ref": "f226df77612fb789edb9638080b0218b36e4cabe",
+    "harness_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "harness_paths": [
+     "harness"
+    ],
+    "protocol_doc_id": "D-0006",
+    "metric_spec_doc_id": "D-0005",
+    "baseline_experiment_id": "E-0001",
+    "baseline_evaluation_id": "EV-0001",
+    "parent_experiment_id": "E-0003",
+    "parent_evaluation_id": "EV-0002",
+    "result_doc_id": "D-0036",
+    "metrics": {
+     "acc": {
+      "n": 1,
+      "mean": 71.6523,
+      "values": [
+       71.6523
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "percentage_point",
+      "seeds": [
+       42
+      ]
+     },
+     "final_loss": {
+      "n": 1,
+      "mean": 0.9125,
+      "values": [
+       0.9125
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "nats",
+      "seeds": [
+       42
+      ]
+     },
+     "loss_auc": {
+      "n": 1,
+      "mean": 1.2725,
+      "values": [
+       1.2725
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "raw",
+      "seeds": [
+       42
+      ]
+     },
+     "peak_mem_gb": {
+      "n": 1,
+      "mean": 39.0426,
+      "values": [
+       39.0426
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "gib",
+      "seeds": [
+       42
+      ]
+     },
+     "train_time_s": {
+      "n": 1,
+      "mean": 3006.8881,
+      "values": [
+       3006.8881
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "seconds",
+      "seeds": [
+       42
+      ]
+     }
+    },
+    "comparisons": {
+     "sota": {
+      "target_id": "E-0001",
+      "n_paired": 1,
+      "n_independent": 1,
+      "metrics": {
+       "acc": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "percentage_point",
+        "deltas": [
+         0.2616000000000014
+        ],
+        "delta_mean": 0.2616000000000014,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "final_loss": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "nats",
+        "deltas": [
+         0.0017000000000000348
+        ],
+        "delta_mean": 0.0017000000000000348,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "loss_auc": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "raw",
+        "deltas": [
+         0.0048000000000001375
+        ],
+        "delta_mean": 0.0048000000000001375,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "peak_mem_gb": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "gib",
+        "deltas": [
+         -0.9998000000000005
+        ],
+        "delta_mean": -0.9998000000000005,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "train_time_s": {
+        "n_paired": 1,
+        "effect_mode": "relative_to_reference_mean",
+        "unit": "fraction",
+        "delta_mean": -0.007679392541420504,
+        "delta_sd": null,
+        "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
+       }
+      },
+      "delta_mean": 0.2616000000000014,
+      "delta_sd": null,
+      "deltas": {
+       "final_loss": 0.0017000000000000348,
+       "loss_auc": 0.0048000000000001375,
+       "peak_mem_gb": -0.9998000000000005,
+       "train_time_s": -0.007679392541420504
+      },
+      "guardrails": {
+       "peak_mem_gb": {
+        "allowed_regression": 2.0,
+        "effect": -0.9998000000000005,
+        "passed": true
+       },
+       "train_time_s": {
+        "allowed_regression": 0.1,
+        "effect": -0.007679392541420504,
+        "passed": true
+       }
+      },
+      "passes_gate": false
+     },
+     "parent": {
+      "target_id": "E-0003",
+      "n_paired": 1,
+      "n_independent": 1,
+      "metrics": {
+       "acc": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "percentage_point",
+        "deltas": [
+         0.08689999999999998
+        ],
+        "delta_mean": 0.08689999999999998,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "final_loss": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "nats",
+        "deltas": [
+         -0.00039999999999995595
+        ],
+        "delta_mean": -0.00039999999999995595,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "loss_auc": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "raw",
+        "deltas": [
+         0.0049000000000001265
+        ],
+        "delta_mean": 0.0049000000000001265,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "peak_mem_gb": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "gib",
+        "deltas": [
+         0.11869999999999692
+        ],
+        "delta_mean": 0.11869999999999692,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "train_time_s": {
+        "n_paired": 1,
+        "effect_mode": "relative_to_reference_mean",
+        "unit": "fraction",
+        "delta_mean": -0.0009399598756937158,
+        "delta_sd": null,
+        "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
+       }
+      },
+      "delta_mean": 0.08689999999999998,
+      "delta_sd": null,
+      "deltas": {
+       "final_loss": -0.00039999999999995595,
+       "loss_auc": 0.0049000000000001265,
+       "peak_mem_gb": 0.11869999999999692,
+       "train_time_s": -0.0009399598756937158
+      },
+      "guardrails": {
+       "peak_mem_gb": {
+        "allowed_regression": 2.0,
+        "effect": 0.11869999999999692,
+        "passed": true
+       },
+       "train_time_s": {
+        "allowed_regression": 0.1,
+        "effect": -0.0009399598756937158,
+        "passed": true
+       }
+      }
+     }
+    },
+    "verdict": "beats_parent",
+    "outcome": "positive_signal",
+    "outcome_reason": "effect 0.0869 clears the minimum practical gain 0.05",
+    "stage": "screen",
+    "gate_passed": false,
+    "guardrails_passed": true,
+    "eval_type": "real_gt",
+    "limitations": [
+     "n=1: no standard deviation"
+    ],
+    "verification_level": "artifact_imported",
+    "artifact_refs": [
+     "outputs/E-0001/s42/metrics.json",
+     "outputs/E-0001/s43/metrics.json",
+     "outputs/E-0001/s44/metrics.json",
+     "outputs/E-0003/s42/metrics.json",
+     "outputs/E-0007/s42/metrics.json"
+    ],
+    "statistics_version": "rt-stats-1",
+    "parser_version": "rt-manifest-1",
+    "fingerprint": "ca568bc41255fbc4a1fe68aec0347f0349f40a83871709406e22b0085d850927",
+    "inputs_digest": "cc850d7cf57af15358ba2317be1b347858cd34eac06dd007499083f65da712cc",
+    "created_by": "worker/h0003",
+    "created_at": "2026-10-07T01:09:54Z",
+    "experiment_id": "E-0007"
+   },
+   {
+    "id": "EV-0005",
+    "result_revision": 2,
+    "run_attempt_refs": [
+     "E-0001/s42@1",
+     "E-0001/s43@1",
+     "E-0001/s44@1",
+     "E-0003/s42@1",
+     "E-0007/s42@1",
+     "E-0007/s43@1",
+     "E-0007/s44@1"
+    ],
+    "input_revisions": {
+     "E-0007/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.6523,
+      "secondary": {
+       "final_loss": 0.9125,
+       "loss_auc": 1.2725,
+       "peak_mem_gb": 39.0426,
+       "train_time_s": 3006.8881
+      },
+      "retracted_at": null,
+      "import": "2f1dd44520747b568904c41d1a600bac1160afd8d8ff5fa31e4000a3c503ff1d"
+     },
+     "E-0007/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.674,
+      "secondary": {
+       "final_loss": 0.9125,
+       "loss_auc": 1.2628,
+       "peak_mem_gb": 39.0501,
+       "train_time_s": 3008.166
+      },
+      "retracted_at": null,
+      "import": "2154ee6a1906915114788f0396aa5d9c8a5ff2b6526a6a25282badb63f34bbff"
+     },
+     "E-0007/s44": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.5978,
+      "secondary": {
+       "final_loss": 0.9124,
+       "loss_auc": 1.268,
+       "peak_mem_gb": 39.0222,
+       "train_time_s": 2983.6223
+      },
+      "retracted_at": null,
+      "import": "09f3d05dc52133573e1378ee97cbf61f472e6848ec211ba1207aaf574fb8e3f5"
+     },
+     "E-0001/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3907,
+      "secondary": {
+       "final_loss": 0.9142,
+       "loss_auc": 1.2773,
+       "peak_mem_gb": 38.0428,
+       "train_time_s": 2983.973
+      },
+      "retracted_at": null,
+      "import": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0"
+     },
+     "E-0001/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4456,
+      "secondary": {
+       "final_loss": 0.9124,
+       "loss_auc": 1.2831,
+       "peak_mem_gb": 37.901,
+       "train_time_s": 2997.7651
+      },
+      "retracted_at": null,
+      "import": "e0386148c42cd8ea61da0ad1f7042b2a8c6d507bd344ae53b0883aec634c6708"
+     },
+     "E-0001/s44": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3642,
+      "secondary": {
+       "final_loss": 0.9107,
+       "loss_auc": 1.2825,
+       "peak_mem_gb": 37.9461,
+       "train_time_s": 3021.8327
+      },
+      "retracted_at": null,
+      "import": "82a37fc2e7493d2ccaf8c64f8226df791347a939461908f55cf910abdecba6c9"
+     },
+     "E-0003/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.5654,
+      "secondary": {
+       "final_loss": 0.9121,
+       "loss_auc": 1.2774,
+       "peak_mem_gb": 39.1613,
+       "train_time_s": 3004.0644
+      },
+      "retracted_at": null,
+      "import": "c1ddce2e7874bc5212c02641714c12dc46094fb9b2cd61cff8ec3242c80ad6d4"
+     }
+    },
+    "pair_keys": {
+     "sota": [
+      "seed=42/data_version=commonsense-mix-v1（虚构）",
+      "seed=43/data_version=commonsense-mix-v1（虚构）",
+      "seed=44/data_version=commonsense-mix-v1（虚构）"
+     ],
+     "parent": [
+      "seed=42/data_version=commonsense-mix-v1（虚构）"
+     ]
+    },
+    "method_code_ref": "f226df77612fb789edb9638080b0218b36e4cabe",
+    "harness_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "harness_paths": [
+     "harness"
+    ],
+    "protocol_doc_id": "D-0006",
+    "metric_spec_doc_id": "D-0005",
+    "baseline_experiment_id": "E-0001",
+    "baseline_evaluation_id": "EV-0001",
+    "parent_experiment_id": "E-0003",
+    "parent_evaluation_id": "EV-0002",
+    "result_doc_id": "D-0037",
+    "metrics": {
+     "acc": {
+      "n": 3,
+      "mean": 71.64136666666667,
+      "values": [
+       71.6523,
+       71.674,
+       71.5978
+      ],
+      "sd": 0.03925892679803191,
+      "unit": "percentage_point",
+      "seeds": [
+       42,
+       43,
+       44
+      ]
+     },
+     "final_loss": {
+      "n": 3,
+      "mean": 0.9124666666666666,
+      "values": [
+       0.9125,
+       0.9125,
+       0.9124
+      ],
+      "sd": 5.7735026918956215e-05,
+      "unit": "nats",
+      "seeds": [
+       42,
+       43,
+       44
+      ]
+     },
+     "loss_auc": {
+      "n": 3,
+      "mean": 1.2677666666666667,
+      "values": [
+       1.2725,
+       1.2628,
+       1.268
+      ],
+      "sd": 0.0048542077966784196,
+      "unit": "raw",
+      "seeds": [
+       42,
+       43,
+       44
+      ]
+     },
+     "peak_mem_gb": {
+      "n": 3,
+      "mean": 39.0383,
+      "values": [
+       39.0426,
+       39.0501,
+       39.0222
+      ],
+      "sd": 0.014438490225783258,
+      "unit": "gib",
+      "seeds": [
+       42,
+       43,
+       44
+      ]
+     },
+     "train_time_s": {
+      "n": 3,
+      "mean": 2999.5588000000002,
+      "values": [
+       3006.8881,
+       3008.166,
+       2983.6223
+      ],
+      "sd": 13.816196339441706,
+      "unit": "seconds",
+      "seeds": [
+       42,
+       43,
+       44
+      ]
+     }
+    },
+    "comparisons": {
+     "sota": {
+      "target_id": "E-0001",
+      "n_paired": 3,
+      "n_independent": 3,
+      "metrics": {
+       "acc": {
+        "n_paired": 3,
+        "effect_mode": "absolute",
+        "unit": "percentage_point",
+        "deltas": [
+         0.2616000000000014,
+         0.2284000000000077,
+         0.2336000000000098
+        ],
+        "delta_mean": 0.2412000000000063,
+        "delta_sd": 0.017857211428435715
+       },
+       "final_loss": {
+        "n_paired": 3,
+        "effect_mode": "absolute",
+        "unit": "nats",
+        "deltas": [
+         0.0017000000000000348,
+         -9.999999999998899e-05,
+         -0.0017000000000000348
+        ],
+        "delta_mean": -3.333333333332966e-05,
+        "delta_sd": 0.001700980109623111
+       },
+       "loss_auc": {
+        "n_paired": 3,
+        "effect_mode": "absolute",
+        "unit": "raw",
+        "deltas": [
+         0.0048000000000001375,
+         0.020299999999999985,
+         0.014499999999999957
+        ],
+        "delta_mean": 0.013200000000000026,
+        "delta_sd": 0.007831347265956138
+       },
+       "peak_mem_gb": {
+        "n_paired": 3,
+        "effect_mode": "absolute",
+        "unit": "gib",
+        "deltas": [
+         -0.9998000000000005,
+         -1.1490999999999971,
+         -1.0760999999999967
+        ],
+        "delta_mean": -1.0749999999999982,
+        "delta_sd": 0.07465607811826006
+       },
+       "train_time_s": {
+        "n_paired": 3,
+        "effect_mode": "relative_to_reference_mean",
+        "unit": "fraction",
+        "delta_mean": 0.0005436065433059924,
+        "delta_sd": null,
+        "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
+       }
+      },
+      "delta_mean": 0.2412000000000063,
+      "delta_sd": 0.017857211428435715,
+      "deltas": {
+       "final_loss": -3.333333333332966e-05,
+       "loss_auc": 0.013200000000000026,
+       "peak_mem_gb": -1.0749999999999982,
+       "train_time_s": 0.0005436065433059924
+      },
+      "guardrails": {
+       "peak_mem_gb": {
+        "allowed_regression": 2.0,
+        "effect": -1.0749999999999982,
+        "passed": true
+       },
+       "train_time_s": {
+        "allowed_regression": 0.1,
+        "effect": 0.0005436065433059924,
+        "passed": true
+       }
+      },
+      "passes_gate": true
+     },
+     "parent": {
+      "target_id": "E-0003",
+      "n_paired": 1,
+      "n_independent": 1,
+      "metrics": {
+       "acc": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "percentage_point",
+        "deltas": [
+         0.08689999999999998
+        ],
+        "delta_mean": 0.08689999999999998,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "final_loss": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "nats",
+        "deltas": [
+         -0.00039999999999995595
+        ],
+        "delta_mean": -0.00039999999999995595,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "loss_auc": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "raw",
+        "deltas": [
+         0.0049000000000001265
+        ],
+        "delta_mean": 0.0049000000000001265,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "peak_mem_gb": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "gib",
+        "deltas": [
+         0.11869999999999692
+        ],
+        "delta_mean": 0.11869999999999692,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "train_time_s": {
+        "n_paired": 1,
+        "effect_mode": "relative_to_reference_mean",
+        "unit": "fraction",
+        "delta_mean": -0.0009399598756937158,
+        "delta_sd": null,
+        "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
+       }
+      },
+      "delta_mean": 0.08689999999999998,
+      "delta_sd": null,
+      "deltas": {
+       "final_loss": -0.00039999999999995595,
+       "loss_auc": 0.0049000000000001265,
+       "peak_mem_gb": 0.11869999999999692,
+       "train_time_s": -0.0009399598756937158
+      },
+      "guardrails": {
+       "peak_mem_gb": {
+        "allowed_regression": 2.0,
+        "effect": 0.11869999999999692,
+        "passed": true
+       },
+       "train_time_s": {
+        "allowed_regression": 0.1,
+        "effect": -0.0009399598756937158,
+        "passed": true
+       }
+      }
+     }
+    },
+    "verdict": "beats_sota",
+    "outcome": "positive_signal",
+    "outcome_reason": "effect 0.0869 clears the minimum practical gain 0.05",
+    "stage": "screen",
+    "gate_passed": true,
+    "guardrails_passed": true,
+    "eval_type": "real_gt",
+    "limitations": [],
+    "verification_level": "artifact_imported",
+    "artifact_refs": [
+     "outputs/E-0001/s42/metrics.json",
+     "outputs/E-0001/s43/metrics.json",
+     "outputs/E-0001/s44/metrics.json",
+     "outputs/E-0003/s42/metrics.json",
+     "outputs/E-0007/s42/metrics.json",
+     "outputs/E-0007/s43/metrics.json",
+     "outputs/E-0007/s44/metrics.json"
+    ],
+    "statistics_version": "rt-stats-1",
+    "parser_version": "rt-manifest-1",
+    "fingerprint": "09c0d7fa5462ffd96f3a076dd307df2d83a7f481bf29de89e5d832a7d24926a4",
+    "inputs_digest": "e7c036decb7fa5cd3c76cd9cef06d4304199a960ab874babefdf30bdeda81b13",
+    "supersedes_evaluation_id": "EV-0004",
+    "created_by": "worker/h0003",
+    "created_at": "2026-10-07T01:09:57Z",
+    "experiment_id": "E-0007"
+   },
+   {
+    "id": "EV-0006",
+    "result_revision": 1,
+    "run_attempt_refs": [
+     "E-0008/s1042@1",
+     "E-0008/s1043@1",
+     "E-0008/s1044@1"
+    ],
+    "input_revisions": {
+     "E-0008/s1042": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4353,
+      "secondary": {
+       "final_loss": 0.911,
+       "loss_auc": 1.2864,
+       "peak_mem_gb": 37.9953,
+       "train_time_s": 3004.0509
+      },
+      "retracted_at": null,
+      "import": "1e261d4529fc7745d4fc2126954bd56b60b320134a07bfbf5d82480c3c8c0f94"
+     },
+     "E-0008/s1043": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3752,
+      "secondary": {
+       "final_loss": 0.9108,
+       "loss_auc": 1.2881,
+       "peak_mem_gb": 38.0568,
+       "train_time_s": 3001.8965
+      },
+      "retracted_at": null,
+      "import": "c3d1faf3800fda5048b375f5187d136d731f1b9ef58e499f9f8d19ca2ebf9fb5"
+     },
+     "E-0008/s1044": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3681,
+      "secondary": {
+       "final_loss": 0.9096,
+       "loss_auc": 1.2809,
+       "peak_mem_gb": 38.0353,
+       "train_time_s": 3000.6821
+      },
+      "retracted_at": null,
+      "import": "cb7f3994a4d43a18d80eaafabdecb61fd81798d3ed8b4470ed6a9e679cc8a0b6"
+     }
+    },
+    "pair_keys": {},
+    "method_code_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "harness_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "harness_paths": [
+     "harness"
+    ],
+    "protocol_doc_id": "D-0006",
+    "metric_spec_doc_id": "D-0005",
+    "result_doc_id": "D-0042",
+    "metrics": {
+     "acc": {
+      "n": 3,
+      "mean": 71.39286666666668,
+      "values": [
+       71.4353,
+       71.3752,
+       71.3681
+      ],
+      "sd": 0.03691941675234285,
+      "unit": "percentage_point",
+      "seeds": [
+       1042,
+       1043,
+       1044
+      ]
+     },
+     "final_loss": {
+      "n": 3,
+      "mean": 0.9104666666666666,
+      "values": [
+       0.911,
+       0.9108,
+       0.9096
+      ],
+      "sd": 0.0007571877794400802,
+      "unit": "nats",
+      "seeds": [
+       1042,
+       1043,
+       1044
+      ]
+     },
+     "loss_auc": {
+      "n": 3,
+      "mean": 1.2851333333333332,
+      "values": [
+       1.2864,
+       1.2881,
+       1.2809
+      ],
+      "sd": 0.003763420430052121,
+      "unit": "raw",
+      "seeds": [
+       1042,
+       1043,
+       1044
+      ]
+     },
+     "peak_mem_gb": {
+      "n": 3,
+      "mean": 38.029133333333334,
+      "values": [
+       37.9953,
+       38.0568,
+       38.0353
+      ],
+      "sd": 0.03121030812621677,
+      "unit": "gib",
+      "seeds": [
+       1042,
+       1043,
+       1044
+      ]
+     },
+     "train_time_s": {
+      "n": 3,
+      "mean": 3002.209833333333,
+      "values": [
+       3004.0509,
+       3001.8965,
+       3000.6821
+      ],
+      "sd": 1.7061174324570207,
+      "unit": "seconds",
+      "seeds": [
+       1042,
+       1043,
+       1044
+      ]
+     }
+    },
+    "comparisons": {},
+    "stage": "confirm",
+    "eval_type": "real_gt",
+    "limitations": [],
+    "verification_level": "artifact_imported",
+    "artifact_refs": [
+     "outputs/E-0008/s1042/metrics.json",
+     "outputs/E-0008/s1043/metrics.json",
+     "outputs/E-0008/s1044/metrics.json"
+    ],
+    "statistics_version": "rt-stats-1",
+    "parser_version": "rt-manifest-1",
+    "fingerprint": "9c0f4a240c0495a9f2c0774b22947f0ff26be23197646ac16e05072638771e6b",
+    "inputs_digest": "b38d0ef5827aceb72b1376f3416ad5216879c00973c75217ecbf2f0e581275dc",
+    "created_by": "worker/root",
+    "created_at": "2026-10-07T01:10:03Z",
+    "experiment_id": "E-0008"
+   },
+   {
+    "id": "EV-0007",
+    "result_revision": 1,
+    "run_attempt_refs": [
+     "E-0008/s1042@1",
+     "E-0008/s1043@1",
+     "E-0008/s1044@1",
+     "E-0009/s1042@1",
+     "E-0009/s1043@1",
+     "E-0009/s1044@1"
+    ],
+    "input_revisions": {
+     "E-0009/s1042": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.6599,
+      "secondary": {
+       "final_loss": 0.9072,
+       "loss_auc": 1.2629,
+       "peak_mem_gb": 38.9978,
+       "train_time_s": 3011.5515
+      },
+      "retracted_at": null,
+      "import": "2e7fe6047968177c1de3908fabbc39008a5d2fb2e339545e3a927a6d41a87953"
+     },
+     "E-0009/s1043": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.6068,
+      "secondary": {
+       "final_loss": 0.9123,
+       "loss_auc": 1.2588,
+       "peak_mem_gb": 39.0505,
+       "train_time_s": 3000.4876
+      },
+      "retracted_at": null,
+      "import": "7e32f6b1cd7a20d7dd21f11abba82e46d1ab87a858dc2c89146f1a462aa86ddf"
+     },
+     "E-0009/s1044": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.6287,
+      "secondary": {
+       "final_loss": 0.9105,
+       "loss_auc": 1.2606,
+       "peak_mem_gb": 38.9932,
+       "train_time_s": 3006.5599
+      },
+      "retracted_at": null,
+      "import": "23fe44261874eca8f9c07c02eacc89750110c5339960757724f5e70401f12109"
+     },
+     "E-0008/s1042": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4353,
+      "secondary": {
+       "final_loss": 0.911,
+       "loss_auc": 1.2864,
+       "peak_mem_gb": 37.9953,
+       "train_time_s": 3004.0509
+      },
+      "retracted_at": null,
+      "import": "1e261d4529fc7745d4fc2126954bd56b60b320134a07bfbf5d82480c3c8c0f94"
+     },
+     "E-0008/s1043": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3752,
+      "secondary": {
+       "final_loss": 0.9108,
+       "loss_auc": 1.2881,
+       "peak_mem_gb": 38.0568,
+       "train_time_s": 3001.8965
+      },
+      "retracted_at": null,
+      "import": "c3d1faf3800fda5048b375f5187d136d731f1b9ef58e499f9f8d19ca2ebf9fb5"
+     },
+     "E-0008/s1044": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3681,
+      "secondary": {
+       "final_loss": 0.9096,
+       "loss_auc": 1.2809,
+       "peak_mem_gb": 38.0353,
+       "train_time_s": 3000.6821
+      },
+      "retracted_at": null,
+      "import": "cb7f3994a4d43a18d80eaafabdecb61fd81798d3ed8b4470ed6a9e679cc8a0b6"
+     }
+    },
+    "pair_keys": {
+     "sota": [
+      "seed=1042/data_version=commonsense-mix-v1（虚构）",
+      "seed=1043/data_version=commonsense-mix-v1（虚构）",
+      "seed=1044/data_version=commonsense-mix-v1（虚构）"
+     ]
+    },
+    "method_code_ref": "f226df77612fb789edb9638080b0218b36e4cabe",
+    "harness_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "harness_paths": [
+     "harness"
+    ],
+    "protocol_doc_id": "D-0006",
+    "metric_spec_doc_id": "D-0005",
+    "baseline_experiment_id": "E-0008",
+    "baseline_evaluation_id": "EV-0006",
+    "result_doc_id": "D-0044",
+    "metrics": {
+     "acc": {
+      "n": 3,
+      "mean": 71.6318,
+      "values": [
+       71.6599,
+       71.6068,
+       71.6287
+      ],
+      "sd": 0.026685389260785654,
+      "unit": "percentage_point",
+      "seeds": [
+       1042,
+       1043,
+       1044
+      ]
+     },
+     "final_loss": {
+      "n": 3,
+      "mean": 0.91,
+      "values": [
+       0.9072,
+       0.9123,
+       0.9105
+      ],
+      "sd": 0.0025865034312755066,
+      "unit": "nats",
+      "seeds": [
+       1042,
+       1043,
+       1044
+      ]
+     },
+     "loss_auc": {
+      "n": 3,
+      "mean": 1.2607666666666666,
+      "values": [
+       1.2629,
+       1.2588,
+       1.2606
+      ],
+      "sd": 0.002055075018906442,
+      "unit": "raw",
+      "seeds": [
+       1042,
+       1043,
+       1044
+      ]
+     },
+     "peak_mem_gb": {
+      "n": 3,
+      "mean": 39.01383333333333,
+      "values": [
+       38.9978,
+       39.0505,
+       38.9932
+      ],
+      "sd": 0.031837451740572995,
+      "unit": "gib",
+      "seeds": [
+       1042,
+       1043,
+       1044
+      ]
+     },
+     "train_time_s": {
+      "n": 3,
+      "mean": 3006.199666666667,
+      "values": [
+       3011.5515,
+       3000.4876,
+       3006.5599
+      ],
+      "sd": 5.5407397379171295,
+      "unit": "seconds",
+      "seeds": [
+       1042,
+       1043,
+       1044
+      ]
+     }
+    },
+    "comparisons": {
+     "sota": {
+      "target_id": "E-0008",
+      "n_paired": 3,
+      "n_independent": 3,
+      "metrics": {
+       "acc": {
+        "n_paired": 3,
+        "effect_mode": "absolute",
+        "unit": "percentage_point",
+        "deltas": [
+         0.22459999999999525,
+         0.23160000000000025,
+         0.2605999999999966
+        ],
+        "delta_mean": 0.2389333333333307,
+        "delta_sd": 0.01908751773629369
+       },
+       "final_loss": {
+        "n_paired": 3,
+        "effect_mode": "absolute",
+        "unit": "nats",
+        "deltas": [
+         0.0038000000000000256,
+         -0.0014999999999999458,
+         -0.0009000000000000119
+        ],
+        "delta_mean": 0.00046666666666668927,
+        "delta_sd": 0.0029022979401386977
+       },
+       "loss_auc": {
+        "n_paired": 3,
+        "effect_mode": "absolute",
+        "unit": "raw",
+        "deltas": [
+         0.023500000000000076,
+         0.029300000000000104,
+         0.020299999999999985
+        ],
+        "delta_mean": 0.02436666666666672,
+        "delta_sd": 0.004562163229580222
+       },
+       "peak_mem_gb": {
+        "n_paired": 3,
+        "effect_mode": "absolute",
+        "unit": "gib",
+        "deltas": [
+         -1.0024999999999977,
+         -0.9936999999999969,
+         -0.9579000000000022
+        ],
+        "delta_mean": -0.9846999999999989,
+        "delta_sd": 0.023622870274373372
+       },
+       "train_time_s": {
+        "n_paired": 3,
+        "effect_mode": "relative_to_reference_mean",
+        "unit": "fraction",
+        "delta_mean": -0.0013289655136810028,
+        "delta_sd": null,
+        "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
+       }
+      },
+      "delta_mean": 0.2389333333333307,
+      "delta_sd": 0.01908751773629369,
+      "deltas": {
+       "final_loss": 0.00046666666666668927,
+       "loss_auc": 0.02436666666666672,
+       "peak_mem_gb": -0.9846999999999989,
+       "train_time_s": -0.0013289655136810028
+      },
+      "guardrails": {
+       "peak_mem_gb": {
+        "allowed_regression": 2.0,
+        "effect": -0.9846999999999989,
+        "passed": true
+       },
+       "train_time_s": {
+        "allowed_regression": 0.1,
+        "effect": -0.0013289655136810028,
+        "passed": true
+       }
+      },
+      "passes_gate": true
+     }
+    },
+    "outcome": "positive_signal",
+    "outcome_reason": "effect 0.238933 clears the minimum practical gain 0.05",
+    "stage": "confirm",
+    "gate_passed": true,
+    "guardrails_passed": true,
+    "eval_type": "real_gt",
+    "limitations": [],
+    "verification_level": "artifact_imported",
+    "artifact_refs": [
+     "outputs/E-0008/s1042/metrics.json",
+     "outputs/E-0008/s1043/metrics.json",
+     "outputs/E-0008/s1044/metrics.json",
+     "outputs/E-0009/s1042/metrics.json",
+     "outputs/E-0009/s1043/metrics.json",
+     "outputs/E-0009/s1044/metrics.json"
+    ],
+    "statistics_version": "rt-stats-1",
+    "parser_version": "rt-manifest-1",
+    "fingerprint": "7a16f74d1978f9175d72413a5164e7aa4e996a387e2f144a15ec28e1e797bb06",
+    "inputs_digest": "f25f64cc5dedec0ecae4e85367af16de11649c530009f011454555a93d47f3a1",
+    "created_by": "worker/h0003",
+    "created_at": "2026-10-07T01:10:08Z",
+    "experiment_id": "E-0009"
+   },
+   {
+    "id": "EV-0008",
+    "result_revision": 1,
+    "run_attempt_refs": [
+     "E-0001/s42@1",
+     "E-0001/s43@1",
+     "E-0001/s44@1",
+     "E-0003/s42@1",
+     "E-0011/s42@1"
+    ],
+    "input_revisions": {
+     "E-0011/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4047,
+      "secondary": {
+       "final_loss": 0.9317,
+       "loss_auc": 1.3133,
+       "peak_mem_gb": 39.5652,
+       "train_time_s": 3090.8359
+      },
+      "retracted_at": null,
+      "import": "c6a9898028e1864128f1a481b10f0834e00e0799cd39ad6167d908322c235266"
+     },
+     "E-0001/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3907,
+      "secondary": {
+       "final_loss": 0.9142,
+       "loss_auc": 1.2773,
+       "peak_mem_gb": 38.0428,
+       "train_time_s": 2983.973
+      },
+      "retracted_at": null,
+      "import": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0"
+     },
+     "E-0001/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4456,
+      "secondary": {
+       "final_loss": 0.9124,
+       "loss_auc": 1.2831,
+       "peak_mem_gb": 37.901,
+       "train_time_s": 2997.7651
+      },
+      "retracted_at": null,
+      "import": "e0386148c42cd8ea61da0ad1f7042b2a8c6d507bd344ae53b0883aec634c6708"
+     },
+     "E-0001/s44": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3642,
+      "secondary": {
+       "final_loss": 0.9107,
+       "loss_auc": 1.2825,
+       "peak_mem_gb": 37.9461,
+       "train_time_s": 3021.8327
+      },
+      "retracted_at": null,
+      "import": "82a37fc2e7493d2ccaf8c64f8226df791347a939461908f55cf910abdecba6c9"
+     },
+     "E-0003/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.5654,
+      "secondary": {
+       "final_loss": 0.9121,
+       "loss_auc": 1.2774,
+       "peak_mem_gb": 39.1613,
+       "train_time_s": 3004.0644
+      },
+      "retracted_at": null,
+      "import": "c1ddce2e7874bc5212c02641714c12dc46094fb9b2cd61cff8ec3242c80ad6d4"
+     }
+    },
+    "pair_keys": {
+     "sota": [
+      "seed=42/data_version=commonsense-mix-v1（虚构）"
+     ],
+     "parent": [
+      "seed=42/data_version=commonsense-mix-v1（虚构）"
+     ]
+    },
+    "method_code_ref": "b10fece380060361826aeef8d0dd4f32b58a454e",
+    "harness_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "harness_paths": [
+     "harness"
+    ],
+    "protocol_doc_id": "D-0006",
+    "metric_spec_doc_id": "D-0005",
+    "baseline_experiment_id": "E-0001",
+    "baseline_evaluation_id": "EV-0001",
+    "parent_experiment_id": "E-0003",
+    "parent_evaluation_id": "EV-0002",
+    "result_doc_id": "D-0055",
+    "metrics": {
+     "acc": {
+      "n": 1,
+      "mean": 71.4047,
+      "values": [
+       71.4047
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "percentage_point",
+      "seeds": [
+       42
+      ]
+     },
+     "final_loss": {
+      "n": 1,
+      "mean": 0.9317,
+      "values": [
+       0.9317
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "nats",
+      "seeds": [
+       42
+      ]
+     },
+     "loss_auc": {
+      "n": 1,
+      "mean": 1.3133,
+      "values": [
+       1.3133
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "raw",
+      "seeds": [
+       42
+      ]
+     },
+     "peak_mem_gb": {
+      "n": 1,
+      "mean": 39.5652,
+      "values": [
+       39.5652
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "gib",
+      "seeds": [
+       42
+      ]
+     },
+     "train_time_s": {
+      "n": 1,
+      "mean": 3090.8359,
+      "values": [
+       3090.8359
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "seconds",
+      "seeds": [
+       42
+      ]
+     }
+    },
+    "comparisons": {
+     "sota": {
+      "target_id": "E-0001",
+      "n_paired": 1,
+      "n_independent": 1,
+      "metrics": {
+       "acc": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "percentage_point",
+        "deltas": [
+         0.014000000000010004
+        ],
+        "delta_mean": 0.014000000000010004,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "final_loss": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "nats",
+        "deltas": [
+         -0.01749999999999996
+        ],
+        "delta_mean": -0.01749999999999996,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "loss_auc": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "raw",
+        "deltas": [
+         -0.03599999999999981
+        ],
+        "delta_mean": -0.03599999999999981,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "peak_mem_gb": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "gib",
+        "deltas": [
+         -1.5223999999999975
+        ],
+        "delta_mean": -1.5223999999999975,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "train_time_s": {
+        "n_paired": 1,
+        "effect_mode": "relative_to_reference_mean",
+        "unit": "fraction",
+        "delta_mean": -0.03581228784576807,
+        "delta_sd": null,
+        "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
+       }
+      },
+      "delta_mean": 0.014000000000010004,
+      "delta_sd": null,
+      "deltas": {
+       "final_loss": -0.01749999999999996,
+       "loss_auc": -0.03599999999999981,
+       "peak_mem_gb": -1.5223999999999975,
+       "train_time_s": -0.03581228784576807
+      },
+      "guardrails": {
+       "peak_mem_gb": {
+        "allowed_regression": 2.0,
+        "effect": -1.5223999999999975,
+        "passed": true
+       },
+       "train_time_s": {
+        "allowed_regression": 0.1,
+        "effect": -0.03581228784576807,
+        "passed": true
+       }
+      },
+      "passes_gate": false
+     },
+     "parent": {
+      "target_id": "E-0003",
+      "n_paired": 1,
+      "n_independent": 1,
+      "metrics": {
+       "acc": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "percentage_point",
+        "deltas": [
+         -0.1606999999999914
+        ],
+        "delta_mean": -0.1606999999999914,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "final_loss": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "nats",
+        "deltas": [
+         -0.01959999999999995
+        ],
+        "delta_mean": -0.01959999999999995,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "loss_auc": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "raw",
+        "deltas": [
+         -0.03589999999999982
+        ],
+        "delta_mean": -0.03589999999999982,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "peak_mem_gb": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "gib",
+        "deltas": [
+         -0.40390000000000015
+        ],
+        "delta_mean": -0.40390000000000015,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "train_time_s": {
+        "n_paired": 1,
+        "effect_mode": "relative_to_reference_mean",
+        "unit": "fraction",
+        "delta_mean": -0.028884700341310868,
+        "delta_sd": null,
+        "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
+       }
+      },
+      "delta_mean": -0.1606999999999914,
+      "delta_sd": null,
+      "deltas": {
+       "final_loss": -0.01959999999999995,
+       "loss_auc": -0.03589999999999982,
+       "peak_mem_gb": -0.40390000000000015,
+       "train_time_s": -0.028884700341310868
+      },
+      "guardrails": {
+       "peak_mem_gb": {
+        "allowed_regression": 2.0,
+        "effect": -0.40390000000000015,
+        "passed": true
+       },
+       "train_time_s": {
+        "allowed_regression": 0.1,
+        "effect": -0.028884700341310868,
+        "passed": true
+       }
+      }
+     }
+    },
+    "verdict": "no_gain",
+    "outcome": "inconclusive",
+    "outcome_reason": "effect -0.1607 over 1 pair(s): neither clear of 0.05 nor below -0.05 with at least 3 pairs (what a negative signal needs)",
+    "stage": "screen",
+    "gate_passed": false,
+    "guardrails_passed": true,
+    "eval_type": "real_gt",
+    "limitations": [
+     "n=1: no standard deviation"
+    ],
+    "verification_level": "artifact_imported",
+    "artifact_refs": [
+     "outputs/E-0001/s42/metrics.json",
+     "outputs/E-0001/s43/metrics.json",
+     "outputs/E-0001/s44/metrics.json",
+     "outputs/E-0003/s42/metrics.json",
+     "outputs/E-0011/s42/metrics.json"
+    ],
+    "statistics_version": "rt-stats-1",
+    "parser_version": "rt-manifest-1",
+    "fingerprint": "079bdda8d9b0dba2a316098014535c7a3c8614fd253ba69f014afb1031883d5e",
+    "inputs_digest": "b5b6306b58fbac70864be252bd387ca414354a3e72b2db64c32f6bf64519fc04",
+    "created_by": "worker/h0004",
+    "created_at": "2026-10-07T01:10:18Z",
+    "experiment_id": "E-0011"
+   },
+   {
+    "id": "EV-0009",
+    "result_revision": 1,
+    "run_attempt_refs": [
+     "E-0001/s42@1",
+     "E-0001/s43@1",
+     "E-0001/s44@1",
+     "E-0013/s42@1"
+    ],
+    "input_revisions": {
+     "E-0013/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4655,
+      "secondary": {
+       "final_loss": 0.9133,
+       "loss_auc": 1.2885,
+       "peak_mem_gb": 38.3542,
+       "train_time_s": 2989.858
+      },
+      "retracted_at": null,
+      "import": "1c67221c2e2014751bba0423e91fb81a4ef1ed2dc413f8b5ee2f66d3b797ee87"
+     },
+     "E-0001/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3907,
+      "secondary": {
+       "final_loss": 0.9142,
+       "loss_auc": 1.2773,
+       "peak_mem_gb": 38.0428,
+       "train_time_s": 2983.973
+      },
+      "retracted_at": null,
+      "import": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0"
+     },
+     "E-0001/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4456,
+      "secondary": {
+       "final_loss": 0.9124,
+       "loss_auc": 1.2831,
+       "peak_mem_gb": 37.901,
+       "train_time_s": 2997.7651
+      },
+      "retracted_at": null,
+      "import": "e0386148c42cd8ea61da0ad1f7042b2a8c6d507bd344ae53b0883aec634c6708"
+     },
+     "E-0001/s44": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3642,
+      "secondary": {
+       "final_loss": 0.9107,
+       "loss_auc": 1.2825,
+       "peak_mem_gb": 37.9461,
+       "train_time_s": 3021.8327
+      },
+      "retracted_at": null,
+      "import": "82a37fc2e7493d2ccaf8c64f8226df791347a939461908f55cf910abdecba6c9"
+     }
+    },
+    "pair_keys": {
+     "sota": [
+      "seed=42/data_version=commonsense-mix-v1（虚构）"
+     ]
+    },
+    "method_code_ref": "8030b00b7b1fdea63d23ddc3104c95a4035f0669",
+    "harness_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "harness_paths": [
+     "harness"
+    ],
+    "protocol_doc_id": "D-0006",
+    "metric_spec_doc_id": "D-0005",
+    "baseline_experiment_id": "E-0001",
+    "baseline_evaluation_id": "EV-0001",
+    "result_doc_id": "D-0063",
+    "metrics": {
+     "acc": {
+      "n": 1,
+      "mean": 71.4655,
+      "values": [
+       71.4655
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "percentage_point",
+      "seeds": [
+       42
+      ]
+     },
+     "final_loss": {
+      "n": 1,
+      "mean": 0.9133,
+      "values": [
+       0.9133
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "nats",
+      "seeds": [
+       42
+      ]
+     },
+     "loss_auc": {
+      "n": 1,
+      "mean": 1.2885,
+      "values": [
+       1.2885
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "raw",
+      "seeds": [
+       42
+      ]
+     },
+     "peak_mem_gb": {
+      "n": 1,
+      "mean": 38.3542,
+      "values": [
+       38.3542
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "gib",
+      "seeds": [
+       42
+      ]
+     },
+     "train_time_s": {
+      "n": 1,
+      "mean": 2989.858,
+      "values": [
+       2989.858
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "seconds",
+      "seeds": [
+       42
+      ]
+     }
+    },
+    "comparisons": {
+     "sota": {
+      "target_id": "E-0001",
+      "n_paired": 1,
+      "n_independent": 1,
+      "metrics": {
+       "acc": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "percentage_point",
+        "deltas": [
+         0.07480000000001041
+        ],
+        "delta_mean": 0.07480000000001041,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "final_loss": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "nats",
+        "deltas": [
+         0.0009000000000000119
+        ],
+        "delta_mean": 0.0009000000000000119,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "loss_auc": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "raw",
+        "deltas": [
+         -0.011199999999999877
+        ],
+        "delta_mean": -0.011199999999999877,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "peak_mem_gb": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "gib",
+        "deltas": [
+         -0.311399999999999
+        ],
+        "delta_mean": -0.311399999999999,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "train_time_s": {
+        "n_paired": 1,
+        "effect_mode": "relative_to_reference_mean",
+        "unit": "fraction",
+        "delta_mean": -0.001972202831594059,
+        "delta_sd": null,
+        "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
+       }
+      },
+      "delta_mean": 0.07480000000001041,
+      "delta_sd": null,
+      "deltas": {
+       "final_loss": 0.0009000000000000119,
+       "loss_auc": -0.011199999999999877,
+       "peak_mem_gb": -0.311399999999999,
+       "train_time_s": -0.001972202831594059
+      },
+      "guardrails": {
+       "peak_mem_gb": {
+        "allowed_regression": 2.0,
+        "effect": -0.311399999999999,
+        "passed": true
+       },
+       "train_time_s": {
+        "allowed_regression": 0.1,
+        "effect": -0.001972202831594059,
+        "passed": true
+       }
+      },
+      "passes_gate": false
+     }
+    },
+    "verdict": "close",
+    "outcome": "positive_signal",
+    "outcome_reason": "effect 0.0748 clears the minimum practical gain 0.05",
+    "stage": "screen",
+    "gate_passed": false,
+    "guardrails_passed": true,
+    "eval_type": "real_gt",
+    "limitations": [
+     "n=1: no standard deviation"
+    ],
+    "verification_level": "artifact_imported",
+    "artifact_refs": [
+     "outputs/E-0001/s42/metrics.json",
+     "outputs/E-0001/s43/metrics.json",
+     "outputs/E-0001/s44/metrics.json",
+     "outputs/E-0013/s42/metrics.json"
+    ],
+    "statistics_version": "rt-stats-1",
+    "parser_version": "rt-manifest-1",
+    "fingerprint": "4d1d54c36d0786d6b28ad9cd1bdb67642c3201c569bd8bd028610f1fba9ec5dd",
+    "inputs_digest": "04a1b3932a9d7dac355c901325e1389762846184204c6eabfbed594dd4265739",
+    "created_by": "worker/h0005",
+    "created_at": "2026-10-07T01:10:29Z",
+    "experiment_id": "E-0013"
+   },
+   {
+    "id": "EV-0010",
+    "result_revision": 1,
+    "run_attempt_refs": [
+     "E-0001/s42@1",
+     "E-0001/s43@1",
+     "E-0001/s44@1",
+     "E-0015/s42@1"
+    ],
+    "input_revisions": {
+     "E-0015/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4136,
+      "secondary": {
+       "final_loss": 0.9102,
+       "loss_auc": 1.2812,
+       "peak_mem_gb": 31.9714,
+       "train_time_s": 3042.1152
+      },
+      "retracted_at": null,
+      "import": "08f8b3bb8e8e6b6fa0422b1a1b1747b1765950d03e1081e8a77188e8e633fcc3"
+     },
+     "E-0001/s42": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3907,
+      "secondary": {
+       "final_loss": 0.9142,
+       "loss_auc": 1.2773,
+       "peak_mem_gb": 38.0428,
+       "train_time_s": 2983.973
+      },
+      "retracted_at": null,
+      "import": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0"
+     },
+     "E-0001/s43": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.4456,
+      "secondary": {
+       "final_loss": 0.9124,
+       "loss_auc": 1.2831,
+       "peak_mem_gb": 37.901,
+       "train_time_s": 2997.7651
+      },
+      "retracted_at": null,
+      "import": "e0386148c42cd8ea61da0ad1f7042b2a8c6d507bd344ae53b0883aec634c6708"
+     },
+     "E-0001/s44": {
+      "attempt": 1,
+      "valid": true,
+      "metric_value": 71.3642,
+      "secondary": {
+       "final_loss": 0.9107,
+       "loss_auc": 1.2825,
+       "peak_mem_gb": 37.9461,
+       "train_time_s": 3021.8327
+      },
+      "retracted_at": null,
+      "import": "82a37fc2e7493d2ccaf8c64f8226df791347a939461908f55cf910abdecba6c9"
+     }
+    },
+    "pair_keys": {
+     "sota": [
+      "seed=42/data_version=commonsense-mix-v1（虚构）"
+     ]
+    },
+    "method_code_ref": "8877378e8fb77588aae77bb789e460b7247f6097",
+    "harness_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+    "harness_paths": [
+     "harness"
+    ],
+    "protocol_doc_id": "D-0006",
+    "metric_spec_doc_id": "D-0005",
+    "baseline_experiment_id": "E-0001",
+    "baseline_evaluation_id": "EV-0001",
+    "result_doc_id": "D-0072",
+    "metrics": {
+     "acc": {
+      "n": 1,
+      "mean": 71.4136,
+      "values": [
+       71.4136
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "percentage_point",
+      "seeds": [
+       42
+      ]
+     },
+     "final_loss": {
+      "n": 1,
+      "mean": 0.9102,
+      "values": [
+       0.9102
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "nats",
+      "seeds": [
+       42
+      ]
+     },
+     "loss_auc": {
+      "n": 1,
+      "mean": 1.2812,
+      "values": [
+       1.2812
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "raw",
+      "seeds": [
+       42
+      ]
+     },
+     "peak_mem_gb": {
+      "n": 1,
+      "mean": 31.9714,
+      "values": [
+       31.9714
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "gib",
+      "seeds": [
+       42
+      ]
+     },
+     "train_time_s": {
+      "n": 1,
+      "mean": 3042.1152,
+      "values": [
+       3042.1152
+      ],
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
+      "unit": "seconds",
+      "seeds": [
+       42
+      ]
+     }
+    },
+    "comparisons": {
+     "sota": {
+      "target_id": "E-0001",
+      "n_paired": 1,
+      "n_independent": 1,
+      "metrics": {
+       "acc": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "percentage_point",
+        "deltas": [
+         0.022900000000007026
+        ],
+        "delta_mean": 0.022900000000007026,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "final_loss": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "nats",
+        "deltas": [
+         0.0040000000000000036
+        ],
+        "delta_mean": 0.0040000000000000036,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "loss_auc": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "raw",
+        "deltas": [
+         -0.0038999999999997925
+        ],
+        "delta_mean": -0.0038999999999997925,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "peak_mem_gb": {
+        "n_paired": 1,
+        "effect_mode": "absolute",
+        "unit": "gib",
+        "deltas": [
+         6.071400000000001
+        ],
+        "delta_mean": 6.071400000000001,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
+       },
+       "train_time_s": {
+        "n_paired": 1,
+        "effect_mode": "relative_to_reference_mean",
+        "unit": "fraction",
+        "delta_mean": -0.01948482777826751,
+        "delta_sd": null,
+        "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
+       }
+      },
+      "delta_mean": 0.022900000000007026,
+      "delta_sd": null,
+      "deltas": {
+       "final_loss": 0.0040000000000000036,
+       "loss_auc": -0.0038999999999997925,
+       "peak_mem_gb": 6.071400000000001,
+       "train_time_s": -0.01948482777826751
+      },
+      "guardrails": {
+       "peak_mem_gb": {
+        "allowed_regression": 2.0,
+        "effect": 6.071400000000001,
+        "passed": true
+       },
+       "train_time_s": {
+        "allowed_regression": 0.1,
+        "effect": -0.01948482777826751,
+        "passed": true
+       }
+      },
+      "passes_gate": false
+     }
+    },
+    "verdict": "close",
+    "outcome": "inconclusive",
+    "outcome_reason": "effect 0.0229 over 1 pair(s): neither clear of 0.05 nor below -0.05 with at least 3 pairs (what a negative signal needs)",
+    "stage": "screen",
+    "gate_passed": false,
+    "guardrails_passed": true,
+    "eval_type": "real_gt",
+    "limitations": [
+     "n=1: no standard deviation"
+    ],
+    "verification_level": "artifact_imported",
+    "artifact_refs": [
+     "outputs/E-0001/s42/metrics.json",
+     "outputs/E-0001/s43/metrics.json",
+     "outputs/E-0001/s44/metrics.json",
+     "outputs/E-0015/s42/metrics.json"
+    ],
+    "statistics_version": "rt-stats-1",
+    "parser_version": "rt-manifest-1",
+    "fingerprint": "0cac6de8afd29c85ded9517c746a5d7afd492f61932378b858dfc0f24c286d6c",
+    "inputs_digest": "10e6e84bd708282ef2ccb82966ed4286602ac78a1d7906f00efc6044c3684ccf",
+    "created_by": "worker/h0007",
+    "created_at": "2026-10-07T01:10:39Z",
+    "experiment_id": "E-0015"
+   }
+  ],
+  "obligation": [
+   {
+    "id": "OB-0001",
+    "about": "E-0007",
+    "source": "code_review:RV-demo",
+    "pattern": "seed_config",
+    "fingerprint": "5dbd87f519eb63192332f683",
+    "severity": "MAJOR",
+    "status": "RESOLVED",
+    "claim": "（虚构）复核指出配置中 seed 列表与协议不一致",
+    "evidence_excerpt": "config.yaml seeds",
+    "created_at": "2026-10-07T01:10:41Z",
+    "updated_at": "2026-10-07T01:10:42Z",
+    "resolution": {
+     "fix_type": "code_fixed",
+     "verified_by": "rld/main",
+     "resolved_at": "2026-10-07T01:10:42Z",
+     "evidence_path": "outputs/fixes/seed-config-check.txt",
+     "evidence_sha256": "a7839e214bf78b3ed8710724d4d77eb84e13e4d20ecdd9cf13e5dc547f190692"
+    }
+   }
+  ],
+  "reservation": [],
+  "run": [
+   {
+    "id": "E-0001/s42",
+    "seed": 42,
+    "job_id": "demo-3480462",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.3907,
+    "secondary": {
+     "final_loss": 0.9142,
+     "loss_auc": 1.2773,
+     "peak_mem_gb": 38.0428,
+     "train_time_s": 2983.973
+    },
+    "manifest_path": "outputs/E-0001/s42/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0001",
+     "seed": 42,
+     "attempt": 1,
+     "code_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3043,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0001/s42/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "ccff5919713a57ad96e66e3dd684d878f65d91770b6fcfe2c4f86a6dac439f6e",
+     "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
+     "imported_at": "2026-10-07T01:09:23Z",
+     "by": "worker/root"
+    },
+    "log_path": "outputs/E-0001/s42/train.log",
+    "curve_path": "outputs/E-0001/s42/curve.json",
+    "output_path": "outputs/E-0001/s42",
+    "nodes_used": 4,
+    "walltime_used_s": 3043,
+    "valid": true,
+    "experiment_id": "E-0001"
+   },
+   {
+    "id": "E-0001/s43",
+    "seed": 43,
+    "job_id": "demo-3489991",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.4456,
+    "secondary": {
+     "final_loss": 0.9124,
+     "loss_auc": 1.2831,
+     "peak_mem_gb": 37.901,
+     "train_time_s": 2997.7651
+    },
+    "manifest_path": "outputs/E-0001/s43/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0001",
+     "seed": 43,
+     "attempt": 1,
+     "code_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3057,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0001/s43/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "43ddfcf307bf3345f7456d7f11994584fb43216cfe571dbd08ce7c3451606e2c",
+     "metrics_sha256": "e0386148c42cd8ea61da0ad1f7042b2a8c6d507bd344ae53b0883aec634c6708",
+     "imported_at": "2026-10-07T01:09:24Z",
+     "by": "worker/root"
+    },
+    "log_path": "outputs/E-0001/s43/train.log",
+    "curve_path": "outputs/E-0001/s43/curve.json",
+    "output_path": "outputs/E-0001/s43",
+    "nodes_used": 4,
+    "walltime_used_s": 3057,
+    "valid": true,
+    "experiment_id": "E-0001"
+   },
+   {
+    "id": "E-0001/s44",
+    "seed": 44,
+    "job_id": "demo-3480081",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.3642,
+    "secondary": {
+     "final_loss": 0.9107,
+     "loss_auc": 1.2825,
+     "peak_mem_gb": 37.9461,
+     "train_time_s": 3021.8327
+    },
+    "manifest_path": "outputs/E-0001/s44/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0001",
+     "seed": 44,
+     "attempt": 1,
+     "code_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3081,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0001/s44/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "ec04948afb1cdae0ab8c42a6b43c7bf1287d4ca3bf7c5afea416d97de6bb2222",
+     "metrics_sha256": "82a37fc2e7493d2ccaf8c64f8226df791347a939461908f55cf910abdecba6c9",
+     "imported_at": "2026-10-07T01:09:25Z",
+     "by": "worker/root"
+    },
+    "log_path": "outputs/E-0001/s44/train.log",
+    "curve_path": "outputs/E-0001/s44/curve.json",
+    "output_path": "outputs/E-0001/s44",
+    "nodes_used": 4,
+    "walltime_used_s": 3081,
+    "valid": true,
+    "experiment_id": "E-0001"
+   },
+   {
+    "id": "E-0002/s42",
+    "seed": 42,
+    "job_id": "demo-3488156",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.3907,
+    "secondary": {
+     "final_loss": 0.9142,
+     "loss_auc": 1.2773,
+     "peak_mem_gb": 38.0428,
+     "train_time_s": 2983.973
+    },
+    "manifest_path": "outputs/E-0002/s42/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0002",
+     "seed": 42,
+     "attempt": 1,
+     "code_ref": "5f00fec5313893385de89e023f8ef35e5c63ea0e",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 1,
+     "walltime_used_s": 3043,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0002/s42/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "19387e56a2724013dd328ef373ec7ede896d57d29da24ea2d8a85cb7c432454f",
+     "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
+     "imported_at": "2026-10-07T01:09:33Z",
+     "by": "worker/h0001"
+    },
+    "log_path": "outputs/E-0002/s42/train.log",
+    "curve_path": "outputs/E-0002/s42/curve.json",
+    "output_path": "outputs/E-0002/s42",
+    "nodes_used": 1,
+    "walltime_used_s": 3043,
+    "valid": true,
+    "experiment_id": "E-0002"
+   },
+   {
+    "id": "E-0003/s42",
+    "seed": 42,
+    "job_id": "demo-3484726",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.5654,
+    "secondary": {
+     "final_loss": 0.9121,
+     "loss_auc": 1.2774,
+     "peak_mem_gb": 39.1613,
+     "train_time_s": 3004.0644
+    },
+    "manifest_path": "outputs/E-0003/s42/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0003",
+     "seed": 42,
+     "attempt": 1,
+     "code_ref": "5f00fec5313893385de89e023f8ef35e5c63ea0e",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3064,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0003/s42/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "71dc7eaaf1f7393444cc6038ce3e9c92720623b6baac4046a86b6081c02c73c4",
+     "metrics_sha256": "c1ddce2e7874bc5212c02641714c12dc46094fb9b2cd61cff8ec3242c80ad6d4",
+     "imported_at": "2026-10-07T01:09:35Z",
+     "by": "worker/h0001"
+    },
+    "log_path": "outputs/E-0003/s42/train.log",
+    "curve_path": "outputs/E-0003/s42/curve.json",
+    "output_path": "outputs/E-0003/s42",
+    "nodes_used": 4,
+    "walltime_used_s": 3064,
+    "valid": true,
+    "experiment_id": "E-0003"
+   },
+   {
+    "id": "E-0004/s42",
+    "seed": 42,
+    "job_id": "demo-3486345",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.3907,
+    "secondary": {
+     "final_loss": 0.9142,
+     "loss_auc": 1.2773,
+     "peak_mem_gb": 38.0428,
+     "train_time_s": 2983.973
+    },
+    "manifest_path": "outputs/E-0004/s42/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0004",
+     "seed": 42,
+     "attempt": 1,
+     "code_ref": "0ec19877e03876569e73aa8c2a4b04ffe0e6a667",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 1,
+     "walltime_used_s": 3043,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0004/s42/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "99ddf0374b0a46541b5e9031cfa948dfc119eae1bf1d56807727183b89dfad4a",
+     "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
+     "imported_at": "2026-10-07T01:09:41Z",
+     "by": "worker/h0002"
+    },
+    "log_path": "outputs/E-0004/s42/train.log",
+    "curve_path": "outputs/E-0004/s42/curve.json",
+    "output_path": "outputs/E-0004/s42",
+    "nodes_used": 1,
+    "walltime_used_s": 3043,
+    "valid": true,
+    "experiment_id": "E-0004"
+   },
+   {
+    "id": "E-0005/s42",
+    "seed": 42,
+    "job_id": "demo-3488456",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.1512,
+    "secondary": {
+     "final_loss": 0.9258,
+     "loss_auc": 1.3088,
+     "peak_mem_gb": 38.5906,
+     "train_time_s": 3118.1007
+    },
+    "manifest_path": "outputs/E-0005/s42/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0005",
+     "seed": 42,
+     "attempt": 1,
+     "code_ref": "0ec19877e03876569e73aa8c2a4b04ffe0e6a667",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3178,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0005/s42/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "3b41f02d21321a3288ebc14e4812531512c73cb9049091bf389f73ce7d24a5e3",
+     "metrics_sha256": "86701fb69bdedba6fa5fb18ffb8a22c7b22e6021cf97589c24bde87cdac3cb4c",
+     "imported_at": "2026-10-07T01:09:43Z",
+     "by": "worker/h0002"
+    },
+    "log_path": "outputs/E-0005/s42/train.log",
+    "curve_path": "outputs/E-0005/s42/curve.json",
+    "output_path": "outputs/E-0005/s42",
+    "nodes_used": 4,
+    "walltime_used_s": 3178,
+    "valid": true,
+    "experiment_id": "E-0005"
+   },
+   {
+    "id": "E-0006/s42",
+    "seed": 42,
+    "job_id": "demo-3487801",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.3907,
+    "secondary": {
+     "final_loss": 0.9142,
+     "loss_auc": 1.2773,
+     "peak_mem_gb": 38.0428,
+     "train_time_s": 2983.973
+    },
+    "manifest_path": "outputs/E-0006/s42/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0006",
+     "seed": 42,
+     "attempt": 1,
+     "code_ref": "f226df77612fb789edb9638080b0218b36e4cabe",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 1,
+     "walltime_used_s": 3043,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0006/s42/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "a3212b72023beab5a6f3c9755e06ab9b78159e8582180ab2845ae57612381f0f",
+     "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
+     "imported_at": "2026-10-07T01:09:51Z",
+     "by": "worker/h0003"
+    },
+    "log_path": "outputs/E-0006/s42/train.log",
+    "curve_path": "outputs/E-0006/s42/curve.json",
+    "output_path": "outputs/E-0006/s42",
+    "nodes_used": 1,
+    "walltime_used_s": 3043,
+    "valid": true,
+    "experiment_id": "E-0006"
+   },
+   {
+    "id": "E-0007/s42",
+    "seed": 42,
+    "job_id": "demo-3486173",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.6523,
+    "secondary": {
+     "final_loss": 0.9125,
+     "loss_auc": 1.2725,
+     "peak_mem_gb": 39.0426,
+     "train_time_s": 3006.8881
+    },
+    "manifest_path": "outputs/E-0007/s42/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0007",
+     "seed": 42,
+     "attempt": 1,
+     "code_ref": "f226df77612fb789edb9638080b0218b36e4cabe",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3066,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0007/s42/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "e7fa55d06f082a42ebbac344834ddc953df56f445803fd136bd48f9d058ec003",
+     "metrics_sha256": "2f1dd44520747b568904c41d1a600bac1160afd8d8ff5fa31e4000a3c503ff1d",
+     "imported_at": "2026-10-07T01:09:53Z",
+     "by": "worker/h0003"
+    },
+    "log_path": "outputs/E-0007/s42/train.log",
+    "curve_path": "outputs/E-0007/s42/curve.json",
+    "output_path": "outputs/E-0007/s42",
+    "nodes_used": 4,
+    "walltime_used_s": 3066,
+    "valid": true,
+    "experiment_id": "E-0007"
+   },
+   {
+    "id": "E-0007/s43",
+    "seed": 43,
+    "job_id": "demo-3482035",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.674,
+    "secondary": {
+     "final_loss": 0.9125,
+     "loss_auc": 1.2628,
+     "peak_mem_gb": 39.0501,
+     "train_time_s": 3008.166
+    },
+    "manifest_path": "outputs/E-0007/s43/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0007",
+     "seed": 43,
+     "attempt": 1,
+     "code_ref": "f226df77612fb789edb9638080b0218b36e4cabe",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3068,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0007/s43/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "60ccd04b5d337268ba861ff6c984cd86b91545e525cdebc533e0bc96497c18ec",
+     "metrics_sha256": "2154ee6a1906915114788f0396aa5d9c8a5ff2b6526a6a25282badb63f34bbff",
+     "imported_at": "2026-10-07T01:09:55Z",
+     "by": "worker/h0003"
+    },
+    "log_path": "outputs/E-0007/s43/train.log",
+    "curve_path": "outputs/E-0007/s43/curve.json",
+    "output_path": "outputs/E-0007/s43",
+    "nodes_used": 4,
+    "walltime_used_s": 3068,
+    "valid": true,
+    "experiment_id": "E-0007"
+   },
+   {
+    "id": "E-0007/s44",
+    "seed": 44,
+    "job_id": "demo-3482083",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.5978,
+    "secondary": {
+     "final_loss": 0.9124,
+     "loss_auc": 1.268,
+     "peak_mem_gb": 39.0222,
+     "train_time_s": 2983.6223
+    },
+    "manifest_path": "outputs/E-0007/s44/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0007",
+     "seed": 44,
+     "attempt": 1,
+     "code_ref": "f226df77612fb789edb9638080b0218b36e4cabe",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3043,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0007/s44/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "71141035a2768efde7e91090acb2abd655ddd4005b95239c0e7d025fb0384be1",
+     "metrics_sha256": "09f3d05dc52133573e1378ee97cbf61f472e6848ec211ba1207aaf574fb8e3f5",
+     "imported_at": "2026-10-07T01:09:56Z",
+     "by": "worker/h0003"
+    },
+    "log_path": "outputs/E-0007/s44/train.log",
+    "curve_path": "outputs/E-0007/s44/curve.json",
+    "output_path": "outputs/E-0007/s44",
+    "nodes_used": 4,
+    "walltime_used_s": 3043,
+    "valid": true,
+    "experiment_id": "E-0007"
+   },
+   {
+    "id": "E-0008/s1042",
+    "seed": 1042,
+    "job_id": "demo-3488383",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.4353,
+    "secondary": {
+     "final_loss": 0.911,
+     "loss_auc": 1.2864,
+     "peak_mem_gb": 37.9953,
+     "train_time_s": 3004.0509
+    },
+    "manifest_path": "outputs/E-0008/s1042/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0008",
+     "seed": 1042,
+     "attempt": 1,
+     "code_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3064,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0008/s1042/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "87f434ea09466343faf3c1da7037a82fa1d3ed76cd6a61a5e841fa9be2dc1bb8",
+     "metrics_sha256": "1e261d4529fc7745d4fc2126954bd56b60b320134a07bfbf5d82480c3c8c0f94",
+     "imported_at": "2026-10-07T01:10:01Z",
+     "by": "worker/root"
+    },
+    "log_path": "outputs/E-0008/s1042/train.log",
+    "curve_path": "outputs/E-0008/s1042/curve.json",
+    "output_path": "outputs/E-0008/s1042",
+    "nodes_used": 4,
+    "walltime_used_s": 3064,
+    "valid": true,
+    "experiment_id": "E-0008"
+   },
+   {
+    "id": "E-0008/s1043",
+    "seed": 1043,
+    "job_id": "demo-3480930",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.3752,
+    "secondary": {
+     "final_loss": 0.9108,
+     "loss_auc": 1.2881,
+     "peak_mem_gb": 38.0568,
+     "train_time_s": 3001.8965
+    },
+    "manifest_path": "outputs/E-0008/s1043/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0008",
+     "seed": 1043,
+     "attempt": 1,
+     "code_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3061,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0008/s1043/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "b823d5fb4f44a2c7f38bf77d9bbf5871b7ea41329d9c39d7f1406fe5203c2371",
+     "metrics_sha256": "c3d1faf3800fda5048b375f5187d136d731f1b9ef58e499f9f8d19ca2ebf9fb5",
+     "imported_at": "2026-10-07T01:10:02Z",
+     "by": "worker/root"
+    },
+    "log_path": "outputs/E-0008/s1043/train.log",
+    "curve_path": "outputs/E-0008/s1043/curve.json",
+    "output_path": "outputs/E-0008/s1043",
+    "nodes_used": 4,
+    "walltime_used_s": 3061,
+    "valid": true,
+    "experiment_id": "E-0008"
+   },
+   {
+    "id": "E-0008/s1044",
+    "seed": 1044,
+    "job_id": "demo-3483690",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.3681,
+    "secondary": {
+     "final_loss": 0.9096,
+     "loss_auc": 1.2809,
+     "peak_mem_gb": 38.0353,
+     "train_time_s": 3000.6821
+    },
+    "manifest_path": "outputs/E-0008/s1044/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0008",
+     "seed": 1044,
+     "attempt": 1,
+     "code_ref": "adea097a80ef5c36aa4cc3ca365efb4324d2d636",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3060,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0008/s1044/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "1b4527f01b945698f63dc9e5d546399aa30c898ee3fee934077a5730303eff58",
+     "metrics_sha256": "cb7f3994a4d43a18d80eaafabdecb61fd81798d3ed8b4470ed6a9e679cc8a0b6",
+     "imported_at": "2026-10-07T01:10:03Z",
+     "by": "worker/root"
+    },
+    "log_path": "outputs/E-0008/s1044/train.log",
+    "curve_path": "outputs/E-0008/s1044/curve.json",
+    "output_path": "outputs/E-0008/s1044",
+    "nodes_used": 4,
+    "walltime_used_s": 3060,
+    "valid": true,
+    "experiment_id": "E-0008"
+   },
+   {
+    "id": "E-0009/s1042",
+    "seed": 1042,
+    "job_id": "demo-3489195",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.6599,
+    "secondary": {
+     "final_loss": 0.9072,
+     "loss_auc": 1.2629,
+     "peak_mem_gb": 38.9978,
+     "train_time_s": 3011.5515
+    },
+    "manifest_path": "outputs/E-0009/s1042/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0009",
+     "seed": 1042,
+     "attempt": 1,
+     "code_ref": "f226df77612fb789edb9638080b0218b36e4cabe",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3071,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0009/s1042/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "5b01f96645b96a501b4c44df1965a1fb830e69de92e7171cda4e4172c31404f6",
+     "metrics_sha256": "2e7fe6047968177c1de3908fabbc39008a5d2fb2e339545e3a927a6d41a87953",
+     "imported_at": "2026-10-07T01:10:05Z",
+     "by": "worker/h0003"
+    },
+    "log_path": "outputs/E-0009/s1042/train.log",
+    "curve_path": "outputs/E-0009/s1042/curve.json",
+    "output_path": "outputs/E-0009/s1042",
+    "nodes_used": 4,
+    "walltime_used_s": 3071,
+    "valid": true,
+    "experiment_id": "E-0009"
+   },
+   {
+    "id": "E-0009/s1043",
+    "seed": 1043,
+    "job_id": "demo-3488045",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.6068,
+    "secondary": {
+     "final_loss": 0.9123,
+     "loss_auc": 1.2588,
+     "peak_mem_gb": 39.0505,
+     "train_time_s": 3000.4876
+    },
+    "manifest_path": "outputs/E-0009/s1043/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0009",
+     "seed": 1043,
+     "attempt": 1,
+     "code_ref": "f226df77612fb789edb9638080b0218b36e4cabe",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3060,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0009/s1043/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "8a7c71aea1fda780c9607d959c5c1b1e6a966aa7b04cab1eb10e6a132f4941a6",
+     "metrics_sha256": "7e32f6b1cd7a20d7dd21f11abba82e46d1ab87a858dc2c89146f1a462aa86ddf",
+     "imported_at": "2026-10-07T01:10:06Z",
+     "by": "worker/h0003"
+    },
+    "log_path": "outputs/E-0009/s1043/train.log",
+    "curve_path": "outputs/E-0009/s1043/curve.json",
+    "output_path": "outputs/E-0009/s1043",
+    "nodes_used": 4,
+    "walltime_used_s": 3060,
+    "valid": true,
+    "experiment_id": "E-0009"
+   },
+   {
+    "id": "E-0009/s1044",
+    "seed": 1044,
+    "job_id": "demo-3482357",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.6287,
+    "secondary": {
+     "final_loss": 0.9105,
+     "loss_auc": 1.2606,
+     "peak_mem_gb": 38.9932,
+     "train_time_s": 3006.5599
+    },
+    "manifest_path": "outputs/E-0009/s1044/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0009",
+     "seed": 1044,
+     "attempt": 1,
+     "code_ref": "f226df77612fb789edb9638080b0218b36e4cabe",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3066,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0009/s1044/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "b8fce5399376250dc1047acb2743c00d3d52d5b9b05f776d9bba8a0ff3a1bb13",
+     "metrics_sha256": "23fe44261874eca8f9c07c02eacc89750110c5339960757724f5e70401f12109",
+     "imported_at": "2026-10-07T01:10:07Z",
+     "by": "worker/h0003"
+    },
+    "log_path": "outputs/E-0009/s1044/train.log",
+    "curve_path": "outputs/E-0009/s1044/curve.json",
+    "output_path": "outputs/E-0009/s1044",
+    "nodes_used": 4,
+    "walltime_used_s": 3066,
+    "valid": true,
+    "experiment_id": "E-0009"
+   },
+   {
+    "id": "E-0010/s42",
+    "seed": 42,
+    "job_id": "demo-3485454",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.3907,
+    "secondary": {
+     "final_loss": 0.9142,
+     "loss_auc": 1.2773,
+     "peak_mem_gb": 38.0428,
+     "train_time_s": 2983.973
+    },
+    "manifest_path": "outputs/E-0010/s42/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0010",
+     "seed": 42,
+     "attempt": 1,
+     "code_ref": "b10fece380060361826aeef8d0dd4f32b58a454e",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 1,
+     "walltime_used_s": 3043,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0010/s42/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "e43ab21e4a6adf12abcdf5e03eb7d9be0d6cbf7d6d7a3aa007d739fe8a7d9b8f",
+     "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
+     "imported_at": "2026-10-07T01:10:15Z",
+     "by": "worker/h0004"
+    },
+    "log_path": "outputs/E-0010/s42/train.log",
+    "curve_path": "outputs/E-0010/s42/curve.json",
+    "output_path": "outputs/E-0010/s42",
+    "nodes_used": 1,
+    "walltime_used_s": 3043,
+    "valid": true,
+    "experiment_id": "E-0010"
+   },
+   {
+    "id": "E-0011/s42",
+    "seed": 42,
+    "job_id": "demo-3480587",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.4047,
+    "secondary": {
+     "final_loss": 0.9317,
+     "loss_auc": 1.3133,
+     "peak_mem_gb": 39.5652,
+     "train_time_s": 3090.8359
+    },
+    "manifest_path": "outputs/E-0011/s42/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0011",
+     "seed": 42,
+     "attempt": 1,
+     "code_ref": "b10fece380060361826aeef8d0dd4f32b58a454e",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3150,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0011/s42/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "b6e3985883c2c1878c80d2e328ec082807474e82fda0705a33c76eefd908ed54",
+     "metrics_sha256": "c6a9898028e1864128f1a481b10f0834e00e0799cd39ad6167d908322c235266",
+     "imported_at": "2026-10-07T01:10:17Z",
+     "by": "worker/h0004"
+    },
+    "log_path": "outputs/E-0011/s42/train.log",
+    "curve_path": "outputs/E-0011/s42/curve.json",
+    "output_path": "outputs/E-0011/s42",
+    "nodes_used": 4,
+    "walltime_used_s": 3150,
+    "valid": true,
+    "experiment_id": "E-0011"
+   },
+   {
+    "id": "E-0012/s42",
+    "seed": 42,
+    "job_id": "demo-3480636",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.3907,
+    "secondary": {
+     "final_loss": 0.9142,
+     "loss_auc": 1.2773,
+     "peak_mem_gb": 38.0428,
+     "train_time_s": 2983.973
+    },
+    "manifest_path": "outputs/E-0012/s42/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0012",
+     "seed": 42,
+     "attempt": 1,
+     "code_ref": "8030b00b7b1fdea63d23ddc3104c95a4035f0669",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 1,
+     "walltime_used_s": 3043,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0012/s42/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "06e1b65ad8cb9c8db0078fa9fc1a37235fe2d03464141fa9db7dd46b3a5ba579",
+     "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
+     "imported_at": "2026-10-07T01:10:26Z",
+     "by": "worker/h0005"
+    },
+    "log_path": "outputs/E-0012/s42/train.log",
+    "curve_path": "outputs/E-0012/s42/curve.json",
+    "output_path": "outputs/E-0012/s42",
+    "nodes_used": 1,
+    "walltime_used_s": 3043,
+    "valid": true,
+    "experiment_id": "E-0012"
+   },
+   {
+    "id": "E-0013/s42",
+    "seed": 42,
+    "job_id": "demo-3485244",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.4655,
+    "secondary": {
+     "final_loss": 0.9133,
+     "loss_auc": 1.2885,
+     "peak_mem_gb": 38.3542,
+     "train_time_s": 2989.858
+    },
+    "manifest_path": "outputs/E-0013/s42/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0013",
+     "seed": 42,
+     "attempt": 1,
+     "code_ref": "8030b00b7b1fdea63d23ddc3104c95a4035f0669",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3049,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0013/s42/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "b6042d4422130ed1ddf87ab84ec3de255f4c13453e2d12859ed4904de266fe8a",
+     "metrics_sha256": "1c67221c2e2014751bba0423e91fb81a4ef1ed2dc413f8b5ee2f66d3b797ee87",
+     "imported_at": "2026-10-07T01:10:28Z",
+     "by": "worker/h0005"
+    },
+    "log_path": "outputs/E-0013/s42/train.log",
+    "curve_path": "outputs/E-0013/s42/curve.json",
+    "output_path": "outputs/E-0013/s42",
+    "nodes_used": 4,
+    "walltime_used_s": 3049,
+    "valid": true,
+    "experiment_id": "E-0013"
+   },
+   {
+    "id": "E-0014/s42",
+    "seed": 42,
+    "job_id": "demo-3483115",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.3907,
+    "secondary": {
+     "final_loss": 0.9142,
+     "loss_auc": 1.2773,
+     "peak_mem_gb": 38.0428,
+     "train_time_s": 2983.973
+    },
+    "manifest_path": "outputs/E-0014/s42/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0014",
+     "seed": 42,
+     "attempt": 1,
+     "code_ref": "8877378e8fb77588aae77bb789e460b7247f6097",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 1,
+     "walltime_used_s": 3043,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0014/s42/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "7c8fc27836bfb5903d0b26afd0e35e320605aa93c1f1bdeedc6813096af1ab30",
+     "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
+     "imported_at": "2026-10-07T01:10:36Z",
+     "by": "worker/h0007"
+    },
+    "log_path": "outputs/E-0014/s42/train.log",
+    "curve_path": "outputs/E-0014/s42/curve.json",
+    "output_path": "outputs/E-0014/s42",
+    "nodes_used": 1,
+    "walltime_used_s": 3043,
+    "valid": true,
+    "experiment_id": "E-0014"
+   },
+   {
+    "id": "E-0015/s42",
+    "seed": 42,
+    "job_id": "demo-3481400",
+    "exec_status": "succeeded",
+    "attempt": 1,
+    "started_at": "2026-10-03T12:00:00Z",
+    "finished_at": "2026-10-03T13:00:00Z",
+    "metric_value": 71.4136,
+    "secondary": {
+     "final_loss": 0.9102,
+     "loss_auc": 1.2812,
+     "peak_mem_gb": 31.9714,
+     "train_time_s": 3042.1152
+    },
+    "manifest_path": "outputs/E-0015/s42/manifest.json",
+    "manifest": {
+     "experiment_id": "E-0015",
+     "seed": 42,
+     "attempt": 1,
+     "code_ref": "8877378e8fb77588aae77bb789e460b7247f6097",
+     "exit_status": 0,
+     "metrics_path": "metrics.json",
+     "data_version": "commonsense-mix-v1（虚构）",
+     "train_steps": 1000,
+     "log_path": "train.log",
+     "curve_path": "curve.json",
+     "output_path": ".",
+     "nodes_used": 4,
+     "walltime_used_s": 3102,
+     "counts": {
+      "n_train": 2000,
+      "n_eval": 8000
+     }
+    },
+    "evidence_paths": [
+     "outputs/E-0015/s42/metrics.json"
+    ],
+    "import_record": {
+     "parser_version": "rt-manifest-1",
+     "manifest_sha256": "8e61213ef7c8cc8371adf6b037e5f5384c39c3bd82681a8d45c44b442aef5460",
+     "metrics_sha256": "08f8b3bb8e8e6b6fa0422b1a1b1747b1765950d03e1081e8a77188e8e633fcc3",
+     "imported_at": "2026-10-07T01:10:38Z",
+     "by": "worker/h0007"
+    },
+    "log_path": "outputs/E-0015/s42/train.log",
+    "curve_path": "outputs/E-0015/s42/curve.json",
+    "output_path": "outputs/E-0015/s42",
+    "nodes_used": 4,
+    "walltime_used_s": 3102,
+    "valid": true,
+    "experiment_id": "E-0015"
+   }
+  ]
+ },
+ "edges": {
+  "rel_compared_with": [
+   {
+    "source_id": "E-0003",
+    "target_id": "E-0001",
+    "role": "sota",
+    "n_paired": 1,
+    "delta_mean": 0.1747000000000014,
+    "deltas": {
+     "final_loss": 0.0020999999999999908,
+     "loss_auc": -9.999999999998899e-05,
+     "peak_mem_gb": -1.1184999999999974,
+     "train_time_s": -0.006733103818298707
+    },
+    "passes_gate": false
+   },
+   {
+    "source_id": "E-0005",
+    "target_id": "E-0001",
+    "role": "sota",
+    "n_paired": 1,
+    "delta_mean": -0.2394999999999925,
+    "deltas": {
+     "final_loss": -0.011599999999999944,
+     "loss_auc": -0.03149999999999986,
+     "peak_mem_gb": -0.5478000000000023,
+     "train_time_s": -0.044949367839454316
+    },
+    "passes_gate": false
+   },
+   {
+    "source_id": "E-0007",
+    "target_id": "E-0001",
+    "role": "sota",
+    "n_paired": 3,
+    "delta_mean": 0.2412000000000063,
+    "delta_sd": 0.017857211428435715,
+    "deltas": {
+     "final_loss": -3.333333333332966e-05,
+     "loss_auc": 0.013200000000000026,
+     "peak_mem_gb": -1.0749999999999982,
+     "train_time_s": 0.0005436065433059924
+    },
+    "passes_gate": true
+   },
+   {
+    "source_id": "E-0007",
+    "target_id": "E-0003",
+    "role": "parent",
+    "n_paired": 1,
+    "delta_mean": 0.08689999999999998,
+    "deltas": {
+     "final_loss": -0.00039999999999995595,
+     "loss_auc": 0.0049000000000001265,
+     "peak_mem_gb": 0.11869999999999692,
+     "train_time_s": -0.0009399598756937158
+    }
+   },
+   {
+    "source_id": "E-0009",
+    "target_id": "E-0008",
+    "role": "sota",
+    "n_paired": 3,
+    "delta_mean": 0.2389333333333307,
+    "delta_sd": 0.01908751773629369,
+    "deltas": {
+     "final_loss": 0.00046666666666668927,
+     "loss_auc": 0.02436666666666672,
+     "peak_mem_gb": -0.9846999999999989,
+     "train_time_s": -0.0013289655136810028
+    },
+    "passes_gate": true
+   },
+   {
+    "source_id": "E-0011",
+    "target_id": "E-0001",
+    "role": "sota",
+    "n_paired": 1,
+    "delta_mean": 0.014000000000010004,
+    "deltas": {
+     "final_loss": -0.01749999999999996,
+     "loss_auc": -0.03599999999999981,
+     "peak_mem_gb": -1.5223999999999975,
+     "train_time_s": -0.03581228784576807
+    },
+    "passes_gate": false
+   },
+   {
+    "source_id": "E-0011",
+    "target_id": "E-0003",
+    "role": "parent",
+    "n_paired": 1,
+    "delta_mean": -0.1606999999999914,
+    "deltas": {
+     "final_loss": -0.01959999999999995,
+     "loss_auc": -0.03589999999999982,
+     "peak_mem_gb": -0.40390000000000015,
+     "train_time_s": -0.028884700341310868
+    }
+   },
+   {
+    "source_id": "E-0013",
+    "target_id": "E-0001",
+    "role": "sota",
+    "n_paired": 1,
+    "delta_mean": 0.07480000000001041,
+    "deltas": {
+     "final_loss": 0.0009000000000000119,
+     "loss_auc": -0.011199999999999877,
+     "peak_mem_gb": -0.311399999999999,
+     "train_time_s": -0.001972202831594059
+    },
+    "passes_gate": false
+   },
+   {
+    "source_id": "E-0015",
+    "target_id": "E-0001",
+    "role": "sota",
+    "n_paired": 1,
+    "delta_mean": 0.022900000000007026,
+    "deltas": {
+     "final_loss": 0.0040000000000000036,
+     "loss_auc": -0.0038999999999997925,
+     "peak_mem_gb": 6.071400000000001,
+     "train_time_s": -0.01948482777826751
+    },
+    "passes_gate": false
+   }
+  ],
+  "rel_depends_on": [],
+  "rel_references": [
+   {
+    "source_id": "H-0001",
+    "target_id": "D-0011"
+   },
+   {
+    "source_id": "H-0001",
+    "target_id": "D-0012"
+   },
+   {
+    "source_id": "H-0001",
+    "target_id": "D-0013"
+   },
+   {
+    "source_id": "H-0002",
+    "target_id": "D-0011"
+   },
+   {
+    "source_id": "H-0002",
+    "target_id": "D-0013"
+   },
+   {
+    "source_id": "H-0002",
+    "target_id": "D-0014"
+   },
+   {
+    "source_id": "H-0003",
+    "target_id": "D-0011"
+   },
+   {
+    "source_id": "H-0003",
+    "target_id": "D-0012"
+   },
+   {
+    "source_id": "H-0003",
+    "target_id": "D-0013"
+   },
+   {
+    "source_id": "H-0004",
+    "target_id": "D-0011"
+   },
+   {
+    "source_id": "H-0004",
+    "target_id": "D-0012"
+   },
+   {
+    "source_id": "H-0004",
+    "target_id": "D-0015"
+   },
+   {
+    "source_id": "H-0005",
+    "target_id": "D-0013"
+   },
+   {
+    "source_id": "H-0005",
+    "target_id": "D-0014"
+   },
+   {
+    "source_id": "H-0005",
+    "target_id": "D-0015"
+   },
+   {
+    "source_id": "H-0006",
+    "target_id": "D-0011"
+   },
+   {
+    "source_id": "H-0006",
+    "target_id": "D-0013"
+   },
+   {
+    "source_id": "H-0006",
+    "target_id": "D-0014"
+   },
+   {
+    "source_id": "H-0007",
+    "target_id": "D-0011"
+   },
+   {
+    "source_id": "H-0007",
+    "target_id": "D-0012"
+   },
+   {
+    "source_id": "H-0007",
+    "target_id": "D-0015"
+   },
+   {
+    "source_id": "H-0008",
+    "target_id": "D-0011"
+   },
+   {
+    "source_id": "H-0008",
+    "target_id": "D-0012"
+   },
+   {
+    "source_id": "H-0008",
+    "target_id": "D-0013"
+   }
+  ],
+  "rel_related": [],
+  "rel_describes": [
+   {
+    "source_id": "D-0017",
+    "target_id": "H-0001"
+   },
+   {
+    "source_id": "D-0020",
+    "target_id": "H-0001"
+   },
+   {
+    "source_id": "D-0022",
+    "target_id": "H-0001"
+   },
+   {
+    "source_id": "D-0024",
+    "target_id": "H-0002"
+   },
+   {
+    "source_id": "D-0027",
+    "target_id": "H-0002"
+   },
+   {
+    "source_id": "D-0029",
+    "target_id": "H-0002"
+   },
+   {
+    "source_id": "D-0030",
+    "target_id": "H-0002"
+   },
+   {
+    "source_id": "D-0032",
+    "target_id": "H-0003"
+   },
+   {
+    "source_id": "D-0035",
+    "target_id": "H-0003"
+   },
+   {
+    "source_id": "D-0038",
+    "target_id": "H-0003"
+   },
+   {
+    "source_id": "D-0039",
+    "target_id": "H-0003"
+   },
+   {
+    "source_id": "D-0040",
+    "target_id": "H-0003"
+   },
+   {
+    "source_id": "D-0045",
+    "target_id": "H-0003"
+   },
+   {
+    "source_id": "D-0046",
+    "target_id": "H-0003"
+   },
+   {
+    "source_id": "D-0047",
+    "target_id": "H-0003"
+   },
+   {
+    "source_id": "D-0048",
+    "target_id": "H-0003"
+   },
+   {
+    "source_id": "D-0049",
+    "target_id": "H-0003"
+   },
+   {
+    "source_id": "D-0051",
+    "target_id": "H-0004"
+   },
+   {
+    "source_id": "D-0054",
+    "target_id": "H-0004"
+   },
+   {
+    "source_id": "D-0056",
+    "target_id": "H-0004"
+   },
+   {
+    "source_id": "D-0057",
+    "target_id": "H-0004"
+   },
+   {
+    "source_id": "D-0059",
+    "target_id": "H-0005"
+   },
+   {
+    "source_id": "D-0062",
+    "target_id": "H-0005"
+   },
+   {
+    "source_id": "D-0065",
+    "target_id": "H-0006"
+   },
+   {
+    "source_id": "D-0066",
+    "target_id": "H-0006"
+   },
+   {
+    "source_id": "D-0068",
+    "target_id": "H-0007"
+   },
+   {
+    "source_id": "D-0071",
+    "target_id": "H-0007"
+   }
+  ],
+  "rel_supersedes": [],
+  "rel_based_on": [
+   {
+    "source_id": "DEC-0003",
+    "target_id": "E-0003"
+   },
+   {
+    "source_id": "DEC-0004",
+    "target_id": "E-0003"
+   },
+   {
+    "source_id": "DEC-0007",
+    "target_id": "E-0005"
+   },
+   {
+    "source_id": "DEC-0008",
+    "target_id": "E-0005"
+   },
+   {
+    "source_id": "DEC-0009",
+    "target_id": "E-0005"
+   },
+   {
+    "source_id": "DEC-0013",
+    "target_id": "E-0007"
+   },
+   {
+    "source_id": "DEC-0014",
+    "target_id": "D-0038"
+   },
+   {
+    "source_id": "DEC-0014",
+    "target_id": "D-0039"
+   },
+   {
+    "source_id": "DEC-0014",
+    "target_id": "E-0007"
+   },
+   {
+    "source_id": "DEC-0015",
+    "target_id": "D-0038"
+   },
+   {
+    "source_id": "DEC-0015",
+    "target_id": "D-0039"
+   },
+   {
+    "source_id": "DEC-0015",
+    "target_id": "E-0007"
+   },
+   {
+    "source_id": "DEC-0019",
+    "target_id": "E-0011"
+   },
+   {
+    "source_id": "DEC-0020",
+    "target_id": "E-0011"
+   },
+   {
+    "source_id": "DEC-0021",
+    "target_id": "E-0011"
+   },
+   {
+    "source_id": "DEC-0025",
+    "target_id": "D-0065"
+   },
+   {
+    "source_id": "DEC-0026",
+    "target_id": "D-0065"
+   },
+   {
+    "source_id": "DEC-0029",
+    "target_id": "E-0015"
+   }
+  ]
+ }
+}

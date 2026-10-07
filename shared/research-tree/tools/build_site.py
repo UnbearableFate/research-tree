@@ -33,7 +33,7 @@ ATTENTION_LABELS = {
     "cleanup_failed": "清理未完成", "evidence_stale": "证据已失效", "obligation_open": "未决问题",
     "stall": "停滞待换向", "confirmation_required": "待独立确认", "overrun": "用量超出预估",
     "admission_paused": "准入暂停", "submission_unknown": "提交状态待核对", "run_stale": "作业超时未更新",
-    "recheck_pending": "待跨模型复核", "review_unavailable": "评审不可用", "review_budget": "评审费用提醒",
+    "recheck_pending": "待跨模型复核", "task_blocked": "任务阻塞（失败预算）", "review_unavailable": "评审不可用", "review_budget": "评审费用提醒",
 }
 RECHECK_STATES = {"missing": "缺", "stale": "依据已变", "failed": "未通过", "uncertain": "不确定", "pass": "通过"}
 DISPOSITION_LABELS = {"active": "继续投入", "paused": "暂停", "retired": "不再投入"}
@@ -315,6 +315,9 @@ def collect(db_path: Path) -> dict:
                               "text": f"{n['id']} 的当前评估 {e['basis_evaluation_id']} 已不适用（{'、'.join(e['reasons'])}）："
                                       "不能支持GO，需重新评估或重做实验"})
     for t in tables["task"]:
+        if t.get("blocked_reason") and t["status"] not in ("accepted", "cancelled"):
+            attention.insert(0, {"kind": "task_blocked", "id": t.get("target_id"),
+                                 "text": f"{t['id']} 已阻塞：{t['blocked_reason']}；不再自动重试，由 RLD 决定（unblock_task）"})
         if t["status"] in ("open", "in_progress", "delivered", "rejected"):
             attention.append({"kind": "task", "id": t["id"],
                               "text": f"{t['id']}（{t['kind']}，{t['assignee_role']}/{t.get('assignee_id') or '未指派'}）：{t['status']}"})
