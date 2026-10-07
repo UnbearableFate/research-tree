@@ -2364,7 +2364,9 @@ class ResearchDB:
                 isinstance(v, int) and not isinstance(v, bool) and v > 0 for v in counts.values()):
             problems.append("counts must give the positive numbers of training/evaluation items actually used")
             counts = {}
-        for name, want in ((protocol or {}).get("required_counts") or {}).items():
+        # a sanity run is minimal by design (03 §8): it joins no comparison, so the protocol's scale is not asked of it
+        scale = {} if exp["kind"] == "sanity" else protocol or {}
+        for name, want in (scale.get("required_counts") or {}).items():
             if counts.get(name) != want:
                 problems.append(f"counts.{name} is {counts.get(name)!r}, the protocol requires {want}")
         for key in ("data_version", "config", "env"):
@@ -2373,7 +2375,7 @@ class ResearchDB:
         if problems:
             raise CodedError("PAIRING_MISMATCH" if any("protocol" in x for x in problems) else "STAT_MISMATCH",
                              f"{manifest_file.name} does not describe {run_id}@{attempt}: " + "; ".join(problems))
-        for key, want in ((protocol or {}).get("match") or {}).items():
+        for key, want in (scale.get("match") or {}).items():
             if manifest.get(key) != want:
                 raise CodedError("PAIRING_MISMATCH", f"{manifest_file.name}: {key} is {manifest.get(key)!r}, "
                                                      f"the protocol fixes {want!r}; this run cannot join the comparison")

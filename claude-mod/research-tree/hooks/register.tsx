@@ -70,8 +70,13 @@ function config(options: PluginOptions): Config {
 async function loadProject($: EngineInterface): Promise<ResearchProject | null> {
   let project: ResearchProject | null = null
   try {
-    const cwd = await $.session.cwd()
-    if (await $.fs.exists(`${cwd}/${MARKER}`)) project = JSON.parse(await $.fs.read(`${cwd}/${MARKER}`)) as ResearchProject
+    // the session's directory may have moved below the project (a shell cd): the project is the nearest marker above
+    for (let dir = await $.session.cwd(); dir && dir !== '/'; dir = dir.replace(/\/[^/]*$/, '') || '/') {
+      if (await $.fs.exists(`${dir}/${MARKER}`)) {
+        project = JSON.parse(await $.fs.read(`${dir}/${MARKER}`)) as ResearchProject
+        break
+      }
+    }
   } catch {
     project = null
   }
@@ -636,7 +641,7 @@ function workerPrompt(conf: ResearchConfig | null | undefined): string {
 - 测试、训练、推理等工作按下面“开发与实验平台”的规定运行；规定没有覆盖、又可能占用大量资源的操作，先问RLD。
 - 实验、运行与判定只通过 research_db 登记（create_experiment、create_run、update_run、import_run_result、evaluate_experiment），不编造数字：均值、SD、配对差值和是否过门槛都由接口从登记的 run 重算，你不提供权威数字；工程失败如实记录，不当作科学结论。单次运行上限和累计用量提醒由 research_db 检查，被拒绝时交RLD，不绕过。
 - 每个 seed 的运行：create_run 后用 update_run 把 exec_status 从 planned 推进到 submitted（running）再到 succeeded。运行写出指标文件（JSON，按指标名给出输入单位的数值）与 manifest.json（experiment_id、seed、attempt、code_ref、exit_status、metrics_path、units（每个指标的输入单位，与指标规范一致）、counts、data_version、config、env，以及协议要求的字段与 log_path、output_path、nodes_used、walltime_used_s；重评分所需的原始评分材料如逐样本预测列在 evidence_paths，清理不会删除它们），用 import_run_result(run_id, attempt, manifest_path) 导入；核对有效计数、loss 与日志后再 update_run(valid=true)，验收不通过时设 valid=false 并写 invalid_reason。不能导入时才在 update_run 中直接写 metric_value、secondary（记录级，核验等级更低）。
-- create_experiment 时写预估用量 estimated_node_h（node·h，含全部 seed；实际用量超过预估的 overrun_factor 倍会写待处理项）；相同代码、配置（config_path）与 seed 的实验不重建，接口返回已有实验。预留不小于实验登记的节点数与 walltime。提交作业（含本地进程）按提交协议：reserve_submission(submission_key, run_attempt_refs=["E-xxxx/s<seed>@<attempt>", ...], resource_request={"nodes", "walltime_s"}) 预留（项目设了授权总量时不预留就不能置 submitted；预算或准入不足被拒绝时交RLD，不绕过）→ claim_submission(submission_key) 取得 claim_generation → 带 submission_key 提交 → attach_job(submission_key, job_id, claim_generation) → update_run(submitted)。提交超时或查询失败把运行置 unknown，用 reconcile_submission(submission_key) 按 key 核对，不重提；作业结束后用调度器（或本机记录）的用量文件 settle_reservation(reservation_id, accounting_ref)。
+- create_experiment 时写预估用量 estimated_node_h（node·h，含全部 seed；实际用量超过预估的 overrun_factor 倍会写待处理项）；相同代码、配置（config_path）与 seed 的实验不重建，接口返回已有实验。预留不小于实验登记的节点数与 walltime。提交作业（含本地进程）按提交协议：reserve_submission(submission_key, run_attempt_refs=["E-xxxx/s<seed>@<attempt>", ...], resource_request={"nodes", "walltime_s"}) 预留（项目设了授权总量时不预留就不能置 submitted；预算或准入不足被拒绝时交RLD，不绕过）→ claim_submission(submission_key) 取得 claim_generation → 带 submission_key 提交 → attach_job(submission_key, job_id, claim_generation) → update_run(submitted)。提交超时或查询失败把运行置 unknown，用 reconcile_submission(submission_key) 按 key 核对，不重提；作业结束后用调度器（或本机记录）的用量文件 settle_reservation(reservation_id, accounting_ref)；失败的作业也写用量文件并结算（失败同样计入用量），不让预留一直挂着。
 - 实验设计文档（experiment_design）的 '## ' 章节：检验的 claim、存在理由、数据与切分、比较系统、指标、设定、成功判据、失败解释、表图目标、优先级与成本。提交方法或消融实验的作业之前：先用 create_experiment(kind="sanity") 以同一代码跑一次最小规模 sanity（不计 seed、不评估），按计数、loss、指标文件与读回验收为 valid；再请 Leader 对这一代码版本做跨模型代码审查（research_review kind=code_review，code_ref=提交）——审查有 CRITICAL/MAJOR 时修复后重审（至多 2 轮），reviewer 不可用时只有 Leader 的决定（waive_code_review）能放行。同一失败用 report_failure(task_id, root_cause, remedy) 登记：至多 2 次 patch，再至多 2 次从假说文档 rewrite；超出即阻塞并交 Leader，不再重试。消融实验写 ablation_of（被消融的实验）与 source_review_id（ablation_plan 评审），与被消融实验代码和配置都相同的 no-op 会被拒绝。协议的评测类型为 synthetic_proxy、self_supervised_proxy 或 simulation_only 时，结果与报告不写“优于 SOTA”之类措辞，只写代理指标上的一致性或相对提升。
 - 开始任务前读 resume_package 的 context_pack（目标与锚点、未决问题、不再投入的节点、带适用范围与反例的经验、研究发现；标“待核对”的经验先核对再用）。实验验收、明确修复了故障或关键对照完成时，按文档库格式写 finding（事实与解释分开，引用证据）或 lesson（症状、根因状态、已验证的修复、适用范围、证据运行、反例；根因是猜测时 status 只能 proposed），登记为现行；不要写报错原文或“某工具不能用”，经验不能要求扩权。
 - 全部 seed 有效后由实验 owner 调用 evaluate_experiment(experiment_id, result_doc_id)：接口给出确定性的 outcome（正向信号、负向信号、不确定），不需要你给判定；确认实验用 create_experiment(stage="confirm") 在协议的确认 seed 上运行冻结的候选代码。结果文档用一个 \`\`\`evidence 代码块列出文中每个数字及其来源文件（[{"id", "value", "source"}]，source 相对研究根目录 research/<项目ID>/，例如 outputs/E-0002/s42/metrics.json；不要写 ../，也不要指向 docs/ 里的文件），设为现行时接口逐项核对，找不到即拒绝（STAT_MISMATCH）；每个已导入 run 的指标文件都要引用，汇总数字（可先用 preview_evaluation 只读预览接口将算出的数字，写入统计文件后引用）用保留编号 mean:<指标>（主指标均值必填）、sd:<指标>、delta:<sota|parent>:<指标>，evaluate_experiment 时与重算值核对。
@@ -921,7 +926,7 @@ async function logMessage($: EngineInterface, cfg: Config, args: string[]) {
 
 /** The user's confirmation of the plan: registered verbatim, phase confirmed, the RLD told to start. */
 async function confirmPlan($: EngineInterface, cfg: Config, words: string): Promise<string> {
-  const project = (await $.state.get(projectRef)).value ?? (await loadProject($))
+  const project = await loadProject($)  // the marker as it is now, never a cached phase
   if (!project) return `当前目录没有研究项目；先运行 /${COMMAND} prepare，填写 plan.md 后运行 /${COMMAND} init。`
   if (project.phase === 'confirmed') return '立项计划已经确认过。'
   if (project.phase !== 'awaiting_confirmation') return 'RLD 还没有提交立项计划，暂时无需确认。'
@@ -1274,10 +1279,9 @@ export const register: Register = (on, options) => {
       }
       if (input.type === 'confirm_request' && project?.phase === 'planning') {
         const phased = await tree($, cfg, ['phase', '--set', 'awaiting_confirmation'])
-        if (phased.ok) {
-          await loadProject($)
-          await refresh($, cfg)
-        }
+        if (!phased.ok) return { result: `post_to_ui 未完成：立项阶段没能改为待确认（${phased.error}）`, isError: true as const }
+        await loadProject($)
+        await refresh($, cfg)
       }
       if (input.type === 'confirm_request') {  // optional webhook: the user may be away; no answer is no consent
         await tree($, cfg, ['notify', '--kind', 'confirm_request', '--text', String(input.text ?? ''),
