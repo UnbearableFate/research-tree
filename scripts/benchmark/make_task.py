@@ -88,11 +88,14 @@ def main() -> int:
     p.add_argument("--scenario", choices=SCENARIOS, required=True)
     p.add_argument("--seed", type=int, default=0)
     p.add_argument("--host", default="claude")
+    p.add_argument("--alert-node-h", type=float, default=0.1,
+                   help="usage alert of the task project; a whole benchmark run stays below it by default")
     args = p.parse_args()
     dest = args.dest.resolve()
     project = dest / "project"
     subprocess.run([sys.executable, str(ROOT / "scripts" / "make_rt_test_project.py"), str(project),
-                    "--host", args.host, "--hypotheses", "0", "--with-reviewer"], check=True, capture_output=True)
+                    "--host", args.host, "--hypotheses", "0", "--with-reviewer", "--alert-node-h",
+                    str(args.alert_node_h)], check=True, capture_output=True)
     train = project / "code" / "toytrain" / "train.py"
     text = train.read_text(encoding="utf-8")
     text = text.replace("def sigmoid(z: float) -> float:", HOOK.strip() + "\n\n\ndef sigmoid(z: float) -> float:", 1)
