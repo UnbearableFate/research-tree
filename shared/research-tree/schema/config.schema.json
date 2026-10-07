@@ -380,10 +380,11 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "enabled",
         "cross_project",
+        "enabled",
+        "include_counterevidence",
         "max_items_per_task",
-        "include_counterevidence"
+        "pack_limit_chars"
       ],
       "properties": {
         "enabled": {
@@ -398,6 +399,10 @@
         },
         "include_counterevidence": {
           "type": "boolean"
+        },
+        "pack_limit_chars": {
+          "type": "integer",
+          "minimum": 1000
         }
       }
     },

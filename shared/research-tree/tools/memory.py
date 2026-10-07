@@ -99,9 +99,14 @@ def applicability(lesson: dict, project: dict) -> tuple[bool, list[str]]:
     """K02: a lesson verified under another harness or configuration needs to be checked again."""
     app = lesson.get("applicability") or {}
     reasons = []
-    for key in ("harness_ref", "config_doc_id"):
+    for key in ("harness_ref", "config_doc_id", "protocol_doc_id", "metric_spec_doc_id"):
         if app.get(key) and project.get(key) and str(app[key]) != str(project[key]):
             reasons.append(f"{key} {str(app[key])[:12]} → {str(project[key])[:12]}")
+    # platform and dependency versions are checked against the configuration they were verified under
+    declared = [k for k in ("platform_profile", "dependency_versions", "hardware", "model") if app.get(k)]
+    if declared and not app.get("config_doc_id"):
+        reasons.append(f"{', '.join(declared)} declared without the configuration they held under "
+                       "(applicability.config_doc_id): recheck before use")
     if lesson.get("status") in ("stale", "contradicted"):
         reasons.append(f"status {lesson['status']}")
     return bool(reasons), reasons

@@ -106,6 +106,7 @@ reducing a key uncertainty and exploring a different mechanism in each decision 
 `exploration=true` — it may use the exploration share of the search budget that other work cannot take. Never
 create work just to use that share. `relations(node)` lists typed relations, including tested_by, supports and
 invalidates.
+Before each decision batch read `context_pack(node_id=<project>, role="rld")`; write a finding or lesson when an experiment is accepted, a fix is confirmed, a key control completes or the direction changes.
 
 ## User communication
 

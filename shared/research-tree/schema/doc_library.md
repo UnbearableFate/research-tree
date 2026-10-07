@@ -47,6 +47,8 @@
     │   ├── decisions/prune-after-gate.v1.md # 节点决定的理由
     │   └── notes/                           # 补充分析、讨论（经rel_describes关联）
     ├── project/discovery/                   # 立项前发现：user-hypotheses.json、candidates.json（候选池，CAND-编号）
+    ├── findings/                            # 研究发现（finding，08 §1.1）
+    ├── lessons/                             # 运行经验（lesson，08 §1.2；front matter kind: execution_lesson）
     ├── reviews/                             # 跨模型非交互评审（review_call.py，作者 reviewer）
     │   ├── RV-0003.v1.md                    # 一次评审；同一会话的追问写 v2
     │   └── briefs/H-0007-numbers.v1.md      # RLD 写的 brief：只列路径与结构化元数据
@@ -130,6 +132,7 @@ created_at: 2026-10-03T10:21:00Z
 |---|---|---|
 | `project/`、`hypotheses/*/hypothesis.*`、`novelty.*`、`theory.*`、`decisions/`、`workflow/`、`reports/` | RLD | 节点和项目层面的内容、复核与决定 |
 | `reviews/RV-*` | reviewer（review_call.py） | RLD 只写 `reviews/briefs/`（brief 本身不登记为 review） |
+| `findings/` / `lessons/` | RLD、worker / RLD、worker、助手 | 登记时校验 front matter 并过滤运维噪声与注入、扩权内容 |
 | `instructions/` | UI | 只有UI登记用户指令；用户直接在main下达的指令由RLD代为登记 |
 | `hypotheses/*/experiments/`、`notes/`、`baselines/`、`literature/` | 被委派的worker或助手 | 只能写自己认领任务范围内的路径 |
 | `tasks/*/request.*` / `delivery.*` | RLD / 被委派者 | |
