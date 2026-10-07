@@ -387,7 +387,9 @@ def review(cwd: Path, kind: str, brief: str, about: str, dimension: str | None =
                                                     f"({leader}); require_cross_family refuses the call")
     brief_path = Path(brief) if Path(brief).is_absolute() else root / brief
     if not brief_path.is_file() or not brief_path.resolve().is_relative_to(root.resolve()):
-        raise ReviewError("REVIEW_INVALID", f"the brief is a file under {root}: {brief}")
+        why = ("no brief given" if not str(brief).strip() else f"{brief_path} does not exist"
+               if not brief_path.is_file() else f"{brief_path} is outside the research root")
+        raise ReviewError("REVIEW_INVALID", f"the brief is a file under {root}: {why}")
     schema = json.loads((REVIEWS_DIR / f"{kind}.schema.json").read_text(encoding="utf-8"))
     system_file = REVIEWS_DIR / f"{kind}.md"
     db = ResearchDB(Path(marker["db"]), "reviewer/" + backend.name)

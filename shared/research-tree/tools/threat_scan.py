@@ -110,7 +110,9 @@ _PATTERNS: List[Tuple[str, str, str]] = [
     (r'(?:update|modify|edit|change|raise|increase|lift|remove|disable|turn\s+off)\s+[^\n]{0,60}(?:research-tree\.yaml|total_limit|search_limit|max_nodes|max_walltime|alert_node_h|per_run|budget|protocol|metric[_ ]spec|go_margin|gate_seeds)', "authority_config_mod", "strict"),
     (r'(?:skip|bypass|disable|waive|ignore|turn\s+off)\s+(?:\w+\s+){0,3}(?:review|recheck|code[_ ]review|sanity|gate|confirmation|obligation|guard|hook)s?\b', "authority_gate_bypass", "strict"),
     (r'(?:--dangerously-skip-permissions|bypassPermissions|--permission-mode\s+bypass)', "authority_permission_bypass", "strict"),
-    (r'(?:修改|改动|提高|放宽|取消|关闭)[^\n]{0,20}(?:research-tree\.yaml|预算|上限|门槛|协议|指标规范|权限)', "authority_config_mod_zh", "strict"),
+    (r'(?:widen|loosen|relax|lift|raise|increase|turn\s+off|disable)\s+(?:the\s+)?[^\n]{0,40}(?:budget|walltime|per_run|max_\w+|require_\w+|alert\s+threshold|(?:node|run|time|budget|review)\s+(?:cap|limit))s?\b|\bset\s+max_\w+', "authority_config_mod_en2", "strict"),
+    (r'(?:上限|预算|门槛|阈值|提醒|并发|walltime|per_run|limit|max_\w+|require_\w+)[^\n]{0,20}(?:放宽|提高|调高|加大|取消|关闭|关掉|去掉|改为|设为)', "authority_config_mod_zh2", "strict"),
+    (r'(?:修改|改动|提高|放宽|取消|关闭)[^\n]{0,20}(?:research-tree\.yaml|预算|上限|门槛|协议|指标规范|权限|require_\w+|max_\w+|阈值|提醒)', "authority_config_mod_zh", "strict"),
     (r'(?:跳过|绕过|关闭|免除)[^\n]{0,10}(?:评审|复核|代码审查|sanity|门|确认|未决问题|守卫)', "authority_gate_bypass_zh", "strict"),
     # ── Hardcoded secrets (strict) ───────────────────────────────────
     (r'(?:api[_-]?key|token|secret|password)\s*[=:]\s*["\'][A-Za-z0-9+/=_-]{20,}', "hardcoded_secret", "strict"),

@@ -3382,8 +3382,10 @@ class ResearchDB:
             lessons = [{k: v for k, v in x.items() if k != "_rank"} for x in
                        lessons[:project.get("memory_max_items") or 5]]
             for x in lessons:
+                app = "，".join(f"{k}={str(v)[:40]}" for k, v in x["applicability"].items())
                 lines.append(f"- 经验 {x['id']} [{x['status']}{'，待核对：' + '；'.join(x['recheck_reasons']) if x['recheck'] else ''}]"
                              f"（{x['why_relevant']}）症状：{x['symptom'][:160]}；修复：{x['fix'][:200]}"
+                             + (f"；适用范围：{app}" if app else "；适用范围：未写明")
                              + (f"；反例：{'；'.join(map(str, x['counterexamples']))[:200]}" if x["counterexamples"] else ""))
             sections.append(("已不再投入的节点与运行经验", lines))
             findings = []
@@ -3396,6 +3398,13 @@ class ResearchDB:
                 data = memory.front_matter((self.docs_root / d["path"]).read_text(encoding="utf-8")) or {}
                 findings.append({"id": d["id"], "claim": memory.quarantine(str(data.get("claim", "")), d["id"]),
                                  "status": data.get("status"), "limitations": str(data.get("limitations", ""))})
+            seen, shown = set(), []
+            for f in sorted(findings, key=lambda f: -int(f["id"].split("-")[1])):  # the same claim once, newest
+                key = " ".join(f["claim"].lower().split())
+                if key not in seen:
+                    seen.add(key)
+                    shown.append(f)
+            findings = sorted(shown, key=lambda f: int(f["id"].split("-")[1]))
             sections.append(("研究发现", [f"- {f['id']} [{f['status']}] {f['claim'][:200]}（局限：{f['limitations'][:120]}）"
                                           for f in findings]))
             if node["_table"] == "hypothesis":
