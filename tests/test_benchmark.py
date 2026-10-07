@@ -52,5 +52,63 @@ class ScoreTest(unittest.TestCase):
             self.assertAlmostEqual(accuracy(truth["best"][:1]) - plain, 0.0, delta=0.006)
 
 
+def make(dest: Path, scenario: str) -> dict:
+    out = subprocess.run([sys.executable, str(ROOT / "scripts" / "benchmark" / "make_task.py"), str(dest),
+                          "--scenario", scenario, "--seed", "5"], capture_output=True, text=True)
+    assert out.returncode == 0, out.stderr
+    return json.loads((dest / "truth.json").read_text())
+
+
+def run(dest: Path, knobs, seed=1, lr=0.05):
+    env = {"PATH": "/usr/bin:/bin", "RT_BENCH_TRUTH": str(dest / "truth.json")}
+    done = subprocess.run([sys.executable, "-m", "toytrain.train", "--seed", str(seed), "--out", str(dest / "o"),
+                           "--knobs", ",".join(knobs), "--lr", str(lr)], cwd=dest / "project" / "code", env=env,
+                          capture_output=True, text=True)
+    return json.loads(done.stdout)["accuracy"] if done.returncode == 0 else None
+
+
+class ScenarioTest(unittest.TestCase):
+    def test_confound_gain_is_explained_by_the_learning_rate(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "t"
+            truth = make(dest, "confound")
+            knob = truth["confound"]
+            self.assertGreater(run(dest, [knob]) - run(dest, []), 0.01)  # the knob seems to help
+            self.assertAlmostEqual(run(dest, [knob]), run(dest, [], lr=0.1), delta=0.012)  # matched lr: same
+
+    def test_faults_fail_once_then_recover(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            dest = Path(tmp) / "t"
+            make(dest, "faults")
+            self.assertIsNone(run(dest, [], seed=0))
+            self.assertIsNotNone(run(dest, [], seed=0))
+
+
+class GatherTest(unittest.TestCase):
+    def test_gather_reads_a_project_database(self):
+        sys.path.insert(0, str(ROOT / "shared" / "research-tree" / "tests"))
+        from test_research_db import Fixture
+        fixture = type("F", (Fixture,), {"runTest": lambda self: None})()
+        fixture.setUp()
+        self.addCleanup(fixture.tearDown)
+        h = fixture.hypothesis()
+        fixture.start(h)
+        exp = fixture.method(h, n_seeds=1)
+        fixture.finish_runs(fixture.worker, exp)
+        run_id = f"{exp}/s{fixture.rld.get(exp)['seeds'][0]}"
+        out = fixture.root / "outputs" / "g"
+        out.mkdir(parents=True)
+        (out / "metrics.json").write_text(json.dumps({"knobs": ["ema"]}))
+        fixture.rld.update_run(run_id, output_path=str(out)) if not fixture.rld.get(run_id).get("valid") else None
+        marker = fixture.root.parent.parent / ".research-tree.json"
+        marker.write_text(json.dumps({"db": str(fixture.db), "root": str(fixture.root)}))
+        records = score.gather(marker.parent)
+        self.assertEqual(records["status"], "active")
+        self.assertGreaterEqual(records["valid_runs"], 1)
+        self.assertGreater(records["node_seconds"], 0)
+        self.assertTrue(any(t["knobs"] in (["ema"], []) for t in records["tested"]))
+        self.assertIsNotNone(records["wall_clock_h"])
+
+
 if __name__ == "__main__":
     unittest.main()

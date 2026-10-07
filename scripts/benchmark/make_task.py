@@ -13,7 +13,14 @@ have no effect, so a run outside the benchmark is an ordinary toy run. Scenarios
   gain         one knob gives a recoverable +1.5 pp
   combination  two knobs do nothing alone and give +1.5 pp together (non-greedy search)
   noisy        a +0.6 pp effect under seed noise of 1.0 pp (replication decides)
-  confound     a knob 'helps' only through a larger effective learning rate (a cheaper competing explanation)
+  confound     a knob 'helps' only because it doubles the effective learning rate: the same gain comes from a larger
+               --lr without the knob (a cheaper competing explanation)
+  faults       a +1.5 pp knob, and the first attempt of some (seed, knob set) runs fails: recovery, no duplicate
+               submissions, lesson reuse
+
+Limit: the truth file is outside the project, but an agent with shell access that looks for $RT_BENCH_TRUTH can
+read it. For a comparison run, start the agent without the variable and inject it only in the job launcher (or
+run the trainer as another user); record which isolation was used with the results.
 """
 
 from __future__ import annotations
@@ -27,7 +34,7 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 KNOBS = ("lookahead", "clip", "ema", "warmup", "scale")
-SCENARIOS = ("zero", "gain", "combination", "noisy", "confound")
+SCENARIOS = ("zero", "gain", "combination", "noisy", "confound", "faults")
 
 HOOK = '''
 def _benchmark_effect(knobs, seed, lr):
@@ -39,8 +46,17 @@ def _benchmark_effect(knobs, seed, lr):
     truth = json.loads(Path(path).read_text())
     key = "+".join(sorted(k for k in knobs if k))
     effect = truth["effects"].get(key, 0.0)
-    if truth.get("confound") and truth["confound"] in knobs:
-        effect += truth.get("lr_slope", 0.0) * (lr - 0.05) / 0.05
+    if truth.get("confound"):
+        # the knob only doubles the effective learning rate; any run at that rate gets the same gain
+        effective = lr * (2 if truth["confound"] in knobs else 1)
+        effect += truth.get("lr_slope", 0.0) * max(0.0, min(effective, 0.2) - 0.05) / 0.05
+    for fault in truth.get("faults", []):
+        if fault["seed"] == seed and fault["knobs"] == key:
+            mark = Path(path).parent / "fault-state" / f"{seed}-{key or 'none'}"
+            if not mark.exists():  # the first attempt fails, a retry succeeds
+                mark.parent.mkdir(exist_ok=True)
+                mark.write_text("failed once")
+                raise SystemExit("benchmark fault: worker lost connection to the data loader")
     noise = random.Random(f"{truth['salt']}:{key}:{seed}").gauss(0, truth.get("noise_pp", 0.2))
     return (effect + noise) / 100
 '''
@@ -59,6 +75,8 @@ def truth_for(scenario: str, rng: random.Random) -> dict:
         base.update(effects={a: 0.6}, noise_pp=1.0, best=[a])
     elif scenario == "confound":
         base.update(confound=a, lr_slope=1.5, best=[])  # the 'gain' disappears at a matched learning rate
+    elif scenario == "faults":
+        base.update(effects={a: 1.5}, best=[a], faults=[{"seed": s, "knobs": k} for s in (0, 1) for k in ("", a)])
     else:
         base["best"] = []
     return base

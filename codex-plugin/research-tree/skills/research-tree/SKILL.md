@@ -97,12 +97,13 @@ for an `ablation_plan` review and register ablations as `kind="ablation"` with `
 `source_review_id`. A task blocked by the failure budget (`task_blocked`) needs your decision document and
 `unblock_task`.
 
-New nodes may state their scientific basis apart from their code parent with `relations=[{kind, target}]`:
+Name each new node's `direction` (the mechanism it tests; a rename keeps it). New nodes may state their scientific basis apart from their code parent with `relations=[{kind, target}]`:
 `combines` (two or more nodes), `repairs` and `tests_assumption` may rest on negative or inconclusive history
 (targets need an evaluation); `competes`, `shares_control` and `variant_of` record controls. A node in the
 direction of a retired node must repair it, and one root cause is repaired at most
 `search.max_repairs_per_root_cause` times (`REPEATED_DIRECTION`). Compare advancing a positive direction,
-reducing a key uncertainty and exploring a different mechanism in each decision batch; mark the latter
+reducing a key uncertainty and exploring a different mechanism in each decision batch, and record a
+`selection_rationale` on each experiment (why now, how its result changes the next step); mark the latter
 `exploration=true` — it may use the exploration share of the search budget that other work cannot take. Never
 create work just to use that share. `relations(node)` lists typed relations, including tested_by, supports and
 invalidates.

@@ -1,4 +1,4 @@
--- 研究假说树 LatticeDB 数据模型（schema_version 11，2026-10-07：M3 预留与预算、M4 评审文档与复核、M5 设计门、sanity、失败预算）
+-- 研究假说树 LatticeDB 数据模型（schema_version 14，2026-10-07：M3 预留与预算、M4 评审与复核、M5 设计门与 sanity、M6 发现与文献核验、M7 发现/经验与上下文包、M8 关系与探索份额）
 --
 -- 说明
 -- * LatticeDB 是属性图数据库（Cypher 查询），不执行 SQL。本文件用 SQL DDL 作为可读的
@@ -80,6 +80,8 @@ CREATE TABLE project (
     memory_pack_limit   INTEGER NOT NULL DEFAULT 8000,  -- 上下文包的字符上限（memory.pack_limit_chars）
     memory_counterevidence BOOLEAN NOT NULL DEFAULT TRUE, -- 经验与其反例一起返回（memory.include_counterevidence，K03）
     exploration_fraction REAL,                 -- 搜索预算中保留给不同机制探索的比例（search.exploration_fraction，06 §4.5）
+    require_selection_rationale BOOLEAN NOT NULL DEFAULT FALSE, -- 每个节点实验写 selection_rationale（search.require_selection_rationale，06 §4.3）
+    allow_repair_from_retired BOOLEAN NOT NULL DEFAULT TRUE,     -- repairs 等关系可指向已不再投入的节点（search.allow_repair_from_retired_evidence）
     max_repairs_per_root_cause INTEGER NOT NULL DEFAULT 2,  -- 同一根因至多几次补丁（search.max_repairs_per_root_cause，03 §8）
     screen_seeds        INTEGER,               -- 筛选 seed 数上限（version 2：verification.screening_seeds 的个数）；空则只按筛选预算
     protocol_doc_id     TEXT,                  -- 现行实验协议（JSON 文档：评测类型、配对字段、必须一致的设定）

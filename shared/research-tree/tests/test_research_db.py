@@ -2937,6 +2937,51 @@ class SearchRelationTest(Fixture):
         with self.assertRaisesRegex(ResearchDBError, "REPEATED_DIRECTION: .*repaired 2 times"):
             self.node(direction="warmup schedule", relations=[{"kind": "repairs", "target": old}])
 
+    def test_u06_the_combination_runs_within_budget(self):
+        a, b = self.negative(), self.negative()
+        c = self.node(relations=[{"kind": "combines", "target": a}, {"kind": "combines", "target": b},
+                                 {"kind": "combines", "target": a}])
+        self.assertEqual(len([r for r in self.rld.relations(c)["relations"] if r["kind"] == "combines"]), 2)
+        self.start(c)
+        exp = self.method(c, n_seeds=1, walltime_s=100)
+        self.worker.create_run(exp, self.rld.get(exp)["seeds"][0])
+        self.rld.update_project(total_limit=20000)
+        self.worker.reserve_submission("kc", [f"{exp}/s{self.rld.get(exp)['seeds'][0]}@1"], {"nodes": 1, "walltime_s": 100})
+        derived = [r for r in self.rld.relations(a)["relations"] if r["kind"] in ("supports", "invalidates")]
+        self.assertTrue(all("applies" in r for r in derived))
+
+    def test_u07_needs_a_direction_and_reopens_untested_directions_on_the_users_word(self):
+        old = self.negative(direction="warmup schedule")
+        self.rld.decide_disposition(old, "retired", "no gain", [self.decision_doc()], reconsider_when="new data")
+        untested = self.node(direction="data order")
+        self.raw(untested, disposition="retired")  # set aside by the user before any experiment
+        user = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0800.v1.md", "user_instruction")
+        project = {**self.rld.get("P-test"), "design_required": True}
+        with self.rld._writer() as tx:
+            with self.assertRaisesRegex(ResearchDBError, "names its direction"):
+                self.rld._check_relations(tx, project, [], None, "renamed idea")
+            with self.assertRaisesRegex(ResearchDBError, "REPEATED_DIRECTION: .*set aside without an experiment"):
+                self.rld._check_relations(tx, project, [], "Data order", "renamed idea")
+            self.assertEqual(self.rld._check_relations(tx, project, [], "data order", "x", user), [])
+
+    def test_loosening_search_bounds_needs_the_user(self):
+        self.rld.update_project(max_repairs_per_root_cause=2, exploration_fraction=0.2)
+        for change in ({"max_repairs_per_root_cause": 5}, {"exploration_fraction": 0.05},
+                       {"exploration_fraction": None}):
+            with self.subTest(change=change), self.assertRaisesRegex(ResearchDBError, "BUDGET_EXCEEDED: raising"):
+                self.rld.update_project(**change)
+        self.rld.update_project(max_repairs_per_root_cause=1, exploration_fraction=0.3)  # tighter is fine
+
+    def test_selection_rationale_required_by_configuration(self):
+        self.rld.update_project(require_selection_rationale=True)
+        h = self.node()
+        self.start(h)
+        with self.assertRaisesRegex(ResearchDBError, "require_selection_rationale"):
+            self.method(h)
+        design = self.doc(self.worker, "exp/sr.v1.md", "experiment_design")
+        self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h,
+                                      selection_rationale="separates warmup from lr", estimated_node_h=0.1)
+
     def test_u08_exploration_share(self):
         self.rld.update_project(total_limit=20000, search_limit=10000, exploration_fraction=0.2)
         tasks_before = len(self.rld.find("task"))

@@ -7,7 +7,7 @@ summary: "按子批次方差重标度动量可减少噪声。"
 about: []
 author_role: "rld"
 author_id: "main"
-created_at: "2026-10-07T01:29:25Z"
+created_at: "2026-10-07T04:52:55Z"
 parent: "H-0001"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。

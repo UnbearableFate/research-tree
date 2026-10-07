@@ -6,8 +6,11 @@
 Metrics: outcome (go / not_go / active), false_go (GO where the truth has no gain, or on the wrong knob set),
 found (GO on the true best knob set), premature_elimination (the true best knob set tested and then retired),
 efficiency (valid runs per committed node-hour, failures included), duplicate_attempts (runs resubmitted beyond their
-first attempt), user_burden (user instructions after the first), review_cost_usd and coverage (distinct knob sets
-tested). Single runs are noisy: compare systems over several tasks and seeds, never one run each.
+first attempt), repeated_failures (failures reported again for a root cause after a verified lesson about it),
+user_burden (user instructions after the first), review_cost_usd, coverage (distinct knob sets tested) and
+wall_clock_h (project creation to its last decision). Recovery time and the agents' token cost need the host logs
+(the hosts' session records), not this database. Single runs are noisy: compare systems over several tasks and
+seeds, never one run each.
 """
 
 from __future__ import annotations
@@ -40,6 +43,8 @@ def score(records: dict, truth: dict) -> dict:
         "user_burden": max(0, records.get("user_instructions", 0) - 1),
         "review_cost_usd": records.get("review_cost_usd", 0.0),
         "coverage": len({tuple(sorted(t["knobs"])) for t in tested}),
+        "repeated_failures": records.get("repeated_failures", 0),
+        "wall_clock_h": records.get("wall_clock_h"),
     }
 
 
@@ -69,11 +74,30 @@ def gather(project_dir: Path) -> dict:
         if project["status"] == "go" and db.get_eligibility(h["id"])["eligible"]:
             go_knobs = knobs_of(db.get_eligibility(h["id"])["experiment_id"])
     users = [d for d in db.find("document") if d["doc_type"] == "user_instruction"]
+    # failures reported for a root cause that a verified lesson already covered (08 §1.2)
+    import memory
+    learned = []
+    for d in db.find("document"):
+        if d["doc_type"] == "lesson" and d["status"] == "current":
+            head = memory.front_matter((root / "docs" / d["path"]).read_text(encoding="utf-8")) or {}
+            if head.get("status") == "verified":
+                learned.append((str(head.get("root_cause", "")).lower(), d["created_at"]))
+    repeated = 0
+    for t in db.find("task"):
+        for f in ((t.get("failure_log") or {}).get("entries") or []):
+            rc = f["root_cause"]
+            repeated += any(cause and (cause in rc or rc in cause) and at <= f["at"] for cause, at in learned)
+    decisions = sorted(d["decided_at"] for d in db.find("decision"))
+    from datetime import datetime
+    def ts(x):
+        return datetime.fromisoformat(x.replace("Z", "+00:00"))
+    wall = round((ts(decisions[-1]) - ts(project["created_at"])).total_seconds() / 3600, 3) if decisions else None
     return {"status": project["status"], "go_knobs": go_knobs, "tested": tested,
             "valid_runs": sum(1 for r in runs if r.get("valid")),
             "node_seconds": db.budget_status()["committed"]["total"],
             "extra_attempts": sum(max(0, (r.get("attempt") or 1) - 1) for r in runs),
-            "user_instructions": len(users), "review_cost_usd": project.get("review_cost_usd") or 0.0}
+            "user_instructions": len(users), "review_cost_usd": project.get("review_cost_usd") or 0.0,
+            "repeated_failures": repeated, "wall_clock_h": wall}
 
 
 def main() -> int:

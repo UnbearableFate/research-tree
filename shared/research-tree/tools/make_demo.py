@@ -340,7 +340,7 @@ class Demo:
                     "## 有意舍弃的复杂度\n\n不引入额外的预条件矩阵。\n")
             doc = self.doc(rld, f"hypotheses/H-{n:04d}/hypothesis.v1.md", "hypothesis", title, body, statement,
                            parent=parent or PROJECT_ID)
-            return rld.create_hypothesis(title, statement, doc, refs, parent)
+            return rld.create_hypothesis(title, statement, doc, refs, parent, direction=title)
 
         def start(h, base_commit, base_ref="main"):
             worker = ResearchDB(db, f"worker/{rld.assign_worker(h)}")  # one node, one worker identity
@@ -357,7 +357,8 @@ class Demo:
             dsg = self.doc(worker, f"{folder}/design.v1.md", "experiment_design", f"{h} 实验设计",
                            design_body(f"代码 {code[:10]}：{change}。"), change)
             self.ready(worker, h, code, folder, change)
-            exp = worker.create_experiment("method", change, dsg, code, 4, 3600, hypothesis_id=h, n_seeds=n_seeds, estimated_node_h=12.0)
+            exp = worker.create_experiment("method", change, dsg, code, 4, 3600, hypothesis_id=h, n_seeds=n_seeds,
+                                           estimated_node_h=12.0, selection_rationale=f"检验{change}能否超过SOTA（虚构）")
             self.git("tag", f"exp/{exp}", code)
             self.values[exp] = self.finish_experiment(worker, exp, effect, nodes=4)
             return self.evaluate(h, worker, exp, verdict_fn)

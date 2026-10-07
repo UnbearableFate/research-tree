@@ -247,12 +247,13 @@ LIMIT_FIELDS = ("max_parallel_workers", "alert_node_h", "config_doc_id", "total_
                 "recheck_required", "review_usd_alert", "screen_seeds", "design_required", "max_primary_claims",
                 "max_core_blocks", "code_review_required", "sanity_required", "require_precheck",
                 "literature_verification", "max_repairs_per_root_cause", "memory_max_items",
-                "memory_counterevidence", "memory_enabled", "memory_pack_limit", "exploration_fraction")
+                "memory_counterevidence", "memory_enabled", "memory_pack_limit", "exploration_fraction",
+                "require_selection_rationale", "allow_repair_from_retired")
 # The documents evaluations are computed under (plans/design/04): protocol and metric specification.
 EVIDENCE_DOC_FIELDS = ("protocol_doc_id", "metric_spec_doc_id")
 # Caps the user authorizes (10 §1.5): an agent may lower them, raising one (or lifting it, None) needs the user.
 CAP_FIELDS = ("total_limit", "search_limit", "confirmation_limit", "repair_limit", "max_nodes", "max_walltime_s",
-              "alert_node_h", "review_usd_alert")
+              "alert_node_h", "review_usd_alert", "max_repairs_per_root_cause")
 
 class ResearchDBError(Exception):
     pass
@@ -743,8 +744,11 @@ class ResearchDB:
                 self._check_evidence_docs(tx, final)
             raised = [k for k in CAP_FIELDS if k in changes and changes[k] != project.get(k) and (
                 changes[k] is None or (project.get(k) is not None and changes[k] > project[k]))]
+            if project.get("exploration_fraction") and "exploration_fraction" in changes and (
+                    not changes["exploration_fraction"] or changes["exploration_fraction"] < project["exploration_fraction"]):
+                raised.append("exploration_fraction")  # a smaller share lets current directions take more
             for gate in ("recheck_required", "design_required", "code_review_required", "sanity_required",
-                         "require_precheck", "literature_verification"):
+                         "require_precheck", "literature_verification", "require_selection_rationale"):
                 if project.get(gate) and changes.get(gate) is False:
                     raised.append(gate)  # dropping a gate lowers the bar: the user's decision
             if raised:
@@ -918,7 +922,7 @@ class ResearchDB:
                 self._check_receipts(tx, candidate_id, user_instruction_doc_id)
             elif candidate_id is not None and not CANDIDATE_ID_RE.fullmatch(candidate_id):
                 raise ResearchDBError("candidate_id is a discovery candidate id (CAND-0001)")
-            links = self._check_relations(tx, project, relations or [], direction, title)
+            links = self._check_relations(tx, project, relations or [], direction, title, user_instruction_doc_id)
             hyp_id = self._insert(tx, "hypothesis", {
                 "id": tx.next_id("hypothesis"), "project_id": project["id"], "parent_id": parent_id or project["id"],
                 "title": title, "statement": statement, "doc_id": doc_id, "status": "pending",
@@ -990,7 +994,7 @@ class ResearchDB:
                                   f"has the '## ' sections {', '.join(EXPERIMENT_DESIGN_SECTIONS)} (03 §4, §10)")
 
     def _check_relations(self, tx: _Tx, project: dict, relations: list[dict], direction: str | None,
-                         title: str) -> list[tuple[str, str]]:
+                         title: str, user_instruction_doc_id: str | None = None) -> list[tuple[str, str]]:
         links = []
         for r in relations:
             if not isinstance(r, dict) or r.get("kind") not in RELATION_KINDS:
@@ -998,15 +1002,33 @@ class ResearchDB:
             target = tx.require(r.get("target"), ("hypothesis",))
             if r["kind"] in EVIDENCE_RELATIONS and not self._node_evaluations(tx, target["id"]):
                 raise ResearchDBError(f"{r['kind']} rests on {target['id']}'s evidence, but it has no evaluation yet")
-            links.append((r["kind"], target["id"]))
+            if r["kind"] in EVIDENCE_RELATIONS and not project.get("allow_repair_from_retired", True) and (
+                    target["status"] == "prunable" or _disposition(target) == "retired"):
+                raise ResearchDBError(f"{target['id']} is no longer pursued and search.allow_repair_from_retired_evidence "
+                                      "is false")
+            if (r["kind"], target["id"]) not in links:
+                links.append((r["kind"], target["id"]))
         if sum(k == "combines" for k, _ in links) == 1:
             raise ResearchDBError("combines names at least two nodes whose mechanisms the new node combines")
         # U07: an excluded idea is not proposed again under another name; repairs are bounded per root cause
         retired = [h for h in (tx.get(i) for i in tx.ids("hypothesis"))
                    if h["status"] == "prunable" or _disposition(h) == "retired"]
+        if retired and not direction and project.get("design_required"):
+            raise ResearchDBError("nodes are no longer pursued in this project: a new node names its direction (the "
+                                  "mechanism it tests) so a renamed excluded idea is recognised")
         # the direction (mechanism) is what a renamed idea keeps; titles change freely
         same = [h for h in retired if direction and _norm_title(h.get("direction") or "") == _norm_title(direction)]
         repaired = {t for k, t in links if k == "repairs"}
+        untested = [h for h in same if not self._node_evaluations(tx, h["id"])]
+        if untested and len(untested) == len(same):
+            # a direction the user set aside before any experiment: reopened on the user's word, not by a repair
+            instruction = user_instruction_doc_id and tx.get(user_instruction_doc_id)
+            if not instruction or (instruction.get("doc_type"), instruction.get("status")) != (
+                    "user_instruction", "current"):
+                raise CodedError("REPEATED_DIRECTION", f"{', '.join(h['id'] for h in untested)} in this direction was set "
+                                                       "aside without an experiment: reopening it needs the user's "
+                                                       "instruction (user_instruction_doc_id)")
+            same = []
         if same and not repaired & {h["id"] for h in same}:
             raise CodedError("REPEATED_DIRECTION", f"{', '.join(h['id'] for h in same)} already tested this direction "
                                                    "and is no longer pursued: a new node repairs it (relation repairs "
@@ -1036,8 +1058,10 @@ class ResearchDB:
                 exp = tx.get(row["id"])
                 ev = tx.get(exp["evaluation_id"]) if exp.get("evaluation_id") else None
                 if ev and ev.get("outcome") in ("positive_signal", "negative_signal"):
+                    project = self._project(tx)
                     out.append({"kind": "supports" if ev["outcome"] == "positive_signal" else "invalidates",
-                                "from": ev["id"], "to": node_id})
+                                "from": ev["id"], "to": node_id,
+                                "applies": not self._stale_reasons(tx, project, ev)})  # stale evidence shown as such
         return {"node": node_id, "relations": out}
 
     def _literature_verified(self, tx: _Tx, doc_id: str) -> bool:
@@ -1990,6 +2014,9 @@ class ResearchDB:
             if hypothesis_id is not None and kind != "sanity" and stage != "confirm" and \
                     not (optional.get("selection_rationale") or "").strip():
                 recent = [tx.get(v["id"]).get("outcome") for v in self._node_evaluations(tx, hypothesis_id)[-2:]]
+                if project.get("require_selection_rationale") and kind in ("method", "ablation"):
+                    raise ResearchDBError(f"search.require_selection_rationale: an experiment on {hypothesis_id} says "
+                                          "why now and how its result changes the next step (selection_rationale)")
                 if recent == ["inconclusive", "inconclusive"]:
                     raise ResearchDBError(f"{hypothesis_id}'s last two results were inconclusive: another experiment "
                                           "needs selection_rationale (why now, how its result changes the next step; "
