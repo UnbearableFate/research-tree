@@ -100,13 +100,14 @@ goal 文档含 “## 问题锚点” 一节，逐项写 底线问题、必须解
 {spec_text(project, conf)}2. create_project 使用本项目ID {project['project_id']}、真实git仓库路径、metric_spec_doc_id 与 protocol_doc_id、配置中的预算与门槛；
 接口参数先查 help。
 3. 为每个初始假说检索相关研究，缓存原文并登记引用与假说文档，create_hypothesis 不指定parent_id，全部直属根节点。
+文献用 {ROOT}/tools/literature.py search / verify / fetch 检索，再用 literature.py note --title … [--arxiv-id/--doi] --out <docs/literature/LIT-编号.v1.md> --cache <cache/literature> 核验存在性、缓存原文并生成文献文档骨架（front matter 记录核验结果，不要手改；读原文后填写各节再登记；只有 verification: verified 的文献计入每个节点的文献下限，unverified 的保留但不计数）。
 4. 根节点只放 baselines；写任务请求（章节：任务与节点、问题与预测、干预与对照、范围与权限、资源与预算、验收与停止条件、
 交付；内容见规则第4节），覆盖框架、统计代码、按框架输出调整项目目录的 research-tree-cleanup.py 和SOTA/其他基线，
 再创建尚未指派的 harness 任务。
 5. 写并登记 project/reports/init-plan.v1.md，post_to_ui(type=confirm_request, docs=[该路径]) 请用户确认。
 立项前发现（research-tree.yaml discovery.mode 不是 off 时，在写立项计划之前按 D0–D8 执行；用户假说是种子，与新发现的候选一起查新与评审；discovery 门通过前 post_to_ui(confirm_request) 会被拒绝）：
 D0 先完成第 1、2 步（goal 含问题锚点、最小设定、指标规范、协议、create_project），把用户假说写成 docs/project/discovery/user-hypotheses.json（[{{"title", "summary"}}]），运行 research_tree.py discovery start，然后 discovery set --stage brief --status done。每步完成后用 discovery set 记录状态与产物，中断后 discovery resume 返回第一个未完成的阶段。
-D1 文献：用 tools/literature.py search / verify / fetch 围绕方向与种子检索、核验存在性、缓存原文（cache/literature/）；每篇登记为 literature 文档，front matter 用 literature.py 给出的块（verification: verified/unverified）；unverified 的保留但不计入 min_related_work。完成后 discovery set --stage literature --status done --artifact <文献清单>，并 discovery accept --stage literature --verifier literature.py --evidence <核验输出>。
+D1 文献：用 tools/literature.py search / verify / fetch 围绕方向与种子检索、核验存在性、缓存原文（cache/literature/）；每篇用 literature.py note 生成文献文档（front matter 记录 verification: verified/unverified，不要手改），读原文填写后登记为 literature 文档；unverified 的保留但不计入 min_related_work。完成后 discovery set --stage literature --status done --artifact <文献清单>，并 discovery accept --stage literature --verifier literature.py --evidence <核验输出>。
 D2（mode full）候选：你按 discovery.lenses 中的每个通用 lens，以及每条用户假说的 discovery.seed_lenses（variant、combination、competing、repair）依次只生成候选（不排序、不评判），每个 lens 写一个 cache/discovery/shards/<lens>[-<种子序号>].json（{{"lens", "generator": "leader", "candidates": [{{title, summary, mechanism, closest_work, estimated_run: {{nodes, walltime_s}}}}]}}）； 然后 discovery merge --user-hypotheses docs/project/discovery/user-hypotheses.json（按 dedup_key 机械去重，不按质量淘汰），discovery set --stage candidates --status done --artifact docs/project/discovery/candidates.json。
 D3 可行性：discovery feasibility（只按单次运行上限与筛选预算淘汰新候选；用户假说只注记），set done 后 discovery accept --stage feasibility --verifier discovery.feasibility --evidence docs/project/discovery/candidates.json。
 D4 triage：research_review(kind=triage, about=项目ID, brief 列出 candidates.json 路径)，再 discovery select --triage <评审文档ID>（用户假说总是入选，再加排名前 discovery.triage_top_n 的可行新候选），set done 后 discovery accept --stage triage --evidence <评审ID>。

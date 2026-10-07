@@ -66,6 +66,8 @@ def parse(text: str, source: str = CONFIG_NAME) -> dict:
     config = _merge(defaults(version), given)
     if version == 2 and "metric_specs" in given:
         config["metric_specs"] = given["metric_specs"]
+    if version == 2 and config.get("discovery", {}).get("mode") is False:
+        config["discovery"]["mode"] = "off"  # YAML 1.1 reads an unquoted off as false
     validator = Draft202012Validator(json.loads((SCHEMA_PATH if version == 2 else V1_SCHEMA_PATH).read_text(encoding="utf-8")))
     errors = sorted(validator.iter_errors(config), key=lambda e: list(e.path))
     if errors:
@@ -151,7 +153,7 @@ def db_fields(config: dict) -> dict:
             "code_review_required": config["design"]["code_review"], "sanity_required": config["design"]["sanity_first"],
             # discovery (02, 08): receipts before initial nodes, only verified literature counts
             "require_precheck": config["discovery"]["mode"] != "off" and config["discovery"]["require_precheck"],
-            "literature_verification": True,
+            "literature_verification": config["literature"]["require_verified"],
             "max_repairs_per_root_cause": config["search"]["max_repairs_per_root_cause"],
         }
     budget, stage1 = config["budget"], config["stage1"]

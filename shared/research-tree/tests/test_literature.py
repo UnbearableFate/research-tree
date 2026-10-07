@@ -446,3 +446,22 @@ class CliTest(Base):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NoteTest(unittest.TestCase):
+    def test_note_writes_verified_front_matter_once(self):
+        import tempfile
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as tmp:
+            out = Path(tmp) / "docs/literature/LIT-0001.v1.md"
+            verdict = {"verification": "verified", "method": "arxiv", "matched": {"arxiv_id": "1706.03762"},
+                       "detail": "ok", "pending": False}
+            with mock.patch.object(lit, "verify", return_value=verdict):
+                result = lit.write_note({"title": "Attention Is All You Need", "authors": [], "year": 2017,
+                                                "arxiv_id": "1706.03762", "doi": None}, out)
+            self.assertEqual(result["verification"], "verified")
+            text = out.read_text(encoding="utf-8")
+            self.assertIn("\nverification: verified\n", text)
+            self.assertIn("## 最近邻差异", text)
+            with self.assertRaises(lit.LiteratureError):
+                lit.write_note({"title": "x"}, out)

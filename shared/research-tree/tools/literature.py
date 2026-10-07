@@ -622,6 +622,27 @@ def front_matter(record: dict[str, Any], verification: dict[str, Any] | str,
 
 # ── CLI ────────────────────────────────────────────────────────────────────
 
+NOTE_SECTIONS = ("出处", "核心方法", "实验设定与结果", "与本项目的关系", "最近邻差异")
+
+
+def write_note(record: dict, out: Path, cache_dir: str | None = None) -> dict:
+    """A literature document skeleton: the verification front matter, then the sections the Leader or a worker
+    fills in after reading the paper (08 §1.6). Refuses to overwrite an existing file."""
+    if out.exists():
+        raise LiteratureError(f"{out} exists; write a new version instead")
+    result = verify(record)
+    arxiv_id = record.get("arxiv_id") or (result.get("matched") or {}).get("arxiv_id")
+    if cache_dir and arxiv_id:
+        record = {**record, "arxiv_id": arxiv_id}
+        fetch_pdf(record, cache_dir)  # sets cache_path and sha256 on success
+    body = front_matter(record, result) + f"\n# {record.get('title')}\n\n" + "".join(
+        f"## {name}\n\n（阅读原文后填写）\n\n" for name in NOTE_SECTIONS)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    out.write_text(body, encoding="utf-8")
+    return {"path": str(out), "verification": result["verification"], "method": result.get("method"),
+            "detail": result.get("detail"), "pending": result.get("pending", False)}
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Literature search, existence verification and PDF cache.")
     sub = ap.add_subparsers(dest="cmd", required=True)
@@ -636,6 +657,15 @@ def main(argv: list[str] | None = None) -> int:
     v.add_argument("--doi")
     v.add_argument("--year", type=int)
     v.add_argument("--threshold", type=float, default=FUZZY_THRESHOLD)
+    n = sub.add_parser("note", help="verify a paper, cache its PDF when on arXiv, and write a literature document "
+                                    "skeleton whose front matter records the verification (never edit it by hand)")
+    n.add_argument("--title", required=True)
+    n.add_argument("--arxiv-id")
+    n.add_argument("--doi")
+    n.add_argument("--year", type=int)
+    n.add_argument("--authors", nargs="*", default=[])
+    n.add_argument("--out", required=True, help="the document file, e.g. research/<id>/docs/literature/LIT-0001.v1.md")
+    n.add_argument("--cache", help="PDF cache directory, e.g. research/<id>/cache/literature")
     f = sub.add_parser("fetch", help="download an arXiv PDF into the cache")
     f.add_argument("--arxiv-id", required=True)
     f.add_argument("--cache", required=True)
@@ -649,6 +679,9 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "verify":
             record = _record("cli", title=args.title, arxiv_id=args.arxiv_id, doi=args.doi, year=args.year)
             result = verify(record, threshold=args.threshold)
+        elif args.cmd == "note":
+            result = write_note(_record("cli", title=args.title, arxiv_id=args.arxiv_id, doi=args.doi,
+                                        year=args.year, authors=args.authors), Path(args.out), args.cache)
         else:
             result = download_pdf(args.arxiv_id, args.cache)
     except (LiteratureError, FetchError, OSError) as exc:

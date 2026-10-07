@@ -451,3 +451,12 @@ class NotifyTest(unittest.TestCase):
              "text": "请加一个基线", "about": ["REQ-1"]}, ensure_ascii=False) + "\n", encoding="utf-8")
         code, out = self.run_tool("inbox")
         self.assertEqual((code, [i["id"] for i in out["result"]]), (0, ["REQ-1"]))
+
+
+class DiscoveryConfigTest(unittest.TestCase):
+    def test_unquoted_off(self):
+        import project_config
+        text = project_config.template_text().replace("  mode: full ", "  mode: off  ")
+        config = project_config.parse(text)
+        self.assertEqual(config["discovery"]["mode"], "off")
+        self.assertFalse(project_config.db_fields(config)["require_precheck"])

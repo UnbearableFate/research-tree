@@ -116,6 +116,7 @@ notify:
 
 literature:
   min_related_work: 3         # 创建节点时至少引用的、经存在性核验的相关研究数
+  require_verified: true      # 只有 literature.py 核验存在的文献计入上面的数量
 
 models:
   ui: {model: inherit, effort: null}
