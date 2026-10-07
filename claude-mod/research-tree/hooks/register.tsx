@@ -160,6 +160,17 @@ async function logAgentModel($: EngineInterface, cfg: Config, agent: string, act
     ...(effort != null ? ['--effort', String(effort)] : [])])
 }
 
+/** The main session's model as the host reports it now, or undefined. */
+async function leaderModel($: EngineInterface): Promise<string | undefined> {
+  try {
+    const m: unknown = await $.session.model()
+    const id = typeof m === 'string' ? m : (m as { id?: string; model?: string } | undefined)?.id ?? (m as { model?: string } | undefined)?.model
+    return typeof id === 'string' && id ? id : undefined
+  } catch {
+    return undefined
+  }
+}
+
 // Agent runs whose observed model is logged already, with that model: one record per run and model.
 const observedModels = new Map<string, string>()
 
@@ -1241,6 +1252,13 @@ export const register: Register = (on, options) => {
       const input = e as unknown as { kind?: string; brief?: string; about?: string; dimension?: string; evaluation?: string; code_ref?: string; session?: string; add_dirs?: string[] }
       const project = (await $.state.get(projectRef)).value ?? (await loadProject($))
       if (!project) return { result: `当前目录没有研究项目：先运行 /${COMMAND} init`, isError: true as const }
+      // the reviewer must be another family than the Leader: record the Leader's model now, not only at turn end
+      // (a review in the same turn as init would otherwise find no record)
+      const model = await leaderModel($)
+      if (model && observedModels.get('main') !== model) {
+        observedModels.set('main', model)
+        await logAgentModel($, cfg, 'main', 'rld/main', 'observed', model)
+      }
       const args = ['--kind', String(input.kind ?? ''), '--brief', String(input.brief ?? ''), '--about', String(input.about ?? ''),
         ...(input.dimension ? ['--dimension', input.dimension] : []), ...(input.evaluation ? ['--evaluation', input.evaluation] : []),
         ...(input.code_ref ? ['--code-ref', input.code_ref] : []),
