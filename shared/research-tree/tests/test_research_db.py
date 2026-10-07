@@ -2896,3 +2896,23 @@ class ProxyWordingTest(Fixture):
             self.rld.set_document_current(doc)
         ok = self.doc(self.rld, "reports/x11b.v1.md", "report", body="# 结果\n\n在合成代理指标上相对提升 0.3 个百分点。\n")
         self.assertEqual(self.rld.get(ok)["status"], "current")
+
+
+class SanityScaleTest(Fixture):
+    """03 §8: a sanity run is minimal; the protocol's scale (required counts, matched settings) is asked of the
+    runs that join comparisons, not of it."""
+
+    def test_minimal_sanity_run_is_imported_without_the_protocol_scale(self):
+        from unittest import mock
+        h = self.hypothesis()
+        self.start(h)
+        design = self.doc(self.worker, "exp/s.v1.md", "experiment_design")
+        sanity = self.worker.create_experiment("sanity", "smoke", design, self.commit(), 1, 60, hypothesis_id=h,
+                                               estimated_node_h=0.01)
+        method = self.method(h, n_seeds=1)
+        scaled = {**PROTOCOL, "required_counts": {"n_val": 400}}
+        with mock.patch.object(rdb.ResearchDB, "_protocol", return_value=scaled):
+            self.imported(sanity, counts={"n_val": 10})
+            with self.assertRaisesRegex(ResearchDBError, "PAIRING_MISMATCH: .*the protocol requires 400"):
+                self.imported(method, counts={"n_val": 10})
+        self.assertTrue(self.rld.get(f"{sanity}/s{self.rld.get(sanity)['seeds'][0]}")["valid"])
