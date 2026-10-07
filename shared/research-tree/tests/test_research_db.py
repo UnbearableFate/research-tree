@@ -2957,3 +2957,23 @@ class SearchRelationTest(Fixture):
         status = self.rld.budget_status()["exploration"]
         self.assertEqual((status["fraction"], status["committed"]), (0.2, 2000))
         self.assertEqual(len(self.rld.find("task")), tasks_before)  # nothing is created to use a share
+
+
+class SanityScaleTest(Fixture):
+    """03 §8: a sanity run is minimal; the protocol's scale (required counts, matched settings) is asked of the
+    runs that join comparisons, not of it."""
+
+    def test_minimal_sanity_run_is_imported_without_the_protocol_scale(self):
+        from unittest import mock
+        h = self.hypothesis()
+        self.start(h)
+        design = self.doc(self.worker, "exp/s.v1.md", "experiment_design")
+        sanity = self.worker.create_experiment("sanity", "smoke", design, self.commit(), 1, 60, hypothesis_id=h,
+                                               estimated_node_h=0.01)
+        method = self.method(h, n_seeds=1)
+        scaled = {**PROTOCOL, "required_counts": {"n_val": 400}}
+        with mock.patch.object(rdb.ResearchDB, "_protocol", return_value=scaled):
+            self.imported(sanity, counts={"n_val": 10})
+            with self.assertRaisesRegex(ResearchDBError, "PAIRING_MISMATCH: .*the protocol requires 400"):
+                self.imported(method, counts={"n_val": 10})
+        self.assertTrue(self.rld.get(f"{sanity}/s{self.rld.get(sanity)['seeds'][0]}")["valid"])
