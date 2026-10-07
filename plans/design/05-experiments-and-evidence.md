@@ -18,6 +18,8 @@ language: "zh-CN"
 | 作业结束后的接续 | 负责唤醒 Leader 或 worker | 提供 `resume_package`；规则 §7 规定醒来后先按原 job_id 核对 |
 | 用量 | 由技能从调度器读出并填入 | 只按 `nodes_used × walltime_used_s` 记账并检查上限 |
 
+参考 : https://github.com/tsukuba-hpcs/miyabi-toolbox
+
 这个分工与 ARIS 把算力声明放在 `CLAUDE.md`、按提供商分技能的做法一致。插件侧仍可改进、且不依赖任何调度器的两点：
 
 - **把"站点技能必须交给插件什么"写成约定。** 现在 `platform.experiment` 是自由文本，`job_id` 是任意字符串。建议在配置模板与 README 里写明站点技能的最小义务：提交后立即 `update_run(submitted, job_id)`；查询失败或超时保持 `unknown` 不重提（接口已拒绝从 unknown 重提）；结束后填实际用量；唤醒后只核对与导入，不作判定。这样第三方写自己的平台技能时有据可依。
