@@ -236,11 +236,11 @@ DIRECTION = "由发现流程产生。"
 
 
 def config(host: str, alert: float | None, with_reviewer: bool = False, version: int = 2,
-           total_limit: int | None = None) -> str:
+           total_limit: int | None = None, min_gain: float = 0.5, profile: str = "stage1_confirmed") -> str:
     reviewer = ("openai/gpt-6-luna" if host == "claude" else "anthropic/claude-sonnet-5-5")
     alert_text = "null" if alert is None else str(alert)
     if version == 2:
-        return config_v2(host, alert_text, reviewer, with_reviewer, total_limit)
+        return config_v2(host, alert_text, reviewer, with_reviewer, total_limit, min_gain, profile)
     return textwrap.dedent(f'''\
         # research-tree 真实宿主测试配置（plans/design/14 §5，{host} 宿主）
         version: 1
@@ -279,7 +279,8 @@ def config(host: str, alert: float | None, with_reviewer: bool = False, version:
               if with_reviewer else f"# reviewer（M4 起，--with-reviewer）：{reviewer}，thinking medium\n")
 
 
-def config_v2(host: str, alert_text: str, reviewer: str, with_reviewer: bool, total_limit: int | None) -> str:
+def config_v2(host: str, alert_text: str, reviewer: str, with_reviewer: bool, total_limit: int | None,
+              min_gain: float = 0.5, profile: str = "stage1_confirmed") -> str:
     """The version-2 schema (01 §3, M3 and later): metric specs, seed tiers and a node-seconds budget."""
     total = "null" if total_limit is None else str(total_limit)
     return textwrap.dedent(f'''\
@@ -301,7 +302,7 @@ def config_v2(host: str, alert_text: str, reviewer: str, with_reviewer: bool, to
           overrun_factor: 2.0
 
         evidence_policy:
-          profile: stage1_confirmed
+          profile: {profile}
 
         metric_specs:
           - name: accuracy
@@ -309,7 +310,7 @@ def config_v2(host: str, alert_text: str, reviewer: str, with_reviewer: bool, to
             input_unit: fraction
             canonical_unit: percentage_point
             effect_mode: absolute
-            minimum_practical_gain: 0.5
+            minimum_practical_gain: {min_gain}
             aggregation: paired_run_mean
             valid_range: [0.0, 1.0]
 
@@ -356,6 +357,9 @@ def main() -> int:
                    help="write models.reviewer and models.lens_assistant (configuration schema of M4 and later)")
     p.add_argument("--config-version", type=int, choices=(1, 2), default=2,
                    help="research-tree.yaml schema; 2 from M3 on")
+    p.add_argument("--min-gain", type=float, default=0.5,
+                   help="primary metric's minimum_practical_gain (percentage points); 0 lets any gain pass the gate")
+    p.add_argument("--profile", choices=("stage1_confirmed", "screening"), default="stage1_confirmed")
     p.add_argument("--total-limit", type=int, default=None,
                    help="budget.total_limit in node-seconds (version 2); small values test the admission limit")
     args = p.parse_args()
@@ -374,7 +378,8 @@ def main() -> int:
     (dest / "plan.md").write_text(PLAN.format(hypotheses=(DIRECTION, HYPOTHESES, HYPOTHESES + HYPOTHESIS_2)[args.hypotheses],
                                               code=code), encoding="utf-8")
     (dest / "research-tree.yaml").write_text(config(args.host, args.alert_node_h, args.with_reviewer,
-                                                       args.config_version, args.total_limit), encoding="utf-8")
+                                                       args.config_version, args.total_limit, args.min_gain,
+                                                       args.profile), encoding="utf-8")
     print(dest)
     return 0
 
