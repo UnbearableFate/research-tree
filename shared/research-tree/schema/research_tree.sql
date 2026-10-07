@@ -76,6 +76,8 @@ CREATE TABLE project (
     require_precheck    BOOLEAN NOT NULL DEFAULT FALSE,  -- 建节点须有查新与批判性评审回执（discovery.require_precheck，02 §3）
     literature_verification BOOLEAN NOT NULL DEFAULT FALSE, -- 只有存在性核验为 verified 的文献计入 min_related_work（08 §2）
     memory_max_items    INTEGER NOT NULL DEFAULT 5,   -- 上下文包中至多几条经验（memory.max_items_per_task）
+    memory_enabled      BOOLEAN NOT NULL DEFAULT TRUE,  -- memory.enabled：关闭时上下文包不含经验与发现
+    memory_pack_limit   INTEGER NOT NULL DEFAULT 8000,  -- 上下文包的字符上限（memory.pack_limit_chars）
     memory_counterevidence BOOLEAN NOT NULL DEFAULT TRUE, -- 经验与其反例一起返回（memory.include_counterevidence，K03）
     max_repairs_per_root_cause INTEGER NOT NULL DEFAULT 2,  -- 同一根因至多几次补丁（search.max_repairs_per_root_cause，03 §8）
     screen_seeds        INTEGER,               -- 筛选 seed 数上限（version 2：verification.screening_seeds 的个数）；空则只按筛选预算

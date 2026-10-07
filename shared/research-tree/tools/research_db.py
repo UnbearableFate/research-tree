@@ -244,7 +244,7 @@ LIMIT_FIELDS = ("max_parallel_workers", "alert_node_h", "config_doc_id", "total_
                 "recheck_required", "review_usd_alert", "screen_seeds", "design_required", "max_primary_claims",
                 "max_core_blocks", "code_review_required", "sanity_required", "require_precheck",
                 "literature_verification", "max_repairs_per_root_cause", "memory_max_items",
-                "memory_counterevidence")
+                "memory_counterevidence", "memory_enabled", "memory_pack_limit")
 # The documents evaluations are computed under (plans/design/04): protocol and metric specification.
 EVIDENCE_DOC_FIELDS = ("protocol_doc_id", "metric_spec_doc_id")
 # Caps the user authorizes (10 §1.5): an agent may lower them, raising one (or lifting it, None) needs the user.
@@ -3202,6 +3202,7 @@ class ResearchDB:
                 raise CodedError("MEMORY_REJECTED", f"{doc['id']}: evidence run {ref} does not exist")
 
     def context_pack(self, node_id: str, role: str = "worker") -> dict:
+        # role: worker (its node's lineage) or rld (every open obligation and finding: decision batches)
         """08 §3: a deterministic, size-capped context for a task on node_id (a hypothesis or the project), in a fixed
         order: goal and problem anchor → open obligations → retired nodes and lessons (verified first, with their
         applicability, a recheck flag and counterexamples) → findings → the current evaluation → recent relations.
@@ -3220,16 +3221,18 @@ class ResearchDB:
                 lineage.append(current["parent_id"])
                 current = tx.get(current["parent_id"])
             subjects = set(lineage) | {project["id"]}
+            leader = role == "rld"  # the Leader sees every open obligation; a worker its node's lineage
             opened = [o for o in (tx.get(i) for i in tx.ids("obligation")) if o["status"] == "OPEN"
-                      and (o["about"] in subjects or (node["_table"] == "hypothesis" and
-                                                      o["id"] in self._open_obligations(tx, node_id)))]
+                      and (leader or o["about"] in subjects or (node["_table"] == "hypothesis" and
+                                                                o["id"] in self._open_obligations(tx, node_id)))]
             sections.append(("未决问题（obligation）", [f"- {o['id']}（{o['severity']}）{o['claim'][:200]}" for o in opened]))
             retired = [h for h in (tx.get(i) for i in tx.ids("hypothesis"))
                        if h["status"] == "prunable" or _disposition(h) == "retired"]
             lines = [f"- {h['id']} {h['title']}：{(h.get('disposition_reason') or h['status'])[:160]}" for h in retired]
             lessons = []
+            enabled = project.get("memory_enabled", True)
             for d in (tx.get(i) for i in tx.ids("document", "WHERE n.doc_type = $t", t="lesson")):
-                if d["status"] != "current":
+                if d["status"] != "current" or not enabled:
                     continue
                 text = (self.docs_root / d["path"]).read_text(encoding="utf-8")
                 data = memory.front_matter(text) or {}
@@ -3255,10 +3258,10 @@ class ResearchDB:
             sections.append(("已不再投入的节点与运行经验", lines))
             findings = []
             for d in (tx.get(i) for i in tx.ids("document", "WHERE n.doc_type = $t", t="finding")):
-                if d["status"] != "current":
+                if d["status"] != "current" or not enabled:
                     continue
                 about = {e["target_id"] for e in tx.edges("rel_describes", source=d["id"])}
-                if about and not about & subjects:
+                if about and not about & subjects and not leader:
                     continue
                 data = memory.front_matter((self.docs_root / d["path"]).read_text(encoding="utf-8")) or {}
                 findings.append({"id": d["id"], "claim": memory.quarantine(str(data.get("claim", "")), d["id"]),
@@ -3273,8 +3276,9 @@ class ResearchDB:
                 kids = [h["id"] for h in (tx.get(i) for i in tx.ids("hypothesis")) if h.get("parent_id") == node_id]
                 sections.append(("最近的关系", [f"- 父节点 {node.get('parent_id')}；子节点 {', '.join(kids) or '无'}；"
                                                f"相关 {', '.join(related) or '无'}"]))
-        text, truncated = memory.render(sections)
-        return {"node": node_id, "role": role, "text": text, "truncated": truncated, "limit": memory.PACK_LIMIT,
+        limit = project.get("memory_pack_limit") or memory.PACK_LIMIT
+        text, truncated = memory.render(sections, limit)
+        return {"node": node_id, "role": role, "text": text, "truncated": truncated, "limit": limit,
                 "lessons": lessons, "findings": findings}
 
     def _require_unchanged(self, doc: dict) -> None:

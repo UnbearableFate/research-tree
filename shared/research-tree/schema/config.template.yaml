@@ -100,9 +100,10 @@ search:
 
 memory:
   enabled: true
-  cross_project: false
+  cross_project: false        # 本版本不支持跨项目检索（须先有权限过滤）
   max_items_per_task: 5
   include_counterevidence: true
+  pack_limit_chars: 8000      # 上下文包的字符上限
 
 review:
   trigger: candidate_ready
