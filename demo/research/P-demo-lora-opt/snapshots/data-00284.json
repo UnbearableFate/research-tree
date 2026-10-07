@@ -1,8 +1,8 @@
 {
  "meta": {
   "schema_version": 10,
-  "data_version": 309,
-  "updated_at": "2026-10-07T00:42:28Z"
+  "data_version": 284,
+  "updated_at": "2026-10-07T01:00:51Z"
  },
  "tables": {
   "project": [
@@ -36,6 +36,7 @@
     "max_walltime_s": 3600,
     "screen_budget_node_h": 10,
     "gate_seeds": 3,
+    "screen_seeds": 1,
     "go_margin": 0.05,
     "min_related_work": 3,
     "stall_structural_at": 2,
@@ -49,10 +50,10 @@
      "D-0010"
     ],
     "review_cost_usd": 0.25,
-    "created_at": "2026-10-07T00:41:11Z",
-    "updated_at": "2026-10-07T00:42:00Z",
+    "created_at": "2026-10-07T00:59:43Z",
+    "updated_at": "2026-10-07T01:00:26Z",
     "worker_id": "root",
-    "harness_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
+    "harness_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
     "harness_paths": [
      "harness"
     ],
@@ -78,14 +79,14 @@
     "disposition": "active",
     "new_findings_streak": 1,
     "stall_state": "none",
-    "created_at": "2026-10-07T00:41:22Z",
-    "updated_at": "2026-10-07T00:42:28Z",
+    "created_at": "2026-10-07T00:59:52Z",
+    "updated_at": "2026-10-07T01:00:51Z",
     "worker_id": "h0001",
-    "concluded_at": "2026-10-07T00:41:28Z",
-    "started_at": "2026-10-07T00:41:23Z",
+    "concluded_at": "2026-10-07T00:59:57Z",
+    "started_at": "2026-10-07T00:59:54Z",
     "status_reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
-    "first_experiment_at": "2026-10-07T00:41:25Z",
-    "first_result_at": "2026-10-07T00:41:27Z",
+    "first_experiment_at": "2026-10-07T00:59:55Z",
+    "first_result_at": "2026-10-07T00:59:56Z",
     "direction": "二阶矩估计",
     "parent_id": "P-demo-lora-opt"
    },
@@ -107,14 +108,14 @@
     "disposition": "retired",
     "new_findings_streak": 0,
     "stall_state": "none",
-    "created_at": "2026-10-07T00:41:29Z",
-    "updated_at": "2026-10-07T00:41:36Z",
+    "created_at": "2026-10-07T00:59:58Z",
+    "updated_at": "2026-10-07T01:00:03Z",
     "worker_id": "h0002",
-    "concluded_at": "2026-10-07T00:41:36Z",
-    "started_at": "2026-10-07T00:41:30Z",
+    "concluded_at": "2026-10-07T01:00:03Z",
+    "started_at": "2026-10-07T00:59:59Z",
     "status_reason": "所有指标都不优于SOTA，按规则消灭。",
-    "first_experiment_at": "2026-10-07T00:41:32Z",
-    "first_result_at": "2026-10-07T00:41:34Z",
+    "first_experiment_at": "2026-10-07T01:00:01Z",
+    "first_result_at": "2026-10-07T01:00:02Z",
     "disposition_reason": "所有指标都不优于SOTA，按规则消灭。",
     "reconsider_when": "出现能修复该缺陷的新机制依据",
     "parent_id": "P-demo-lora-opt"
@@ -137,15 +138,15 @@
     "disposition": "active",
     "new_findings_streak": 0,
     "stall_state": "none",
-    "created_at": "2026-10-07T00:41:38Z",
-    "updated_at": "2026-10-07T00:41:48Z",
+    "created_at": "2026-10-07T01:00:05Z",
+    "updated_at": "2026-10-07T01:00:15Z",
     "worker_id": "h0003",
-    "concluded_at": "2026-10-07T00:41:48Z",
-    "started_at": "2026-10-07T00:41:40Z",
+    "concluded_at": "2026-10-07T01:00:15Z",
+    "started_at": "2026-10-07T01:00:07Z",
     "status_reason": "优于SOTA且复核通过，可拓展",
-    "first_experiment_at": "2026-10-07T00:41:42Z",
-    "first_result_at": "2026-10-07T00:41:44Z",
-    "beats_sota_at": "2026-10-07T00:41:47Z",
+    "first_experiment_at": "2026-10-07T01:00:09Z",
+    "first_result_at": "2026-10-07T01:00:10Z",
+    "beats_sota_at": "2026-10-07T01:00:14Z",
     "parent_id": "H-0001"
    },
    {
@@ -166,14 +167,14 @@
     "disposition": "retired",
     "new_findings_streak": 0,
     "stall_state": "none",
-    "created_at": "2026-10-07T00:42:00Z",
-    "updated_at": "2026-10-07T00:42:07Z",
+    "created_at": "2026-10-07T01:00:27Z",
+    "updated_at": "2026-10-07T01:00:33Z",
     "worker_id": "h0004",
-    "concluded_at": "2026-10-07T00:42:07Z",
-    "started_at": "2026-10-07T00:42:02Z",
+    "concluded_at": "2026-10-07T01:00:33Z",
+    "started_at": "2026-10-07T01:00:28Z",
     "status_reason": "相对父节点各项指标都不更好，按规则消灭。",
-    "first_experiment_at": "2026-10-07T00:42:04Z",
-    "first_result_at": "2026-10-07T00:42:06Z",
+    "first_experiment_at": "2026-10-07T01:00:30Z",
+    "first_result_at": "2026-10-07T01:00:32Z",
     "disposition_reason": "相对父节点各项指标都不更好，按规则消灭。",
     "reconsider_when": "出现能修复该缺陷的新机制依据",
     "parent_id": "H-0001"
@@ -197,13 +198,13 @@
     "disposition": "active",
     "new_findings_streak": 0,
     "stall_state": "none",
-    "created_at": "2026-10-07T00:42:10Z",
-    "updated_at": "2026-10-07T00:42:11Z",
+    "created_at": "2026-10-07T01:00:35Z",
+    "updated_at": "2026-10-07T01:00:36Z",
     "worker_id": "h0005",
-    "started_at": "2026-10-07T00:42:11Z",
+    "started_at": "2026-10-07T01:00:36Z",
     "status_reason": "开始代码改进与实验",
-    "first_experiment_at": "2026-10-07T00:42:13Z",
-    "first_result_at": "2026-10-07T00:42:16Z",
+    "first_experiment_at": "2026-10-07T01:00:38Z",
+    "first_result_at": "2026-10-07T01:00:40Z",
     "parent_id": "P-demo-lora-opt"
    },
    {
@@ -224,9 +225,9 @@
     "disposition": "retired",
     "new_findings_streak": 0,
     "stall_state": "none",
-    "created_at": "2026-10-07T00:42:16Z",
-    "updated_at": "2026-10-07T00:42:17Z",
-    "concluded_at": "2026-10-07T00:42:17Z",
+    "created_at": "2026-10-07T01:00:41Z",
+    "updated_at": "2026-10-07T01:00:42Z",
+    "concluded_at": "2026-10-07T01:00:42Z",
     "status_reason": "用户决定放弃（超出单次运行上限）",
     "disposition_reason": "用户决定放弃（超出单次运行上限）",
     "reconsider_when": "用户提供新的预算或资源",
@@ -250,13 +251,13 @@
     "disposition": "paused",
     "new_findings_streak": 0,
     "stall_state": "none",
-    "created_at": "2026-10-07T00:42:18Z",
-    "updated_at": "2026-10-07T00:42:27Z",
+    "created_at": "2026-10-07T01:00:43Z",
+    "updated_at": "2026-10-07T01:00:50Z",
     "worker_id": "h0007",
-    "started_at": "2026-10-07T00:42:20Z",
+    "started_at": "2026-10-07T01:00:44Z",
     "status_reason": "开始代码改进与实验",
-    "first_experiment_at": "2026-10-07T00:42:22Z",
-    "first_result_at": "2026-10-07T00:42:25Z",
+    "first_experiment_at": "2026-10-07T01:00:46Z",
+    "first_result_at": "2026-10-07T01:00:47Z",
     "disposition_reason": "精度持平、只省显存；阶段1目标是精度，暂不投入",
     "reconsider_when": "用户把显存列为阶段目标，或出现精度改进的组合依据",
     "parent_id": "P-demo-lora-opt"
@@ -279,8 +280,8 @@
     "disposition": "active",
     "new_findings_streak": 0,
     "stall_state": "none",
-    "created_at": "2026-10-07T00:42:26Z",
-    "updated_at": "2026-10-07T00:42:26Z",
+    "created_at": "2026-10-07T01:00:49Z",
+    "updated_at": "2026-10-07T01:00:49Z",
     "parent_id": "H-0003"
    }
   ],
@@ -291,7 +292,7 @@
     "kind": "baseline",
     "method_name": "BaseOpt-A（虚构SOTA）",
     "design_doc_id": "D-0008",
-    "code_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
+    "code_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
     "seeds": [
      42,
      43,
@@ -303,16 +304,16 @@
     "config_hash": "b8cb4bc2a19dddd556c9a78788e0d470",
     "owner": "root",
     "estimated_node_h": 12.0,
-    "created_at": "2026-10-07T00:41:15Z",
+    "created_at": "2026-10-07T00:59:46Z",
     "metric_mean": 71.40016666666666,
     "metric_sd": 0.0415175063477257,
     "result_doc_id": "D-0009",
-    "harness_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
-    "evaluated_at": "2026-10-07T00:41:18Z",
+    "harness_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
+    "evaluated_at": "2026-10-07T00:59:49Z",
     "evaluation_id": "EV-0001",
     "cleanup": {
      "1": {
-      "at": "2026-10-07T00:41:19Z",
+      "at": "2026-10-07T00:59:49Z",
       "by": "worker/root",
       "reason": "statistics recorded",
       "kept": [],
@@ -334,10 +335,9 @@
     "kind": "method",
     "method_name": "subbatch-moment",
     "design_doc_id": "D-0018",
-    "code_ref": "a6c1906c3a2b3995e5a3ffe2cbe941aa1561a7de",
+    "code_ref": "1b6dd299a09c70e083846819a81f402094589d88",
     "seeds": [
-     42,
-     43
+     42
     ],
     "nodes": 4,
     "walltime_s": 3600,
@@ -346,17 +346,16 @@
     "owner": "h0001",
     "baseline_experiment_id": "E-0001",
     "estimated_node_h": 12.0,
-    "created_at": "2026-10-07T00:41:25Z",
+    "created_at": "2026-10-07T00:59:55Z",
     "verdict": "beats_parent",
-    "metric_mean": 71.58189999999999,
-    "metric_sd": 0.023334523779156954,
+    "metric_mean": 71.5654,
     "result_doc_id": "D-0019",
-    "harness_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
-    "evaluated_at": "2026-10-07T00:41:27Z",
+    "harness_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
+    "evaluated_at": "2026-10-07T00:59:56Z",
     "evaluation_id": "EV-0002",
     "cleanup": {
      "1": {
-      "at": "2026-10-07T00:41:27Z",
+      "at": "2026-10-07T00:59:57Z",
       "by": "worker/h0001",
       "reason": "statistics recorded",
       "kept": [],
@@ -364,8 +363,7 @@
       "unlocated": [],
       "items": [],
       "covered": [
-       "E-0002/s42@1",
-       "E-0002/s43@1"
+       "E-0002/s42@1"
       ],
       "failed": 0
      }
@@ -378,10 +376,9 @@
     "kind": "method",
     "method_name": "orthogonal-update",
     "design_doc_id": "D-0023",
-    "code_ref": "31bc0b8fa05007799125c7885d4a2ecc14f65fcf",
+    "code_ref": "de600cb114cc9f87b7b794725efd79acb22ec10b",
     "seeds": [
-     42,
-     43
+     42
     ],
     "nodes": 4,
     "walltime_s": 3600,
@@ -390,17 +387,16 @@
     "owner": "h0002",
     "baseline_experiment_id": "E-0001",
     "estimated_node_h": 12.0,
-    "created_at": "2026-10-07T00:41:32Z",
+    "created_at": "2026-10-07T01:00:01Z",
     "verdict": "no_gain",
-    "metric_mean": 71.1753,
-    "metric_sd": 0.034082546853187526,
+    "metric_mean": 71.1512,
     "result_doc_id": "D-0024",
-    "harness_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
-    "evaluated_at": "2026-10-07T00:41:34Z",
+    "harness_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
+    "evaluated_at": "2026-10-07T01:00:02Z",
     "evaluation_id": "EV-0003",
     "cleanup": {
      "1": {
-      "at": "2026-10-07T00:41:35Z",
+      "at": "2026-10-07T01:00:03Z",
       "by": "worker/h0002",
       "reason": "statistics recorded",
       "kept": [],
@@ -408,8 +404,7 @@
       "unlocated": [],
       "items": [],
       "covered": [
-       "E-0003/s42@1",
-       "E-0003/s43@1"
+       "E-0003/s42@1"
       ],
       "failed": 0
      }
@@ -422,7 +417,7 @@
     "kind": "method",
     "method_name": "moment-balance",
     "design_doc_id": "D-0029",
-    "code_ref": "af4bdd969caeadaaf0d8dd58450b1e5c6299712c",
+    "code_ref": "49b00d6df5d71006b6342f5bd1108c5a06c005f3",
     "seeds": [
      42,
      43,
@@ -436,17 +431,17 @@
     "baseline_experiment_id": "E-0001",
     "parent_experiment_id": "E-0002",
     "estimated_node_h": 12.0,
-    "created_at": "2026-10-07T00:41:41Z",
+    "created_at": "2026-10-07T01:00:08Z",
     "verdict": "beats_sota",
     "metric_mean": 71.64136666666667,
     "metric_sd": 0.03925892679803191,
     "result_doc_id": "D-0031",
-    "harness_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
-    "evaluated_at": "2026-10-07T00:41:46Z",
+    "harness_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
+    "evaluated_at": "2026-10-07T01:00:13Z",
     "evaluation_id": "EV-0005",
     "cleanup": {
      "1": {
-      "at": "2026-10-07T00:41:44Z",
+      "at": "2026-10-07T01:00:10Z",
       "by": "worker/h0003",
       "reason": "statistics recorded",
       "kept": [],
@@ -454,13 +449,12 @@
       "unlocated": [],
       "items": [],
       "covered": [
-       "E-0004/s42@1",
-       "E-0004/s43@1"
+       "E-0004/s42@1"
       ],
       "failed": 0
      },
      "2": {
-      "at": "2026-10-07T00:41:47Z",
+      "at": "2026-10-07T01:00:14Z",
       "by": "worker/h0003",
       "reason": "statistics recorded",
       "kept": [],
@@ -483,7 +477,7 @@
     "kind": "baseline",
     "method_name": "BaseOpt-A（确认基线）",
     "design_doc_id": "D-0035",
-    "code_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
+    "code_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
     "seeds": [
      1042,
      1043,
@@ -495,12 +489,12 @@
     "config_hash": "ffc924351bb2f8609732aa0e97429489",
     "owner": "root",
     "estimated_node_h": 12.0,
-    "created_at": "2026-10-07T00:41:49Z",
+    "created_at": "2026-10-07T01:00:16Z",
     "metric_mean": 71.39286666666668,
     "metric_sd": 0.03691941675234285,
     "result_doc_id": "D-0036",
-    "harness_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
-    "evaluated_at": "2026-10-07T00:41:53Z",
+    "harness_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
+    "evaluated_at": "2026-10-07T01:00:20Z",
     "evaluation_id": "EV-0006"
    },
    {
@@ -509,7 +503,7 @@
     "kind": "method",
     "method_name": "moment-balance（确认）",
     "design_doc_id": "D-0037",
-    "code_ref": "af4bdd969caeadaaf0d8dd58450b1e5c6299712c",
+    "code_ref": "49b00d6df5d71006b6342f5bd1108c5a06c005f3",
     "seeds": [
      1042,
      1043,
@@ -522,12 +516,12 @@
     "owner": "h0003",
     "baseline_experiment_id": "E-0005",
     "estimated_node_h": 12.0,
-    "created_at": "2026-10-07T00:41:54Z",
+    "created_at": "2026-10-07T01:00:20Z",
     "metric_mean": 71.6318,
     "metric_sd": 0.026685389260785654,
     "result_doc_id": "D-0038",
-    "harness_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
-    "evaluated_at": "2026-10-07T00:41:58Z",
+    "harness_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
+    "evaluated_at": "2026-10-07T01:00:25Z",
     "evaluation_id": "EV-0007",
     "hypothesis_id": "H-0003"
    },
@@ -537,10 +531,9 @@
     "kind": "method",
     "method_name": "momentum-rescale",
     "design_doc_id": "D-0046",
-    "code_ref": "fcc0556da02de37017b48ffffffe2f3093ff6e7d",
+    "code_ref": "ed29a2ebd1df5b84c18b7fb6cbb0aa857dea82b7",
     "seeds": [
-     42,
-     43
+     42
     ],
     "nodes": 4,
     "walltime_s": 3600,
@@ -550,17 +543,16 @@
     "baseline_experiment_id": "E-0001",
     "parent_experiment_id": "E-0002",
     "estimated_node_h": 12.0,
-    "created_at": "2026-10-07T00:42:03Z",
+    "created_at": "2026-10-07T01:00:30Z",
     "verdict": "no_gain",
-    "metric_mean": 71.43705,
-    "metric_sd": 0.045749808742760974,
+    "metric_mean": 71.4047,
     "result_doc_id": "D-0047",
-    "harness_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
-    "evaluated_at": "2026-10-07T00:42:06Z",
+    "harness_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
+    "evaluated_at": "2026-10-07T01:00:32Z",
     "evaluation_id": "EV-0008",
     "cleanup": {
      "1": {
-      "at": "2026-10-07T00:42:07Z",
+      "at": "2026-10-07T01:00:32Z",
       "by": "worker/h0004",
       "reason": "statistics recorded",
       "kept": [],
@@ -568,8 +560,7 @@
       "unlocated": [],
       "items": [],
       "covered": [
-       "E-0007/s42@1",
-       "E-0007/s43@1"
+       "E-0007/s42@1"
       ],
       "failed": 0
      }
@@ -582,10 +573,9 @@
     "kind": "method",
     "method_name": "kron-diag",
     "design_doc_id": "D-0052",
-    "code_ref": "64e7a0b4a576d5e896362fb3f706ae9fe8085505",
+    "code_ref": "7d48cc3b85b194af83fe1db480758d19eb5162fb",
     "seeds": [
-     42,
-     43
+     42
     ],
     "nodes": 4,
     "walltime_s": 3600,
@@ -594,17 +584,16 @@
     "owner": "h0005",
     "baseline_experiment_id": "E-0001",
     "estimated_node_h": 12.0,
-    "created_at": "2026-10-07T00:42:13Z",
+    "created_at": "2026-10-07T01:00:38Z",
     "verdict": "close",
-    "metric_mean": 71.48580000000001,
-    "metric_sd": 0.028708535316172238,
+    "metric_mean": 71.4655,
     "result_doc_id": "D-0053",
-    "harness_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
-    "evaluated_at": "2026-10-07T00:42:16Z",
+    "harness_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
+    "evaluated_at": "2026-10-07T01:00:40Z",
     "evaluation_id": "EV-0009",
     "cleanup": {
      "1": {
-      "at": "2026-10-07T00:42:16Z",
+      "at": "2026-10-07T01:00:41Z",
       "by": "worker/h0005",
       "reason": "statistics recorded",
       "kept": [],
@@ -612,8 +601,7 @@
       "unlocated": [],
       "items": [],
       "covered": [
-       "E-0008/s42@1",
-       "E-0008/s43@1"
+       "E-0008/s42@1"
       ],
       "failed": 0
      }
@@ -626,10 +614,9 @@
     "kind": "method",
     "method_name": "state-8bit",
     "design_doc_id": "D-0059",
-    "code_ref": "79deeb903ab4518520e3193d635c28541dd7fce3",
+    "code_ref": "72f7c6774f9972dfe490393b1a87f2cca57c988f",
     "seeds": [
-     42,
-     43
+     42
     ],
     "nodes": 4,
     "walltime_s": 3600,
@@ -638,17 +625,16 @@
     "owner": "h0007",
     "baseline_experiment_id": "E-0001",
     "estimated_node_h": 12.0,
-    "created_at": "2026-10-07T00:42:21Z",
-    "verdict": "needs_rld",
-    "metric_mean": 71.4312,
-    "metric_sd": 0.024890158697768755,
+    "created_at": "2026-10-07T01:00:46Z",
+    "verdict": "close",
+    "metric_mean": 71.4136,
     "result_doc_id": "D-0060",
-    "harness_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
-    "evaluated_at": "2026-10-07T00:42:25Z",
+    "harness_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
+    "evaluated_at": "2026-10-07T01:00:47Z",
     "evaluation_id": "EV-0010",
     "cleanup": {
      "1": {
-      "at": "2026-10-07T00:42:25Z",
+      "at": "2026-10-07T01:00:48Z",
       "by": "worker/h0007",
       "reason": "statistics recorded",
       "kept": [],
@@ -656,8 +642,7 @@
       "unlocated": [],
       "items": [],
       "covered": [
-       "E-0009/s42@1",
-       "E-0009/s43@1"
+       "E-0009/s42@1"
       ],
       "failed": 0
      }
@@ -671,11 +656,11 @@
     "repo_path": "code",
     "name": "node/H-0001",
     "base_ref": "main",
-    "base_commit": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
+    "base_commit": "393ff2f4ad306545d71597be4875e138772d1a73",
     "worktree_path": "worktrees/H-0001",
     "owner": "h0001",
     "status": "active",
-    "created_at": "2026-10-07T00:41:23Z",
+    "created_at": "2026-10-07T00:59:53Z",
     "hypothesis_id": "H-0001"
    },
    {
@@ -683,13 +668,13 @@
     "repo_path": "code",
     "name": "node/H-0002",
     "base_ref": "main",
-    "base_commit": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
+    "base_commit": "393ff2f4ad306545d71597be4875e138772d1a73",
     "owner": "main",
     "status": "deleted",
-    "created_at": "2026-10-07T00:41:30Z",
-    "head_commit": "31bc0b8fa05007799125c7885d4a2ecc14f65fcf",
-    "returned_at": "2026-10-07T00:41:36Z",
-    "closed_at": "2026-10-07T00:41:38Z",
+    "created_at": "2026-10-07T00:59:59Z",
+    "head_commit": "de600cb114cc9f87b7b794725efd79acb22ec10b",
+    "returned_at": "2026-10-07T01:00:04Z",
+    "closed_at": "2026-10-07T01:00:05Z",
     "hypothesis_id": "H-0002"
    },
    {
@@ -697,11 +682,11 @@
     "repo_path": "code",
     "name": "node/H-0003",
     "base_ref": "node/H-0001",
-    "base_commit": "a6c1906c3a2b3995e5a3ffe2cbe941aa1561a7de",
+    "base_commit": "1b6dd299a09c70e083846819a81f402094589d88",
     "worktree_path": "worktrees/H-0003",
     "owner": "h0003",
     "status": "active",
-    "created_at": "2026-10-07T00:41:39Z",
+    "created_at": "2026-10-07T01:00:06Z",
     "hypothesis_id": "H-0003"
    },
    {
@@ -709,13 +694,13 @@
     "repo_path": "code",
     "name": "node/H-0004",
     "base_ref": "node/H-0001",
-    "base_commit": "a6c1906c3a2b3995e5a3ffe2cbe941aa1561a7de",
+    "base_commit": "1b6dd299a09c70e083846819a81f402094589d88",
     "owner": "main",
     "status": "deleted",
-    "created_at": "2026-10-07T00:42:01Z",
-    "head_commit": "fcc0556da02de37017b48ffffffe2f3093ff6e7d",
-    "returned_at": "2026-10-07T00:42:08Z",
-    "closed_at": "2026-10-07T00:42:09Z",
+    "created_at": "2026-10-07T01:00:27Z",
+    "head_commit": "ed29a2ebd1df5b84c18b7fb6cbb0aa857dea82b7",
+    "returned_at": "2026-10-07T01:00:33Z",
+    "closed_at": "2026-10-07T01:00:34Z",
     "hypothesis_id": "H-0004"
    },
    {
@@ -723,11 +708,11 @@
     "repo_path": "code",
     "name": "node/H-0005",
     "base_ref": "main",
-    "base_commit": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
+    "base_commit": "393ff2f4ad306545d71597be4875e138772d1a73",
     "worktree_path": "worktrees/H-0005",
     "owner": "h0005",
     "status": "active",
-    "created_at": "2026-10-07T00:42:11Z",
+    "created_at": "2026-10-07T01:00:36Z",
     "hypothesis_id": "H-0005"
    },
    {
@@ -735,11 +720,11 @@
     "repo_path": "code",
     "name": "node/H-0007",
     "base_ref": "main",
-    "base_commit": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
+    "base_commit": "393ff2f4ad306545d71597be4875e138772d1a73",
     "worktree_path": "worktrees/H-0007",
     "owner": "h0007",
     "status": "active",
-    "created_at": "2026-10-07T00:42:19Z",
+    "created_at": "2026-10-07T01:00:43Z",
     "hypothesis_id": "H-0007"
    }
   ],
@@ -754,8 +739,8 @@
     "status": "current",
     "author_role": "ui",
     "author_id": "ui",
-    "created_at": "2026-10-07T00:41:09Z",
-    "sha256": "9bc9e82119bea91fb2da25c7f465454aff896dea14c0a2b851671d56f634b06c"
+    "created_at": "2026-10-07T00:59:41Z",
+    "sha256": "95c79a1c44647e102c3ef6389973347af1a7d8941c7a232b00b98d0ac5bb9fa7"
    },
    {
     "id": "D-0002",
@@ -767,8 +752,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:41:09Z",
-    "sha256": "7f3bf301ba242ce76f415d1efa5142b9282f6de0532d7b75967d762a803b268c"
+    "created_at": "2026-10-07T00:59:42Z",
+    "sha256": "fb7d5dc17cf56bf9a16caa9110b04b44bf616479a85a61612974967f33b4347f"
    },
    {
     "id": "D-0003",
@@ -780,8 +765,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:41:10Z",
-    "sha256": "68338fc95483ba5807210eeafa4c8f2d8702c3743d09b62b8770cb1b58d3a834"
+    "created_at": "2026-10-07T00:59:42Z",
+    "sha256": "8b7d906dd809fc7874209187ed52fedc8dc689cef87093f2d807fd94df3d39a6"
    },
    {
     "id": "D-0004",
@@ -793,8 +778,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:41:11Z",
-    "sha256": "5f6ab49409d4d8704df7a4c94ba440743abcc7f4ede203542496077bddc2efae"
+    "created_at": "2026-10-07T00:59:42Z",
+    "sha256": "81390d7adc47aa88065468c674e91a70a1d029dd9df8421c47b559f0cad47f02"
    },
    {
     "id": "D-0005",
@@ -806,7 +791,7 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:41:11Z",
+    "created_at": "2026-10-07T00:59:43Z",
     "sha256": "45cb4bf064c2622c7e6623d14d33f1d0f1a94e9db3ba46ae5c9da59a44584237"
    },
    {
@@ -819,7 +804,7 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:41:11Z",
+    "created_at": "2026-10-07T00:59:43Z",
     "sha256": "ffedfdbb2dd88224f6e7c26cf4bf3cf99e41e8915da1fdf1bdbbd7b9bd80967d"
    },
    {
@@ -832,8 +817,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:41:14Z",
-    "sha256": "51dbbbf46b7d44d673b2a432fa4663c9c4ff72262b10787663a91922244ccc27"
+    "created_at": "2026-10-07T00:59:45Z",
+    "sha256": "f81e9f48db5e68d96a49aa007663be3e043b26be8fefbfb2105a43ae86886af0"
    },
    {
     "id": "D-0008",
@@ -845,8 +830,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-07T00:41:15Z",
-    "sha256": "8f0722403e574b0d4d43e31153a04b1a5269f04386d1e324f310d57404fb9642"
+    "created_at": "2026-10-07T00:59:46Z",
+    "sha256": "bc35edc2ea04020f6d7aa686e2355bd419d7e0033cbd0ed99b54bdc9e0eec8c6"
    },
    {
     "id": "D-0009",
@@ -858,8 +843,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-07T00:41:18Z",
-    "sha256": "c4158d013dc5c24f8ceaa90ce53ac2b9ead360d35797c3f60f91dcdcd50e38fa"
+    "created_at": "2026-10-07T00:59:49Z",
+    "sha256": "3ad8ad4ad4449a6aa5853bcab1bc1a40909ecd7d1d96829a1e7be771a9d52651"
    },
    {
     "id": "D-0010",
@@ -871,8 +856,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-07T00:41:19Z",
-    "sha256": "1097aa5e70a0bb2926ab31abc6dff4c207c64500ae514957604da2caa18f39bd"
+    "created_at": "2026-10-07T00:59:50Z",
+    "sha256": "b4ecec305196bd1bb00da839f57c9dde7348d9313c22842976080769135d1692"
    },
    {
     "id": "D-0011",
@@ -884,8 +869,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-07T00:41:20Z",
-    "sha256": "6325176a387a4eb3beed2d5b8d1400aab4c7101ab21e0e5651b5aff95cd0b2f7"
+    "created_at": "2026-10-07T00:59:50Z",
+    "sha256": "dfcfdda8c9ef9395d9d0e224c01869b481479db21ed4fbf4ce36978f727828d3"
    },
    {
     "id": "D-0012",
@@ -897,8 +882,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-07T00:41:20Z",
-    "sha256": "2bb57153755404f34744c1826c219e0efbbc4660891f7a2090db89bf1d8ac300"
+    "created_at": "2026-10-07T00:59:51Z",
+    "sha256": "cc01c838428ea4ab22e1a292856b2827b674f331933555d2ba0de7bb9b231e7c"
    },
    {
     "id": "D-0013",
@@ -910,8 +895,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-07T00:41:21Z",
-    "sha256": "b086ad73e146db499963d96519469dada19ad4a1280f6771aa4e14f9933a144d"
+    "created_at": "2026-10-07T00:59:51Z",
+    "sha256": "5c25ccdbfab21acc7da2eac31ae78a22a13311ef3b069c304a91caa5a08a9a59"
    },
    {
     "id": "D-0014",
@@ -923,8 +908,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-07T00:41:21Z",
-    "sha256": "a65b860e4dba6290a51743c9ee515d9a620ec8db3c5e1831e2dc2d44f9e1ba86"
+    "created_at": "2026-10-07T00:59:51Z",
+    "sha256": "bfb2ed642c03777026f54c52d1fefd53fab25bc2788c40e748010699ac04215e"
    },
    {
     "id": "D-0015",
@@ -936,8 +921,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-07T00:41:21Z",
-    "sha256": "6159c66dfb44bbf6083610a4cbefba8d94ff15d61703c4264c630a3a6adb9cfb"
+    "created_at": "2026-10-07T00:59:52Z",
+    "sha256": "5d78ecc82d1528c22338f5d4ed27a4cedcd73b12bca2d25cb4bff1a3b87dbcf8"
    },
    {
     "id": "D-0016",
@@ -949,8 +934,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:41:22Z",
-    "sha256": "ce3bd0138059588916d615cd381cfeb240e8d8e0ff31dc3333e0d77ad3cf6b75"
+    "created_at": "2026-10-07T00:59:52Z",
+    "sha256": "dfd8fadb22ae1956e8076a073a5ede16c42ed0e9792b485747a2dddeb301b1da"
    },
    {
     "id": "D-0017",
@@ -962,8 +947,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:41:23Z",
-    "sha256": "a20055422f28edfce9eef1746c46c1c52ce3ddd4020998fdcaf75110373ad366"
+    "created_at": "2026-10-07T00:59:54Z",
+    "sha256": "a32a3ba42362c947bd95f0b0ecd0baab5c9996e95339acbd8a095138a6516327"
    },
    {
     "id": "D-0018",
@@ -975,21 +960,21 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0001",
-    "created_at": "2026-10-07T00:41:24Z",
-    "sha256": "db78b5cee82e2eaceebd6e910586e2b7f97d209df611d44e6cabc370980ca4aa"
+    "created_at": "2026-10-07T00:59:55Z",
+    "sha256": "9a81b54af97bb6d6e52914535d983373764c3c39f9eed7d2b7823a93c20cf3e9"
    },
    {
     "id": "D-0019",
-    "path": "hypotheses/H-0001/experiments/E-0002/result.v2.md",
-    "version": 2,
+    "path": "hypotheses/H-0001/experiments/E-0002/result.v1.md",
+    "version": 1,
     "doc_type": "experiment_result",
     "title": "E-0002 统计结果",
     "summary": "E-0002 判定 beats_parent",
     "status": "current",
     "author_role": "worker",
     "author_id": "h0001",
-    "created_at": "2026-10-07T00:41:27Z",
-    "sha256": "13195ab0ac0f9bec52d4afd3cd5c542d5ce7d95dc4617a75a5338d4b733f5163"
+    "created_at": "2026-10-07T00:59:56Z",
+    "sha256": "5400992daeafd2ea2f93b5c36c38be735c65ae00d937ae28391f0f24b6b45960"
    },
    {
     "id": "D-0020",
@@ -1001,8 +986,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:41:28Z",
-    "sha256": "58fb4c41750703726214e2753851f16997919bba215ff3bfa2dd171b0f6e6645"
+    "created_at": "2026-10-07T00:59:57Z",
+    "sha256": "a14327980217386e907bff353145608a5d4941733fcb24e28c5d2907a60333a9"
    },
    {
     "id": "D-0021",
@@ -1014,8 +999,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:41:28Z",
-    "sha256": "804cb486f71ba536ecd11ad04993e6e4d70ca5a0cbe4978823e72a0a7e3131b5"
+    "created_at": "2026-10-07T00:59:58Z",
+    "sha256": "c0af1c1884b7d0a462143af0eeea89958fd403878264caa28004575402cde92f"
    },
    {
     "id": "D-0022",
@@ -1027,12 +1012,12 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:41:30Z",
-    "sha256": "94d2d03e46fe6bc8f12998b91d7d151b4bb63bbf1591ab39091095a98e47f353"
+    "created_at": "2026-10-07T00:59:59Z",
+    "sha256": "44ba27418cb28303cbdb45761a35f404dcce658102cb2840f41ac707a80b781c"
    },
    {
     "id": "D-0023",
-    "path": "hypotheses/H-0002/experiments/orthogon-735/design.v1.md",
+    "path": "hypotheses/H-0002/experiments/orthogon-209/design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
     "title": "H-0002 实验设计",
@@ -1040,21 +1025,21 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0002",
-    "created_at": "2026-10-07T00:41:31Z",
-    "sha256": "23168629b5e008049538143ea2a1498ef7d7e163fc4959d77db6931de9409fac"
+    "created_at": "2026-10-07T01:00:00Z",
+    "sha256": "6c1049e9b08dba5ccf949a5a1d2b2d87ec2bec34e139352a91a233579c21b077"
    },
    {
     "id": "D-0024",
-    "path": "hypotheses/H-0002/experiments/E-0003/result.v2.md",
-    "version": 2,
+    "path": "hypotheses/H-0002/experiments/E-0003/result.v1.md",
+    "version": 1,
     "doc_type": "experiment_result",
     "title": "E-0003 统计结果",
     "summary": "E-0003 判定 no_gain",
     "status": "current",
     "author_role": "worker",
     "author_id": "h0002",
-    "created_at": "2026-10-07T00:41:34Z",
-    "sha256": "925cbbf61af63aefc8c0f3261a80e4c0ec7ed4618beced158aa2d68787776d41"
+    "created_at": "2026-10-07T01:00:02Z",
+    "sha256": "853b7b13baa97c5da67beb5e76f5b4b31cb3ac2e1bb734d185fb32b54920ea1d"
    },
    {
     "id": "D-0025",
@@ -1066,8 +1051,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:41:36Z",
-    "sha256": "567268d2fb37988e1251d25bf8965881921cfb6aacc1187bbfe0524793ecfaa0"
+    "created_at": "2026-10-07T01:00:03Z",
+    "sha256": "7800ed93ae227ecb6acef84af323afe6690292cea6fcd046a508092656742ab1"
    },
    {
     "id": "D-0026",
@@ -1079,8 +1064,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:41:37Z",
-    "sha256": "a4f5989df2930c71b059e505711b2b068b5dbfde99d88cced68ee6d08955c55d"
+    "created_at": "2026-10-07T01:00:04Z",
+    "sha256": "80d4cc071532d0d31b365f37ac1a33a17b77f7bd6879f1fa723f318f1ddc67ee"
    },
    {
     "id": "D-0027",
@@ -1092,8 +1077,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:41:38Z",
-    "sha256": "70f4a648bcaf8f7eb14322be1337080ef09e74e82ef986953ebe5d4a229070f9"
+    "created_at": "2026-10-07T01:00:05Z",
+    "sha256": "5b4df7dba24eeadf1cc3ee41f7d2684b9bfa7f90f4f51a5e784f306615e4f9fb"
    },
    {
     "id": "D-0028",
@@ -1105,12 +1090,12 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:41:39Z",
-    "sha256": "e8f9a24d1f33597590cc6c1da9b254016c71561550fc8b18fe7fb6f570703080"
+    "created_at": "2026-10-07T01:00:07Z",
+    "sha256": "9dd52e79081ad5474301d23d11be7b40418b6efd0cfbd9c951b12d3ee574b0b9"
    },
    {
     "id": "D-0029",
-    "path": "hypotheses/H-0003/experiments/moment-b-118/design.v1.md",
+    "path": "hypotheses/H-0003/experiments/moment-b-152/design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
     "title": "H-0003 实验设计",
@@ -1118,21 +1103,21 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-07T00:41:40Z",
-    "sha256": "c8c1d2f9c978f1583cf1ef265d76200a603ef9e39579fe0e9262d5863944f87e"
+    "created_at": "2026-10-07T01:00:08Z",
+    "sha256": "1c1c20572e2c41a5be83c42abc80e72f269bc4b85873598e0058eb3ac46dc2fe"
    },
    {
     "id": "D-0030",
-    "path": "hypotheses/H-0003/experiments/E-0004/result.v2.md",
-    "version": 2,
+    "path": "hypotheses/H-0003/experiments/E-0004/result.v1.md",
+    "version": 1,
     "doc_type": "experiment_result",
     "title": "E-0004 统计结果",
     "summary": "E-0004 判定 beats_parent",
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-07T00:41:43Z",
-    "sha256": "c0fdafedfe809c6836078c86b64a247c8ae833172e01978bc6376932587a9fd5"
+    "created_at": "2026-10-07T01:00:09Z",
+    "sha256": "5900a444beeda80f4447cff13f9dc908f248b916f8880ad70e9b60e34d412365"
    },
    {
     "id": "D-0031",
@@ -1144,8 +1129,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-07T00:41:46Z",
-    "sha256": "d7617d18a460868120268d14eecde3576c9dfd2c4e30d4553130f98f036dd6d4"
+    "created_at": "2026-10-07T01:00:13Z",
+    "sha256": "9728f50db1be921a453cdfbe71d1b7272f0ff697e1aa99e4b03c25d8f4e5e1c4"
    },
    {
     "id": "D-0032",
@@ -1157,8 +1142,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:41:47Z",
-    "sha256": "180b3851b8de89583808217568f2a1bdda26cc72c68547c627764c31f043d9f3"
+    "created_at": "2026-10-07T01:00:14Z",
+    "sha256": "d03e0dadd591eac735e86585aba80abbc2f015ff09c6c83279788ca7e958cc0e"
    },
    {
     "id": "D-0033",
@@ -1170,8 +1155,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:41:47Z",
-    "sha256": "d4fd3406429640a666c35cedf99325ca0d35265060b01b47aa323c38e6dc29f8"
+    "created_at": "2026-10-07T01:00:14Z",
+    "sha256": "7bfc5ab68316d02781ec53a23fca1665e09b5d08accdfe9f4367ebe1a5ca07f2"
    },
    {
     "id": "D-0034",
@@ -1183,8 +1168,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:41:48Z",
-    "sha256": "5db797378f65c0895b43e97651452db3b3cb394021b9ccbd8930f302c778cf72"
+    "created_at": "2026-10-07T01:00:15Z",
+    "sha256": "586a7523bfa8d036001af144d659e1f3ebae24e276d4c249542305f4c66b43c1"
    },
    {
     "id": "D-0035",
@@ -1196,8 +1181,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-07T00:41:49Z",
-    "sha256": "83e812eda1f3eb741c38c7a5138534568c98a939bc5001b93e9a720164d2a32c"
+    "created_at": "2026-10-07T01:00:16Z",
+    "sha256": "e98200a9d32f56265d81e2d1f21ab5a09b735ea72667ef503f1b55a0e8fbf3e1"
    },
    {
     "id": "D-0036",
@@ -1209,8 +1194,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-07T00:41:52Z",
-    "sha256": "20f5b7a076e54ae3c2d96ba3a00479534bbf6034f7bc348858666e74af1e8694"
+    "created_at": "2026-10-07T01:00:19Z",
+    "sha256": "f3f87b7043369b06becb0c26165804b2c1d9882c2fe94e19764e9d85b85ef1b9"
    },
    {
     "id": "D-0037",
@@ -1222,8 +1207,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-07T00:41:53Z",
-    "sha256": "1df788a57a23d7dd5e77aa8c7223f2ff2444e216ba3ee16ea6fcbda0a927a9e1"
+    "created_at": "2026-10-07T01:00:20Z",
+    "sha256": "8c1fe7844501a2b4d89324bcf71b76147abbb0d829202b19fc417840cf107052"
    },
    {
     "id": "D-0038",
@@ -1235,8 +1220,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-07T00:41:57Z",
-    "sha256": "ea91961b055e5313454d2b5c3658d1d5fda7351ef0051b14a415c4570480e92f"
+    "created_at": "2026-10-07T01:00:24Z",
+    "sha256": "415bef8bd4135263bc282eadb70ae1a8b83f163edf5164dbd1bf658ae778205f"
    },
    {
     "id": "D-0039",
@@ -1248,16 +1233,16 @@
     "status": "current",
     "author_role": "reviewer",
     "author_id": "pi",
-    "sha256": "68a659243dd61c5ed5c0fffb07d5094b57d85a74885646321bbca5fbf95864b5",
+    "sha256": "d6586ce1445c924b9919866f354b244a18afe2c15d88312f5844475d826e483f",
     "review_kind": "candidate_recheck",
     "review_result": "pass",
     "review_backend": "pi",
     "reviewer_model": "openai/gpt-6-astra",
     "review_session": "RV-0001",
     "review_dimension": "numbers",
-    "basis_evaluation_id": "EV-0005",
-    "basis_code_ref": "af4bdd969caeadaaf0d8dd58450b1e5c6299712c",
-    "created_at": "2026-10-07T00:41:59Z"
+    "basis_evaluation_id": "EV-0007",
+    "basis_code_ref": "49b00d6df5d71006b6342f5bd1108c5a06c005f3",
+    "created_at": "2026-10-07T01:00:25Z"
    },
    {
     "id": "D-0040",
@@ -1269,16 +1254,16 @@
     "status": "current",
     "author_role": "reviewer",
     "author_id": "pi",
-    "sha256": "36cc7facaf486c9f6337ab2f5cc15c5d9323ded67f5fe8f7756273aad3c6421a",
+    "sha256": "39034fc7a1b267e71cac26f61dbce7118d84acefcd35eaf2835d7971a8d53ff5",
     "review_kind": "candidate_recheck",
     "review_result": "pass",
     "review_backend": "pi",
     "reviewer_model": "openai/gpt-6-astra",
     "review_session": "RV-0002",
     "review_dimension": "protocol",
-    "basis_evaluation_id": "EV-0005",
-    "basis_code_ref": "af4bdd969caeadaaf0d8dd58450b1e5c6299712c",
-    "created_at": "2026-10-07T00:41:59Z"
+    "basis_evaluation_id": "EV-0007",
+    "basis_code_ref": "49b00d6df5d71006b6342f5bd1108c5a06c005f3",
+    "created_at": "2026-10-07T01:00:25Z"
    },
    {
     "id": "D-0041",
@@ -1290,16 +1275,16 @@
     "status": "current",
     "author_role": "reviewer",
     "author_id": "pi",
-    "sha256": "e60ba08408b9a6210ea49e286c2d987003470ea84348d29c8926465ca043d795",
+    "sha256": "9877370a4b1417bb3473ef4993d52d2353eaa40fcfdfd6573fca4d6dc01c475e",
     "review_kind": "candidate_recheck",
     "review_result": "pass",
     "review_backend": "pi",
     "reviewer_model": "openai/gpt-6-astra",
     "review_session": "RV-0003",
     "review_dimension": "method_code",
-    "basis_evaluation_id": "EV-0005",
-    "basis_code_ref": "af4bdd969caeadaaf0d8dd58450b1e5c6299712c",
-    "created_at": "2026-10-07T00:41:59Z"
+    "basis_evaluation_id": "EV-0007",
+    "basis_code_ref": "49b00d6df5d71006b6342f5bd1108c5a06c005f3",
+    "created_at": "2026-10-07T01:00:26Z"
    },
    {
     "id": "D-0042",
@@ -1311,16 +1296,16 @@
     "status": "current",
     "author_role": "reviewer",
     "author_id": "pi",
-    "sha256": "1ae795dec718369ea4dc8cb0f555e8a94565ccd113c0c6be9cc3ec18240c652e",
+    "sha256": "16394904371d306c302f931605f0238a951f03f12ee968db4c1ab9029dcb6a86",
     "review_kind": "candidate_recheck",
     "review_result": "pass",
     "review_backend": "pi",
     "reviewer_model": "openai/gpt-6-astra",
     "review_session": "RV-0004",
     "review_dimension": "novelty",
-    "basis_evaluation_id": "EV-0005",
-    "basis_code_ref": "af4bdd969caeadaaf0d8dd58450b1e5c6299712c",
-    "created_at": "2026-10-07T00:42:00Z"
+    "basis_evaluation_id": "EV-0007",
+    "basis_code_ref": "49b00d6df5d71006b6342f5bd1108c5a06c005f3",
+    "created_at": "2026-10-07T01:00:26Z"
    },
    {
     "id": "D-0043",
@@ -1332,16 +1317,16 @@
     "status": "current",
     "author_role": "reviewer",
     "author_id": "pi",
-    "sha256": "f609bcb7104428e9f35b16fa4fedf8d4436bec350954ff4cb701089e0fd141ab",
+    "sha256": "14fb269c956478627f468438952242b3d94506671b1133889909ae4d809881c1",
     "review_kind": "candidate_recheck",
     "review_result": "pass",
     "review_backend": "pi",
     "reviewer_model": "openai/gpt-6-astra",
     "review_session": "RV-0005",
     "review_dimension": "theory",
-    "basis_evaluation_id": "EV-0005",
-    "basis_code_ref": "af4bdd969caeadaaf0d8dd58450b1e5c6299712c",
-    "created_at": "2026-10-07T00:42:00Z"
+    "basis_evaluation_id": "EV-0007",
+    "basis_code_ref": "49b00d6df5d71006b6342f5bd1108c5a06c005f3",
+    "created_at": "2026-10-07T01:00:26Z"
    },
    {
     "id": "D-0044",
@@ -1353,8 +1338,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:42:00Z",
-    "sha256": "cdb0935b73f4f15c651d865413eb8949a83bfb435c09f3e78c573efd21a06f0a"
+    "created_at": "2026-10-07T01:00:26Z",
+    "sha256": "15fdd7ff87f70b9a99666354323345bb24a679998276bf9df8192d5744e54b21"
    },
    {
     "id": "D-0045",
@@ -1366,12 +1351,12 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:42:01Z",
-    "sha256": "9ff5c771539a0e8cdd5337f73c46f1e12a67e522beedf78a11d3f4fba5f56f6d"
+    "created_at": "2026-10-07T01:00:28Z",
+    "sha256": "127d9bff991cae03c39be647181973e7484e0057053163a6fac3e4b2ae6bc2ed"
    },
    {
     "id": "D-0046",
-    "path": "hypotheses/H-0004/experiments/momentum-411/design.v1.md",
+    "path": "hypotheses/H-0004/experiments/momentum-247/design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
     "title": "H-0004 实验设计",
@@ -1379,21 +1364,21 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0004",
-    "created_at": "2026-10-07T00:42:03Z",
-    "sha256": "e754068fa9b1dc78bcb3282f5663f97095b2111fcb92457f6b75a051c69d5a7e"
+    "created_at": "2026-10-07T01:00:29Z",
+    "sha256": "0de4a8ae2bedfacce245be12e0acd40741a502de1af7e7f66c6d411062d10187"
    },
    {
     "id": "D-0047",
-    "path": "hypotheses/H-0004/experiments/E-0007/result.v2.md",
-    "version": 2,
+    "path": "hypotheses/H-0004/experiments/E-0007/result.v1.md",
+    "version": 1,
     "doc_type": "experiment_result",
     "title": "E-0007 统计结果",
     "summary": "E-0007 判定 no_gain",
     "status": "current",
     "author_role": "worker",
     "author_id": "h0004",
-    "created_at": "2026-10-07T00:42:06Z",
-    "sha256": "4618eb202f2fdb535c02983207b79a8a7a4db1961f2be367073154578c9cce5f"
+    "created_at": "2026-10-07T01:00:31Z",
+    "sha256": "2549a513f7347bc333b15977c67cb95f64db7bd3f84033aa2351fb644f667134"
    },
    {
     "id": "D-0048",
@@ -1405,8 +1390,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:42:07Z",
-    "sha256": "34db1a8ac2224fc08ab53547097c166e9792d15c59629a3a529ee236f5a0f4cc"
+    "created_at": "2026-10-07T01:00:32Z",
+    "sha256": "c822cf54df158e8eda597f5b8929971967bec1a02098f3299432a5d8e5cfb794"
    },
    {
     "id": "D-0049",
@@ -1418,8 +1403,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:42:08Z",
-    "sha256": "2cdbf434a383d86005b0223d21314067a7b66241b3680dcec1403b107c73db23"
+    "created_at": "2026-10-07T01:00:34Z",
+    "sha256": "44743e388e6dafc4eaf0a29aa8822e856208dc08fe153cad20410d3d587dac35"
    },
    {
     "id": "D-0050",
@@ -1431,8 +1416,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:42:09Z",
-    "sha256": "16e6d2303bbbf23569b8507d62ed42a28ad5d8854f1e74d1a37282b711008de1"
+    "created_at": "2026-10-07T01:00:35Z",
+    "sha256": "e636d8aa178233a92b6e2d385c9b3a5c407115e80729fc3dcfeb55ddd75030bc"
    },
    {
     "id": "D-0051",
@@ -1444,12 +1429,12 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:42:11Z",
-    "sha256": "bee4c09afd49ee784cc171b92df617d2c9fbf3921c2591df84508fbba48a0be8"
+    "created_at": "2026-10-07T01:00:36Z",
+    "sha256": "7f385143a19277a3bdf884879fe225bd78887a648740e340a4b24cf7d7f56778"
    },
    {
     "id": "D-0052",
-    "path": "hypotheses/H-0005/experiments/kron-dia-288/design.v1.md",
+    "path": "hypotheses/H-0005/experiments/kron-dia-760/design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
     "title": "H-0005 实验设计",
@@ -1457,21 +1442,21 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0005",
-    "created_at": "2026-10-07T00:42:12Z",
-    "sha256": "cd88afaf7da79d790e8ee6fab962a8f3c7fd8c528916eef10835642f85e0a805"
+    "created_at": "2026-10-07T01:00:37Z",
+    "sha256": "5dcc9bc52207a6dbab2b4edaa405dcfa9a1b0293225ad0ee0ffed31c059554d7"
    },
    {
     "id": "D-0053",
-    "path": "hypotheses/H-0005/experiments/E-0008/result.v2.md",
-    "version": 2,
+    "path": "hypotheses/H-0005/experiments/E-0008/result.v1.md",
+    "version": 1,
     "doc_type": "experiment_result",
     "title": "E-0008 统计结果",
     "summary": "E-0008 判定 close",
     "status": "current",
     "author_role": "worker",
     "author_id": "h0005",
-    "created_at": "2026-10-07T00:42:15Z",
-    "sha256": "83d7646dcf37b54e0d61c99d5831d2819db0972f5811446d3e0c028b313e2951"
+    "created_at": "2026-10-07T01:00:39Z",
+    "sha256": "4123fddd0251610f105421a58be9a2d7486223a9664753c5730b1537a6bed796"
    },
    {
     "id": "D-0054",
@@ -1483,8 +1468,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:42:16Z",
-    "sha256": "3e21d170b2b7c97c2d143476b26179a3dd808bbfc2a2f6166a14c61f4b8cf4c0"
+    "created_at": "2026-10-07T01:00:41Z",
+    "sha256": "27cf1fa17f61a84bcd5168f011d5452c67bbd8d30e064148c0b9d24210bd7484"
    },
    {
     "id": "D-0055",
@@ -1496,8 +1481,8 @@
     "status": "current",
     "author_role": "ui",
     "author_id": "ui",
-    "created_at": "2026-10-07T00:42:17Z",
-    "sha256": "8683760291b4874f3228f216009d7139f366e014e23b46e820e06d7963915854"
+    "created_at": "2026-10-07T01:00:41Z",
+    "sha256": "70cfafb53112750074db579ec960b94d9aea86b764a1a8b9e273012ecf943edd"
    },
    {
     "id": "D-0056",
@@ -1509,8 +1494,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:42:17Z",
-    "sha256": "996bebfb69a6ca5c46853804b2e6b2441672e537c87182ca6bcd317700ed00a8"
+    "created_at": "2026-10-07T01:00:42Z",
+    "sha256": "76b594c4725bf67fe8478ab8a1780226ec82d63277e137c21800f47e00b5a613"
    },
    {
     "id": "D-0057",
@@ -1522,8 +1507,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:42:18Z",
-    "sha256": "fdfe497646b72b1a83af183e9d780afe54017805293098bf79a7831a7dea282b"
+    "created_at": "2026-10-07T01:00:42Z",
+    "sha256": "a2e7bca113a5bf8a198e471c3722d3518bceae3a6eee0bd1833a45c3d2755e4a"
    },
    {
     "id": "D-0058",
@@ -1535,12 +1520,12 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:42:20Z",
-    "sha256": "28c19a7add10b5b9f12a51fb991ad74cc40130146b548e19e7a24f8e0277da54"
+    "created_at": "2026-10-07T01:00:44Z",
+    "sha256": "8418e81f3527cc27e0bc0e5483f3b771f2dae1f526f8fd1fc23264ff910758c9"
    },
    {
     "id": "D-0059",
-    "path": "hypotheses/H-0007/experiments/state-8b-468/design.v1.md",
+    "path": "hypotheses/H-0007/experiments/state-8b-288/design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
     "title": "H-0007 实验设计",
@@ -1548,21 +1533,21 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0007",
-    "created_at": "2026-10-07T00:42:21Z",
-    "sha256": "dc3b34e718a5d923ac9346191875e9ad1c55aac2b4377551e5842702f084e5bd"
+    "created_at": "2026-10-07T01:00:45Z",
+    "sha256": "5099d4ff15d57a4f01a4f1a78e8d8538824818e820425cefefac2c05f2ea92fa"
    },
    {
     "id": "D-0060",
-    "path": "hypotheses/H-0007/experiments/E-0009/result.v2.md",
-    "version": 2,
+    "path": "hypotheses/H-0007/experiments/E-0009/result.v1.md",
+    "version": 1,
     "doc_type": "experiment_result",
     "title": "E-0009 统计结果",
-    "summary": "E-0009 判定 needs_rld",
+    "summary": "E-0009 判定 close",
     "status": "current",
     "author_role": "worker",
     "author_id": "h0007",
-    "created_at": "2026-10-07T00:42:24Z",
-    "sha256": "7eb92bcade1748756015ca195c6d579329fc6994df1043636a386b86643dbc76"
+    "created_at": "2026-10-07T01:00:47Z",
+    "sha256": "803c9087020919a8b4112f2dda0a7cb367a2db0265e5bc9f7c1704709da6d100"
    },
    {
     "id": "D-0061",
@@ -1574,8 +1559,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:42:25Z",
-    "sha256": "c91199b842085c677867ac0248919b8d63ef9f7d6f6869b2e07e945872037c81"
+    "created_at": "2026-10-07T01:00:48Z",
+    "sha256": "658eab3d9511efa42a4e4db15c3242e6d0bee8b850c85693698ad7a6d3f84089"
    },
    {
     "id": "D-0062",
@@ -1587,8 +1572,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-07T00:42:26Z",
-    "sha256": "66c5c2dc7034391eb5b92f6c9d13a73cc14d5077e518f520840c9556cde7f0a5"
+    "created_at": "2026-10-07T01:00:49Z",
+    "sha256": "1f7e46096a9a9b50dddc0349f47130f65a61ac034a3e3545f5e65a1014ed27a8"
    }
   ],
   "decision": [
@@ -1600,7 +1585,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0017",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:41:23Z",
+    "decided_at": "2026-10-07T00:59:54Z",
     "target_id": "H-0001"
    },
    {
@@ -1611,7 +1596,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0017",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:41:23Z",
+    "decided_at": "2026-10-07T00:59:54Z",
     "target_id": "H-0001"
    },
    {
@@ -1622,7 +1607,7 @@
     "reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
     "doc_id": "D-0020",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:41:28Z",
+    "decided_at": "2026-10-07T00:59:57Z",
     "target_id": "H-0001"
    },
    {
@@ -1633,7 +1618,7 @@
     "reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
     "doc_id": "D-0020",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:41:28Z",
+    "decided_at": "2026-10-07T00:59:57Z",
     "target_id": "H-0001"
    },
    {
@@ -1644,7 +1629,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0022",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:41:30Z",
+    "decided_at": "2026-10-07T00:59:59Z",
     "target_id": "H-0002"
    },
    {
@@ -1655,7 +1640,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0022",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:41:30Z",
+    "decided_at": "2026-10-07T00:59:59Z",
     "target_id": "H-0002"
    },
    {
@@ -1666,7 +1651,7 @@
     "reason": "所有指标都不优于SOTA，按规则消灭。",
     "doc_id": "D-0025",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:41:36Z",
+    "decided_at": "2026-10-07T01:00:03Z",
     "target_id": "H-0002"
    },
    {
@@ -1677,7 +1662,7 @@
     "reason": "所有指标都不优于SOTA，按规则消灭。",
     "doc_id": "D-0025",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:41:36Z",
+    "decided_at": "2026-10-07T01:00:03Z",
     "target_id": "H-0002"
    },
    {
@@ -1688,7 +1673,7 @@
     "reason": "所有指标都不优于SOTA，按规则消灭。",
     "doc_id": "D-0025",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:41:36Z",
+    "decided_at": "2026-10-07T01:00:03Z",
     "target_id": "H-0002"
    },
    {
@@ -1699,7 +1684,7 @@
     "reason": "无提升，删除分支（实验提交已打标签）。",
     "doc_id": "D-0026",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:41:38Z",
+    "decided_at": "2026-10-07T01:00:05Z",
     "target_id": "BR-0002"
    },
    {
@@ -1710,7 +1695,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0028",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:41:40Z",
+    "decided_at": "2026-10-07T01:00:07Z",
     "target_id": "H-0003"
    },
    {
@@ -1721,7 +1706,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0028",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:41:40Z",
+    "decided_at": "2026-10-07T01:00:07Z",
     "target_id": "H-0003"
    },
    {
@@ -1731,7 +1716,7 @@
     "to_value": "beats_sota",
     "reason": "3个seed判定",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:41:47Z",
+    "decided_at": "2026-10-07T01:00:14Z",
     "target_id": "H-0003"
    },
    {
@@ -1741,7 +1726,7 @@
     "to_value": "pass",
     "reason": "复核通过",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:41:48Z",
+    "decided_at": "2026-10-07T01:00:15Z",
     "target_id": "H-0003"
    },
    {
@@ -1751,7 +1736,7 @@
     "to_value": "pass",
     "reason": "复核通过",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:41:48Z",
+    "decided_at": "2026-10-07T01:00:15Z",
     "target_id": "H-0003"
    },
    {
@@ -1762,7 +1747,7 @@
     "reason": "优于SOTA且复核通过，可拓展",
     "doc_id": "D-0034",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:41:48Z",
+    "decided_at": "2026-10-07T01:00:15Z",
     "target_id": "H-0003"
    },
    {
@@ -1773,7 +1758,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0045",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:42:02Z",
+    "decided_at": "2026-10-07T01:00:28Z",
     "target_id": "H-0004"
    },
    {
@@ -1784,7 +1769,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0045",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:42:02Z",
+    "decided_at": "2026-10-07T01:00:28Z",
     "target_id": "H-0004"
    },
    {
@@ -1795,7 +1780,7 @@
     "reason": "相对父节点各项指标都不更好，按规则消灭。",
     "doc_id": "D-0048",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:42:07Z",
+    "decided_at": "2026-10-07T01:00:33Z",
     "target_id": "H-0004"
    },
    {
@@ -1806,7 +1791,7 @@
     "reason": "相对父节点各项指标都不更好，按规则消灭。",
     "doc_id": "D-0048",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:42:07Z",
+    "decided_at": "2026-10-07T01:00:33Z",
     "target_id": "H-0004"
    },
    {
@@ -1817,7 +1802,7 @@
     "reason": "相对父节点各项指标都不更好，按规则消灭。",
     "doc_id": "D-0048",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:42:07Z",
+    "decided_at": "2026-10-07T01:00:33Z",
     "target_id": "H-0004"
    },
    {
@@ -1828,7 +1813,7 @@
     "reason": "无提升，删除分支。",
     "doc_id": "D-0049",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:42:09Z",
+    "decided_at": "2026-10-07T01:00:34Z",
     "target_id": "BR-0004"
    },
    {
@@ -1839,7 +1824,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0051",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:42:11Z",
+    "decided_at": "2026-10-07T01:00:36Z",
     "target_id": "H-0005"
    },
    {
@@ -1850,7 +1835,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0051",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:42:11Z",
+    "decided_at": "2026-10-07T01:00:36Z",
     "target_id": "H-0005"
    },
    {
@@ -1861,7 +1846,7 @@
     "reason": "用户决定放弃（超出单次运行上限）",
     "doc_id": "D-0056",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:42:17Z",
+    "decided_at": "2026-10-07T01:00:42Z",
     "target_id": "H-0006"
    },
    {
@@ -1872,7 +1857,7 @@
     "reason": "用户决定放弃（超出单次运行上限）",
     "doc_id": "D-0056",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:42:17Z",
+    "decided_at": "2026-10-07T01:00:42Z",
     "target_id": "H-0006"
    },
    {
@@ -1883,7 +1868,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0058",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:42:20Z",
+    "decided_at": "2026-10-07T01:00:44Z",
     "target_id": "H-0007"
    },
    {
@@ -1894,7 +1879,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0058",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:42:20Z",
+    "decided_at": "2026-10-07T01:00:44Z",
     "target_id": "H-0007"
    },
    {
@@ -1904,7 +1889,7 @@
     "to_value": "paused",
     "reason": "精度持平、只省显存；阶段1目标是精度，暂不投入",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:42:27Z",
+    "decided_at": "2026-10-07T01:00:50Z",
     "target_id": "H-0007"
    },
    {
@@ -1914,7 +1899,7 @@
     "to_value": "0",
     "reason": "1 new finding(s) this batch; stall none",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:42:28Z",
+    "decided_at": "2026-10-07T01:00:50Z",
     "target_id": "H-0001"
    },
    {
@@ -1924,7 +1909,7 @@
     "to_value": "1",
     "reason": "0 new finding(s) this batch; stall none",
     "decided_by": "main",
-    "decided_at": "2026-10-07T00:42:28Z",
+    "decided_at": "2026-10-07T01:00:51Z",
     "target_id": "H-0001"
    }
   ],
@@ -1936,8 +1921,8 @@
     "assignee_role": "worker",
     "assignee_id": "root",
     "request_doc_id": "D-0007",
-    "created_at": "2026-10-07T00:41:14Z",
-    "updated_at": "2026-10-07T00:41:19Z",
+    "created_at": "2026-10-07T00:59:46Z",
+    "updated_at": "2026-10-07T00:59:50Z",
     "delivery_doc_id": "D-0010",
     "accepted_by": "rld/main",
     "accepted_evidence": [
@@ -1953,8 +1938,8 @@
     "assignee_role": "worker",
     "assignee_id": "h0005",
     "request_doc_id": "D-0062",
-    "created_at": "2026-10-07T00:42:26Z",
-    "updated_at": "2026-10-07T00:42:26Z",
+    "created_at": "2026-10-07T01:00:49Z",
+    "updated_at": "2026-10-07T01:00:49Z",
     "target_id": "H-0005"
    }
   ],
@@ -2009,8 +1994,8 @@
      }
     },
     "pair_keys": {},
-    "method_code_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
-    "harness_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
+    "method_code_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
+    "harness_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
     "harness_paths": [
      "harness"
     ],
@@ -2111,10 +2096,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "c7ea695387c018c901e848e61b86d539cbf64712c10fc268d336397f17738e96",
-    "inputs_digest": "04af1986a6b3c79af1091b16ce925e7ec3f84b075918688f7c4783706312e376",
+    "fingerprint": "08df883d60aef3bfe4328ebb5f37cac8ccf902d84725764eb15d01caa7adb958",
+    "inputs_digest": "069765bab213c0c028ae6c21c082db3cfddfd6ae87e7d7cc692347867209996d",
     "created_by": "worker/root",
-    "created_at": "2026-10-07T00:41:18Z",
+    "created_at": "2026-10-07T00:59:49Z",
     "experiment_id": "E-0001"
    },
    {
@@ -2124,8 +2109,7 @@
      "E-0001/s42@1",
      "E-0001/s43@1",
      "E-0001/s44@1",
-     "E-0002/s42@1",
-     "E-0002/s43@1"
+     "E-0002/s42@1"
     ],
     "input_revisions": {
      "E-0002/s42": {
@@ -2140,19 +2124,6 @@
       },
       "retracted_at": null,
       "import": "c1ddce2e7874bc5212c02641714c12dc46094fb9b2cd61cff8ec3242c80ad6d4"
-     },
-     "E-0002/s43": {
-      "attempt": 1,
-      "valid": true,
-      "metric_value": 71.5984,
-      "secondary": {
-       "final_loss": 0.9158,
-       "loss_auc": 1.2793,
-       "peak_mem_gb": 39.1537,
-       "train_time_s": 3007.4259
-      },
-      "retracted_at": null,
-      "import": "71bc44ef6e279a3d37ce2edbf2c7cd86a90ed79d42c42848b6efbb37f9753420"
      },
      "E-0001/s42": {
       "attempt": 1,
@@ -2196,12 +2167,11 @@
     },
     "pair_keys": {
      "sota": [
-      "seed=42/data_version=commonsense-mix-v1（虚构）",
-      "seed=43/data_version=commonsense-mix-v1（虚构）"
+      "seed=42/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "a6c1906c3a2b3995e5a3ffe2cbe941aa1561a7de",
-    "harness_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
+    "method_code_ref": "1b6dd299a09c70e083846819a81f402094589d88",
+    "harness_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
     "harness_paths": [
      "harness"
     ],
@@ -2212,152 +2182,147 @@
     "result_doc_id": "D-0019",
     "metrics": {
      "acc": {
-      "n": 2,
-      "mean": 71.58189999999999,
+      "n": 1,
+      "mean": 71.5654,
       "values": [
-       71.5654,
-       71.5984
+       71.5654
       ],
-      "sd": 0.023334523779156954,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "percentage_point",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "final_loss": {
-      "n": 2,
-      "mean": 0.91395,
+      "n": 1,
+      "mean": 0.9121,
       "values": [
-       0.9121,
-       0.9158
+       0.9121
       ],
-      "sd": 0.002616295090390173,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "nats",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "loss_auc": {
-      "n": 2,
-      "mean": 1.27835,
+      "n": 1,
+      "mean": 1.2774,
       "values": [
-       1.2774,
-       1.2793
+       1.2774
       ],
-      "sd": 0.0013435028842544493,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "raw",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "peak_mem_gb": {
-      "n": 2,
-      "mean": 39.1575,
+      "n": 1,
+      "mean": 39.1613,
       "values": [
-       39.1613,
-       39.1537
+       39.1613
       ],
-      "sd": 0.005374011537015285,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "gib",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "train_time_s": {
-      "n": 2,
-      "mean": 3005.74515,
+      "n": 1,
+      "mean": 3004.0644,
       "values": [
-       3004.0644,
-       3007.4259
+       3004.0644
       ],
-      "sd": 2.376939444958564,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "seconds",
       "seeds": [
-       42,
-       43
+       42
       ]
      }
     },
     "comparisons": {
      "sota": {
       "target_id": "E-0001",
-      "n_paired": 2,
-      "n_independent": 2,
+      "n_paired": 1,
+      "n_independent": 1,
       "metrics": {
        "acc": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "percentage_point",
         "deltas": [
-         0.1747000000000014,
-         0.15279999999999916
+         0.1747000000000014
         ],
-        "delta_mean": 0.16375000000000028,
-        "delta_sd": 0.015485638507986982
+        "delta_mean": 0.1747000000000014,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "final_loss": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "nats",
         "deltas": [
-         0.0020999999999999908,
-         -0.0033999999999999586
+         0.0020999999999999908
         ],
-        "delta_mean": -0.0006499999999999839,
-        "delta_sd": 0.0038890872965259755
+        "delta_mean": 0.0020999999999999908,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "loss_auc": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "raw",
         "deltas": [
-         -9.999999999998899e-05,
-         0.0037999999999998035
+         -9.999999999998899e-05
         ],
-        "delta_mean": 0.0018499999999999073,
-        "delta_sd": 0.0027577164466273886
+        "delta_mean": -9.999999999998899e-05,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "peak_mem_gb": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "gib",
         "deltas": [
-         -1.1184999999999974,
-         -1.2526999999999973
+         -1.1184999999999974
         ],
-        "delta_mean": -1.1855999999999973,
-        "delta_sd": 0.09489373003523459
+        "delta_mean": -1.1184999999999974,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "train_time_s": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "relative_to_reference_mean",
         "unit": "fraction",
-        "delta_mean": -0.004973838623927701,
+        "delta_mean": -0.006733103818298707,
         "delta_sd": null,
         "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
        }
       },
-      "delta_mean": 0.16375000000000028,
-      "delta_sd": 0.015485638507986982,
+      "delta_mean": 0.1747000000000014,
+      "delta_sd": null,
       "deltas": {
-       "final_loss": -0.0006499999999999839,
-       "loss_auc": 0.0018499999999999073,
-       "peak_mem_gb": -1.1855999999999973,
-       "train_time_s": -0.004973838623927701
+       "final_loss": 0.0020999999999999908,
+       "loss_auc": -9.999999999998899e-05,
+       "peak_mem_gb": -1.1184999999999974,
+       "train_time_s": -0.006733103818298707
       },
       "guardrails": {
        "peak_mem_gb": {
         "allowed_regression": 2.0,
-        "effect": -1.1855999999999973,
+        "effect": -1.1184999999999974,
         "passed": true
        },
        "train_time_s": {
         "allowed_regression": 0.1,
-        "effect": -0.004973838623927701,
+        "effect": -0.006733103818298707,
         "passed": true
        }
       },
@@ -2366,26 +2331,27 @@
     },
     "verdict": "beats_parent",
     "outcome": "positive_signal",
-    "outcome_reason": "effect 0.16375 clears the minimum practical gain 0.05",
+    "outcome_reason": "effect 0.1747 clears the minimum practical gain 0.05",
     "stage": "screen",
     "gate_passed": false,
     "guardrails_passed": true,
     "eval_type": "real_gt",
-    "limitations": [],
+    "limitations": [
+     "n=1: no standard deviation"
+    ],
     "verification_level": "artifact_imported",
     "artifact_refs": [
      "outputs/E-0001/s42/metrics.json",
      "outputs/E-0001/s43/metrics.json",
      "outputs/E-0001/s44/metrics.json",
-     "outputs/E-0002/s42/metrics.json",
-     "outputs/E-0002/s43/metrics.json"
+     "outputs/E-0002/s42/metrics.json"
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "6b31d0368176ece497d595475b4930daf74acb19a01bfc5213c8f7f91d3f0fe8",
-    "inputs_digest": "f4dc002d03e70fefb741a11de7c796dd577866ba37f2be0271909c657d077458",
+    "fingerprint": "f312ef1bc254018555ea1908593cbc7e710ba993688d518ea1f4600dd4a70ac2",
+    "inputs_digest": "ce2ba3064740df035e8cc26a7f4aac1b5e8077fae2f6cabaf8c8a1657e178849",
     "created_by": "worker/h0001",
-    "created_at": "2026-10-07T00:41:27Z",
+    "created_at": "2026-10-07T00:59:56Z",
     "experiment_id": "E-0002"
    },
    {
@@ -2395,8 +2361,7 @@
      "E-0001/s42@1",
      "E-0001/s43@1",
      "E-0001/s44@1",
-     "E-0003/s42@1",
-     "E-0003/s43@1"
+     "E-0003/s42@1"
     ],
     "input_revisions": {
      "E-0003/s42": {
@@ -2412,19 +2377,6 @@
       "retracted_at": null,
       "import": "86701fb69bdedba6fa5fb18ffb8a22c7b22e6021cf97589c24bde87cdac3cb4c"
      },
-     "E-0003/s43": {
-      "attempt": 1,
-      "valid": true,
-      "metric_value": 71.1994,
-      "secondary": {
-       "final_loss": 0.9213,
-       "loss_auc": 1.3025,
-       "peak_mem_gb": 38.6237,
-       "train_time_s": 3116.0149
-      },
-      "retracted_at": null,
-      "import": "80ccb0613772de1acc8f459d6a6b95b101571b61190fb53c6b80de4667a66ec7"
-     },
      "E-0001/s42": {
       "attempt": 1,
       "valid": true,
@@ -2467,12 +2419,11 @@
     },
     "pair_keys": {
      "sota": [
-      "seed=42/data_version=commonsense-mix-v1（虚构）",
-      "seed=43/data_version=commonsense-mix-v1（虚构）"
+      "seed=42/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "31bc0b8fa05007799125c7885d4a2ecc14f65fcf",
-    "harness_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
+    "method_code_ref": "de600cb114cc9f87b7b794725efd79acb22ec10b",
+    "harness_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
     "harness_paths": [
      "harness"
     ],
@@ -2483,152 +2434,147 @@
     "result_doc_id": "D-0024",
     "metrics": {
      "acc": {
-      "n": 2,
-      "mean": 71.1753,
+      "n": 1,
+      "mean": 71.1512,
       "values": [
-       71.1512,
-       71.1994
+       71.1512
       ],
-      "sd": 0.034082546853187526,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "percentage_point",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "final_loss": {
-      "n": 2,
-      "mean": 0.92355,
+      "n": 1,
+      "mean": 0.9258,
       "values": [
-       0.9258,
-       0.9213
+       0.9258
       ],
-      "sd": 0.0031819805153394274,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "nats",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "loss_auc": {
-      "n": 2,
-      "mean": 1.30565,
+      "n": 1,
+      "mean": 1.3088,
       "values": [
-       1.3088,
-       1.3025
+       1.3088
       ],
-      "sd": 0.0044547727214752295,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "raw",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "peak_mem_gb": {
-      "n": 2,
-      "mean": 38.607150000000004,
+      "n": 1,
+      "mean": 38.5906,
       "values": [
-       38.5906,
-       38.6237
+       38.5906
       ],
-      "sd": 0.023405234457272932,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "gib",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "train_time_s": {
-      "n": 2,
-      "mean": 3117.0578,
+      "n": 1,
+      "mean": 3118.1007,
       "values": [
-       3118.1007,
-       3116.0149
+       3118.1007
       ],
-      "sd": 1.4748833241987847,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "seconds",
       "seeds": [
-       42,
-       43
+       42
       ]
      }
     },
     "comparisons": {
      "sota": {
       "target_id": "E-0001",
-      "n_paired": 2,
-      "n_independent": 2,
+      "n_paired": 1,
+      "n_independent": 1,
       "metrics": {
        "acc": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "percentage_point",
         "deltas": [
-         -0.2394999999999925,
-         -0.24620000000000175
+         -0.2394999999999925
         ],
-        "delta_mean": -0.24284999999999712,
-        "delta_sd": 0.004737615433956412
+        "delta_mean": -0.2394999999999925,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "final_loss": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "nats",
         "deltas": [
-         -0.011599999999999944,
-         -0.008900000000000019
+         -0.011599999999999944
         ],
-        "delta_mean": -0.010249999999999981,
-        "delta_sd": 0.001909188309203625
+        "delta_mean": -0.011599999999999944,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "loss_auc": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "raw",
         "deltas": [
-         -0.03149999999999986,
-         -0.019400000000000084
+         -0.03149999999999986
         ],
-        "delta_mean": -0.025449999999999973,
-        "delta_sd": 0.008555992052357068
+        "delta_mean": -0.03149999999999986,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "peak_mem_gb": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "gib",
         "deltas": [
-         -0.5478000000000023,
-         -0.7226999999999961
+         -0.5478000000000023
         ],
-        "delta_mean": -0.6352499999999992,
-        "delta_sd": 0.1236729760295228
+        "delta_mean": -0.5478000000000023,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "train_time_s": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "relative_to_reference_mean",
         "unit": "fraction",
-        "delta_mean": -0.04219133231526796,
+        "delta_mean": -0.044949367839454316,
         "delta_sd": null,
         "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
        }
       },
-      "delta_mean": -0.24284999999999712,
-      "delta_sd": 0.004737615433956412,
+      "delta_mean": -0.2394999999999925,
+      "delta_sd": null,
       "deltas": {
-       "final_loss": -0.010249999999999981,
-       "loss_auc": -0.025449999999999973,
-       "peak_mem_gb": -0.6352499999999992,
-       "train_time_s": -0.04219133231526796
+       "final_loss": -0.011599999999999944,
+       "loss_auc": -0.03149999999999986,
+       "peak_mem_gb": -0.5478000000000023,
+       "train_time_s": -0.044949367839454316
       },
       "guardrails": {
        "peak_mem_gb": {
         "allowed_regression": 2.0,
-        "effect": -0.6352499999999992,
+        "effect": -0.5478000000000023,
         "passed": true
        },
        "train_time_s": {
         "allowed_regression": 0.1,
-        "effect": -0.04219133231526796,
+        "effect": -0.044949367839454316,
         "passed": true
        }
       },
@@ -2637,26 +2583,27 @@
     },
     "verdict": "no_gain",
     "outcome": "inconclusive",
-    "outcome_reason": "effect -0.24285 over 2 pair(s): neither clear of 0.05 nor below -0.05 with at least 3 pairs (what a negative signal needs)",
+    "outcome_reason": "effect -0.2395 over 1 pair(s): neither clear of 0.05 nor below -0.05 with at least 3 pairs (what a negative signal needs)",
     "stage": "screen",
     "gate_passed": false,
     "guardrails_passed": true,
     "eval_type": "real_gt",
-    "limitations": [],
+    "limitations": [
+     "n=1: no standard deviation"
+    ],
     "verification_level": "artifact_imported",
     "artifact_refs": [
      "outputs/E-0001/s42/metrics.json",
      "outputs/E-0001/s43/metrics.json",
      "outputs/E-0001/s44/metrics.json",
-     "outputs/E-0003/s42/metrics.json",
-     "outputs/E-0003/s43/metrics.json"
+     "outputs/E-0003/s42/metrics.json"
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "be2c89739ef8aebdacccac703bffff0125bf77159a09685e342cfc9c796bb69d",
-    "inputs_digest": "ea5339ae0feb9170dab45be3eb50885b0e91686d61cb3599475182641ea6651c",
+    "fingerprint": "76258bb23eae3643409e68d81426fb8892c9fa406b1af092f89b8cb7d8eb4fec",
+    "inputs_digest": "0b1cbd3397758768bcaa140c6c71f95765603b1fa071f7e3e4bd8e50bf9b7e9e",
     "created_by": "worker/h0002",
-    "created_at": "2026-10-07T00:41:34Z",
+    "created_at": "2026-10-07T01:00:02Z",
     "experiment_id": "E-0003"
    },
    {
@@ -2667,9 +2614,7 @@
      "E-0001/s43@1",
      "E-0001/s44@1",
      "E-0002/s42@1",
-     "E-0002/s43@1",
-     "E-0004/s42@1",
-     "E-0004/s43@1"
+     "E-0004/s42@1"
     ],
     "input_revisions": {
      "E-0004/s42": {
@@ -2684,19 +2629,6 @@
       },
       "retracted_at": null,
       "import": "2f1dd44520747b568904c41d1a600bac1160afd8d8ff5fa31e4000a3c503ff1d"
-     },
-     "E-0004/s43": {
-      "attempt": 1,
-      "valid": true,
-      "metric_value": 71.674,
-      "secondary": {
-       "final_loss": 0.9125,
-       "loss_auc": 1.2628,
-       "peak_mem_gb": 39.0501,
-       "train_time_s": 3008.166
-      },
-      "retracted_at": null,
-      "import": "2154ee6a1906915114788f0396aa5d9c8a5ff2b6526a6a25282badb63f34bbff"
      },
      "E-0001/s42": {
       "attempt": 1,
@@ -2749,33 +2681,18 @@
       },
       "retracted_at": null,
       "import": "c1ddce2e7874bc5212c02641714c12dc46094fb9b2cd61cff8ec3242c80ad6d4"
-     },
-     "E-0002/s43": {
-      "attempt": 1,
-      "valid": true,
-      "metric_value": 71.5984,
-      "secondary": {
-       "final_loss": 0.9158,
-       "loss_auc": 1.2793,
-       "peak_mem_gb": 39.1537,
-       "train_time_s": 3007.4259
-      },
-      "retracted_at": null,
-      "import": "71bc44ef6e279a3d37ce2edbf2c7cd86a90ed79d42c42848b6efbb37f9753420"
      }
     },
     "pair_keys": {
      "sota": [
-      "seed=42/data_version=commonsense-mix-v1（虚构）",
-      "seed=43/data_version=commonsense-mix-v1（虚构）"
+      "seed=42/data_version=commonsense-mix-v1（虚构）"
      ],
      "parent": [
-      "seed=42/data_version=commonsense-mix-v1（虚构）",
-      "seed=43/data_version=commonsense-mix-v1（虚构）"
+      "seed=42/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "af4bdd969caeadaaf0d8dd58450b1e5c6299712c",
-    "harness_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
+    "method_code_ref": "49b00d6df5d71006b6342f5bd1108c5a06c005f3",
+    "harness_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
     "harness_paths": [
      "harness"
     ],
@@ -2788,152 +2705,147 @@
     "result_doc_id": "D-0030",
     "metrics": {
      "acc": {
-      "n": 2,
-      "mean": 71.66315,
+      "n": 1,
+      "mean": 71.6523,
       "values": [
-       71.6523,
-       71.674
+       71.6523
       ],
-      "sd": 0.015344217151755027,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "percentage_point",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "final_loss": {
-      "n": 2,
+      "n": 1,
       "mean": 0.9125,
       "values": [
-       0.9125,
        0.9125
       ],
-      "sd": 0.0,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "nats",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "loss_auc": {
-      "n": 2,
-      "mean": 1.26765,
+      "n": 1,
+      "mean": 1.2725,
       "values": [
-       1.2725,
-       1.2628
+       1.2725
       ],
-      "sd": 0.00685893577750954,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "raw",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "peak_mem_gb": {
-      "n": 2,
-      "mean": 39.046350000000004,
+      "n": 1,
+      "mean": 39.0426,
       "values": [
-       39.0426,
-       39.0501
+       39.0426
       ],
-      "sd": 0.005303300858899307,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "gib",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "train_time_s": {
-      "n": 2,
-      "mean": 3007.52705,
+      "n": 1,
+      "mean": 3006.8881,
       "values": [
-       3006.8881,
-       3008.166
+       3006.8881
       ],
-      "sd": 0.903611755678321,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "seconds",
       "seeds": [
-       42,
-       43
+       42
       ]
      }
     },
     "comparisons": {
      "sota": {
       "target_id": "E-0001",
-      "n_paired": 2,
-      "n_independent": 2,
+      "n_paired": 1,
+      "n_independent": 1,
       "metrics": {
        "acc": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "percentage_point",
         "deltas": [
-         0.2616000000000014,
-         0.2284000000000077
+         0.2616000000000014
         ],
-        "delta_mean": 0.24500000000000455,
-        "delta_sd": 0.023475945135388906
+        "delta_mean": 0.2616000000000014,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "final_loss": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "nats",
         "deltas": [
-         0.0017000000000000348,
-         -9.999999999998899e-05
+         0.0017000000000000348
         ],
-        "delta_mean": 0.0008000000000000229,
-        "delta_sd": 0.0012727922061358025
+        "delta_mean": 0.0017000000000000348,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "loss_auc": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "raw",
         "deltas": [
-         0.0048000000000001375,
-         0.020299999999999985
+         0.0048000000000001375
         ],
-        "delta_mean": 0.012550000000000061,
-        "delta_sd": 0.010960155108391378
+        "delta_mean": 0.0048000000000001375,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "peak_mem_gb": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "gib",
         "deltas": [
-         -0.9998000000000005,
-         -1.1490999999999971
+         -0.9998000000000005
         ],
-        "delta_mean": -1.0744499999999988,
-        "delta_sd": 0.10557104243114918
+        "delta_mean": -0.9998000000000005,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "train_time_s": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "relative_to_reference_mean",
         "unit": "fraction",
-        "delta_mean": -0.0055696186364294015,
+        "delta_mean": -0.007679392541420504,
         "delta_sd": null,
         "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
        }
       },
-      "delta_mean": 0.24500000000000455,
-      "delta_sd": 0.023475945135388906,
+      "delta_mean": 0.2616000000000014,
+      "delta_sd": null,
       "deltas": {
-       "final_loss": 0.0008000000000000229,
-       "loss_auc": 0.012550000000000061,
-       "peak_mem_gb": -1.0744499999999988,
-       "train_time_s": -0.0055696186364294015
+       "final_loss": 0.0017000000000000348,
+       "loss_auc": 0.0048000000000001375,
+       "peak_mem_gb": -0.9998000000000005,
+       "train_time_s": -0.007679392541420504
       },
       "guardrails": {
        "peak_mem_gb": {
         "allowed_regression": 2.0,
-        "effect": -1.0744499999999988,
+        "effect": -0.9998000000000005,
         "passed": true
        },
        "train_time_s": {
         "allowed_regression": 0.1,
-        "effect": -0.0055696186364294015,
+        "effect": -0.007679392541420504,
         "passed": true
        }
       },
@@ -2941,79 +2853,79 @@
      },
      "parent": {
       "target_id": "E-0002",
-      "n_paired": 2,
-      "n_independent": 2,
+      "n_paired": 1,
+      "n_independent": 1,
       "metrics": {
        "acc": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "percentage_point",
         "deltas": [
-         0.08689999999999998,
-         0.07560000000000855
+         0.08689999999999998
         ],
-        "delta_mean": 0.08125000000000426,
-        "delta_sd": 0.007990306627401926
+        "delta_mean": 0.08689999999999998,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "final_loss": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "nats",
         "deltas": [
-         -0.00039999999999995595,
-         0.0032999999999999696
+         -0.00039999999999995595
         ],
-        "delta_mean": 0.0014500000000000068,
-        "delta_sd": 0.002616295090390173
+        "delta_mean": -0.00039999999999995595,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "loss_auc": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "raw",
         "deltas": [
-         0.0049000000000001265,
-         0.01650000000000018
+         0.0049000000000001265
         ],
-        "delta_mean": 0.010700000000000154,
-        "delta_sd": 0.00820243866176399
+        "delta_mean": 0.0049000000000001265,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "peak_mem_gb": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "gib",
         "deltas": [
-         0.11869999999999692,
-         0.10360000000000014
+         0.11869999999999692
         ],
-        "delta_mean": 0.11114999999999853,
-        "delta_sd": 0.010677312395914592
+        "delta_mean": 0.11869999999999692,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "train_time_s": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "relative_to_reference_mean",
         "unit": "fraction",
-        "delta_mean": -0.0005928313649611812,
+        "delta_mean": -0.0009399598756937158,
         "delta_sd": null,
         "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
        }
       },
-      "delta_mean": 0.08125000000000426,
-      "delta_sd": 0.007990306627401926,
+      "delta_mean": 0.08689999999999998,
+      "delta_sd": null,
       "deltas": {
-       "final_loss": 0.0014500000000000068,
-       "loss_auc": 0.010700000000000154,
-       "peak_mem_gb": 0.11114999999999853,
-       "train_time_s": -0.0005928313649611812
+       "final_loss": -0.00039999999999995595,
+       "loss_auc": 0.0049000000000001265,
+       "peak_mem_gb": 0.11869999999999692,
+       "train_time_s": -0.0009399598756937158
       },
       "guardrails": {
        "peak_mem_gb": {
         "allowed_regression": 2.0,
-        "effect": 0.11114999999999853,
+        "effect": 0.11869999999999692,
         "passed": true
        },
        "train_time_s": {
         "allowed_regression": 0.1,
-        "effect": -0.0005928313649611812,
+        "effect": -0.0009399598756937158,
         "passed": true
        }
       }
@@ -3021,28 +2933,28 @@
     },
     "verdict": "beats_parent",
     "outcome": "positive_signal",
-    "outcome_reason": "effect 0.08125 clears the minimum practical gain 0.05",
+    "outcome_reason": "effect 0.0869 clears the minimum practical gain 0.05",
     "stage": "screen",
     "gate_passed": false,
     "guardrails_passed": true,
     "eval_type": "real_gt",
-    "limitations": [],
+    "limitations": [
+     "n=1: no standard deviation"
+    ],
     "verification_level": "artifact_imported",
     "artifact_refs": [
      "outputs/E-0001/s42/metrics.json",
      "outputs/E-0001/s43/metrics.json",
      "outputs/E-0001/s44/metrics.json",
      "outputs/E-0002/s42/metrics.json",
-     "outputs/E-0002/s43/metrics.json",
-     "outputs/E-0004/s42/metrics.json",
-     "outputs/E-0004/s43/metrics.json"
+     "outputs/E-0004/s42/metrics.json"
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "e605e8e78ba92b3066302fa29e6bf01b3bb727d331a42d73d5807f2e24492f1f",
-    "inputs_digest": "8c0e62f7d502bef9fb6957779f735e2f754d973222d6dc8c63ea21b8fe9ccb6c",
+    "fingerprint": "4105cccb85ae117c660cdfde49dc983c2b1c9c462e069798561acd6591e6e1f0",
+    "inputs_digest": "9a1ae61e3a60b16294f80f080216392342ccd65e13b2eb954720ad6d88695d1c",
     "created_by": "worker/h0003",
-    "created_at": "2026-10-07T00:41:44Z",
+    "created_at": "2026-10-07T01:00:10Z",
     "experiment_id": "E-0004"
    },
    {
@@ -3053,7 +2965,6 @@
      "E-0001/s43@1",
      "E-0001/s44@1",
      "E-0002/s42@1",
-     "E-0002/s43@1",
      "E-0004/s42@1",
      "E-0004/s43@1",
      "E-0004/s44@1"
@@ -3149,19 +3060,6 @@
       },
       "retracted_at": null,
       "import": "c1ddce2e7874bc5212c02641714c12dc46094fb9b2cd61cff8ec3242c80ad6d4"
-     },
-     "E-0002/s43": {
-      "attempt": 1,
-      "valid": true,
-      "metric_value": 71.5984,
-      "secondary": {
-       "final_loss": 0.9158,
-       "loss_auc": 1.2793,
-       "peak_mem_gb": 39.1537,
-       "train_time_s": 3007.4259
-      },
-      "retracted_at": null,
-      "import": "71bc44ef6e279a3d37ce2edbf2c7cd86a90ed79d42c42848b6efbb37f9753420"
      }
     },
     "pair_keys": {
@@ -3171,12 +3069,11 @@
       "seed=44/data_version=commonsense-mix-v1（虚构）"
      ],
      "parent": [
-      "seed=42/data_version=commonsense-mix-v1（虚构）",
-      "seed=43/data_version=commonsense-mix-v1（虚构）"
+      "seed=42/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "af4bdd969caeadaaf0d8dd58450b1e5c6299712c",
-    "harness_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
+    "method_code_ref": "49b00d6df5d71006b6342f5bd1108c5a06c005f3",
+    "harness_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
     "harness_paths": [
      "harness"
     ],
@@ -3356,79 +3253,79 @@
      },
      "parent": {
       "target_id": "E-0002",
-      "n_paired": 2,
-      "n_independent": 2,
+      "n_paired": 1,
+      "n_independent": 1,
       "metrics": {
        "acc": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "percentage_point",
         "deltas": [
-         0.08689999999999998,
-         0.07560000000000855
+         0.08689999999999998
         ],
-        "delta_mean": 0.08125000000000426,
-        "delta_sd": 0.007990306627401926
+        "delta_mean": 0.08689999999999998,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "final_loss": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "nats",
         "deltas": [
-         -0.00039999999999995595,
-         0.0032999999999999696
+         -0.00039999999999995595
         ],
-        "delta_mean": 0.0014500000000000068,
-        "delta_sd": 0.002616295090390173
+        "delta_mean": -0.00039999999999995595,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "loss_auc": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "raw",
         "deltas": [
-         0.0049000000000001265,
-         0.01650000000000018
+         0.0049000000000001265
         ],
-        "delta_mean": 0.010700000000000154,
-        "delta_sd": 0.00820243866176399
+        "delta_mean": 0.0049000000000001265,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "peak_mem_gb": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "gib",
         "deltas": [
-         0.11869999999999692,
-         0.10360000000000014
+         0.11869999999999692
         ],
-        "delta_mean": 0.11114999999999853,
-        "delta_sd": 0.010677312395914592
+        "delta_mean": 0.11869999999999692,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "train_time_s": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "relative_to_reference_mean",
         "unit": "fraction",
-        "delta_mean": -0.0005928313649611812,
+        "delta_mean": -0.0009399598756937158,
         "delta_sd": null,
         "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
        }
       },
-      "delta_mean": 0.08125000000000426,
-      "delta_sd": 0.007990306627401926,
+      "delta_mean": 0.08689999999999998,
+      "delta_sd": null,
       "deltas": {
-       "final_loss": 0.0014500000000000068,
-       "loss_auc": 0.010700000000000154,
-       "peak_mem_gb": 0.11114999999999853,
-       "train_time_s": -0.0005928313649611812
+       "final_loss": -0.00039999999999995595,
+       "loss_auc": 0.0049000000000001265,
+       "peak_mem_gb": 0.11869999999999692,
+       "train_time_s": -0.0009399598756937158
       },
       "guardrails": {
        "peak_mem_gb": {
         "allowed_regression": 2.0,
-        "effect": 0.11114999999999853,
+        "effect": 0.11869999999999692,
         "passed": true
        },
        "train_time_s": {
         "allowed_regression": 0.1,
-        "effect": -0.0005928313649611812,
+        "effect": -0.0009399598756937158,
         "passed": true
        }
       }
@@ -3436,7 +3333,7 @@
     },
     "verdict": "beats_sota",
     "outcome": "positive_signal",
-    "outcome_reason": "effect 0.08125 clears the minimum practical gain 0.05",
+    "outcome_reason": "effect 0.0869 clears the minimum practical gain 0.05",
     "stage": "screen",
     "gate_passed": true,
     "guardrails_passed": true,
@@ -3448,18 +3345,17 @@
      "outputs/E-0001/s43/metrics.json",
      "outputs/E-0001/s44/metrics.json",
      "outputs/E-0002/s42/metrics.json",
-     "outputs/E-0002/s43/metrics.json",
      "outputs/E-0004/s42/metrics.json",
      "outputs/E-0004/s43/metrics.json",
      "outputs/E-0004/s44/metrics.json"
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "ec76fbbf724c6f27e162462e39bf94aa699e041de16fa48093ddce9c57bf38e8",
-    "inputs_digest": "f3b88d2c4a23e6f9f96a6865d665e2aed2737ac96163e5ab53da59ae6d95faaa",
+    "fingerprint": "ced493a1a4db1d591faa6c3b25c71e17dcba9acd7782aa4ca9839dda83ffb49b",
+    "inputs_digest": "b7dd7db5caff541239c2fd161fa7deef58b94db52fa3469ebc8e790fd43ab504",
     "supersedes_evaluation_id": "EV-0004",
     "created_by": "worker/h0003",
-    "created_at": "2026-10-07T00:41:46Z",
+    "created_at": "2026-10-07T01:00:13Z",
     "experiment_id": "E-0004"
    },
    {
@@ -3512,8 +3408,8 @@
      }
     },
     "pair_keys": {},
-    "method_code_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
-    "harness_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
+    "method_code_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
+    "harness_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
     "harness_paths": [
      "harness"
     ],
@@ -3614,10 +3510,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "2826db15a85a830f9599a961a8f07ab1404600f5a1f17f2f87c475d6f7241b53",
-    "inputs_digest": "6554dca8115ae8e9051d5b9da232a7884a84f07ed55e36c0d98c9492d4f04a67",
+    "fingerprint": "a56c9de609d34e24b18d7769a014719896767adfee4a71d54cf4db08950fe4c9",
+    "inputs_digest": "1deea87738cb67ebf5feb751f80ada05c2c22542b95c0e713f69bc0d43da9956",
     "created_by": "worker/root",
-    "created_at": "2026-10-07T00:41:53Z",
+    "created_at": "2026-10-07T01:00:20Z",
     "experiment_id": "E-0005"
    },
    {
@@ -3718,8 +3614,8 @@
       "seed=1044/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "af4bdd969caeadaaf0d8dd58450b1e5c6299712c",
-    "harness_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
+    "method_code_ref": "49b00d6df5d71006b6342f5bd1108c5a06c005f3",
+    "harness_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
     "harness_paths": [
      "harness"
     ],
@@ -3914,10 +3810,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "a71068ba07fd9825e58703f7ddd77cddcd0492d2592f5357b0ffed05a0ae3eda",
-    "inputs_digest": "09bce4866f6ce26d0e1b47b6439233290964c028c1c358269c9902579477a933",
+    "fingerprint": "48ead49b3ddb7f25b6b167d8b876c91dae1a9835fdafe16febf4d5451f8bb8c4",
+    "inputs_digest": "93b088d960fcf28d56695e54855ab70d920003c40f95a33bfcee2d474ed3caff",
     "created_by": "worker/h0003",
-    "created_at": "2026-10-07T00:41:58Z",
+    "created_at": "2026-10-07T01:00:25Z",
     "experiment_id": "E-0006"
    },
    {
@@ -3928,9 +3824,7 @@
      "E-0001/s43@1",
      "E-0001/s44@1",
      "E-0002/s42@1",
-     "E-0002/s43@1",
-     "E-0007/s42@1",
-     "E-0007/s43@1"
+     "E-0007/s42@1"
     ],
     "input_revisions": {
      "E-0007/s42": {
@@ -3945,19 +3839,6 @@
       },
       "retracted_at": null,
       "import": "c6a9898028e1864128f1a481b10f0834e00e0799cd39ad6167d908322c235266"
-     },
-     "E-0007/s43": {
-      "attempt": 1,
-      "valid": true,
-      "metric_value": 71.4694,
-      "secondary": {
-       "final_loss": 0.9328,
-       "loss_auc": 1.3166,
-       "peak_mem_gb": 39.6413,
-       "train_time_s": 3080.9947
-      },
-      "retracted_at": null,
-      "import": "26d404e31819d1c15933281b617dafa05ed59ed1a5ed5086ad82227b97361c11"
      },
      "E-0001/s42": {
       "attempt": 1,
@@ -4010,33 +3891,18 @@
       },
       "retracted_at": null,
       "import": "c1ddce2e7874bc5212c02641714c12dc46094fb9b2cd61cff8ec3242c80ad6d4"
-     },
-     "E-0002/s43": {
-      "attempt": 1,
-      "valid": true,
-      "metric_value": 71.5984,
-      "secondary": {
-       "final_loss": 0.9158,
-       "loss_auc": 1.2793,
-       "peak_mem_gb": 39.1537,
-       "train_time_s": 3007.4259
-      },
-      "retracted_at": null,
-      "import": "71bc44ef6e279a3d37ce2edbf2c7cd86a90ed79d42c42848b6efbb37f9753420"
      }
     },
     "pair_keys": {
      "sota": [
-      "seed=42/data_version=commonsense-mix-v1（虚构）",
-      "seed=43/data_version=commonsense-mix-v1（虚构）"
+      "seed=42/data_version=commonsense-mix-v1（虚构）"
      ],
      "parent": [
-      "seed=42/data_version=commonsense-mix-v1（虚构）",
-      "seed=43/data_version=commonsense-mix-v1（虚构）"
+      "seed=42/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "fcc0556da02de37017b48ffffffe2f3093ff6e7d",
-    "harness_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
+    "method_code_ref": "ed29a2ebd1df5b84c18b7fb6cbb0aa857dea82b7",
+    "harness_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
     "harness_paths": [
      "harness"
     ],
@@ -4049,152 +3915,147 @@
     "result_doc_id": "D-0047",
     "metrics": {
      "acc": {
-      "n": 2,
-      "mean": 71.43705,
+      "n": 1,
+      "mean": 71.4047,
       "values": [
-       71.4047,
-       71.4694
+       71.4047
       ],
-      "sd": 0.045749808742760974,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "percentage_point",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "final_loss": {
-      "n": 2,
-      "mean": 0.93225,
+      "n": 1,
+      "mean": 0.9317,
       "values": [
-       0.9317,
-       0.9328
+       0.9317
       ],
-      "sd": 0.0007778174593051951,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "nats",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "loss_auc": {
-      "n": 2,
-      "mean": 1.31495,
+      "n": 1,
+      "mean": 1.3133,
       "values": [
-       1.3133,
-       1.3166
+       1.3133
       ],
-      "sd": 0.002333452377915664,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "raw",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "peak_mem_gb": {
-      "n": 2,
-      "mean": 39.60325,
+      "n": 1,
+      "mean": 39.5652,
       "values": [
-       39.5652,
-       39.6413
+       39.5652
       ],
-      "sd": 0.053810826048298975,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "gib",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "train_time_s": {
-      "n": 2,
-      "mean": 3085.9153,
+      "n": 1,
+      "mean": 3090.8359,
       "values": [
-       3090.8359,
-       3080.9947
+       3090.8359
       ],
-      "sd": 6.958779255012941,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "seconds",
       "seeds": [
-       42,
-       43
+       42
       ]
      }
     },
     "comparisons": {
      "sota": {
       "target_id": "E-0001",
-      "n_paired": 2,
-      "n_independent": 2,
+      "n_paired": 1,
+      "n_independent": 1,
       "metrics": {
        "acc": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "percentage_point",
         "deltas": [
-         0.014000000000010004,
-         0.02379999999999427
+         0.014000000000010004
         ],
-        "delta_mean": 0.018900000000002137,
-        "delta_sd": 0.00692964645561704
+        "delta_mean": 0.014000000000010004,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "final_loss": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "nats",
         "deltas": [
-         -0.01749999999999996,
-         -0.020399999999999974
+         -0.01749999999999996
         ],
-        "delta_mean": -0.018949999999999967,
-        "delta_sd": 0.0020506096654409976
+        "delta_mean": -0.01749999999999996,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "loss_auc": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "raw",
         "deltas": [
-         -0.03599999999999981,
-         -0.033500000000000085
+         -0.03599999999999981
         ],
-        "delta_mean": -0.03474999999999995,
-        "delta_sd": 0.0017677669529661741
+        "delta_mean": -0.03599999999999981,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "peak_mem_gb": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "gib",
         "deltas": [
-         -1.5223999999999975,
-         -1.7402999999999977
+         -1.5223999999999975
         ],
-        "delta_mean": -1.6313499999999976,
-        "delta_sd": 0.15407856762054886
+        "delta_mean": -1.5223999999999975,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "train_time_s": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "relative_to_reference_mean",
         "unit": "fraction",
-        "delta_mean": -0.03177880689895128,
+        "delta_mean": -0.03581228784576807,
         "delta_sd": null,
         "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
        }
       },
-      "delta_mean": 0.018900000000002137,
-      "delta_sd": 0.00692964645561704,
+      "delta_mean": 0.014000000000010004,
+      "delta_sd": null,
       "deltas": {
-       "final_loss": -0.018949999999999967,
-       "loss_auc": -0.03474999999999995,
-       "peak_mem_gb": -1.6313499999999976,
-       "train_time_s": -0.03177880689895128
+       "final_loss": -0.01749999999999996,
+       "loss_auc": -0.03599999999999981,
+       "peak_mem_gb": -1.5223999999999975,
+       "train_time_s": -0.03581228784576807
       },
       "guardrails": {
        "peak_mem_gb": {
         "allowed_regression": 2.0,
-        "effect": -1.6313499999999976,
+        "effect": -1.5223999999999975,
         "passed": true
        },
        "train_time_s": {
         "allowed_regression": 0.1,
-        "effect": -0.03177880689895128,
+        "effect": -0.03581228784576807,
         "passed": true
        }
       },
@@ -4202,79 +4063,79 @@
      },
      "parent": {
       "target_id": "E-0002",
-      "n_paired": 2,
-      "n_independent": 2,
+      "n_paired": 1,
+      "n_independent": 1,
       "metrics": {
        "acc": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "percentage_point",
         "deltas": [
-         -0.1606999999999914,
-         -0.1290000000000049
+         -0.1606999999999914
         ],
-        "delta_mean": -0.14484999999999815,
-        "delta_sd": 0.022415284963604024
+        "delta_mean": -0.1606999999999914,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "final_loss": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "nats",
         "deltas": [
-         -0.01959999999999995,
-         -0.017000000000000015
+         -0.01959999999999995
         ],
-        "delta_mean": -0.018299999999999983,
-        "delta_sd": 0.0018384776310849781
+        "delta_mean": -0.01959999999999995,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "loss_auc": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "raw",
         "deltas": [
-         -0.03589999999999982,
-         -0.03729999999999989
+         -0.03589999999999982
         ],
-        "delta_mean": -0.036599999999999855,
-        "delta_sd": 0.0009899494936612145
+        "delta_mean": -0.03589999999999982,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "peak_mem_gb": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "gib",
         "deltas": [
-         -0.40390000000000015,
-         -0.4876000000000005
+         -0.40390000000000015
         ],
-        "delta_mean": -0.4457500000000003,
-        "delta_sd": 0.05918483758531426
+        "delta_mean": -0.40390000000000015,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "train_time_s": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "relative_to_reference_mean",
         "unit": "fraction",
-        "delta_mean": -0.026672304536530623,
+        "delta_mean": -0.028884700341310868,
         "delta_sd": null,
         "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
        }
       },
-      "delta_mean": -0.14484999999999815,
-      "delta_sd": 0.022415284963604024,
+      "delta_mean": -0.1606999999999914,
+      "delta_sd": null,
       "deltas": {
-       "final_loss": -0.018299999999999983,
-       "loss_auc": -0.036599999999999855,
-       "peak_mem_gb": -0.4457500000000003,
-       "train_time_s": -0.026672304536530623
+       "final_loss": -0.01959999999999995,
+       "loss_auc": -0.03589999999999982,
+       "peak_mem_gb": -0.40390000000000015,
+       "train_time_s": -0.028884700341310868
       },
       "guardrails": {
        "peak_mem_gb": {
         "allowed_regression": 2.0,
-        "effect": -0.4457500000000003,
+        "effect": -0.40390000000000015,
         "passed": true
        },
        "train_time_s": {
         "allowed_regression": 0.1,
-        "effect": -0.026672304536530623,
+        "effect": -0.028884700341310868,
         "passed": true
        }
       }
@@ -4282,28 +4143,28 @@
     },
     "verdict": "no_gain",
     "outcome": "inconclusive",
-    "outcome_reason": "effect -0.14485 over 2 pair(s): neither clear of 0.05 nor below -0.05 with at least 3 pairs (what a negative signal needs)",
+    "outcome_reason": "effect -0.1607 over 1 pair(s): neither clear of 0.05 nor below -0.05 with at least 3 pairs (what a negative signal needs)",
     "stage": "screen",
     "gate_passed": false,
     "guardrails_passed": true,
     "eval_type": "real_gt",
-    "limitations": [],
+    "limitations": [
+     "n=1: no standard deviation"
+    ],
     "verification_level": "artifact_imported",
     "artifact_refs": [
      "outputs/E-0001/s42/metrics.json",
      "outputs/E-0001/s43/metrics.json",
      "outputs/E-0001/s44/metrics.json",
      "outputs/E-0002/s42/metrics.json",
-     "outputs/E-0002/s43/metrics.json",
-     "outputs/E-0007/s42/metrics.json",
-     "outputs/E-0007/s43/metrics.json"
+     "outputs/E-0007/s42/metrics.json"
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "59cf1fbaab33aa64e35cc0f70a56d2b6b4427efbb7fc28e8e304d6968e9a1990",
-    "inputs_digest": "afe4ac2b9908f168f2c06a9502bee81ccd32a0794f4fac3468f2e5aee69d9a89",
+    "fingerprint": "9865aa01930af54125ec4bebf340ed14907fd7c94cc5395660d729380891ae13",
+    "inputs_digest": "69c0a9a4090d580be872dfdfcf45823adbaff06c15d97fdf09fdbd4add8c3c83",
     "created_by": "worker/h0004",
-    "created_at": "2026-10-07T00:42:06Z",
+    "created_at": "2026-10-07T01:00:32Z",
     "experiment_id": "E-0007"
    },
    {
@@ -4313,8 +4174,7 @@
      "E-0001/s42@1",
      "E-0001/s43@1",
      "E-0001/s44@1",
-     "E-0008/s42@1",
-     "E-0008/s43@1"
+     "E-0008/s42@1"
     ],
     "input_revisions": {
      "E-0008/s42": {
@@ -4330,19 +4190,6 @@
       "retracted_at": null,
       "import": "1c67221c2e2014751bba0423e91fb81a4ef1ed2dc413f8b5ee2f66d3b797ee87"
      },
-     "E-0008/s43": {
-      "attempt": 1,
-      "valid": true,
-      "metric_value": 71.5061,
-      "secondary": {
-       "final_loss": 0.9127,
-       "loss_auc": 1.2827,
-       "peak_mem_gb": 38.3731,
-       "train_time_s": 2978.174
-      },
-      "retracted_at": null,
-      "import": "64fda824fa1f1c233b0ee7fcc77c5f32b86175fe6f0fa7a945d9bf1b8c04b0e2"
-     },
      "E-0001/s42": {
       "attempt": 1,
       "valid": true,
@@ -4385,12 +4232,11 @@
     },
     "pair_keys": {
      "sota": [
-      "seed=42/data_version=commonsense-mix-v1（虚构）",
-      "seed=43/data_version=commonsense-mix-v1（虚构）"
+      "seed=42/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "64e7a0b4a576d5e896362fb3f706ae9fe8085505",
-    "harness_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
+    "method_code_ref": "7d48cc3b85b194af83fe1db480758d19eb5162fb",
+    "harness_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
     "harness_paths": [
      "harness"
     ],
@@ -4401,152 +4247,147 @@
     "result_doc_id": "D-0053",
     "metrics": {
      "acc": {
-      "n": 2,
-      "mean": 71.48580000000001,
+      "n": 1,
+      "mean": 71.4655,
       "values": [
-       71.4655,
-       71.5061
+       71.4655
       ],
-      "sd": 0.028708535316172238,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "percentage_point",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "final_loss": {
-      "n": 2,
-      "mean": 0.913,
+      "n": 1,
+      "mean": 0.9133,
       "values": [
-       0.9133,
-       0.9127
+       0.9133
       ],
-      "sd": 0.0004242640687119603,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "nats",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "loss_auc": {
-      "n": 2,
-      "mean": 1.2856,
+      "n": 1,
+      "mean": 1.2885,
       "values": [
-       1.2885,
-       1.2827
+       1.2885
       ],
-      "sd": 0.004101219330881995,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "raw",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "peak_mem_gb": {
-      "n": 2,
-      "mean": 38.36365,
+      "n": 1,
+      "mean": 38.3542,
       "values": [
-       38.3542,
-       38.3731
+       38.3542
       ],
-      "sd": 0.01336431816442726,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "gib",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "train_time_s": {
-      "n": 2,
-      "mean": 2984.016,
+      "n": 1,
+      "mean": 2989.858,
       "values": [
-       2989.858,
-       2978.174
+       2989.858
       ],
-      "sd": 8.26183563138376,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "seconds",
       "seeds": [
-       42,
-       43
+       42
       ]
      }
     },
     "comparisons": {
      "sota": {
       "target_id": "E-0001",
-      "n_paired": 2,
-      "n_independent": 2,
+      "n_paired": 1,
+      "n_independent": 1,
       "metrics": {
        "acc": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "percentage_point",
         "deltas": [
-         0.07480000000001041,
-         0.06050000000000466
+         0.07480000000001041
         ],
-        "delta_mean": 0.06765000000000754,
-        "delta_sd": 0.010111626970971697
+        "delta_mean": 0.07480000000001041,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "final_loss": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "nats",
         "deltas": [
-         0.0009000000000000119,
-         -0.00029999999999996696
+         0.0009000000000000119
         ],
-        "delta_mean": 0.00030000000000002247,
-        "delta_sd": 0.000848528137423842
+        "delta_mean": 0.0009000000000000119,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "loss_auc": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "raw",
         "deltas": [
-         -0.011199999999999877,
-         0.00039999999999995595
+         -0.011199999999999877
         ],
-        "delta_mean": -0.00539999999999996,
-        "delta_sd": 0.008202438661763832
+        "delta_mean": -0.011199999999999877,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "peak_mem_gb": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "gib",
         "deltas": [
-         -0.311399999999999,
-         -0.4720999999999975
+         -0.311399999999999
         ],
-        "delta_mean": -0.39174999999999827,
-        "delta_sd": 0.11363205973667713
+        "delta_mean": -0.311399999999999,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "train_time_s": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "relative_to_reference_mean",
         "unit": "fraction",
-        "delta_mean": 0.0022913239882569134,
+        "delta_mean": -0.001972202831594059,
         "delta_sd": null,
         "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
        }
       },
-      "delta_mean": 0.06765000000000754,
-      "delta_sd": 0.010111626970971697,
+      "delta_mean": 0.07480000000001041,
+      "delta_sd": null,
       "deltas": {
-       "final_loss": 0.00030000000000002247,
-       "loss_auc": -0.00539999999999996,
-       "peak_mem_gb": -0.39174999999999827,
-       "train_time_s": 0.0022913239882569134
+       "final_loss": 0.0009000000000000119,
+       "loss_auc": -0.011199999999999877,
+       "peak_mem_gb": -0.311399999999999,
+       "train_time_s": -0.001972202831594059
       },
       "guardrails": {
        "peak_mem_gb": {
         "allowed_regression": 2.0,
-        "effect": -0.39174999999999827,
+        "effect": -0.311399999999999,
         "passed": true
        },
        "train_time_s": {
         "allowed_regression": 0.1,
-        "effect": 0.0022913239882569134,
+        "effect": -0.001972202831594059,
         "passed": true
        }
       },
@@ -4555,26 +4396,27 @@
     },
     "verdict": "close",
     "outcome": "positive_signal",
-    "outcome_reason": "effect 0.06765 clears the minimum practical gain 0.05",
+    "outcome_reason": "effect 0.0748 clears the minimum practical gain 0.05",
     "stage": "screen",
     "gate_passed": false,
     "guardrails_passed": true,
     "eval_type": "real_gt",
-    "limitations": [],
+    "limitations": [
+     "n=1: no standard deviation"
+    ],
     "verification_level": "artifact_imported",
     "artifact_refs": [
      "outputs/E-0001/s42/metrics.json",
      "outputs/E-0001/s43/metrics.json",
      "outputs/E-0001/s44/metrics.json",
-     "outputs/E-0008/s42/metrics.json",
-     "outputs/E-0008/s43/metrics.json"
+     "outputs/E-0008/s42/metrics.json"
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "b0f5b5d2dc4d9df900ed60eec6e0a05503f181573fcb75084944533970337c28",
-    "inputs_digest": "ccf57db7194d5c2678e9c7f15b05594e509d869c18cc6bc38e70098bcee067f3",
+    "fingerprint": "496eaac4cba114be1d17d643e33c4062622dc079ced842b9306674ee332860c7",
+    "inputs_digest": "a05f058ca90dc97e81a4b3bf25d3a74a91e94f5f7158549eed828d5f9580bc9f",
     "created_by": "worker/h0005",
-    "created_at": "2026-10-07T00:42:16Z",
+    "created_at": "2026-10-07T01:00:40Z",
     "experiment_id": "E-0008"
    },
    {
@@ -4584,8 +4426,7 @@
      "E-0001/s42@1",
      "E-0001/s43@1",
      "E-0001/s44@1",
-     "E-0009/s42@1",
-     "E-0009/s43@1"
+     "E-0009/s42@1"
     ],
     "input_revisions": {
      "E-0009/s42": {
@@ -4601,19 +4442,6 @@
       "retracted_at": null,
       "import": "08f8b3bb8e8e6b6fa0422b1a1b1747b1765950d03e1081e8a77188e8e633fcc3"
      },
-     "E-0009/s43": {
-      "attempt": 1,
-      "valid": true,
-      "metric_value": 71.4488,
-      "secondary": {
-       "final_loss": 0.9177,
-       "loss_auc": 1.2804,
-       "peak_mem_gb": 31.9622,
-       "train_time_s": 3031.7717
-      },
-      "retracted_at": null,
-      "import": "b77b0ebf77632a00b66ec104af9b020d80c8e64ec1e78162351adc1e34ce4b68"
-     },
      "E-0001/s42": {
       "attempt": 1,
       "valid": true,
@@ -4656,12 +4484,11 @@
     },
     "pair_keys": {
      "sota": [
-      "seed=42/data_version=commonsense-mix-v1（虚构）",
-      "seed=43/data_version=commonsense-mix-v1（虚构）"
+      "seed=42/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "79deeb903ab4518520e3193d635c28541dd7fce3",
-    "harness_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
+    "method_code_ref": "72f7c6774f9972dfe490393b1a87f2cca57c988f",
+    "harness_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
     "harness_paths": [
      "harness"
     ],
@@ -4672,180 +4499,176 @@
     "result_doc_id": "D-0060",
     "metrics": {
      "acc": {
-      "n": 2,
-      "mean": 71.4312,
+      "n": 1,
+      "mean": 71.4136,
       "values": [
-       71.4136,
-       71.4488
+       71.4136
       ],
-      "sd": 0.024890158697768755,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "percentage_point",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "final_loss": {
-      "n": 2,
-      "mean": 0.91395,
+      "n": 1,
+      "mean": 0.9102,
       "values": [
-       0.9102,
-       0.9177
+       0.9102
       ],
-      "sd": 0.005303300858899072,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "nats",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "loss_auc": {
-      "n": 2,
-      "mean": 1.2808,
+      "n": 1,
+      "mean": 1.2812,
       "values": [
-       1.2812,
-       1.2804
+       1.2812
       ],
-      "sd": 0.0005656854249491757,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "raw",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "peak_mem_gb": {
-      "n": 2,
-      "mean": 31.9668,
+      "n": 1,
+      "mean": 31.9714,
       "values": [
-       31.9714,
-       31.9622
+       31.9714
       ],
-      "sd": 0.006505382386916149,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "gib",
       "seeds": [
-       42,
-       43
+       42
       ]
      },
      "train_time_s": {
-      "n": 2,
-      "mean": 3036.9434499999998,
+      "n": 1,
+      "mean": 3042.1152,
       "values": [
-       3042.1152,
-       3031.7717
+       3042.1152
       ],
-      "sd": 7.31395899120334,
+      "sd": null,
+      "sd_missing": "n=1: no standard deviation",
       "unit": "seconds",
       "seeds": [
-       42,
-       43
+       42
       ]
      }
     },
     "comparisons": {
      "sota": {
       "target_id": "E-0001",
-      "n_paired": 2,
-      "n_independent": 2,
+      "n_paired": 1,
+      "n_independent": 1,
       "metrics": {
        "acc": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "percentage_point",
         "deltas": [
-         0.022900000000007026,
-         0.003200000000006753
+         0.022900000000007026
         ],
-        "delta_mean": 0.01305000000000689,
-        "delta_sd": 0.013930003589375179
+        "delta_mean": 0.022900000000007026,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "final_loss": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "nats",
         "deltas": [
-         0.0040000000000000036,
-         -0.005299999999999971
+         0.0040000000000000036
         ],
-        "delta_mean": -0.0006499999999999839,
-        "delta_sd": 0.006576093065034874
+        "delta_mean": 0.0040000000000000036,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "loss_auc": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "raw",
         "deltas": [
-         -0.0038999999999997925,
-         0.0026999999999999247
+         -0.0038999999999997925
         ],
-        "delta_mean": -0.0005999999999999339,
-        "delta_sd": 0.004666904755831014
+        "delta_mean": -0.0038999999999997925,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "peak_mem_gb": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "absolute",
         "unit": "gib",
         "deltas": [
-         6.071400000000001,
-         5.938800000000004
+         6.071400000000001
         ],
-        "delta_mean": 6.005100000000002,
-        "delta_sd": 0.09376235918533372
+        "delta_mean": 6.071400000000001,
+        "delta_sd": null,
+        "delta_sd_missing": "n=1: no standard deviation"
        },
        "train_time_s": {
-        "n_paired": 2,
+        "n_paired": 1,
         "effect_mode": "relative_to_reference_mean",
         "unit": "fraction",
-        "delta_mean": -0.015405020824967081,
+        "delta_mean": -0.01948482777826751,
         "delta_sd": null,
         "delta_sd_missing": "a relative effect is the ratio of means, not a mean of per-seed ratios"
        }
       },
-      "delta_mean": 0.01305000000000689,
-      "delta_sd": 0.013930003589375179,
+      "delta_mean": 0.022900000000007026,
+      "delta_sd": null,
       "deltas": {
-       "final_loss": -0.0006499999999999839,
-       "loss_auc": -0.0005999999999999339,
-       "peak_mem_gb": 6.005100000000002,
-       "train_time_s": -0.015405020824967081
+       "final_loss": 0.0040000000000000036,
+       "loss_auc": -0.0038999999999997925,
+       "peak_mem_gb": 6.071400000000001,
+       "train_time_s": -0.01948482777826751
       },
       "guardrails": {
        "peak_mem_gb": {
         "allowed_regression": 2.0,
-        "effect": 6.005100000000002,
+        "effect": 6.071400000000001,
         "passed": true
        },
        "train_time_s": {
         "allowed_regression": 0.1,
-        "effect": -0.015405020824967081,
+        "effect": -0.01948482777826751,
         "passed": true
        }
       },
       "passes_gate": false
      }
     },
-    "verdict": "needs_rld",
+    "verdict": "close",
     "outcome": "inconclusive",
-    "outcome_reason": "effect 0.01305 over 2 pair(s): neither clear of 0.05 nor below -0.05 with at least 3 pairs (what a negative signal needs)",
+    "outcome_reason": "effect 0.0229 over 1 pair(s): neither clear of 0.05 nor below -0.05 with at least 3 pairs (what a negative signal needs)",
     "stage": "screen",
     "gate_passed": false,
     "guardrails_passed": true,
     "eval_type": "real_gt",
-    "limitations": [],
+    "limitations": [
+     "n=1: no standard deviation"
+    ],
     "verification_level": "artifact_imported",
     "artifact_refs": [
      "outputs/E-0001/s42/metrics.json",
      "outputs/E-0001/s43/metrics.json",
      "outputs/E-0001/s44/metrics.json",
-     "outputs/E-0009/s42/metrics.json",
-     "outputs/E-0009/s43/metrics.json"
+     "outputs/E-0009/s42/metrics.json"
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "db0a8662557a35a5907c5a21be78f10552e4dcc1ea2b9e1681cb1ad19288d7b4",
-    "inputs_digest": "dd4c21c8cac8ac9f7dc137352795553d3ec482cec5bceddf635ca05c2f53b97a",
+    "fingerprint": "7df36a40a5d6865ac3b401d8df1d79f38696b71d3edf5e7b37f572a78e337083",
+    "inputs_digest": "8af97e96de84c4356d5a96f605b796cb6d12fc1128cd79ac5e1c6d98399d46d0",
     "created_by": "worker/h0007",
-    "created_at": "2026-10-07T00:42:25Z",
+    "created_at": "2026-10-07T01:00:47Z",
     "experiment_id": "E-0009"
    }
   ],
@@ -4860,12 +4683,12 @@
     "status": "RESOLVED",
     "claim": "（虚构）复核指出配置中 seed 列表与协议不一致",
     "evidence_excerpt": "config.yaml seeds",
-    "created_at": "2026-10-07T00:42:27Z",
-    "updated_at": "2026-10-07T00:42:28Z",
+    "created_at": "2026-10-07T01:00:50Z",
+    "updated_at": "2026-10-07T01:00:50Z",
     "resolution": {
      "fix_type": "code_fixed",
      "verified_by": "rld/main",
-     "resolved_at": "2026-10-07T00:42:28Z",
+     "resolved_at": "2026-10-07T01:00:50Z",
      "evidence_path": "outputs/fixes/seed-config-check.txt",
      "evidence_sha256": "a7839e214bf78b3ed8710724d4d77eb84e13e4d20ecdd9cf13e5dc547f190692"
     }
@@ -4893,7 +4716,7 @@
      "experiment_id": "E-0001",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
+     "code_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4913,9 +4736,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "ce2a8946ff5655cbcf90c39725633b140f0d0cf40491bd3e1715ec9410db202d",
+     "manifest_sha256": "49e3c5e72dcbf6b933864bb1b3c4104cd74af880f00fefab33a7f42e76382123",
      "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
-     "imported_at": "2026-10-07T00:41:16Z",
+     "imported_at": "2026-10-07T00:59:47Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0001/s42/train.log",
@@ -4946,7 +4769,7 @@
      "experiment_id": "E-0001",
      "seed": 43,
      "attempt": 1,
-     "code_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
+     "code_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -4966,9 +4789,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "b1ac933ff781db56b344e97c993d61bc7cb1d08b0cd9295e4c30b33c1734f592",
+     "manifest_sha256": "49e66af8e00366d5b787a9cea92e8a153997707417a6d6ba68dc904aa08c4996",
      "metrics_sha256": "e0386148c42cd8ea61da0ad1f7042b2a8c6d507bd344ae53b0883aec634c6708",
-     "imported_at": "2026-10-07T00:41:17Z",
+     "imported_at": "2026-10-07T00:59:48Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0001/s43/train.log",
@@ -4999,7 +4822,7 @@
      "experiment_id": "E-0001",
      "seed": 44,
      "attempt": 1,
-     "code_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
+     "code_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5019,9 +4842,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "97ad1c97f728964814e48948f942916fb9af456fdf41253706a93d7a769c8681",
+     "manifest_sha256": "7f39b4caa1632055e398b57f1b8b68fc00625362139ccccf35061aa9d1d714b7",
      "metrics_sha256": "82a37fc2e7493d2ccaf8c64f8226df791347a939461908f55cf910abdecba6c9",
-     "imported_at": "2026-10-07T00:41:18Z",
+     "imported_at": "2026-10-07T00:59:48Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0001/s44/train.log",
@@ -5052,7 +4875,7 @@
      "experiment_id": "E-0002",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "a6c1906c3a2b3995e5a3ffe2cbe941aa1561a7de",
+     "code_ref": "1b6dd299a09c70e083846819a81f402094589d88",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5072,9 +4895,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "66168b614acdc8ab1adaebe68b64c9b74e03677469ae173316ed73a693eab6e9",
+     "manifest_sha256": "a54dc27b023f480c736998d1350fad7b8662de1ff5748eb83b2b43a71cc2c489",
      "metrics_sha256": "c1ddce2e7874bc5212c02641714c12dc46094fb9b2cd61cff8ec3242c80ad6d4",
-     "imported_at": "2026-10-07T00:41:26Z",
+     "imported_at": "2026-10-07T00:59:56Z",
      "by": "worker/h0001"
     },
     "log_path": "outputs/E-0002/s42/train.log",
@@ -5082,59 +4905,6 @@
     "output_path": "outputs/E-0002/s42",
     "nodes_used": 4,
     "walltime_used_s": 3064,
-    "valid": true,
-    "experiment_id": "E-0002"
-   },
-   {
-    "id": "E-0002/s43",
-    "seed": 43,
-    "job_id": "demo-3484726",
-    "exec_status": "succeeded",
-    "attempt": 1,
-    "started_at": "2026-10-03T12:00:00Z",
-    "finished_at": "2026-10-03T13:00:00Z",
-    "metric_value": 71.5984,
-    "secondary": {
-     "final_loss": 0.9158,
-     "loss_auc": 1.2793,
-     "peak_mem_gb": 39.1537,
-     "train_time_s": 3007.4259
-    },
-    "manifest_path": "outputs/E-0002/s43/manifest.json",
-    "manifest": {
-     "experiment_id": "E-0002",
-     "seed": 43,
-     "attempt": 1,
-     "code_ref": "a6c1906c3a2b3995e5a3ffe2cbe941aa1561a7de",
-     "exit_status": 0,
-     "metrics_path": "metrics.json",
-     "data_version": "commonsense-mix-v1（虚构）",
-     "train_steps": 1000,
-     "log_path": "train.log",
-     "curve_path": "curve.json",
-     "output_path": ".",
-     "nodes_used": 4,
-     "walltime_used_s": 3067,
-     "counts": {
-      "n_train": 2000,
-      "n_eval": 8000
-     }
-    },
-    "evidence_paths": [
-     "outputs/E-0002/s43/metrics.json"
-    ],
-    "import_record": {
-     "parser_version": "rt-manifest-1",
-     "manifest_sha256": "1c4b06e809a7bf2c7d55457fe5392ad9c4533ddda5dbbb88a435d408601fe05b",
-     "metrics_sha256": "71bc44ef6e279a3d37ce2edbf2c7cd86a90ed79d42c42848b6efbb37f9753420",
-     "imported_at": "2026-10-07T00:41:26Z",
-     "by": "worker/h0001"
-    },
-    "log_path": "outputs/E-0002/s43/train.log",
-    "curve_path": "outputs/E-0002/s43/curve.json",
-    "output_path": "outputs/E-0002/s43",
-    "nodes_used": 4,
-    "walltime_used_s": 3067,
     "valid": true,
     "experiment_id": "E-0002"
    },
@@ -5158,7 +4928,7 @@
      "experiment_id": "E-0003",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "31bc0b8fa05007799125c7885d4a2ecc14f65fcf",
+     "code_ref": "de600cb114cc9f87b7b794725efd79acb22ec10b",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5178,9 +4948,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "da90e90078ee86fd51a33dc79291b95864b008dbf64f83788da8169285343b52",
+     "manifest_sha256": "61c16b190e2e98cf86394feb9e0b84ccabef67d5097d4f17db7ff98a204c5440",
      "metrics_sha256": "86701fb69bdedba6fa5fb18ffb8a22c7b22e6021cf97589c24bde87cdac3cb4c",
-     "imported_at": "2026-10-07T00:41:32Z",
+     "imported_at": "2026-10-07T01:00:01Z",
      "by": "worker/h0002"
     },
     "log_path": "outputs/E-0003/s42/train.log",
@@ -5192,62 +4962,9 @@
     "experiment_id": "E-0003"
    },
    {
-    "id": "E-0003/s43",
-    "seed": 43,
-    "job_id": "demo-3488456",
-    "exec_status": "succeeded",
-    "attempt": 1,
-    "started_at": "2026-10-03T12:00:00Z",
-    "finished_at": "2026-10-03T13:00:00Z",
-    "metric_value": 71.1994,
-    "secondary": {
-     "final_loss": 0.9213,
-     "loss_auc": 1.3025,
-     "peak_mem_gb": 38.6237,
-     "train_time_s": 3116.0149
-    },
-    "manifest_path": "outputs/E-0003/s43/manifest.json",
-    "manifest": {
-     "experiment_id": "E-0003",
-     "seed": 43,
-     "attempt": 1,
-     "code_ref": "31bc0b8fa05007799125c7885d4a2ecc14f65fcf",
-     "exit_status": 0,
-     "metrics_path": "metrics.json",
-     "data_version": "commonsense-mix-v1（虚构）",
-     "train_steps": 1000,
-     "log_path": "train.log",
-     "curve_path": "curve.json",
-     "output_path": ".",
-     "nodes_used": 4,
-     "walltime_used_s": 3176,
-     "counts": {
-      "n_train": 2000,
-      "n_eval": 8000
-     }
-    },
-    "evidence_paths": [
-     "outputs/E-0003/s43/metrics.json"
-    ],
-    "import_record": {
-     "parser_version": "rt-manifest-1",
-     "manifest_sha256": "fe3eb0065babab69a3690e95d1af7434d3396250eef1ae011ff07eeccb1d62e5",
-     "metrics_sha256": "80ccb0613772de1acc8f459d6a6b95b101571b61190fb53c6b80de4667a66ec7",
-     "imported_at": "2026-10-07T00:41:33Z",
-     "by": "worker/h0002"
-    },
-    "log_path": "outputs/E-0003/s43/train.log",
-    "curve_path": "outputs/E-0003/s43/curve.json",
-    "output_path": "outputs/E-0003/s43",
-    "nodes_used": 4,
-    "walltime_used_s": 3176,
-    "valid": true,
-    "experiment_id": "E-0003"
-   },
-   {
     "id": "E-0004/s42",
     "seed": 42,
-    "job_id": "demo-3487801",
+    "job_id": "demo-3480300",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -5264,7 +4981,7 @@
      "experiment_id": "E-0004",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "af4bdd969caeadaaf0d8dd58450b1e5c6299712c",
+     "code_ref": "49b00d6df5d71006b6342f5bd1108c5a06c005f3",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5284,9 +5001,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "483083551b3099f1b9550a514831c1f13e910a2f427b0a31af35f93ea90f3337",
+     "manifest_sha256": "b73ed851070c6dc8894bf21aadcf5c414d242f8ec4e578c94b43517031b2f13e",
      "metrics_sha256": "2f1dd44520747b568904c41d1a600bac1160afd8d8ff5fa31e4000a3c503ff1d",
-     "imported_at": "2026-10-07T00:41:42Z",
+     "imported_at": "2026-10-07T01:00:09Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0004/s42/train.log",
@@ -5300,7 +5017,7 @@
    {
     "id": "E-0004/s43",
     "seed": 43,
-    "job_id": "demo-3486173",
+    "job_id": "demo-3487801",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -5317,7 +5034,7 @@
      "experiment_id": "E-0004",
      "seed": 43,
      "attempt": 1,
-     "code_ref": "af4bdd969caeadaaf0d8dd58450b1e5c6299712c",
+     "code_ref": "49b00d6df5d71006b6342f5bd1108c5a06c005f3",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5337,9 +5054,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "6174bffda29f9ac78b8b05aab2e2f9c03e26277e65c60042a80a62eba28bda87",
+     "manifest_sha256": "fb660a7d3b89fa7530cf207db5097b099d1ec6565ca90412f760dfd8c2fb47d9",
      "metrics_sha256": "2154ee6a1906915114788f0396aa5d9c8a5ff2b6526a6a25282badb63f34bbff",
-     "imported_at": "2026-10-07T00:41:43Z",
+     "imported_at": "2026-10-07T01:00:11Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0004/s43/train.log",
@@ -5353,7 +5070,7 @@
    {
     "id": "E-0004/s44",
     "seed": 44,
-    "job_id": "demo-3482035",
+    "job_id": "demo-3486173",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -5370,7 +5087,7 @@
      "experiment_id": "E-0004",
      "seed": 44,
      "attempt": 1,
-     "code_ref": "af4bdd969caeadaaf0d8dd58450b1e5c6299712c",
+     "code_ref": "49b00d6df5d71006b6342f5bd1108c5a06c005f3",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5390,9 +5107,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "bcb05be9014140e6872419f0187eb986fa765749f4fca7b716e149ff5b6bba55",
+     "manifest_sha256": "09f6fcaf63308d64290e90c37f904f00d1bea8e5d8bab1960c7b05d5d8b79442",
      "metrics_sha256": "09f3d05dc52133573e1378ee97cbf61f472e6848ec211ba1207aaf574fb8e3f5",
-     "imported_at": "2026-10-07T00:41:45Z",
+     "imported_at": "2026-10-07T01:00:12Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0004/s44/train.log",
@@ -5406,7 +5123,7 @@
    {
     "id": "E-0005/s1042",
     "seed": 1042,
-    "job_id": "demo-3482083",
+    "job_id": "demo-3482035",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -5423,7 +5140,7 @@
      "experiment_id": "E-0005",
      "seed": 1042,
      "attempt": 1,
-     "code_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
+     "code_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5443,9 +5160,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "488729c05be978f727f60e0bcb4a549038725c9d56e43376b7ed38ccf30f2f96",
+     "manifest_sha256": "b68cdababa7e9bda1262670cb06ba2d07d2b6cca9ffa65d239100eeb6bb45fc7",
      "metrics_sha256": "1e261d4529fc7745d4fc2126954bd56b60b320134a07bfbf5d82480c3c8c0f94",
-     "imported_at": "2026-10-07T00:41:50Z",
+     "imported_at": "2026-10-07T01:00:17Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0005/s1042/train.log",
@@ -5459,7 +5176,7 @@
    {
     "id": "E-0005/s1043",
     "seed": 1043,
-    "job_id": "demo-3488383",
+    "job_id": "demo-3482083",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -5476,7 +5193,7 @@
      "experiment_id": "E-0005",
      "seed": 1043,
      "attempt": 1,
-     "code_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
+     "code_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5496,9 +5213,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "f6cc9b82bcd986e3497cbbcb0c01371e731e584e76b1539f023bcb103dca0790",
+     "manifest_sha256": "00ae2caa9b48ed3460180367e89d42c7508f3cd2bf8ef059d7aceccc31ef9cc5",
      "metrics_sha256": "c3d1faf3800fda5048b375f5187d136d731f1b9ef58e499f9f8d19ca2ebf9fb5",
-     "imported_at": "2026-10-07T00:41:51Z",
+     "imported_at": "2026-10-07T01:00:18Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0005/s1043/train.log",
@@ -5512,7 +5229,7 @@
    {
     "id": "E-0005/s1044",
     "seed": 1044,
-    "job_id": "demo-3480930",
+    "job_id": "demo-3488383",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -5529,7 +5246,7 @@
      "experiment_id": "E-0005",
      "seed": 1044,
      "attempt": 1,
-     "code_ref": "0262489bf4c005a0e34150bcece2f7b9cd5c8c08",
+     "code_ref": "393ff2f4ad306545d71597be4875e138772d1a73",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5549,9 +5266,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "c26e146de873293200ba53bdbf92e6d15ac6ae6c32f5460db17c52804a5d14ed",
+     "manifest_sha256": "c4f4ad277fc61ecfa48b61db596d6c7702d997dc643e8c86d37e31ecb1130aff",
      "metrics_sha256": "cb7f3994a4d43a18d80eaafabdecb61fd81798d3ed8b4470ed6a9e679cc8a0b6",
-     "imported_at": "2026-10-07T00:41:52Z",
+     "imported_at": "2026-10-07T01:00:19Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0005/s1044/train.log",
@@ -5565,7 +5282,7 @@
    {
     "id": "E-0006/s1042",
     "seed": 1042,
-    "job_id": "demo-3483690",
+    "job_id": "demo-3480930",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -5582,7 +5299,7 @@
      "experiment_id": "E-0006",
      "seed": 1042,
      "attempt": 1,
-     "code_ref": "af4bdd969caeadaaf0d8dd58450b1e5c6299712c",
+     "code_ref": "49b00d6df5d71006b6342f5bd1108c5a06c005f3",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5602,9 +5319,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "f16e28758106bd4a5ae23372494e104cb5139d82ae677e368e9c964ab56c31c5",
+     "manifest_sha256": "70905e67522da3c43c144fa27ce58f4f1b4cc87bbf29d72a387fb15ed95090b5",
      "metrics_sha256": "2e7fe6047968177c1de3908fabbc39008a5d2fb2e339545e3a927a6d41a87953",
-     "imported_at": "2026-10-07T00:41:55Z",
+     "imported_at": "2026-10-07T01:00:22Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0006/s1042/train.log",
@@ -5618,7 +5335,7 @@
    {
     "id": "E-0006/s1043",
     "seed": 1043,
-    "job_id": "demo-3489195",
+    "job_id": "demo-3483690",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -5635,7 +5352,7 @@
      "experiment_id": "E-0006",
      "seed": 1043,
      "attempt": 1,
-     "code_ref": "af4bdd969caeadaaf0d8dd58450b1e5c6299712c",
+     "code_ref": "49b00d6df5d71006b6342f5bd1108c5a06c005f3",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5655,9 +5372,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "862a4fb17eaf8e2c81c5902c35d3e59786cfd3ba67df531f6450ef14a171b08e",
+     "manifest_sha256": "cf6da6393e99acc004babf06a5a9d48559ffc267a1c8572129b05dd9a27d4760",
      "metrics_sha256": "7e32f6b1cd7a20d7dd21f11abba82e46d1ab87a858dc2c89146f1a462aa86ddf",
-     "imported_at": "2026-10-07T00:41:56Z",
+     "imported_at": "2026-10-07T01:00:22Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0006/s1043/train.log",
@@ -5671,7 +5388,7 @@
    {
     "id": "E-0006/s1044",
     "seed": 1044,
-    "job_id": "demo-3488045",
+    "job_id": "demo-3489195",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -5688,7 +5405,7 @@
      "experiment_id": "E-0006",
      "seed": 1044,
      "attempt": 1,
-     "code_ref": "af4bdd969caeadaaf0d8dd58450b1e5c6299712c",
+     "code_ref": "49b00d6df5d71006b6342f5bd1108c5a06c005f3",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5708,9 +5425,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "d98c2b0b94920b551497fe5da8c81085e26091242c1b11047c5ea8145bcfc8d9",
+     "manifest_sha256": "84397eccbecb67df22b10491c3ad8e733a45f33b2cfda3cb22be5c20d7df3765",
      "metrics_sha256": "23fe44261874eca8f9c07c02eacc89750110c5339960757724f5e70401f12109",
-     "imported_at": "2026-10-07T00:41:57Z",
+     "imported_at": "2026-10-07T01:00:23Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0006/s1044/train.log",
@@ -5724,7 +5441,7 @@
    {
     "id": "E-0007/s42",
     "seed": 42,
-    "job_id": "demo-3485582",
+    "job_id": "demo-3483787",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -5741,7 +5458,7 @@
      "experiment_id": "E-0007",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "fcc0556da02de37017b48ffffffe2f3093ff6e7d",
+     "code_ref": "ed29a2ebd1df5b84c18b7fb6cbb0aa857dea82b7",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5761,9 +5478,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "1580e8c2e57962191e0b88f901989505a679df25091e58c2e3f935430cb66a49",
+     "manifest_sha256": "91d52cc51c86642686a05a38ca07b39688ac68f9fda29e56c75df6f43ee7338a",
      "metrics_sha256": "c6a9898028e1864128f1a481b10f0834e00e0799cd39ad6167d908322c235266",
-     "imported_at": "2026-10-07T00:42:04Z",
+     "imported_at": "2026-10-07T01:00:31Z",
      "by": "worker/h0004"
     },
     "log_path": "outputs/E-0007/s42/train.log",
@@ -5775,62 +5492,9 @@
     "experiment_id": "E-0007"
    },
    {
-    "id": "E-0007/s43",
-    "seed": 43,
-    "job_id": "demo-3485454",
-    "exec_status": "succeeded",
-    "attempt": 1,
-    "started_at": "2026-10-03T12:00:00Z",
-    "finished_at": "2026-10-03T13:00:00Z",
-    "metric_value": 71.4694,
-    "secondary": {
-     "final_loss": 0.9328,
-     "loss_auc": 1.3166,
-     "peak_mem_gb": 39.6413,
-     "train_time_s": 3080.9947
-    },
-    "manifest_path": "outputs/E-0007/s43/manifest.json",
-    "manifest": {
-     "experiment_id": "E-0007",
-     "seed": 43,
-     "attempt": 1,
-     "code_ref": "fcc0556da02de37017b48ffffffe2f3093ff6e7d",
-     "exit_status": 0,
-     "metrics_path": "metrics.json",
-     "data_version": "commonsense-mix-v1（虚构）",
-     "train_steps": 1000,
-     "log_path": "train.log",
-     "curve_path": "curve.json",
-     "output_path": ".",
-     "nodes_used": 4,
-     "walltime_used_s": 3140,
-     "counts": {
-      "n_train": 2000,
-      "n_eval": 8000
-     }
-    },
-    "evidence_paths": [
-     "outputs/E-0007/s43/metrics.json"
-    ],
-    "import_record": {
-     "parser_version": "rt-manifest-1",
-     "manifest_sha256": "671a605ede46d71b07ed304a326b91277d9b76e3100bd3a56dca11b63196c409",
-     "metrics_sha256": "26d404e31819d1c15933281b617dafa05ed59ed1a5ed5086ad82227b97361c11",
-     "imported_at": "2026-10-07T00:42:05Z",
-     "by": "worker/h0004"
-    },
-    "log_path": "outputs/E-0007/s43/train.log",
-    "curve_path": "outputs/E-0007/s43/curve.json",
-    "output_path": "outputs/E-0007/s43",
-    "nodes_used": 4,
-    "walltime_used_s": 3140,
-    "valid": true,
-    "experiment_id": "E-0007"
-   },
-   {
     "id": "E-0008/s42",
     "seed": 42,
-    "job_id": "demo-3488339",
+    "job_id": "demo-3485454",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -5847,7 +5511,7 @@
      "experiment_id": "E-0008",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "64e7a0b4a576d5e896362fb3f706ae9fe8085505",
+     "code_ref": "7d48cc3b85b194af83fe1db480758d19eb5162fb",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5867,9 +5531,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "dde8c42c4361c39dfaa68611cc205ecd90d12b4e729c5ef91112b7303f224a46",
+     "manifest_sha256": "c99fe94aa49e1a6f84f877f58165fe311a63ee15dab2b0c1f7bde2f42938589c",
      "metrics_sha256": "1c67221c2e2014751bba0423e91fb81a4ef1ed2dc413f8b5ee2f66d3b797ee87",
-     "imported_at": "2026-10-07T00:42:14Z",
+     "imported_at": "2026-10-07T01:00:39Z",
      "by": "worker/h0005"
     },
     "log_path": "outputs/E-0008/s42/train.log",
@@ -5881,62 +5545,9 @@
     "experiment_id": "E-0008"
    },
    {
-    "id": "E-0008/s43",
-    "seed": 43,
-    "job_id": "demo-3480636",
-    "exec_status": "succeeded",
-    "attempt": 1,
-    "started_at": "2026-10-03T12:00:00Z",
-    "finished_at": "2026-10-03T13:00:00Z",
-    "metric_value": 71.5061,
-    "secondary": {
-     "final_loss": 0.9127,
-     "loss_auc": 1.2827,
-     "peak_mem_gb": 38.3731,
-     "train_time_s": 2978.174
-    },
-    "manifest_path": "outputs/E-0008/s43/manifest.json",
-    "manifest": {
-     "experiment_id": "E-0008",
-     "seed": 43,
-     "attempt": 1,
-     "code_ref": "64e7a0b4a576d5e896362fb3f706ae9fe8085505",
-     "exit_status": 0,
-     "metrics_path": "metrics.json",
-     "data_version": "commonsense-mix-v1（虚构）",
-     "train_steps": 1000,
-     "log_path": "train.log",
-     "curve_path": "curve.json",
-     "output_path": ".",
-     "nodes_used": 4,
-     "walltime_used_s": 3038,
-     "counts": {
-      "n_train": 2000,
-      "n_eval": 8000
-     }
-    },
-    "evidence_paths": [
-     "outputs/E-0008/s43/metrics.json"
-    ],
-    "import_record": {
-     "parser_version": "rt-manifest-1",
-     "manifest_sha256": "179a70d54e27b65d83c3011d2b10bca16ec5edf4e90a60e930dc1d0e91ac8249",
-     "metrics_sha256": "64fda824fa1f1c233b0ee7fcc77c5f32b86175fe6f0fa7a945d9bf1b8c04b0e2",
-     "imported_at": "2026-10-07T00:42:15Z",
-     "by": "worker/h0005"
-    },
-    "log_path": "outputs/E-0008/s43/train.log",
-    "curve_path": "outputs/E-0008/s43/curve.json",
-    "output_path": "outputs/E-0008/s43",
-    "nodes_used": 4,
-    "walltime_used_s": 3038,
-    "valid": true,
-    "experiment_id": "E-0008"
-   },
-   {
     "id": "E-0009/s42",
     "seed": 42,
-    "job_id": "demo-3480519",
+    "job_id": "demo-3488339",
     "exec_status": "succeeded",
     "attempt": 1,
     "started_at": "2026-10-03T12:00:00Z",
@@ -5953,7 +5564,7 @@
      "experiment_id": "E-0009",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "79deeb903ab4518520e3193d635c28541dd7fce3",
+     "code_ref": "72f7c6774f9972dfe490393b1a87f2cca57c988f",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5973,9 +5584,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "881ae41a46be5e8dc1a59e92580e510ec84c03ac857027d639e3649769418cf0",
+     "manifest_sha256": "c46f98afb2803f8b37ca2294885d583764f3dab672b81755e1380b8fbc7f775c",
      "metrics_sha256": "08f8b3bb8e8e6b6fa0422b1a1b1747b1765950d03e1081e8a77188e8e633fcc3",
-     "imported_at": "2026-10-07T00:42:22Z",
+     "imported_at": "2026-10-07T01:00:46Z",
      "by": "worker/h0007"
     },
     "log_path": "outputs/E-0009/s42/train.log",
@@ -5983,59 +5594,6 @@
     "output_path": "outputs/E-0009/s42",
     "nodes_used": 4,
     "walltime_used_s": 3102,
-    "valid": true,
-    "experiment_id": "E-0009"
-   },
-   {
-    "id": "E-0009/s43",
-    "seed": 43,
-    "job_id": "demo-3483115",
-    "exec_status": "succeeded",
-    "attempt": 1,
-    "started_at": "2026-10-03T12:00:00Z",
-    "finished_at": "2026-10-03T13:00:00Z",
-    "metric_value": 71.4488,
-    "secondary": {
-     "final_loss": 0.9177,
-     "loss_auc": 1.2804,
-     "peak_mem_gb": 31.9622,
-     "train_time_s": 3031.7717
-    },
-    "manifest_path": "outputs/E-0009/s43/manifest.json",
-    "manifest": {
-     "experiment_id": "E-0009",
-     "seed": 43,
-     "attempt": 1,
-     "code_ref": "79deeb903ab4518520e3193d635c28541dd7fce3",
-     "exit_status": 0,
-     "metrics_path": "metrics.json",
-     "data_version": "commonsense-mix-v1（虚构）",
-     "train_steps": 1000,
-     "log_path": "train.log",
-     "curve_path": "curve.json",
-     "output_path": ".",
-     "nodes_used": 4,
-     "walltime_used_s": 3091,
-     "counts": {
-      "n_train": 2000,
-      "n_eval": 8000
-     }
-    },
-    "evidence_paths": [
-     "outputs/E-0009/s43/metrics.json"
-    ],
-    "import_record": {
-     "parser_version": "rt-manifest-1",
-     "manifest_sha256": "7d9944860d30a0c7ca06cb4ae04cca544d54e7053c103855d7d7a02e246632ea",
-     "metrics_sha256": "b77b0ebf77632a00b66ec104af9b020d80c8e64ec1e78162351adc1e34ce4b68",
-     "imported_at": "2026-10-07T00:42:24Z",
-     "by": "worker/h0007"
-    },
-    "log_path": "outputs/E-0009/s43/train.log",
-    "curve_path": "outputs/E-0009/s43/curve.json",
-    "output_path": "outputs/E-0009/s43",
-    "nodes_used": 4,
-    "walltime_used_s": 3091,
     "valid": true,
     "experiment_id": "E-0009"
    }
@@ -6047,14 +5605,13 @@
     "source_id": "E-0002",
     "target_id": "E-0001",
     "role": "sota",
-    "n_paired": 2,
-    "delta_mean": 0.16375000000000028,
-    "delta_sd": 0.015485638507986982,
+    "n_paired": 1,
+    "delta_mean": 0.1747000000000014,
     "deltas": {
-     "final_loss": -0.0006499999999999839,
-     "loss_auc": 0.0018499999999999073,
-     "peak_mem_gb": -1.1855999999999973,
-     "train_time_s": -0.004973838623927701
+     "final_loss": 0.0020999999999999908,
+     "loss_auc": -9.999999999998899e-05,
+     "peak_mem_gb": -1.1184999999999974,
+     "train_time_s": -0.006733103818298707
     },
     "passes_gate": false
    },
@@ -6062,14 +5619,13 @@
     "source_id": "E-0003",
     "target_id": "E-0001",
     "role": "sota",
-    "n_paired": 2,
-    "delta_mean": -0.24284999999999712,
-    "delta_sd": 0.004737615433956412,
+    "n_paired": 1,
+    "delta_mean": -0.2394999999999925,
     "deltas": {
-     "final_loss": -0.010249999999999981,
-     "loss_auc": -0.025449999999999973,
-     "peak_mem_gb": -0.6352499999999992,
-     "train_time_s": -0.04219133231526796
+     "final_loss": -0.011599999999999944,
+     "loss_auc": -0.03149999999999986,
+     "peak_mem_gb": -0.5478000000000023,
+     "train_time_s": -0.044949367839454316
     },
     "passes_gate": false
    },
@@ -6092,14 +5648,13 @@
     "source_id": "E-0004",
     "target_id": "E-0002",
     "role": "parent",
-    "n_paired": 2,
-    "delta_mean": 0.08125000000000426,
-    "delta_sd": 0.007990306627401926,
+    "n_paired": 1,
+    "delta_mean": 0.08689999999999998,
     "deltas": {
-     "final_loss": 0.0014500000000000068,
-     "loss_auc": 0.010700000000000154,
-     "peak_mem_gb": 0.11114999999999853,
-     "train_time_s": -0.0005928313649611812
+     "final_loss": -0.00039999999999995595,
+     "loss_auc": 0.0049000000000001265,
+     "peak_mem_gb": 0.11869999999999692,
+     "train_time_s": -0.0009399598756937158
     }
    },
    {
@@ -6121,14 +5676,13 @@
     "source_id": "E-0007",
     "target_id": "E-0001",
     "role": "sota",
-    "n_paired": 2,
-    "delta_mean": 0.018900000000002137,
-    "delta_sd": 0.00692964645561704,
+    "n_paired": 1,
+    "delta_mean": 0.014000000000010004,
     "deltas": {
-     "final_loss": -0.018949999999999967,
-     "loss_auc": -0.03474999999999995,
-     "peak_mem_gb": -1.6313499999999976,
-     "train_time_s": -0.03177880689895128
+     "final_loss": -0.01749999999999996,
+     "loss_auc": -0.03599999999999981,
+     "peak_mem_gb": -1.5223999999999975,
+     "train_time_s": -0.03581228784576807
     },
     "passes_gate": false
    },
@@ -6136,28 +5690,26 @@
     "source_id": "E-0007",
     "target_id": "E-0002",
     "role": "parent",
-    "n_paired": 2,
-    "delta_mean": -0.14484999999999815,
-    "delta_sd": 0.022415284963604024,
+    "n_paired": 1,
+    "delta_mean": -0.1606999999999914,
     "deltas": {
-     "final_loss": -0.018299999999999983,
-     "loss_auc": -0.036599999999999855,
-     "peak_mem_gb": -0.4457500000000003,
-     "train_time_s": -0.026672304536530623
+     "final_loss": -0.01959999999999995,
+     "loss_auc": -0.03589999999999982,
+     "peak_mem_gb": -0.40390000000000015,
+     "train_time_s": -0.028884700341310868
     }
    },
    {
     "source_id": "E-0008",
     "target_id": "E-0001",
     "role": "sota",
-    "n_paired": 2,
-    "delta_mean": 0.06765000000000754,
-    "delta_sd": 0.010111626970971697,
+    "n_paired": 1,
+    "delta_mean": 0.07480000000001041,
     "deltas": {
-     "final_loss": 0.00030000000000002247,
-     "loss_auc": -0.00539999999999996,
-     "peak_mem_gb": -0.39174999999999827,
-     "train_time_s": 0.0022913239882569134
+     "final_loss": 0.0009000000000000119,
+     "loss_auc": -0.011199999999999877,
+     "peak_mem_gb": -0.311399999999999,
+     "train_time_s": -0.001972202831594059
     },
     "passes_gate": false
    },
@@ -6165,14 +5717,13 @@
     "source_id": "E-0009",
     "target_id": "E-0001",
     "role": "sota",
-    "n_paired": 2,
-    "delta_mean": 0.01305000000000689,
-    "delta_sd": 0.013930003589375179,
+    "n_paired": 1,
+    "delta_mean": 0.022900000000007026,
     "deltas": {
-     "final_loss": -0.0006499999999999839,
-     "loss_auc": -0.0005999999999999339,
-     "peak_mem_gb": 6.005100000000002,
-     "train_time_s": -0.015405020824967081
+     "final_loss": 0.0040000000000000036,
+     "loss_auc": -0.0038999999999997925,
+     "peak_mem_gb": 6.071400000000001,
+     "train_time_s": -0.01948482777826751
     },
     "passes_gate": false
    }

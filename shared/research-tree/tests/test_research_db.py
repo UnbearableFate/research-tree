@@ -1624,6 +1624,33 @@ class ConfirmationTest(Fixture):
             self.worker.create_experiment("method", "m", design, self.rld.get(exp2)["code_ref"], 1, 60,
                                           hypothesis_id=h2, stage="confirm", estimated_node_h=1.0)
 
+    def test_rechecks_bind_to_the_confirmation_the_go_rests_on(self):
+        h, exp = self.candidate_ready()
+        self.rld.update_project(recheck_required=True)
+        search_ev = self.rld.get_eligibility(h)["basis_evaluation_id"]
+        reviewer = ResearchDB(self.db, "reviewer/pi")
+        (reviewer.docs_root / "reviews").mkdir(exist_ok=True)
+
+        def review(n, dimension, ev):
+            path = f"reviews/RV-{n:04d}.v1.md"
+            (reviewer.docs_root / path).write_text("pass\n", encoding="utf-8")
+            reviewer.register_review(path, "r", "candidate_recheck", [h], "pass", f"RV-{n:04d}", "pi",
+                                     "openai/gpt-6-astra", 0.0, dimension=dimension, evaluation_id=ev)
+        for n, dimension in enumerate(rdb.RECHECK_DIMENSIONS, 1):
+            review(n, dimension, search_ev)
+        self.confirm_baseline()
+        design = self.doc(self.worker, "exp/cr.v1.md", "experiment_design")
+        conf = self.worker.create_experiment("method", "m", design, self.rld.get(exp)["code_ref"], 1, 60,
+                                             hypothesis_id=h, stage="confirm", estimated_node_h=1.0)
+        self.evaluate(conf, None, sota=(0.3, 0.1, 0.1))
+        result = self.rld.get_eligibility(h)
+        self.assertEqual(result["recheck_evaluation_id"], result["confirmation_evaluation_id"])
+        self.assertFalse(result["eligible"])  # the search EV's numbers rechecks do not cover the confirmation
+        self.assertEqual({r["dimension"] for r in result["rechecks"] if r["state"] == "stale"}, {"numbers", "protocol"})
+        review(6, "numbers", result["confirmation_evaluation_id"])
+        review(7, "protocol", result["confirmation_evaluation_id"])
+        self.assertTrue(self.rld.get_eligibility(h)["eligible"])
+
     def candidate_ready(self) -> tuple[str, str]:
         h, exp = self.concluded("beats_sota")
         self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
@@ -2015,6 +2042,13 @@ class CostEstimateTest(Fixture):
         other = self.worker.create_experiment("method", "m", design, code, 1, 90, hypothesis_id=h, n_seeds=1,
                                               estimated_node_h=0.1)
         self.assertEqual((again, other != first), (first, True))
+
+    def test_configured_screening_seeds_cap_the_screen(self):
+        h = self.hypothesis()
+        self.start(h)
+        self.assertEqual(len(self.rld.get(self.method(h))["seeds"]), 3)  # the budget allows 3
+        self.rld.update_project(screen_seeds=1)  # version 2: verification.screening_seeds has one seed
+        self.assertEqual(len(self.rld.get(self.method(h))["seeds"]), 1)
 
     def test_x04(self):
         h = self.hypothesis()

@@ -146,6 +146,18 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         self.assertEqual([(r["kind"], r["outcome"]) for r in log],
                          [("confirm_request", "skipped: no notify.url"), ("alert", "skipped: no notify.url")])
 
+    def test_research_review_handler(self):
+        args = {"kind": "novelty_precheck", "brief": "docs/project/min-setup.v1.md", "about": "P-test"}
+        worker = Runtime(self.cwd, "worker/root")
+        with self.assertRaisesRegex(ValueError, "only the Leader"):
+            worker.dispatch("research_review", args)
+        # this fixture's configuration is version 1: no models.reviewer, so the call is unavailable and logged
+        with self.assertRaisesRegex(ValueError, "REVIEW_UNAVAILABLE: research-tree.yaml has no models.reviewer"):
+            self.runtime.dispatch("research_review", args)
+        log = [json.loads(x) for x in (self.runtime.root / "logs/review_calls.jsonl").read_text().splitlines()]
+        self.assertEqual((log[-1]["kind"], log[-1]["about"], log[-1]["outcome"]),
+                         ("novelty_precheck", "P-test", "REVIEW_UNAVAILABLE"))
+
     def test_bound_roles_cannot_impersonate_or_control_execution(self):
         ui = Runtime(self.cwd, "ui/ui")
         with self.assertRaisesRegex(ValueError, "only read"):

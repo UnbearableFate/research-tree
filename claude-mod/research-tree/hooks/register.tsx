@@ -83,12 +83,15 @@ async function venv($: EngineInterface): Promise<{ python: string } | { problem:
   let cwd = '当前目录'
   try {
     cwd = await $.session.cwd()
-    if (await $.fs.exists(`${cwd}/${VENV_PYTHON}`)) return { python: `${cwd}/${VENV_PYTHON}` }
+    // the session's directory may have moved below the project (a shell cd): look upward for the environment
+    for (let dir = cwd; dir && dir !== '/'; dir = dir.replace(/\/[^/]*$/, '') || '/') {
+      if (await $.fs.exists(`${dir}/${VENV_PYTHON}`)) return { python: `${dir}/${VENV_PYTHON}` }
+    }
   } catch {
     // no file system here: treated as missing
   }
   return {
-    problem: `${cwd} 下还没有 ${VENV_PYTHON}：先运行 /${COMMAND} prepare，它会用 uv 建立本目录的项目环境。`,
+    problem: `${cwd} 及其上级目录都没有 ${VENV_PYTHON}：在研究项目目录（含 .research-tree.json）中运行；新项目先运行 /${COMMAND} prepare，它会用 uv 建立项目环境。`,
   }
 }
 
@@ -1213,8 +1216,8 @@ export const register: Register = (on, options) => {
       const args = ['--kind', String(input.kind ?? ''), '--brief', String(input.brief ?? ''), '--about', String(input.about ?? ''),
         ...(input.dimension ? ['--dimension', input.dimension] : []), ...(input.evaluation ? ['--evaluation', input.evaluation] : []),
         ...(input.session ? ['--session', input.session] : []), ...(input.add_dirs ?? []).flatMap(d => ['--add-dir', d])]
-      // a reviewer reads files itself: up to models.reviewer.timeout_s per round, two rounds at most
-      const out = await runTool($, cfg, 'review_call.py', args, 2 * MAX_PROCESS_MS)
+      // a reviewer reads files itself: review_call.py caps the whole call at 3600 s (MAX_CALL_S); wait a little longer
+      const out = await runTool($, cfg, 'review_call.py', args, 3_900_000)
       await refresh($, cfg)
       const text = (out.stdout || out.stderr).trim()
       return out.exitCode === 0 ? { result: text } : { result: text || `exit ${out.exitCode}`, isError: true as const }

@@ -1,14 +1,14 @@
 ---
-id: "D-0046"
+id: "D-0029"
 doc_type: "experiment_design"
 version: 1
-title: "H-0004 实验设计"
-summary: "momentum-rescale"
+title: "H-0003 实验设计"
+summary: "moment-balance"
 about: []
 author_role: "worker"
-author_id: "h0004"
-created_at: "2026-10-07T00:42:03Z"
+author_id: "h0003"
+created_at: "2026-10-07T01:00:08Z"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
 
-代码 fcc0556da0：momentum-rescale。
+代码 49b00d6df5：moment-balance。

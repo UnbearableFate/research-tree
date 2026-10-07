@@ -419,7 +419,7 @@
           "const": false
         },
         "require_method_code_alignment": {
-          "type": "boolean"
+          "const": true
         }
       }
     },
