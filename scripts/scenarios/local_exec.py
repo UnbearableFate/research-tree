@@ -13,6 +13,12 @@ Copied into each test project as tools/local_exec.py. Its state lives in <projec
     local_exec.py accounting --key KEY --write FILE                   actual usage of an ended job, as a JSON file
     local_exec.py cancel --key KEY                                    stop the job (only the process it started)
     local_exec.py list
+    local_exec.py serve                                               the scheduler service (run by the controller)
+
+When the scheduler service runs (`serve`, started by the test controller outside any agent sandbox), submit and
+cancel only queue a request in .local-exec/queue/ and the service starts or stops the job: a host that runs each
+command in a private, short-lived sandbox (Codex: its own PID namespace, killed when the command ends) can then
+submit jobs that outlive the command, as with a real scheduler. Without the service, submit starts the job itself.
 
 A job runs under its own supervisor process (a new session), so closing the agent session that submitted it does
 not stop it. The supervisor writes usage.json into the job's output directory: measured CPU seconds of the child
@@ -97,6 +103,27 @@ def alive(job: dict) -> bool:
     return bool(pid) and proc_start(pid) == job.get("proc_start_ticks")
 
 
+DAEMON_STALE_S = 15.0
+
+
+def daemon() -> dict | None:
+    """The scheduler service's heartbeat, when it is alive."""
+    path = STATE / "daemon.json"
+    try:
+        beat = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return beat if time.time() - beat.get("at", 0) < DAEMON_STALE_S else None
+
+
+def enqueue(kind: str, key: str) -> None:
+    queue = STATE / "queue"
+    queue.mkdir(parents=True, exist_ok=True)
+    tmp = queue / f".{kind}-{key.replace('/', '__')}.tmp"
+    tmp.write_text(json.dumps({"kind": kind, "key": key, "at": now()}), encoding="utf-8")
+    tmp.replace(queue / f"{kind}-{key.replace('/', '__')}.json")
+
+
 def fault(window: str, key: str) -> dict | None:
     """Consume one declared fault for this window and key, if any is left."""
     path = os.environ.get("RT_LOCAL_EXEC_FAULTS")
@@ -131,6 +158,13 @@ def launch(key: str, launch_n: int) -> None:
                      env={**os.environ, "RT_LOCAL_EXEC_STATE": str(STATE)})
 
 
+def start_job(key: str) -> None:
+    launch(key, 1)
+    if (extra := fault("extra_launch", key)) is not None:  # S6: one real extra start, for the observer
+        append("faults.jsonl", {"fault": extra["id"], "window": "extra_launch", "key": key})
+        launch(key, 2)
+
+
 def submit(args) -> int:
     if not KEY_RE.match(args.key):
         return answer("submit", args.key, {"ok": False, "error": "key is 1..128 of letters, digits and _ . : @ / -"}, 2)
@@ -147,10 +181,14 @@ def submit(args) -> int:
         else:
             fresh = False
     if fresh:
-        launch(args.key, 1)
-        if (extra := fault("extra_launch", args.key)) is not None:  # S6: one real extra start, for the observer
-            append("faults.jsonl", {"fault": extra["id"], "window": "extra_launch", "key": args.key})
-            launch(args.key, 2)
+        if daemon() is not None:  # the scheduler service starts it, outside the caller's sandbox
+            with locked():
+                job = read_job(args.key)
+                job["via"] = "daemon"
+                write_job(job)
+            enqueue("submit", args.key)
+        else:
+            start_job(args.key)
     deadline = time.time() + 15
     while time.time() < deadline:
         job = read_job(args.key)
@@ -229,7 +267,10 @@ def status(args) -> int:
     job = read_job(args.key)
     if job is None:
         return answer("status", args.key, {"ok": True, "found": False, "key": args.key})
-    if job["state"] == "running" and not alive(job):
+    if job.get("via") == "daemon":  # its process lives outside the caller's view; the service keeps the record
+        if job["state"] in ("launching", "running") and daemon() is None:
+            job["state"] = "unknown (scheduler service not answering)"
+    elif job["state"] == "running" and not alive(job):
         time.sleep(0.2)  # the supervisor may be writing the end right now
         job = read_job(args.key)
         if job["state"] == "running" and not alive(job):
@@ -274,12 +315,42 @@ def cancel(args) -> int:
         job = read_job(args.key)
         if job is None:
             return answer("cancel", args.key, {"ok": False, "error": f"no job {args.key}"}, 2)
+        if job.get("via") == "daemon" and job["state"] == "running":
+            enqueue("cancel", args.key)
+            return answer("cancel", args.key, {"ok": True, "cancelled": "requested", **view(job)})
         if job["state"] != "running" or not alive(job):
             return answer("cancel", args.key, {"ok": True, "cancelled": False, **view(job)})
         os.kill(job["pid"], signal.SIGTERM)  # only the process this adapter started, identified by PID + start time
         job["state"] = "cancelled"
         write_job(job)
     return answer("cancel", args.key, {"ok": True, "cancelled": True, **view(job)})
+
+
+def serve(args) -> int:
+    """The scheduler service: heartbeat, then start queued submissions and carry out queued cancellations."""
+    STATE.mkdir(parents=True, exist_ok=True)
+    queue = STATE / "queue"
+    queue.mkdir(exist_ok=True)
+    append("events.jsonl", {"call": "serve", "key": None, "exit": 0, "answer": {"pid": os.getpid()}})
+    while True:
+        (STATE / "daemon.json").write_text(json.dumps({"pid": os.getpid(), "at": time.time()}), encoding="utf-8")
+        for req_file in sorted(queue.glob("*.json")):
+            req = json.loads(req_file.read_text(encoding="utf-8"))
+            req_file.unlink()
+            job = read_job(req["key"])
+            if job is None:
+                continue
+            if req["kind"] == "submit" and job["state"] == "launching":
+                start_job(req["key"])
+            elif req["kind"] == "cancel" and job["state"] == "running" and alive(job):
+                os.kill(job["pid"], signal.SIGTERM)
+                with locked():
+                    job = read_job(req["key"])
+                    job["state"] = "cancelled"
+                    write_job(job)
+        if args.once:
+            return 0
+        time.sleep(0.2)
 
 
 def list_jobs(_args) -> int:
@@ -305,12 +376,14 @@ def main(argv=None) -> int:
     a.add_argument("--key", required=True)
     a.add_argument("--write", required=True)
     sub.add_parser("list")
+    sd = sub.add_parser("serve")
+    sd.add_argument("--once", action="store_true", help=argparse.SUPPRESS)
     sv = sub.add_parser("_supervise")
     sv.add_argument("--key", required=True)
     sv.add_argument("--launch", type=int, default=1)
     args = p.parse_args(argv)
     return {"submit": submit, "status": status, "wait": wait, "accounting": accounting, "cancel": cancel,
-            "list": list_jobs, "_supervise": supervise}[args.cmd](args)
+            "list": list_jobs, "serve": serve, "_supervise": supervise}[args.cmd](args)
 
 
 if __name__ == "__main__":

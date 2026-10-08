@@ -183,6 +183,35 @@ class AdapterTest(unittest.TestCase):
             self.assertEqual(sorted(consumed), ["F1", "F2"])
 
 
+class SchedulerServiceTest(unittest.TestCase):
+    def test_jobs_submitted_through_the_service_outlive_the_caller(self):
+        """Found in the S0 Codex run: a sandboxed command's own children die with it, so the controller runs the
+        scheduler service and a submission only queues the job; status comes from the service's record."""
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp) / "p"
+            make(project)
+            tool = [sys.executable, str(project / "tools/local_exec.py")]
+            service = subprocess.Popen(tool + ["serve"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            try:
+                deadline = time.time() + 10
+                while not (project / ".local-exec/daemon.json").is_file() and time.time() < deadline:
+                    time.sleep(0.1)
+                out = subprocess.run(tool + ["submit", "--key", "svc-1", "--cwd", str(project / "code"), "--out",
+                                             str(project / "outputs/svc-1"), "--", sys.executable, "-m",
+                                             "toytrain.run", "--experiment", "E-0001", "--seed", "42", "--out",
+                                             str(project / "outputs/svc-1")], capture_output=True, text=True)
+                self.assertEqual(out.returncode, 0, out.stderr)
+                waited = json.loads(subprocess.run(tool + ["wait", "--key", "svc-1", "--timeout", "60"],
+                                                   capture_output=True, text=True).stdout)
+                self.assertEqual((waited["state"], waited["exit_code"]), ("exited", 0))
+                job = json.loads((project / ".local-exec/jobs/svc-1.json").read_text())
+                self.assertEqual(job["via"], "daemon")
+                self.assertEqual(observe.launches(project)["per_key"], {"svc-1": 1})
+            finally:
+                service.terminate()
+                service.wait()
+
+
 class RecordTest(unittest.TestCase):
     def full(self, base: Path) -> dict:
         evidence = base / "session.log"
