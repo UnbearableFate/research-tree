@@ -57,11 +57,11 @@ Fable 5.1 补充 usage credits。期间继续不依赖评审的实现、REG 与�
 | 阶段 | REG与构建 | Claude真实SC | Codex真实SC | 独立终审 | 阶段状态 |
 | --- | --- | --- | --- | --- | --- |
 | S0 | PASS | PASS（a03） | PASS（a07；a04 FAIL 已修复，a05/a06 中止） | BLOCKED（Fable 不可用） | IN_PROGRESS |
-| S1 | PASS（REG-S1-01..06，`test_identity.py`；已并入 `bug-fix-1008`） | FAIL（a01：夹具与控制器缺陷，已修复）；a02 进行中 | a01 中止（同一夹具缺陷，为节省 Codex 额度在身份步骤前停止） | BLOCKED（Fable 不可用） | IN_PROGRESS |
+| S1 | PASS（REG-S1-01..06，`test_identity.py`；已并入 `bug-fix-1008`） | a01 FAIL、a02 FAIL/BLOCKED（用量上限），已修复；a03 进行中 | a01 中止（夹具缺陷） | BLOCKED（Fable 不可用） | IN_PROGRESS |
 | S2 | PASS（REG-S2-01..08，`test_confirmation.py`；分支 `s2-dev`） | NOT_STARTED | NOT_STARTED | BLOCKED（Fable 不可用） | IN_PROGRESS |
 | S3 | PASS（REG-S3-01..07，`test_units.py`；分支 `s3-dev`） | NOT_STARTED | NOT_STARTED | BLOCKED（Fable 不可用） | IN_PROGRESS |
-| S4 | IN_PROGRESS（REG-S4-01..08，`test_reviews_s4.py` 与 `test_review_call.py`；分支 `s4-dev`） | NOT_STARTED | NOT_STARTED | BLOCKED（Fable 不可用） | IN_PROGRESS |
-| S5 | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED |
+| S4 | PASS（REG-S4-01..08，`test_reviews_s4.py` 与 `test_review_call.py`；分支 `s4-dev`） | NOT_STARTED | NOT_STARTED | BLOCKED（Fable 不可用） | IN_PROGRESS |
+| S5 | PASS（REG-S5-01..07，`test_memory_s5.py`；分支 `s5-dev`） | NOT_STARTED | NOT_STARTED | BLOCKED（Fable 不可用） | IN_PROGRESS |
 | S6 | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED |
 | S7 | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED |
 
@@ -111,3 +111,8 @@ Fable 5.1 补充 usage credits。期间继续不依赖评审的实现、REG 与�
   控制器 v2（Alpha 改动前先评审、阻塞时重启、提交的配置文件、故障事件按 JSON 记录、结束时关闭 pane）。
 - Codex a01：在身份步骤之前中止（同一夹具缺陷会使其后续步骤无效，Codex 周额度只剩约 25%），会话原文保存在
   `rt-S1-codex-a01.aborted-fixture.ctl/`，不形成记录。
+- Claude a02（`scenarios/S1/claude/*/a02`）：控制器 v2。SC-S1-01 FAIL（Z4）：会话重启后 RLD 找不到发现流程命令（搜索文件系统、
+  试用不存在的 `research_db.discovery_gate`），Alpha 新回执之后没有重跑发现门。修复（`523895a`）：每个 Claude 会话注入发现与文献
+  命令，Codex 的 `research_control status` 返回同样的命令。21:16:49 起宿主会话达到账户用量上限（原文 “You've hit your session limit
+  · resets 11:30pm (UTC)”），之后所有提示无回答：SC-COMMON-01、SC-S1-02、SC-S1-03 记 BLOCKED。控制器现在在宿主报告用量上限时立即停止
+  并关闭 pane。注意：测试宿主与本实施会话共用同一账户额度。
