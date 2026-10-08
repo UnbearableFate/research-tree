@@ -201,7 +201,7 @@ flowchart TD
 |---|---|
 | `prepare` | 建立项目环境，生成 `plan.md` 与 `research-tree.yaml`；不覆盖已有文件 |
 | `config show` | 查看生效配置及尚未应用的修改 |
-| `config apply` | 将用户修改后的配置登记为新版本并应用 |
+| `config apply [--replace-metric-spec]` | 将用户修改后的配置登记为新版本并应用；RLD 按用户指令登记过的指标规范与文件不一致时拒绝并列出差异，`--replace-metric-spec` 表示用户决定以文件为准 |
 | `status` | 查看研究摘要；也是不带子命令时的默认操作 |
 | `ui` | Claude 打开研究对话窗口；Codex 返回在另一个终端打开对话窗口的命令 |
 | `pane` | Claude 打开内嵌进度面板；Codex 生成离线 HTML 页面并返回路径 |

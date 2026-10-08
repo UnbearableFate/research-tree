@@ -235,6 +235,16 @@ def handle(event):
             previous = read_json(cache / "leader.json", {})
             if not previous.get("session_id") or previous["session_id"] == event["session_id"]:
                 write_json(cache / "leader.json", {"session_id": event["session_id"], "model": event.get("model") or previous.get("model")})
+            elif kind == "SessionStart":
+                # A new main session in a project whose Leader session is recorded (the usual resume after the
+                # previous CLI ended): the model learns the supported takeover, not only the person (S0 Codex run).
+                takeover = (f"research-tree：本项目已登记的 RLD 会话是 {previous['session_id']}，当前会话是 "
+                            f"{event['session_id']}。恢复工作时：先用 research_control status 与 inbox、research_db "
+                            "resume_package 核对原会话留下的任务、作业与未处理事件；确认原会话已不再工作后，用 "
+                            f"research_control attach(session_id=\"{event['session_id']}\", model=当前模型) 登记交接，"
+                            "再以 RLD 身份继续；不要重复提交已完成或状态 unknown 的工作。")
+                return {"systemMessage": "research-tree已有另一RLD会话；若需要接管，先核对原会话与作业，再用research_control attach登记交接。",
+                        "hookSpecificOutput": {"hookEventName": kind, "additionalContext": WORKFLOW + "\n" + takeover}}
             else:
                 return {"systemMessage": "research-tree已有另一RLD会话；若需要接管，先核对原会话与作业，再用research_control attach登记交接。"}
     if kind in {"SessionStart", "PostToolUse"} and event.get("model") and event.get("session_id"):

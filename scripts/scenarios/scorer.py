@@ -40,8 +40,11 @@ def score_output(out_dir: Path, data_dir: Path) -> dict:
     config = manifest.get("config") or {}
     split = manifest.get("eval_split") or config.get("eval_split")
     rows, digest = load_rows(data_dir, split, manifest.get("eval_split_sha256"))
-    n = (manifest.get("counts") or {}).get("n_eval") or (SANITY_EVAL if config.get("sanity") else len(rows))
+    # how many rows are scored follows from the run kind alone (the whole split, or the sanity prefix), never from
+    # the run's own manifest; a manifest stating another count is reported
+    n = SANITY_EVAL if config.get("sanity") else len(rows)
     rows = rows[:n]
+    stated = (manifest.get("counts") or {}).get("n_eval")
     model = json.loads((out_dir / "model.json").read_text(encoding="utf-8"))
     w, b = model["w"], model["b"]
     preds = {r["id"]: int(_sigmoid(sum(a * c for a, c in zip(w, r["x"])) + b) > 0.5) for r in rows}
@@ -61,6 +64,7 @@ def score_output(out_dir: Path, data_dir: Path) -> dict:
             "accuracy": accuracy, "reported_accuracy": metrics.get("accuracy"),
             "accuracy_matches": metrics.get("accuracy") is not None and abs(metrics["accuracy"] - accuracy) < 1e-12,
             "prediction_mismatches": mismatched_preds[:20], "label_mismatches": mismatched_labels[:20],
+            "manifest_n_eval": stated, "manifest_n_matches": stated == len(rows),
             "predictions_cover_split": set(reported) == set(labels)}
 
 

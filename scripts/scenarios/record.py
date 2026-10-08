@@ -26,8 +26,12 @@ VERDICTS = ("PASS", "FAIL", "BLOCKED")
 EVIDENCE_CLASSES = ("real_sc", "reg", "simulation")
 HOSTS = ("claude", "codex")
 # §2.2: what each host's test session runs on and which reviewer backend its product review uses
-MATRIX = {"claude": {"main": "claude-haiku-5-5", "reviewer_backend": "pi", "reviewer": "openai/gpt-6-luna"},
-          "codex": {"main": "gpt-6-luna", "reviewer_backend": "claude_code", "reviewer": "anthropic/claude-haiku-5-5"}}
+# The effort follows the §2.2 model matrix as the user last revised it (medium for both test sessions); §0.1 and
+# §4.1 still say "high" from an earlier revision — implementation-status.md records the resolution.
+MATRIX = {"claude": {"main": "claude-haiku-5-5", "effort": "medium", "reviewer_backend": "pi",
+                     "reviewer": "openai/gpt-6-luna"},
+          "codex": {"main": "gpt-6-luna", "effort": "medium", "reviewer_backend": "claude_code",
+                    "reviewer": "anthropic/claude-haiku-5-5"}}
 REAL_BACKENDS = ("pi", "claude_code")
 # what a real scenario may not rest on (§2.1)
 SUBSTITUTES = ("canned_model_response", "mock_reviewer", "local_responses_stub", "direct_db_write",
@@ -75,6 +79,15 @@ def problems(record: dict, base: Path | None = None) -> list[str]:
     if record.get("evidence_class") == "real_sc":
         if not record.get("observed_effort"):
             out.append("observed_effort is missing (from the host's own records)")
+        elif record.get("host") in MATRIX and record["observed_effort"] != MATRIX[record["host"]]["effort"]:
+            out.append(f"observed effort {record['observed_effort']} is not the matrix effort "
+                       f"{MATRIX[record['host']]['effort']}")
+        if record.get("requires_resume", True) and record.get("resume_evidence"):
+            resume = record["resume_evidence"]
+            pair = [resume.get("observer_before"), resume.get("observer_after")]
+            if not all(pair) or not all(_exists(p, base) for p in pair):
+                out.append("resume_evidence needs observer_before and observer_after (read-only snapshots around the "
+                           "resumed session)")
         transcripts = record.get("session_transcripts") or []
         if not transcripts or not all(_exists(p, base) for p in transcripts):
             out.append("session_transcripts (the host's raw session files) are missing")

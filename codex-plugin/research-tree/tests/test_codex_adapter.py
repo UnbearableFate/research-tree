@@ -187,6 +187,19 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         with self.assertRaisesRegex(ValueError, "needs kind, brief, about"):
             self.runtime.dispatch("research_review", {})
 
+    def test_a_new_main_session_learns_the_supported_takeover(self):
+        """S0 final review: after the previous CLI ended, a new main session was refused as Leader and answered
+        read-only; the hook now tells the model (not only the person) how to take over with attach."""
+        first = codex_hook.handle({"hook_event_name": "SessionStart", "cwd": str(self.cwd),
+                                   "session_id": "22222222-2222-4222-8222-222222222222", "model": "fixture-model"})
+        context = first["hookSpecificOutput"]["additionalContext"]
+        self.assertIn("research_control attach", context)
+        self.assertIn("22222222-2222-4222-8222-222222222222", context)
+        self.runtime.control("attach", {"session_id": "22222222-2222-4222-8222-222222222222", "model": "fixture-model"})
+        again = codex_hook.handle({"hook_event_name": "SessionStart", "cwd": str(self.cwd),
+                                   "session_id": "22222222-2222-4222-8222-222222222222", "model": "fixture-model"})
+        self.assertNotIn("attach(", again["hookSpecificOutput"]["additionalContext"])
+
     def test_planning_prompt_gives_the_effective_project_fields(self):
         """Host drift found in the S0 Codex run: the Claude prompt hands the Leader the effective db_fields; the
         Codex prompt only said 'the configuration's budget and gates', and the Leader copied require_precheck

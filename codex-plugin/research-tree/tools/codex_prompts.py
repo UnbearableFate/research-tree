@@ -146,6 +146,6 @@ D4 triage：research_review(kind=triage, about=项目ID, brief 列出 candidates
 D7 精炼：为每个幸存想法写假说文档（03 的章节），可选一轮 proposal_review；set --stage refine --status done --artifact docs/project/discovery/refined-hypotheses.md（列出写好的假说文档）。
 D8 写 docs/project/reports/discovery.v1.md（章节：## 用户假说（逐条查新与评审结论）、## 新发现候选（排序）、## 淘汰想法（阶段、理由、点名论文；没有写“无”））并登记，运行 discovery gate --report docs/project/reports/discovery.v1.md；PASS 后 create_hypothesis(candidate_id=CAND-编号) 建初始节点（接口核对该候选的查新与评审回执；建议放弃的用户假说只在用户决定保留后，带其用户指令 user_instruction_doc_id 建立）。立项计划把用户假说与新候选分栏列出各自的结论。
 是否新颖、是否值得做由评审文档或确定性门给出；reviewer 不可用时如实上报（REVIEW_UNAVAILABLE），不以你的判断代替。
-确认前配置与计划若冲突要指出，由用户决定；确认后先指派根节点worker实现框架并跑 sanity（冻结前允许）；你审核框架代码后冻结框架，worker 再在冻结的框架上登记并运行全部 seed 的基线（除 sanity 外的实验都要求已冻结）；审核基线结果后设置SOTA，再推进假说。
+确认前配置与计划若冲突要指出，由用户决定；确认后先指派根节点worker实现框架，并把 sanity 登记为 create_experiment(kind="sanity") 照常提交、导入（冻结前允许；不在数据库外另跑检查作业）；你审核框架代码后冻结框架，worker 再在冻结的框架上登记并运行全部 seed 的基线（除 sanity 外的实验都要求已冻结）；审核基线结果后设置SOTA，再推进假说。
 {platform(conf)}
 """

@@ -17,6 +17,12 @@
 原始预检证据：[`S0-precheck/`](S0-precheck/)（各宿主 `--version`、`claude -p --help`、`codex exec --help`、
 `pi --list-models`，以及四个模型各一次实际调用的原始 JSON / 输出）。
 
+## 测试会话的 effort
+
+实施文档 §0.1 与 §4.1 写“Claude Haiku 5.5 high”，§2.2 模型矩阵（用户在 `253d50d` 中最后修订）写 `claude-haiku-5-5` medium、
+`gpt-6-luna` reasoning medium。以最后修订的 §2.2 为准：两端测试主会话都用 medium，`AGENTS.md` 与 `scripts/scenarios/record.py`
+（MATRIX）按此登记，真实场景记录的 observed_effort 须等于它。
+
 ## 冻结的资源与运行边界（§3.4，S0 开发校准后冻结，适用于 S0–S6 每个阶段 × 宿主）
 
 开发校准（[`S0-precheck/calibration/dev-calibration.json`](S0-precheck/calibration/dev-calibration.json)；开发训练

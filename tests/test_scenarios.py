@@ -120,6 +120,13 @@ class ScorerTest(unittest.TestCase):
             second = scorer.score_output(out, project / "code/data")
             self.assertEqual((second["accuracy"], second["correct"]), (first["accuracy"], first["correct"]))
             self.assertFalse(second["accuracy_matches"])
+            # nor does a doctored count in the run's own manifest
+            manifest = json.loads((out / "run_manifest.json").read_text())
+            manifest["counts"]["n_eval"] = 100
+            (out / "run_manifest.json").write_text(json.dumps(manifest))
+            third = scorer.score_output(out, project / "code/data")
+            self.assertEqual((third["n"], third["correct"]), (first["n"], first["correct"]))
+            self.assertFalse(third["manifest_n_matches"])
             usage = json.loads((out / "usage.json").read_text())
             self.assertGreater(usage["cpu_seconds"], 0)
             self.assertEqual(usage["walltime_used_s"], 1)
@@ -221,7 +228,8 @@ class RecordTest(unittest.TestCase):
                  loaded_plugin_path="/x/dist/claude/plugins/research-tree", observed_model="claude-haiku-5-5",
                  session_id="s-1", observed_effort="medium", session_transcripts=[str(evidence)],
                  commands=["herdr agent prompt rt '/research-tree init'"],
-                 raw_evidence_paths=[str(evidence)], observer_results={"runs": []}, resume_evidence={"new_session": "s-2"},
+                 raw_evidence_paths=[str(evidence)], observer_results={"runs": []},
+                 resume_evidence={"new_session": "s-2", "observer_before": str(evidence), "observer_after": str(evidence)},
                  assertions=[{"id": "A1", "expected": "baseline evaluation from real runs", "actual": "EV-0001",
                               "evidence": str(evidence), "verdict": "PASS"}],
                  review_calls=[{"review_id": "D-0010", "backend": "pi", "outcome": "ok",
@@ -236,7 +244,8 @@ class RecordTest(unittest.TestCase):
             for key, value in (("host", None), ("observed_model", None), ("commands", []),
                                ("raw_evidence_paths", []), ("raw_evidence_paths", ["missing.log"]),
                                ("resume_evidence", None), ("observer_results", None), ("session_id", None),
-                               ("observed_effort", None), ("session_transcripts", [])):
+                               ("observed_effort", None), ("observed_effort", "high"), ("session_transcripts", []),
+                               ("resume_evidence", {"new_session": "s-2"})):
                 broken = {**good, key: value}
                 self.assertTrue(record.problems(broken, base), f"{key}={value!r} passed")
             failing = {**good, "assertions": [{**good["assertions"][0], "verdict": "FAIL"}]}
