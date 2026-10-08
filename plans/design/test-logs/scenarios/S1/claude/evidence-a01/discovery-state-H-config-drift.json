@@ -1,0 +1,90 @@
+{
+ "mode": "precheck",
+ "executor_model": null,
+ "created": "2026-10-08T20:13:24Z",
+ "gate": {
+  "verdict": "PASS",
+  "reasons": [],
+  "at": "2026-10-08T20:27:15Z",
+  "report": "docs/project/reports/discovery.v2.md"
+ },
+ "stages": [
+  {
+   "stage": "brief",
+   "status": "done",
+   "artifact": null,
+   "evidence": null,
+   "updated": "2026-10-08T20:13:25Z"
+  },
+  {
+   "stage": "literature",
+   "status": "accepted",
+   "artifact": "docs/project/discovery/literature.md",
+   "evidence": [
+    "cache/discovery/verify-1609.04747.json",
+    "cache/discovery/verify-1408.3595.json",
+    "cache/discovery/verify-1712.09677.json"
+   ],
+   "updated": "2026-10-08T20:17:59Z",
+   "verifier": "literature.py"
+  },
+  {
+   "stage": "candidates",
+   "status": "skipped",
+   "artifact": null,
+   "evidence": null,
+   "updated": "2026-10-08T20:13:24Z"
+  },
+  {
+   "stage": "feasibility",
+   "status": "skipped",
+   "artifact": null,
+   "evidence": null,
+   "updated": "2026-10-08T20:13:24Z"
+  },
+  {
+   "stage": "triage",
+   "status": "skipped",
+   "artifact": null,
+   "evidence": null,
+   "updated": "2026-10-08T20:13:24Z"
+  },
+  {
+   "stage": "novelty",
+   "status": "accepted",
+   "artifact": "docs/project/discovery/novelty-reviews.md",
+   "evidence": [
+    "D-0009",
+    "D-0018"
+   ],
+   "updated": "2026-10-08T20:27:00Z",
+   "verifier": null
+  },
+  {
+   "stage": "critique",
+   "status": "accepted",
+   "artifact": "docs/project/discovery/critical-reviews.md",
+   "evidence": [
+    "D-0011",
+    "D-0019"
+   ],
+   "updated": "2026-10-08T20:27:00Z",
+   "verifier": null
+  },
+  {
+   "stage": "refine",
+   "status": "done",
+   "artifact": "docs/project/discovery/refined-hypotheses.md",
+   "evidence": null,
+   "updated": "2026-10-08T20:21:25Z"
+  },
+  {
+   "stage": "gate",
+   "status": "done",
+   "artifact": "docs/project/reports/discovery.v2.md",
+   "evidence": null,
+   "updated": "2026-10-08T20:27:15Z"
+  }
+ ],
+ "updated": "2026-10-08T20:27:15Z"
+}

@@ -1,0 +1,736 @@
+{
+ "project": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a01",
+ "db": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a01/research/rt-s1-claude-a01/research_tree.db",
+ "db_sha256_unchanged": true,
+ "phase": "confirmed",
+ "data_version": 171,
+ "counts": {
+  "project": 1,
+  "hypothesis": 1,
+  "experiment": 6,
+  "branch": 1,
+  "document": 43,
+  "decision": 0,
+  "task": 1,
+  "evaluation": 2,
+  "obligation": 0,
+  "reservation": 8,
+  "run": 10
+ },
+ "experiments": [
+  {
+   "id": "E-0001",
+   "kind": "sanity",
+   "stage": "screen",
+   "hypothesis_id": null,
+   "code_ref": "417b57beb5bd69a12066db37c040b834b122c76c",
+   "seeds": [
+    42
+   ],
+   "evaluation_id": null,
+   "owner": "root",
+   "method_spec_doc_id": "D-0025",
+   "identity_status": null
+  },
+  {
+   "id": "E-0002",
+   "kind": "baseline",
+   "stage": "screen",
+   "hypothesis_id": null,
+   "code_ref": "417b57beb5bd69a12066db37c040b834b122c76c",
+   "seeds": [
+    42,
+    43,
+    44
+   ],
+   "evaluation_id": "EV-0001",
+   "owner": "root",
+   "method_spec_doc_id": "D-0029",
+   "identity_status": null
+  },
+  {
+   "id": "E-0003",
+   "kind": "baseline",
+   "stage": "screen",
+   "hypothesis_id": null,
+   "code_ref": "417b57beb5bd69a12066db37c040b834b122c76c",
+   "seeds": [
+    42,
+    43,
+    44
+   ],
+   "evaluation_id": "EV-0002",
+   "owner": "root",
+   "method_spec_doc_id": "D-0030",
+   "identity_status": null
+  },
+  {
+   "id": "E-0004",
+   "kind": "method",
+   "stage": "screen",
+   "hypothesis_id": "H-0001",
+   "code_ref": "417b57beb5bd69a12066db37c040b834b122c76c",
+   "seeds": [
+    42
+   ],
+   "evaluation_id": null,
+   "owner": "main",
+   "method_spec_doc_id": "D-0037",
+   "identity_status": null
+  },
+  {
+   "id": "E-0005",
+   "kind": "method",
+   "stage": "screen",
+   "hypothesis_id": "H-0001",
+   "code_ref": "417b57beb5bd69a12066db37c040b834b122c76c",
+   "seeds": [
+    42
+   ],
+   "evaluation_id": null,
+   "owner": "main",
+   "method_spec_doc_id": "D-0038",
+   "identity_status": null
+  },
+  {
+   "id": "E-0006",
+   "kind": "sanity",
+   "stage": "screen",
+   "hypothesis_id": "H-0001",
+   "code_ref": "417b57beb5bd69a12066db37c040b834b122c76c",
+   "seeds": [
+    42
+   ],
+   "evaluation_id": null,
+   "owner": "main",
+   "method_spec_doc_id": "D-0040",
+   "identity_status": null
+  }
+ ],
+ "nodes": [
+  {
+   "id": "H-0001",
+   "title": "H1 重球动量在固定更新预算下比参考 SGD 更快提升探索集准确率",
+   "status": "pending",
+   "claim_revision": 1,
+   "claim_sha": "e0c326364d8cbdd8b8f32b030128d5791b584120378329f1713c85200374b52a",
+   "eligibility": {
+    "hypothesis_id": "H-0001",
+    "eligible": false,
+    "basis_evaluation_id": null,
+    "experiment_id": null,
+    "evidence_state": "none",
+    "reasons": [
+     "NO_EVALUATION"
+    ],
+    "verification_level": null,
+    "gate_passed": null,
+    "guardrails_passed": null,
+    "stage": null,
+    "outcome": null,
+    "confirmation_evaluation_id": null,
+    "open_obligations": [],
+    "rechecks": null,
+    "recheck_evaluation_id": null,
+    "rld_rechecks": null
+   }
+  }
+ ],
+ "runs": [
+  {
+   "ref": "E-0001/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.67,
+   "imported": true,
+   "submission_key": "T-0001-sanity-E0001-s42-a1",
+   "job_id": "local-T-0001-sanity-E0001-s42-a1",
+   "experiment_id": "E-0001",
+   "manifest_path": "outputs/E-0001/s42-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.67,
+    "correct": 67,
+    "n": 100,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 14,
+    "manifest_steps": 14,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0564,
+     "wall_seconds": 0.6277,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0002/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.805,
+   "imported": true,
+   "submission_key": "T-0001-E0002-s42-a1",
+   "job_id": "local-T-0001-E0002-s42-a1",
+   "experiment_id": "E-0002",
+   "manifest_path": "outputs/E-0002/s42-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.805,
+    "correct": 322,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0543,
+     "wall_seconds": 0.6297,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0002/s43@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.7525,
+   "imported": true,
+   "submission_key": "T-0001-E0002-s43-a1",
+   "job_id": "local-T-0001-E0002-s43-a1",
+   "experiment_id": "E-0002",
+   "manifest_path": "outputs/E-0002/s43-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.7525,
+    "correct": 301,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0542,
+     "wall_seconds": 0.7817,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0002/s44@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.8175,
+   "imported": true,
+   "submission_key": "T-0001-E0002-s44-a1",
+   "job_id": "local-T-0001-E0002-s44-a1",
+   "experiment_id": "E-0002",
+   "manifest_path": "outputs/E-0002/s44-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.8175,
+    "correct": 327,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0532,
+     "wall_seconds": 0.7681,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0003/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.8375,
+   "imported": true,
+   "submission_key": "T-0001-E0003-s42-a1",
+   "job_id": "local-T-0001-E0003-s42-a1",
+   "experiment_id": "E-0003",
+   "manifest_path": "outputs/E-0003/s42-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.8375,
+    "correct": 335,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0543,
+     "wall_seconds": 0.6592,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0003/s43@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.8375,
+   "imported": true,
+   "submission_key": "T-0001-E0003-s43-a1",
+   "job_id": "local-T-0001-E0003-s43-a1",
+   "experiment_id": "E-0003",
+   "manifest_path": "outputs/E-0003/s43-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.8375,
+    "correct": 335,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0532,
+     "wall_seconds": 1.089,
+     "walltime_used_s": 2,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0003/s44@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.84,
+   "imported": true,
+   "submission_key": "T-0001-E0003-s44-a1",
+   "job_id": "local-T-0001-E0003-s44-a1",
+   "experiment_id": "E-0003",
+   "manifest_path": "outputs/E-0003/s44-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.84,
+    "correct": 336,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0529,
+     "wall_seconds": 1.0484,
+     "walltime_used_s": 2,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0004/s42@1",
+   "exec_status": "planned",
+   "valid": null,
+   "metric_value": null,
+   "imported": false,
+   "submission_key": null,
+   "job_id": null,
+   "experiment_id": "E-0004",
+   "manifest_path": null
+  },
+  {
+   "ref": "E-0005/s42@1",
+   "exec_status": "planned",
+   "valid": null,
+   "metric_value": null,
+   "imported": false,
+   "submission_key": null,
+   "job_id": null,
+   "experiment_id": "E-0005",
+   "manifest_path": null
+  },
+  {
+   "ref": "E-0006/s42@1",
+   "exec_status": "succeeded",
+   "valid": null,
+   "metric_value": null,
+   "imported": false,
+   "submission_key": "H-0001-E0006-s42-a1",
+   "job_id": "local-H-0001-E0006-s42-a1",
+   "experiment_id": "E-0006",
+   "manifest_path": null
+  }
+ ],
+ "evaluations": [
+  {
+   "id": "EV-0001",
+   "experiment_id": "E-0002",
+   "outcome": null,
+   "gate_passed": null,
+   "verification_level": "artifact_imported",
+   "recorded_mean": 79.16666666666667,
+   "unit": "percentage_point",
+   "independent_mean": 79.16666666666666,
+   "mean_matches": true,
+   "run_refs": [
+    "E-0002/s42@1",
+    "E-0002/s43@1",
+    "E-0002/s44@1"
+   ]
+  },
+  {
+   "id": "EV-0002",
+   "experiment_id": "E-0003",
+   "outcome": null,
+   "gate_passed": null,
+   "verification_level": "artifact_imported",
+   "recorded_mean": 83.83333333333333,
+   "unit": "percentage_point",
+   "independent_mean": 83.83333333333334,
+   "mean_matches": true,
+   "run_refs": [
+    "E-0003/s42@1",
+    "E-0003/s43@1",
+    "E-0003/s44@1"
+   ]
+  }
+ ],
+ "obligations": [],
+ "reservations": [
+  {
+   "id": "RS-0001",
+   "submission_key": "T-0001-sanity-E0001-s42-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-T-0001-sanity-E0001-s42-a1"
+  },
+  {
+   "id": "RS-0002",
+   "submission_key": "T-0001-E0002-s42-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-T-0001-E0002-s42-a1"
+  },
+  {
+   "id": "RS-0003",
+   "submission_key": "T-0001-E0002-s43-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-T-0001-E0002-s43-a1"
+  },
+  {
+   "id": "RS-0004",
+   "submission_key": "T-0001-E0002-s44-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-T-0001-E0002-s44-a1"
+  },
+  {
+   "id": "RS-0005",
+   "submission_key": "T-0001-E0003-s42-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-T-0001-E0003-s42-a1"
+  },
+  {
+   "id": "RS-0006",
+   "submission_key": "T-0001-E0003-s43-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 2,
+   "job_id": "local-T-0001-E0003-s43-a1"
+  },
+  {
+   "id": "RS-0007",
+   "submission_key": "T-0001-E0003-s44-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 2,
+   "job_id": "local-T-0001-E0003-s44-a1"
+  },
+  {
+   "id": "RS-0008",
+   "submission_key": "H-0001-E0006-s42-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-H-0001-E0006-s42-a1"
+  }
+ ],
+ "jobs": {
+  "starts": 8,
+  "keys": 8,
+  "duplicate_jobs": 0,
+  "per_key": {
+   "T-0001-sanity-E0001-s42-a1": 1,
+   "T-0001-E0002-s42-a1": 1,
+   "T-0001-E0002-s43-a1": 1,
+   "T-0001-E0002-s44-a1": 1,
+   "T-0001-E0003-s42-a1": 1,
+   "T-0001-E0003-s43-a1": 1,
+   "T-0001-E0003-s44-a1": 1,
+   "H-0001-E0006-s42-a1": 1
+  },
+  "cpu_seconds": 0.4412,
+  "wall_seconds": 6.4856,
+  "failed_exits": []
+ },
+ "site": {
+  "exit": 0,
+  "answer": "{\"page_version\": 171, \"db_version\": 171, \"stale\": false}"
+ },
+ "agent_models": [
+  {
+   "ts": "2026-10-08T20:18:15Z",
+   "agent": "main",
+   "actor": "rld/main",
+   "event": "observed",
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "ts": "2026-10-08T20:28:35Z",
+   "agent": "main",
+   "actor": "rld/main",
+   "event": "observed",
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "ts": "2026-10-08T20:29:42Z",
+   "agent": "ae2c65bf782fa2174",
+   "actor": "worker/root",
+   "event": "requested",
+   "model": "claude-haiku-5-5",
+   "effort": "medium"
+  },
+  {
+   "ts": "2026-10-08T20:33:14Z",
+   "agent": "ae2c65bf782fa2174",
+   "actor": "worker/root",
+   "event": "observed",
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "ts": "2026-10-08T20:45:34Z",
+   "agent": "main",
+   "actor": "rld/main",
+   "event": "observed",
+   "model": "claude-haiku-5-5"
+  }
+ ],
+ "review_calls": [
+  {
+   "kind": "novelty_precheck",
+   "about": "CAND-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.001283,
+   "review_id": "D-0009",
+   "session": "RV-0001",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a01/research/rt-s1-claude-a01/cache/reviews/RV-0001.v1.jsonl"
+  },
+  {
+   "kind": "critical_review",
+   "about": "CAND-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.002944,
+   "review_id": "D-0010",
+   "session": "RV-0002",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a01/research/rt-s1-claude-a01/cache/reviews/RV-0002.v1.jsonl"
+  },
+  {
+   "kind": "critical_review",
+   "about": "CAND-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.00107,
+   "review_id": "D-0011",
+   "session": "RV-0002",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a01/research/rt-s1-claude-a01/cache/reviews/RV-0002.v1.jsonl"
+  },
+  {
+   "kind": "novelty_precheck",
+   "about": "CAND-0002",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.002286,
+   "review_id": "D-0018",
+   "session": "RV-0003",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a01/research/rt-s1-claude-a01/cache/reviews/RV-0003.v1.jsonl"
+  },
+  {
+   "kind": "critical_review",
+   "about": "CAND-0002",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.002019,
+   "review_id": "D-0019",
+   "session": "RV-0004",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a01/research/rt-s1-claude-a01/cache/reviews/RV-0004.v1.jsonl"
+  },
+  {
+   "kind": "code_review",
+   "about": "rt-s1-claude-a01",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.002514,
+   "review_id": "D-0027",
+   "session": "RV-0005",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a01/research/rt-s1-claude-a01/cache/reviews/RV-0005.v1.jsonl"
+  },
+  {
+   "kind": "code_review",
+   "about": "E-0004",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.001636,
+   "review_id": "D-0041",
+   "session": "RV-0006",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a01/research/rt-s1-claude-a01/cache/reviews/RV-0006.v1.jsonl"
+  },
+  {
+   "kind": "candidate_recheck",
+   "about": "H-0001",
+   "dimension": "numbers",
+   "outcome": "REVIEW_INVALID",
+   "backend": null,
+   "cost_usd": 0.0,
+   "review_id": null,
+   "session": null,
+   "error": "REVIEW_INVALID: a candidate_recheck names --dimension (numbers, protocol, method_code, novelty, theory) and --evaluation (the evaluation it rechecks)",
+   "observed_model": null,
+   "raw_output": null
+  }
+ ]
+}

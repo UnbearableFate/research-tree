@@ -130,6 +130,14 @@ class ClaimAndBasisTest(IdentityFixture):
         self.assertEqual(narrowed["claim_revision"], 3)
         self.assertEqual(len(self.rld.get(h)["claim_history"]["revisions"]), 3)
 
+    def test_an_incomplete_basis_request_is_refused_clearly(self):  # S1 real scenario a01: a TypeError before
+        h, exp, ev = self.candidate_with_rechecks()
+        for dimension, evaluation in (("method_code", None), (None, ev), ("speed", ev)):
+            with self.assertRaisesRegex(ResearchDBError, "names dimension .* and evaluation_id"):
+                self.reviewer.review_basis(h, "candidate_recheck", dimension, evaluation)
+        with self.assertRaisesRegex(ResearchDBError, "kind is one of"):
+            self.reviewer.review_basis(h, "novelty", "novelty")
+
     def test_reg_s1_04_a_subject_changed_while_the_reviewer_answered_is_history_only(self):
         h, exp, ev = self.candidate_with_rechecks()
         basis = self.reviewer.review_basis(h, "candidate_recheck", "novelty", ev)

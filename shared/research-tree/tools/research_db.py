@@ -2034,7 +2034,8 @@ class ResearchDB:
         the next step) is required once the node's last two results were inconclusive. estimated_node_h (required)
         is the cost estimate; milestone M0..M4 (03 §6); budget_pool (search, confirmation, repair; by default from
         the stage) is the budget part its reservations count against. An overlapping seed request for the same
-        node, code and configuration returns the existing experiment; extend_seeds explicitly adds missing seeds.
+        node, code and method identity returns the existing experiment — also when only execution fields differ
+        (another output directory is the same experiment); extend_seeds explicitly adds missing seeds.
 
         Method identity (S1): the effective configuration — config_path's content at code_ref (JSON or YAML), then
         method_config on top — is resolved now and kept; together with the code, the protocol and the frozen
@@ -3835,6 +3836,8 @@ class ResearchDB:
 
     def _current_basis(self, tx: _Tx, about: str, kind: str, dimension: str | None = None,
                        evaluation_id: str | None = None, code_ref: str | None = None) -> dict:
+        if kind not in REVIEW_KINDS:
+            raise ResearchDBError(f"kind is one of {REVIEW_KINDS}")
         if CANDIDATE_ID_RE.fullmatch(about or ""):
             path = self.db_path.parent / "docs" / "project" / "discovery" / "candidates.json"
             pool = json.loads(path.read_text(encoding="utf-8")).get("candidates", []) if path.is_file() else []
@@ -3852,6 +3855,9 @@ class ResearchDB:
                             if e["code_ref"] == resolved and e.get("method_spec_doc_id")})
             return {**basis, "code_ref": resolved, "method_spec_doc_ids": specs}
         if kind == "candidate_recheck":
+            if dimension not in RECHECK_DIMENSIONS or not evaluation_id:
+                raise ResearchDBError(f"a candidate_recheck basis names dimension ({', '.join(RECHECK_DIMENSIONS)}) and "
+                                      "evaluation_id, the evaluation it rechecks")
             ev = tx.require(evaluation_id, ("evaluation",))
             exp = tx.get(ev["experiment_id"])
             if dimension in ("numbers", "protocol"):

@@ -4,8 +4,10 @@
         [--config configs/sgd.json] [--method sgd] [--lr 0.05] [--epochs 8] [--batch 32] [--accum 1] \\
         [--eval-split explore] [--data-dir data] [--sanity]
 
-The method settings come from --config (a JSON object with method, lr, epochs, batch, accum, eval_split), then the
-command-line flags given explicitly. The runner trains (toytrain.train), then writes OUT/run_manifest.json: the
+The method settings come from --config (a JSON object with method, lr, epochs, batch, accum, eval_split, and any
+option of the optimizer such as momentum's beta), then the command-line flags given explicitly (--opt NAME=VALUE for
+an optimizer option). Execution settings in the file (output_dir, walltime_s, notes) do not change the training and
+are recorded as given; any other unknown setting fails the run instead of being ignored. The runner trains (toytrain.train), then writes OUT/run_manifest.json: the
 experiment, seed and attempt, the code version (git HEAD of this repository and whether the tree had changes), the
 exit status, the files it wrote, counts actually used, the data version and the identities of the splits, the
 effective configuration, the environment, each metric's unit, and the measured wall time. A failed run still
@@ -27,6 +29,8 @@ from pathlib import Path
 from toytrain import data, train
 
 REPO = Path(__file__).resolve().parents[1]
+# settings that say where or how long a run goes, not how it trains: recorded as given
+EXECUTION = ("output_dir", "walltime_s", "notes")
 UNITS = {"accuracy": "fraction", "eval_loss": "nats", "final_loss": "nats", "train_time_s": "seconds"}
 
 
@@ -46,6 +50,7 @@ def main(argv=None) -> int:
         p.add_argument(f"--{key.replace('_', '-')}")
     for key, kind in (("lr", float), ("epochs", int), ("batch", int), ("accum", int)):
         p.add_argument(f"--{key}", type=kind)
+    p.add_argument("--opt", action="append", default=[], metavar="NAME=VALUE")
     p.add_argument("--sanity", action="store_true")
     args = p.parse_args(argv)
     out = Path(args.out).resolve()
@@ -56,9 +61,13 @@ def main(argv=None) -> int:
     for key in ("method", "lr", "epochs", "batch", "accum", "eval_split"):
         if getattr(args, key) is not None:
             settings[key] = getattr(args, key)
+    execution = {k: settings.pop(k) for k in EXECUTION if k in settings}
+    options = [f"{k}={v}" for k, v in settings.items() if k not in train.DEFAULTS] + list(args.opt)
     argv_train = ["--seed", str(args.seed), "--out", str(out), "--method", str(settings["method"]),
                   "--lr", str(settings["lr"]), "--epochs", str(settings["epochs"]), "--batch", str(settings["batch"]),
                   "--accum", str(settings["accum"]), "--eval-split", str(settings["eval_split"])]
+    for option in options:
+        argv_train += ["--opt", option]
     if args.data_dir:
         argv_train += ["--data-dir", args.data_dir]
     if args.sanity:
@@ -81,7 +90,7 @@ def main(argv=None) -> int:
             log.write("ERROR " + "".join(traceback.format_exception_only(type(exc), exc)))
             log.write(traceback.format_exc())
         manifest.update(exit_status=1, error=f"{type(exc).__name__}: {exc}", walltime_used_s=max(1, math.ceil(wall)),
-                        config={k: settings[k] for k in ("method", "lr", "epochs", "batch", "accum", "eval_split")})
+                        config={**settings, **execution})
         (out / "run_manifest.json").write_text(json.dumps(manifest, indent=1) + "\n", encoding="utf-8")
         print(json.dumps({"ok": False, "error": manifest["error"], "manifest": str(out / "run_manifest.json")}))
         return 1
@@ -91,7 +100,7 @@ def main(argv=None) -> int:
         "exit_status": 0, "metrics_path": "metrics.json", "curve_path": "curve.json",
         "evidence_paths": ["predictions.jsonl", "model.json", "effective_config.json"],
         "counts": {"n_train": m["n_train"], "n_eval": m["n_eval"], "steps": m["steps"]},
-        "config": result["config"], "eval_split": m["eval_split"], "eval_split_id": m["eval_split_id"],
+        "config": {**result["config"], **execution}, "eval_split": m["eval_split"], "eval_split_id": m["eval_split_id"],
         "eval_split_sha256": result["splits"]["eval"]["sha256"], "train_split_id": m["train_split_id"],
         "walltime_used_s": max(1, math.ceil(wall)), "wall_seconds": round(wall, 4),
     })

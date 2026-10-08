@@ -14,6 +14,7 @@ curve.json and curve.csv (one loss per update step), train.log, and effective_co
 from __future__ import annotations
 
 import argparse
+import inspect
 import json
 import math
 import random
@@ -55,9 +56,25 @@ def parse(argv=None) -> argparse.Namespace:
     p.add_argument("--accum", type=int, default=DEFAULTS["accum"])
     p.add_argument("--eval-split", default=DEFAULTS["eval_split"])
     p.add_argument("--data-dir", default=str(Path(__file__).resolve().parents[1] / "data"))
+    p.add_argument("--opt", action="append", default=[], metavar="NAME=VALUE",
+                   help="an option of the optimizer (momentum: beta; adam: b1, b2, eps); an unknown option fails")
     p.add_argument("--sanity", action="store_true",
                    help=f"2 epochs on the first {data.SANITY_TRAIN} training and {data.SANITY_EVAL} evaluation samples")
     return p.parse_args(argv)
+
+
+def optimizer_options(method: str, given: list[str]) -> dict:
+    """The optimizer's options, every one with the value used (given or the optimizer's default); a name the
+    optimizer does not take is an error, never silently ignored."""
+    params = {k: v.default for k, v in inspect.signature(methods.OPTIMIZERS[method]).parameters.items()
+              if k not in ("lr", "n")}
+    options = dict(params)
+    for item in given:
+        name, sep, value = item.partition("=")
+        if not sep or name not in params:
+            raise ValueError(f"{method} has no option {name!r} (its options: {sorted(params) or 'none'})")
+        options[name] = float(value)
+    return options
 
 
 def train(args: argparse.Namespace) -> dict:
@@ -73,13 +90,14 @@ def train(args: argparse.Namespace) -> dict:
     epochs = args.epochs
     if args.sanity:
         train_rows, eval_rows, epochs = train_rows[:data.SANITY_TRAIN], eval_rows[:data.SANITY_EVAL], 2
+    options = optimizer_options(args.method, args.opt)
     config = {"method": args.method, "lr": args.lr, "epochs": epochs, "batch": args.batch, "accum": args.accum,
               "effective_batch": args.batch * args.accum, "eval_split": args.eval_split, "sanity": args.sanity,
-              "data_version": data.GENERATOR_VERSION}
+              "data_version": data.GENERATOR_VERSION, **options}
     rng = random.Random(args.seed)
     w = [rng.gauss(0, 0.01) for _ in range(data.N_FEATURES)]
     b = 0.0
-    opt = methods.OPTIMIZERS[args.method](lr=args.lr, n=data.N_FEATURES + 1)
+    opt = methods.OPTIMIZERS[args.method](lr=args.lr, n=data.N_FEATURES + 1, **options)
     start = time.perf_counter()
     curve, step = [], 0
     order = list(train_rows)
