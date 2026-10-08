@@ -419,6 +419,10 @@ def review(cwd: Path, kind: str, brief: str, about: str, dimension: str | None =
     with ResearchDB(Path(marker["db"]), "rld/main").reader() as tx:
         if tx.get(about) is None and not CANDIDATE_ID_RE.fullmatch(about):
             raise ReviewError("REVIEW_INVALID", f"{about} is neither a record nor a discovery candidate (CAND-…)")
+    try:  # S1: what the review rests on, captured by the system before the reviewer reads anything
+        basis = ResearchDB(Path(marker["db"]), "rld/main").review_basis(about, kind, dimension, evaluation, code_ref)
+    except ResearchDBError as exc:
+        raise ReviewError("REVIEW_INVALID", f"the review's basis cannot be determined: {exc}") from None
 
     with _Lock(root):
         rv, uid, version, first, state = _allocate(root, session, kind, about, backend.name)
@@ -428,6 +432,7 @@ def review(cwd: Path, kind: str, brief: str, about: str, dimension: str | None =
     deadline = time.monotonic() + min(2 * int(reviewer["timeout_s"]) + 120, MAX_CALL_S, deadline_s or MAX_CALL_S)
     backend.deadline = deadline
     backend.code_ref = code_ref
+    backend.basis = basis
     return _review(root, backend, reviewer, kind, brief_path, about, dimension, evaluation, add_dirs, schema,
                    system_file, db, alert, so_far, rv, uid, version, first, state)
 
@@ -504,7 +509,8 @@ def _run_review(root, backend, reviewer, kind, brief_path, about, dimension, eva
               "model_observed": rec["model_observed"], "thinking": reviewer["thinking"], "session": rv,
               "session_id": uid, "brief": str(brief_path.relative_to(root)), "terminal_reason": rec["terminal_reason"],
               "cost_usd": round(cost, 6), "usage": rec["usage"], "permission_denials": rec["permission_denials"],
-              "raw": f"cache/reviews/{rv}.v{version}.{suffix}", "created_at": now()}
+              "raw": f"cache/reviews/{rv}.v{version}.{suffix}", "created_at": now(),
+              "basis": json.dumps(getattr(backend, "basis", None), ensure_ascii=False, sort_keys=True)}
     body = (_front_matter({k: v for k, v in fields.items() if v is not None}) +
             f"\n# {kind}：{about}{'（' + dimension + '）' if dimension else ''}\n\n## 评审原文\n\n{rec['text'].strip()}\n\n"
             f"## 结构化结论\n\n```json\n{json.dumps(data, ensure_ascii=False, indent=1)}\n```\n")
@@ -518,7 +524,8 @@ def _run_review(root, backend, reviewer, kind, brief_path, about, dimension, eva
                                     result, rv, backend.name, rec["model_observed"], cost, dimension=dimension,
                                     evaluation_id=evaluation, supersedes=state.get("doc_id"),
                                     code_ref=getattr(backend, "code_ref", None),
-                                    summary=f"{backend.name} {rec['model_observed']}: {result}")
+                                    summary=f"{backend.name} {rec['model_observed']}: {result}",
+                                    basis=getattr(backend, "basis", None))
     except ResearchDBError as exc:
         raise ReviewError("REVIEW_INVALID", f"not registered: {exc}", cost) from None
     with _Lock(root):

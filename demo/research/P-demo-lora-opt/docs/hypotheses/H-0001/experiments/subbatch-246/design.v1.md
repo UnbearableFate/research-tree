@@ -1,5 +1,5 @@
 ---
-id: "D-0018"
+id: "D-0019"
 doc_type: "experiment_design"
 version: 1
 title: "H-0001 实验设计"
@@ -7,11 +7,11 @@ summary: "subbatch-moment"
 about: []
 author_role: "worker"
 author_id: "h0001"
-created_at: "2026-10-07T07:13:49Z"
+created_at: "2026-10-08T19:20:18Z"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
 
-代码 cb10c6dd92：subbatch-moment。
+代码 373d9c59c7：subbatch-moment。
 
 ## 检验的 claim
 

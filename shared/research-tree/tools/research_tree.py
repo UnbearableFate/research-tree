@@ -608,7 +608,7 @@ def discovery_command(cwd: Path, args) -> dict:
     if args.action == "merge":
         users = json.loads(resolve_input(args.user_hypotheses, root, cwd, getattr(args, "invoked", cwd)).read_text(
             encoding="utf-8")) if args.user_hypotheses else []
-        merged = discovery.merge(discovery.read_shards(root), users)
+        merged = discovery.merge(discovery.read_shards(root), users, discovery.read_candidates(root))
         return {"path": discovery.write_candidates(root, merged), "candidates": merged}
     if args.action == "feasibility":
         project = (reader.find("project") or [None])[0]

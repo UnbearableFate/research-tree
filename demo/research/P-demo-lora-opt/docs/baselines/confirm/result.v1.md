@@ -1,5 +1,5 @@
 ---
-id: "D-0042"
+id: "D-0046"
 doc_type: "experiment_result"
 version: 1
 title: "确认基线结果"
@@ -7,7 +7,7 @@ summary: "确认基线"
 about: []
 author_role: "worker"
 author_id: "root"
-created_at: "2026-10-07T07:14:19Z"
+created_at: "2026-10-08T19:21:20Z"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
 

@@ -205,11 +205,36 @@ def dedup_key(text: str) -> str:
     return "-".join(words)[:120]
 
 
-def merge(shards: list[dict], user_hypotheses: list[dict]) -> list[dict]:
+# What a candidate says (its content revision is over these); bookkeeping (found_by, selected, literature, ranks,
+# feasibility notes) is not content.
+CONTENT_FIELDS = ("title", "summary", "mechanism", "method", "claim", "statement", "closest_work", "hypothesis",
+                  "prediction", "estimated_run")
+BOOKKEEPING = ("id", "revision", "content_sha", "revisions", "found_by", "selected", "literature", "triage_rank",
+               "feasible", "feasibility_reasons", "present", "origin", "dedup_key", "legacy_ids")
+
+
+def content_sha(candidate: dict) -> str:
+    import hashlib
+    content = {k: candidate[k] for k in CONTENT_FIELDS if candidate.get(k) not in (None, "")}
+    return hashlib.sha256(json.dumps(content, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
+
+
+def merge(shards: list[dict], user_hypotheses: list[dict], existing: list[dict] | None = None) -> list[dict]:
     """R12, R17: merge lens shards ({"lens", "generator", "candidates": [{"title", "summary", "mechanism",
     "dedup_key"?, "estimated_run"?, ...}]}) with the user's hypotheses ({"title", "summary", ...}). Duplicates are
     clustered by dedup_key only — never dropped for being weak; a user hypothesis keeps origin "user" and records
-    which lenses also found it."""
+    which lenses also found it.
+
+    S1 §5.2: a candidate's id is stable. It is the explicit candidate_id an input names, else the id an existing
+    candidate of the same origin and dedup_key already has, else a new number never used before — never a position
+    in a sorted list, so inserting or reordering candidates moves no id. A candidate whose content changed keeps its
+    id with the next revision (content_sha changes): reviews are bound to the revision they read, so a changed
+    candidate needs new receipts. A candidate absent from the new inputs stays in the pool as not present (history),
+    unselected."""
+    existing = [dict(c) for c in existing or []]
+    by_id = {c["id"]: c for c in existing if c.get("id")}
+    by_key = {(c.get("origin"), c.get("dedup_key")): c for c in existing if c.get("id")}
+    numbers = [int(m.group(1)) for i in by_id if (m := re.fullmatch(r"CAND-(\d+)", i))]
     pool: dict[str, dict] = {}
     for h in user_hypotheses:
         key = h.get("dedup_key") or dedup_key(h["title"])
@@ -229,10 +254,53 @@ def merge(shards: list[dict], user_hypotheses: list[dict]) -> list[dict]:
                     pool[key].setdefault(field, value)
             else:
                 pool[key] = {**c, "dedup_key": key, "origin": "lens", "found_by": [source]}
-    out = sorted(pool.values(), key=lambda c: (c["origin"] != "user", c["dedup_key"]))
-    for n, c in enumerate(out, 1):
-        c["id"] = f"CAND-{n:04d}"
-    return out
+    out, used = [], set()
+    for c in pool.values():
+        explicit = c.get("candidate_id") or (c.get("id") if CANDIDATE_RE.fullmatch(str(c.get("id") or "")) else None)
+        old = by_id.get(explicit) if explicit else by_key.get((c["origin"], c["dedup_key"]))
+        if explicit and old is None:
+            raise DiscoveryError(f"{explicit} is not an existing candidate; a new idea gets a new id")
+        if old is not None and old["id"] in used:
+            old = None
+        sha = content_sha(c)
+        c = {k: v for k, v in c.items() if k not in ("candidate_id",)}
+        if old is not None:
+            revisions = list(old.get("revisions") or [{"revision": old.get("revision") or 1,
+                                                       "content_sha": old.get("content_sha") or content_sha(old)}])
+            revision = revisions[-1]["revision"]
+            if revisions[-1]["content_sha"] != sha:
+                revision += 1
+                revisions.append({"revision": revision, "content_sha": sha, "at": now()})
+            c.update(id=old["id"], revision=revision, content_sha=sha, revisions=revisions)
+            cited = sorted(set(old.get("literature") or []) | set(c.get("literature") or []))
+            if cited:
+                c["literature"] = cited
+            for key in ("selected", "triage_rank", "feasible", "feasibility_reasons"):  # later stages' marks, for
+                if revision == old.get("revision") and key in old and key not in c:  # unchanged content only
+                    c[key] = old[key]
+        else:
+            n = max(numbers, default=0) + 1
+            numbers.append(n)
+            c.update(id=f"CAND-{n:04d}", revision=1, content_sha=sha,
+                     revisions=[{"revision": 1, "content_sha": sha, "at": now()}])
+        c["present"] = True
+        used.add(c["id"])
+        out.append(c)
+    for old in existing:  # earlier candidates no longer in the inputs: history, never renumbered or selected
+        if old.get("id") and old["id"] not in used:
+            out.append({**old, "present": False, "selected": False})
+    return sorted(out, key=lambda c: (not c.get("present", True), c["origin"] != "user", c["dedup_key"]))
+
+
+CANDIDATE_RE = re.compile(r"CAND-\d{4,}")
+
+
+def receipt_applies(review: dict, candidate: dict) -> bool:
+    """A discovery receipt counts for the candidate's current revision only (S1 §5.2): its system-captured basis
+    names that content, and the candidate did not change while the reviewer answered."""
+    basis = review.get("review_basis") or {}
+    return (not review.get("review_basis_changed") and basis.get("candidate_id") == candidate.get("id")
+            and basis.get("content_sha") == candidate.get("content_sha") and candidate.get("content_sha") is not None)
 
 
 def feasibility(candidates: list[dict], max_nodes: int, max_walltime_s: int, screen_node_h: float) -> list[dict]:
@@ -265,9 +333,10 @@ def select(candidates: list[dict], ranking: list[dict], top_n: int) -> list[dict
     """R15: the ideas that go to the novelty check: every user hypothesis, whatever its rank, plus the top_n
     feasible new candidates by the triage ranking ([{candidate_id, rank}] from the triage review)."""
     rank = {r["candidate_id"]: r["rank"] for r in ranking}
-    new = [c for c in candidates if c["origin"] != "user" and c.get("feasible") is not False]
+    present = [c for c in candidates if c.get("present", True)]
+    new = [c for c in present if c["origin"] != "user" and c.get("feasible") is not False]
     new.sort(key=lambda c: rank.get(c["id"], 10 ** 6))
-    chosen = {c["id"] for c in new[:top_n]} | {c["id"] for c in candidates if c["origin"] == "user"}
+    chosen = {c["id"] for c in new[:top_n]} | {c["id"] for c in present if c["origin"] == "user"}
     return [{**c, "selected": c["id"] in chosen, "triage_rank": rank.get(c["id"])} for c in candidates]
 
 
@@ -337,12 +406,15 @@ def evaluate(root: Path, reviews: list[dict], literature: dict[str, bool], min_r
     if not any(c.get("selected") for c in candidates):
         reasons.append("no selected candidate: run discovery merge (user hypotheses are always selected)")
     for c in candidates:
-        if not c.get("selected"):
+        if not c.get("selected") or c.get("present") is False:
             continue
-        kinds = {r["review_kind"] for r in current if r.get("review_about") == c["id"]}
+        mine = [r for r in current if r.get("review_about") == c["id"]]
+        kinds = {r["review_kind"] for r in mine if receipt_applies(r, c)}
         for kind in ("novelty_precheck", "critical_review"):
             if kind not in kinds:
-                reasons.append(f"{c['id']} ({c['title'][:40]}): no {kind} receipt")
+                stale = any(r["review_kind"] == kind for r in mine)
+                reasons.append(f"{c['id']} ({c['title'][:40]}): no {kind} receipt"
+                               + (f" for its current revision {c.get('revision')}" if stale else ""))
         cited = c.get("literature") or []
         verified = [d for d in cited if literature.get(d)]
         if len(verified) < min_related_work:

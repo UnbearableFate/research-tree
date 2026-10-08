@@ -1,5 +1,5 @@
 ---
-id: "D-0067"
+id: "D-0073"
 doc_type: "hypothesis"
 version: 1
 title: "8-bit优化器状态"
@@ -7,7 +7,7 @@ summary: "以8-bit存储优化器状态，在精度不变时显著降低显存�
 about: []
 author_role: "rld"
 author_id: "main"
-created_at: "2026-10-07T07:14:46Z"
+created_at: "2026-10-08T19:22:09Z"
 parent: "P-demo-lora-opt"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
@@ -18,7 +18,7 @@ parent: "P-demo-lora-opt"
 
 ## 创建理由
 
-参考：D-0015, D-0011, D-0012。文献E在全参数微调上验证，LoRA场景未知。
+参考：D-0016, D-0012, D-0013。文献E在全参数微调上验证，LoRA场景未知。
 
 ## 问题锚点
 
@@ -42,7 +42,7 @@ parent: "P-demo-lora-opt"
 
 ## 最接近工作与差异
 
-见 D-0015, D-0011。
+见 D-0016, D-0012。
 
 ## Claim map
 

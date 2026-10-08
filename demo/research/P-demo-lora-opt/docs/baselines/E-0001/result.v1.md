@@ -1,5 +1,5 @@
 ---
-id: "D-0009"
+id: "D-0010"
 doc_type: "experiment_result"
 version: 1
 title: "SOTA基线结果"
@@ -7,7 +7,7 @@ summary: "BaseOpt-A 均值 71.40"
 about: []
 author_role: "worker"
 author_id: "root"
-created_at: "2026-10-07T07:13:43Z"
+created_at: "2026-10-08T19:20:07Z"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
 

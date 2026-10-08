@@ -1,5 +1,5 @@
 ---
-id: "D-0034"
+id: "D-0037"
 doc_type: "experiment_design"
 version: 1
 title: "H-0003 sanity"
@@ -7,11 +7,11 @@ summary: "sanity"
 about: []
 author_role: "worker"
 author_id: "h0003"
-created_at: "2026-10-07T07:14:06Z"
+created_at: "2026-10-08T19:20:59Z"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
 
-最小规模 sanity：代码 2f2d639f31。
+最小规模 sanity：代码 19c019dc2e。
 
 ## 检验的 claim
 

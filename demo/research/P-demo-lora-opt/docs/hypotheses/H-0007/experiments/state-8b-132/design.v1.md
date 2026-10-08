@@ -1,5 +1,5 @@
 ---
-id: "D-0069"
+id: "D-0075"
 doc_type: "experiment_design"
 version: 1
 title: "H-0007 实验设计"
@@ -7,11 +7,11 @@ summary: "state-8bit"
 about: []
 author_role: "worker"
 author_id: "h0007"
-created_at: "2026-10-07T07:14:48Z"
+created_at: "2026-10-08T19:22:14Z"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
 
-代码 b01413af26：state-8bit。
+代码 446f24467b：state-8bit。
 
 ## 检验的 claim
 

@@ -1,5 +1,5 @@
 ---
-id: "D-0057"
+id: "D-0062"
 doc_type: "decision"
 version: 1
 title: "H-0004 分支处置"
@@ -7,7 +7,7 @@ summary: "H-0004 分支处置"
 about: ["H-0004"]
 author_role: "rld"
 author_id: "main"
-created_at: "2026-10-07T07:14:35Z"
+created_at: "2026-10-08T19:21:50Z"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
 
