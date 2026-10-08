@@ -255,6 +255,21 @@ EVIDENCE_DOC_FIELDS = ("protocol_doc_id", "metric_spec_doc_id")
 CAP_FIELDS = ("total_limit", "search_limit", "confirmation_limit", "repair_limit", "max_nodes", "max_walltime_s",
               "alert_node_h", "review_usd_alert", "max_repairs_per_root_cause")
 
+# The keyword arguments a method takes through **optional / **changes; `help` lists them (real-run-error #5).
+OPTIONAL_PARAMS = {
+    "create_project": ("goal_doc_id", "go_margin", "gate_seeds", "screen_budget_node_h", "min_related_work",
+                       "max_nodes", "max_walltime_s", "repo_path") + LIMIT_FIELDS + EVIDENCE_DOC_FIELDS,
+    "update_project": ("title", "goal_doc_id", "min_setup_doc_id", "stage", "min_related_work",
+                       "screen_budget_node_h", "max_nodes", "max_walltime_s", "repo_path", "harness_ref",
+                       "harness_paths", "sota_experiment_id") + GATE_FIELDS + LIMIT_FIELDS + EVIDENCE_DOC_FIELDS,
+    "update_hypothesis": ("title", "statement", "doc_id", "owner"),
+    "create_experiment": ("config_path", "owner", "keep", "keep_reason", "stage", "selection_rationale",
+                          "estimated_node_h", "milestone", "budget_pool", "ablation_of", "source_review_id"),
+    "update_run": REPORTED_FIELDS + ("attempt",) + RUN_MEASUREMENTS,
+    "update_document": ("title", "summary"),
+}
+
+
 class ResearchDBError(Exception):
     pass
 
@@ -673,9 +688,7 @@ class ResearchDB:
                        seeds: list[int], **optional) -> str:
         """The project record (the tree's root): comparison setup and caps; rld only, once per database."""
         self._require_role("rld")
-        self._only_fields(optional, ("goal_doc_id", "go_margin", "gate_seeds", "screen_budget_node_h",
-                                     "min_related_work", "max_nodes", "max_walltime_s", "repo_path")
-                          + LIMIT_FIELDS + EVIDENCE_DOC_FIELDS)
+        self._only_fields(optional, OPTIONAL_PARAMS["create_project"])
         if table_of(id) != "project":
             raise ResearchDBError(f"project id {id!r} must be letters, digits, _ . - and must not look like another "
                                   "record's id (H-, E-, BR-, D-, DEC-, T-)")
@@ -719,10 +732,7 @@ class ResearchDB:
         decided the change, never an agent after seeing results); evaluations under the old ones stop supporting
         GO."""
         self._require_role("rld")
-        self._only_fields(changes, ("title", "goal_doc_id", "min_setup_doc_id", "stage", "min_related_work",
-                                    "screen_budget_node_h", "max_nodes", "max_walltime_s", "repo_path",
-                                    "harness_ref", "harness_paths", "sota_experiment_id")
-                          + GATE_FIELDS + LIMIT_FIELDS + EVIDENCE_DOC_FIELDS)
+        self._only_fields(changes, OPTIONAL_PARAMS["update_project"])
         with self._writer() as tx:
             project = self._project(tx)
             if set(changes) & set(GATE_FIELDS):
@@ -1137,7 +1147,7 @@ class ResearchDB:
     def update_hypothesis(self, hypothesis_id: str, **changes) -> None:
         """Title, statement or hypothesis document (e.g. a new version). States change only through decide()."""
         self._require_role("rld")
-        self._only_fields(changes, ("title", "statement", "doc_id", "owner"))
+        self._only_fields(changes, OPTIONAL_PARAMS["update_hypothesis"])
         with self._writer() as tx:
             tx.require(hypothesis_id, ("hypothesis",))
             project = self._project(tx)
@@ -1965,9 +1975,7 @@ class ResearchDB:
         the stage) is the budget part its reservations count against. An overlapping seed request for the same
         node, code and configuration returns the existing experiment; extend_seeds explicitly adds missing seeds."""
         self._require_role("rld", "worker")
-        self._only_fields(optional, ("config_path", "owner", "keep", "keep_reason", "stage", "selection_rationale",
-                                     "estimated_node_h", "milestone", "budget_pool", "ablation_of",
-                                     "source_review_id"))
+        self._only_fields(optional, OPTIONAL_PARAMS["create_experiment"])
         if optional.get("milestone") is None:  # 03 §6: sanity M0, ablation M3, screen/replicate/confirm M2
             optional["milestone"] = {"sanity": "M0", "baseline": "M1", "ablation": "M3"}.get(kind, "M2")
         estimate = optional.get("estimated_node_h")
@@ -1986,8 +1994,14 @@ class ResearchDB:
         with self._writer() as tx:
             project = self._project(tx)
             self._require_active(project)
-            if not project.get("harness_ref"):
-                raise ResearchDBError("freeze the harness (update_project harness_ref/harness_paths) before experiments")
+            if not project.get("harness_ref") and kind != "sanity":
+                # the root's sanity run checks the harness before it is frozen (rules: sanity, review, then freeze;
+                # real-run-error #19); every other experiment runs on the frozen harness
+                raise ResearchDBError("freeze the harness (update_project harness_ref/harness_paths) before experiments "
+                                      "other than the harness's sanity run")
+            if not project.get("repo_path"):
+                raise ResearchDBError("the project has no code repository yet: update_project repo_path (with "
+                                      "harness_ref and harness_paths) or create_project repo_path")
             if kind != "sanity" and (kind == "baseline") != (hypothesis_id is None):
                 raise ResearchDBError("baseline experiments have no hypothesis; method and ablation need one")
             if kind == "sanity" and stage != "screen":
@@ -2363,7 +2377,7 @@ class ResearchDB:
         A run whose attempt failed or was cancelled, or succeeded but was marked invalid, is resubmitted by raising
         attempt by one together with exec_status planned/submitted. The finished attempt is kept in attempts (its
         usage still counts) and the run starts over."""
-        self._only_fields(changes, REPORTED_FIELDS + ("attempt",) + RUN_MEASUREMENTS)
+        self._only_fields(changes, OPTIONAL_PARAMS["update_run"])
         with self._writer() as tx:
             project = self._project(tx)
             run = tx.require(run_id, ("run",))
@@ -3282,7 +3296,7 @@ class ResearchDB:
 
     def update_document(self, doc_id: str, **changes) -> None:
         """Change a draft document's title or summary; its author only."""
-        self._only_fields(changes, ("title", "summary"))
+        self._only_fields(changes, OPTIONAL_PARAMS["update_document"])
         with self._writer() as tx:
             doc = tx.require(doc_id, ("document",))
             self._require_author(doc)
@@ -4407,9 +4421,13 @@ def describe(method: str | None = None) -> dict | list:
         if method not in CLI_METHODS:
             raise ResearchDBError(f"no method {method!r}; call help without a method for the list")
         fn = getattr(ResearchDB, method)
-        return {"method": method, "parameters": _parameters(fn), "description": inspect.getdoc(fn) or ""}
+        out = {"method": method, "parameters": _parameters(fn), "description": inspect.getdoc(fn) or ""}
+        if method in OPTIONAL_PARAMS:
+            out["optional_parameters"] = list(OPTIONAL_PARAMS[method])
+        return out
     return [{"method": name, "parameters": _parameters(getattr(ResearchDB, name)),
-             "summary": (inspect.getdoc(getattr(ResearchDB, name)) or "").split("\n")[0]}
+             "summary": (inspect.getdoc(getattr(ResearchDB, name)) or "").split("\n")[0],
+             **({"optional_parameters": list(OPTIONAL_PARAMS[name])} if name in OPTIONAL_PARAMS else {})}
             for name in CLI_METHODS]
 
 

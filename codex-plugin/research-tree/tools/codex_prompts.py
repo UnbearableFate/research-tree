@@ -105,12 +105,20 @@ about 只填 research_db 中实际存在的项目/节点/任务等ID，不填 RE
 """
 
 
+def skills_note(project) -> str:
+    check = project.get("skills_check") or {}
+    if not check.get("missing"):
+        return ""
+    return (f"platform.skills 中未在本机找到的技能：{json.dumps(check, ensure_ascii=False)}；在立项计划中指出（含相近名称），"
+            "请用户决定是否改配置，不要自行修改 research-tree.yaml。\n")
+
+
 def planning(project, conf):
     return f"""你是唯一 Research Leader（当前主会话）。用户计划：{project['plan_instruction']}，文档根目录 {project['root']}/docs。
 先读计划原文与 {ROOT / 'rules/research-tree-rules.md'}。规划期间不启动worker、不提交作业。
 init 的评审基座可用性检查：{json.dumps(project.get('reviewer_backend'), ensure_ascii=False)}。
 把检查时间与结果写入立项简报；不可用时说明错误并交用户决定。它只核对认证与基座，不是实际评审或模型可调用性的回执。
-计划中写着“由 RLD 决定。”的部分（如模型、训练与评测数据集、基线、评测、实验范围、验收要求）由你提出具体方案，在立项计划中写明，经用户确认后执行。
+{skills_note(project)}计划中写着“由 RLD 决定。”的部分（如模型、训练与评测数据集、基线、评测、实验范围、验收要求）由你提出具体方案，在立项计划中写明，经用户确认后执行。
 模型和数据集一律写 Hugging Face Hub 上的正式 ID（数据集加 config 与 split，需要时加 revision）；不在 Hub 上的写明路径与来源。
 1. 写并登记 goal 与 min_setup 文档；模型、数据、训练量、评测类型（同协议 eval_type）及其结论上限、主指标方向、其他指标、统一seed与框架规则明确，基线家族写明合理调参机会、训练量与数据处理。再写并登记两份 JSON：
 project/metric-spec.v1.json（{{"version":1,"primary":主指标,"metrics":[每个指标的 name、direction、input_unit、canonical_unit、
@@ -134,8 +142,8 @@ D1 文献（两种模式都做）：用 tools/literature.py search / verify / fe
 D2 候选：mode precheck 只运行 discovery merge --user-hypotheses …（用户假说都入选），跳过 lens、可行性与 triage；mode full：按 discovery.lenses 中的每个通用 lens，以及每条用户假说的 discovery.seed_lenses（variant、combination、competing、repair），用 research_control(action="lens", params={{"lens":视角名,"task":候选生成任务及只读材料路径}}) 启动只读助手。同一个 lens 名称一次只启动一轮；多个用户种子的同名 seed lens 按顺序运行。用 agents 核对 actual run 完成、模型与 answer.txt；助手只生成候选，不排序、不评判，不把 RLD 生成的内容冒充助手。将实际助手 JSON 保存为 cache/discovery/shards/<lens>[-<种子序号>].json（{{"lens", "generator":"assistant", "observed_model":实际运行日志核实的助手模型,"candidates": [{{title, summary, mechanism, closest_work, estimated_run: {{nodes, walltime_s}}}}]}}），核对 estimated_run 是估计而非已运行证据；然后 discovery merge --user-hypotheses docs/project/discovery/user-hypotheses.json（按 dedup_key 机械去重，不按质量淘汰），discovery set --stage candidates --status done --artifact docs/project/discovery/candidates.json。
 D3 可行性：discovery feasibility（只按单次运行上限与筛选预算淘汰新候选；用户假说只注记），set done 后 discovery accept --stage feasibility --verifier discovery.feasibility --evidence docs/project/discovery/candidates.json。
 D4 triage：research_review(kind=triage, about=项目ID, brief 列出 candidates.json 路径)，再 discovery select --triage <评审文档ID>（用户假说总是入选，再加排名前 discovery.triage_top_n 的可行新候选），set done 后 discovery accept --stage triage --evidence <评审ID>。
-每个入选候选用 discovery cite --candidate CAND-编号 --literature <D-…> 记下它引用的文献（门检查每个入选候选至少 min_related_work 篇已核验文献）。D5 查新：对每个入选候选 research_review(kind=novelty_precheck, about=CAND-编号)，brief 写方法、核心声明与候选论文清单的路径；ABANDON 必须点名论文。D6 批判性评审：每个入选候选一次 research_review(kind=critical_review, about=CAND-编号)。两阶段各自 set done 后用全部评审ID accept。用户假说得到 ABANDON 或 stance abandon 时不自动淘汰：在报告和立项计划中标“建议放弃，待用户决定”。
-D7 精炼：为每个幸存想法写假说文档（03 的章节），可选一轮 proposal_review；set --stage refine --status done。
+每个入选候选用 discovery cite --candidate CAND-编号 --literature <D-…> 记下它引用的文献（门检查每个入选候选至少 min_related_work 篇已核验文献）。D5 查新：对每个入选候选 research_review(kind=novelty_precheck, about=CAND-编号)，brief 写方法、核心声明与候选论文清单的路径；ABANDON 必须点名论文。D6 批判性评审：每个入选候选一次 research_review(kind=critical_review, about=CAND-编号)。两阶段各自写一个评审索引（每个候选一行：评审ID与结论），discovery set --stage novelty|critique --status done --artifact docs/project/discovery/novelty-reviews.md|critical-reviews.md，再用全部评审ID accept（每个阶段 set done 都要 --artifact，门检查它）。用户假说得到 ABANDON 或 stance abandon 时不自动淘汰：在报告和立项计划中标“建议放弃，待用户决定”。
+D7 精炼：为每个幸存想法写假说文档（03 的章节），可选一轮 proposal_review；set --stage refine --status done --artifact docs/project/discovery/refined-hypotheses.md（列出写好的假说文档）。
 D8 写 docs/project/reports/discovery.v1.md（章节：## 用户假说（逐条查新与评审结论）、## 新发现候选（排序）、## 淘汰想法（阶段、理由、点名论文；没有写“无”））并登记，运行 discovery gate --report docs/project/reports/discovery.v1.md；PASS 后 create_hypothesis(candidate_id=CAND-编号) 建初始节点（接口核对该候选的查新与评审回执；建议放弃的用户假说只在用户决定保留后，带其用户指令 user_instruction_doc_id 建立）。立项计划把用户假说与新候选分栏列出各自的结论。
 是否新颖、是否值得做由评审文档或确定性门给出；reviewer 不可用时如实上报（REVIEW_UNAVAILABLE），不以你的判断代替。
 确认前配置与计划若冲突要指出，由用户决定；确认后先指派根节点worker并实现框架与基线，审核后冻结框架、设置SOTA，再推进假说。

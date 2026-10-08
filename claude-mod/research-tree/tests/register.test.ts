@@ -471,7 +471,7 @@ test('the main model is never offered the UI agent', async $ => {
 })
 
 /** A host for the UI hand-off alone: state, files, the Python tools, spawns and prompts to the RLD, all in memory. */
-function uiHost(outboxes: Record<string, string>) {
+function uiHost(outboxes: Record<string, string>, answered: Set<string> = new Set()) {
   const root = '/w/study/research/p'
   const state = new Map<string, unknown>([['project', { project_id: 'p', phase: 'confirmed', root, db: `${root}/research_tree.db` }]])
   const files = new Map<string, string>(Object.entries(outboxes).map(([run, text]) => [`${root}/cache/ui/${run}.jsonl`, text]))
@@ -492,7 +492,10 @@ function uiHost(outboxes: Record<string, string>) {
     },
     process: { run: async (argv: string[]) => ({
       exitCode: 0, stderr: '',
-      stdout: argv[1]!.endsWith('send_message.py') ? '{"id":"ui-0001","type":"question"}' : '{"ok": true, "result": []}',
+      stdout: argv[1]!.endsWith('send_message.py') ? '{"id":"ui-0001","type":"question"}'
+        : argv.includes('inbox') ? JSON.stringify({ ok: true, result: answered.has('ui-0001') ? []
+          : [{ kind: 'awaiting_reply', id: null, text: 'ui-0001（question）尚无RLD回执：…' }] })
+        : '{"ok": true, "result": []}',
     }) },
     agent: { spawn: async (input: { prompt: string }) => (spawns.push(input.prompt), { agentId: `a${spawns.length}` }) },
     clock: { after: (_ms: number, fn: () => void) => fn() },
@@ -516,10 +519,26 @@ test('a UI run that leaves nothing is retried once, then the message goes to the
   expect(prompts).toEqual([])
 
   await internals.carryOutUi(host, cfg, { run: 'r2', message, messageId: 'w-0015', attempt: 2 }, '', false)
+  await new Promise(resolve => setTimeout(resolve, 10))  // delivery checks the receipt first
   expect(spawns.length).toBe(1)
   expect(prompts.length).toBe(1)
   expect(prompts[0]).toContain('post_to_ui(type=reply')
   expect(window().at(-1)).toContain('已把原文转交RLD')
+})
+
+test('a message the RLD already answered is not delivered a second time (real-run-error #6, #13)', async () => {
+  const cfg = { actor: 'rld/main' }
+  const answered = new Set<string>()
+  const { host, prompts } = uiHost({ r1: '{"type": "reply", "text": "转交"}\n{"type": "question", "text": "能否加 seed？"}\n' }, answered)
+  answered.add('ui-0001')  // the RLD answered it (re=ui-0001) before the queued delivery ran
+  await internals.carryOutUi(host, cfg, { run: 'r1', message: '能否加 seed？', attempt: 1 }, '', false)
+  await new Promise(resolve => setTimeout(resolve, 10))
+  expect(prompts).toEqual([])
+  answered.clear()  // still waiting: delivered once, telling the RLD to check its inbox first
+  await internals.carryOutUi(host, cfg, { run: 'r1', message: '能否加 seed？', attempt: 1 }, '', false)
+  await new Promise(resolve => setTimeout(resolve, 10))
+  expect(prompts.length).toBe(1)
+  expect(prompts[0]).toContain('不要重复回执')
 })
 
 test('a UI run that replied, or was interrupted, is not retried', async () => {

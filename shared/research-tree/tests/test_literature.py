@@ -7,6 +7,7 @@ import contextlib
 import hashlib
 import io
 import json
+import time
 import sys
 import tempfile
 import unittest
@@ -82,6 +83,28 @@ CROSSREF_RESNET = {"status": "ok", "message": {
 FAKE_PDF = b"%PDF-1.5\n" + b"0" * 20_000
 
 
+def _minimal_pdf(text: str) -> bytes:
+    """A one-page PDF with one line of text (cross-reference offsets computed)."""
+    stream = f"BT /F1 12 Tf 20 100 Td ({text}) Tj ET".encode()
+    objects = [b"<< /Type /Catalog /Pages 2 0 R >>", b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+               b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 300 200] /Contents 4 0 R "
+               b"/Resources << /Font << /F1 5 0 R >> >> >>",
+               b"<< /Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream + b"\nendstream",
+               b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>"]
+    out, offsets = bytearray(b"%PDF-1.4\n"), []
+    for i, body in enumerate(objects, 1):
+        offsets.append(len(out))
+        out += f"{i} 0 obj\n".encode() + body + b"\nendobj\n"
+    xref = len(out)
+    out += f"xref\n0 {len(objects) + 1}\n0000000000 65535 f \n".encode()
+    out += b"".join(f"{o:010d} 00000 n \n".encode() for o in offsets)
+    out += f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\nstartxref\n{xref}\n%%EOF\n".encode()
+    return bytes(out)
+
+
+MINIMAL_PDF = _minimal_pdf("Momentum helps under a fixed update budget")
+
+
 def js(obj) -> bytes:
     return json.dumps(obj).encode()
 
@@ -116,12 +139,16 @@ class FakeNet:
 
 class Base(unittest.TestCase):
     def setUp(self):
-        self._orig = (lit.fetch, lit._sleep)
-        lit._sleep = lambda s: None
+        self._orig = (lit.fetch, lit._sleep, lit.THROTTLE_FILE)
+        self.slept = []
+        lit._sleep = self.slept.append
         lit._last_call.clear()
+        self._throttle_dir = tempfile.TemporaryDirectory()
+        lit.THROTTLE_FILE = Path(self._throttle_dir.name) / "throttle.json"
 
     def tearDown(self):
-        lit.fetch, lit._sleep = self._orig
+        lit.fetch, lit._sleep, lit.THROTTLE_FILE = self._orig
+        self._throttle_dir.cleanup()
 
     def net(self, *routes):
         fake = FakeNet(routes)
@@ -280,6 +307,30 @@ class VerifyTest(Base):
         v = lit.verify({"title": "Attention Is All You Need", "arxiv_id": "1706.03762"})
         self.assertEqual(v["verification"], "verified")
         self.assertEqual(len(fake.calls), 3)
+
+    def test_rate_limit_pacing_is_shared_between_processes(self):
+        """real-run-error #3: each literature.py call is a new process; the pacing and a rate limit's cool-down
+        live in a shared file, and Retry-After is honoured."""
+        self.net(("semanticscholar", [lit.FetchError("u", 429, retry_after=45.0), js(S2_LOOKALIKE)]))
+        lit.verify({"title": "Some Paper"})
+        self.assertIn(45.0, self.slept)
+        state = json.loads(lit.THROTTLE_FILE.read_text())
+        self.assertGreater(state["semantic_scholar"]["cooldown_until"], time.time() + 30)
+        lit._last_call.clear()  # a new process: no memory of its own
+        self.slept.clear()
+        self.net(("semanticscholar", js(S2_LOOKALIKE)))
+        lit.verify({"title": "Another Paper"})
+        self.assertTrue(self.slept and self.slept[0] > 30, self.slept)
+
+    def test_pdf_text_without_pdftotext_uses_pypdf_through_the_filter(self):
+        """real-run-error #7: no poppler on the machine; the text still passes the injection filter."""
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as tmp:
+            pdf = Path(tmp) / "paper.pdf"
+            pdf.write_bytes(MINIMAL_PDF)
+            with mock.patch.object(lit.shutil, "which", return_value=None):
+                out = lit.read_text(pdf)
+        self.assertIn("Momentum helps", out["text"])
 
     def test_refusal_is_not_retried(self):
         fake = self.net(("semanticscholar", down(403)))

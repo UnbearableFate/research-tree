@@ -4,7 +4,8 @@
                            candidate_recheck>
                    --brief <file under the research root, e.g. docs/reviews/briefs/H-0001-numbers.v1.md>
                    --about <candidate or node id> [--dimension D --evaluation EV-xxxx] [--session RV-xxxx]
-                   [--add-dir DIR ...]
+                   [--add-dir DIR ...] [--background --wait-s 540]
+    review_call.py --ticket RJ-xxxxxxxxxxxx --wait-s 540      # collect a background review
 
 Run in the project directory (where .research-tree.json is). The reviewer backend follows models.reviewer.model's
 provider only: anthropic/* -> Claude Code CLI (`claude -p`), anything else -> pi (`pi -p --mode json`); neither
@@ -546,11 +547,56 @@ def log_call(root: Path, entry: dict) -> None:
         f.write(json.dumps({"ts": now(), **entry}, ensure_ascii=False) + "\n")
 
 
-def main(argv: list[str] | None = None) -> int:
+JOBS_DIR = Path("cache") / "reviews" / "jobs"
+
+
+def _job_file(root: Path, ticket: str) -> Path:
+    if not re.fullmatch(r"RJ-[0-9a-f]{12}", ticket or ""):
+        raise ReviewError("REVIEW_INVALID", f"{ticket!r} is not a review job ticket (RJ-…)")
+    return root / JOBS_DIR / f"{ticket}.json"
+
+
+def start_job(cwd: Path, root: Path, argv: list[str]) -> str:
+    """Run one review call as a detached job (real-run-error #10/#12): a host that kills a tool process after a
+    fixed time (Claude Code: 600 s) no longer kills the reviewer; the call keeps its own deadline (MAX_CALL_S) and
+    the Leader collects the result with the ticket. The job is logged like any call."""
+    ticket = f"RJ-{uuid.uuid4().hex[:12]}"
+    job = _job_file(root, ticket)
+    job.parent.mkdir(parents=True, exist_ok=True)
+    job.write_text(json.dumps({"ticket": ticket, "argv": argv, "status": "running", "started_at": now()},
+                              ensure_ascii=False, indent=1), encoding="utf-8")
+    subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "--run-job", ticket], cwd=cwd,
+                     start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                     stderr=subprocess.DEVNULL)
+    return ticket
+
+
+def wait_job(root: Path, ticket: str, wait_s: float) -> dict:
+    """The job's state after waiting at most wait_s: running, or its final answer as the call printed it."""
+    path = _job_file(root, ticket)
+    if not path.is_file():
+        raise ReviewError("REVIEW_INVALID", f"no review job {ticket}")
+    deadline = time.monotonic() + max(0.0, wait_s)
+    while True:
+        job = json.loads(path.read_text(encoding="utf-8"))
+        if job["status"] != "running" or time.monotonic() >= deadline:
+            return job
+        time.sleep(1.0)
+
+
+def _job_answer(job: dict) -> tuple[dict, int]:
+    if job["status"] == "running":
+        return ({"ok": True, "pending": True, "ticket": job["ticket"], "started_at": job["started_at"],
+                 "next": f"the review is still running: call research_review again with ticket {job['ticket']} "
+                         "(it waits for the result); do not start the same review again"}, 0)
+    return job["answer"], (0 if job["answer"].get("ok") else 2)
+
+
+def _parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    p.add_argument("--kind", required=True, choices=REVIEW_KINDS)
-    p.add_argument("--brief", required=True)
-    p.add_argument("--about", required=True)
+    p.add_argument("--kind", choices=REVIEW_KINDS)
+    p.add_argument("--brief")
+    p.add_argument("--about")
     p.add_argument("--dimension", choices=list(RECHECK_DIMENSIONS))
     p.add_argument("--evaluation")
     p.add_argument("--code-ref", help="code_review: the commit the reviewer reads")
@@ -558,25 +604,67 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--add-dir", action="append", default=[], help="Claude Code backend: another readable directory")
     p.add_argument("--actor", default="rld/main")
     p.add_argument("--deadline-s", type=int, help="the host's limit on this process (seconds); the call ends before it")
-    args = p.parse_args(argv)
-    cwd = Path.cwd()
-    try:
-        root = Path(tree.read_marker(cwd)["root"])
-    except Exception as exc:  # noqa: BLE001 — reported as JSON like the other tools
-        print(json.dumps({"ok": False, "error": f"REVIEW_UNAVAILABLE: no research project here ({exc})"}))
-        return 2
+    p.add_argument("--background", action="store_true",
+                   help="run the call as a detached job and wait at most --wait-s for it; a longer review returns "
+                        "a ticket instead of being cut off by the host's process limit")
+    p.add_argument("--ticket", help="collect a background review: wait at most --wait-s for its answer")
+    p.add_argument("--wait-s", type=float, default=0.0)
+    p.add_argument("--run-job", help=argparse.SUPPRESS)
+    return p
+
+
+def _call(cwd: Path, root: Path, args) -> tuple[dict, int]:
     entry = {"kind": args.kind, "about": args.about, "dimension": args.dimension, "session": args.session}
     try:
         result = review(cwd, args.kind, args.brief, args.about, args.dimension, args.evaluation, args.session,
                         args.add_dir, args.actor, args.code_ref, args.deadline_s)
     except ReviewError as exc:
         record_failure(root, entry, exc)
-        print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False))
-        return 2
+        return {"ok": False, "error": str(exc)}, 2
     log_call(root, {**entry, "outcome": "ok", "review_id": result["review_id"], "session": result["session"],
                     "backend": result["backend"], "model": result["model_observed"], "cost_usd": result["cost_usd"]})
-    print(json.dumps({"ok": True, "result": result}, ensure_ascii=False))
-    return 0
+    return {"ok": True, "result": result}, 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    argv = list(sys.argv[1:] if argv is None else argv)
+    args = _parser().parse_args(argv)
+    cwd = tree.find_project(Path.cwd())
+    try:
+        root = Path(tree.read_marker(cwd)["root"])
+    except Exception as exc:  # noqa: BLE001 — reported as JSON like the other tools
+        print(json.dumps({"ok": False, "error": f"REVIEW_UNAVAILABLE: no research project here ({exc})"}))
+        return 2
+    try:
+        if args.run_job:  # the detached job itself: the full call under its own deadline, answer kept in the file
+            path = _job_file(root, args.run_job)
+            job = json.loads(path.read_text(encoding="utf-8"))
+            call = _parser().parse_args(job["argv"])
+            call.deadline_s = None
+            answer, _ = _call(cwd, root, call)
+            path.write_text(json.dumps({**job, "status": "done", "answer": answer, "finished_at": now()},
+                                       ensure_ascii=False, indent=1), encoding="utf-8")
+            return 0
+        if args.ticket:
+            answer, code = _job_answer(wait_job(root, args.ticket, args.wait_s))
+            print(json.dumps(answer, ensure_ascii=False))
+            return code
+        missing = [k for k in ("kind", "brief", "about") if not getattr(args, k)]
+        if missing:
+            print(json.dumps({"ok": False, "error": f"REVIEW_INVALID: missing --{', --'.join(missing)}"}))
+            return 2
+        if args.background:
+            forwarded = [a for a in argv if a != "--background"]
+            ticket = start_job(cwd, root, forwarded)
+            answer, code = _job_answer(wait_job(root, ticket, args.wait_s))
+            print(json.dumps(answer, ensure_ascii=False))
+            return code
+    except ReviewError as exc:
+        print(json.dumps({"ok": False, "error": str(exc)}, ensure_ascii=False))
+        return 2
+    answer, code = _call(cwd, root, args)
+    print(json.dumps(answer, ensure_ascii=False))
+    return code
 
 
 if __name__ == "__main__":

@@ -6,7 +6,7 @@ set -eu
 
 usage='Usage: sh prepare.sh [--python 3.13] [--update-uv] [project-directory]'
 plugin_root=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
-dependencies='latticedb==0.15.0 jsonschema>=4.26 pyyaml>=6.0'
+dependencies='latticedb==0.15.0 jsonschema>=4.26 pyyaml>=6.0 pypdf>=5.1'
 python=3.13
 update_uv=false
 destination=.

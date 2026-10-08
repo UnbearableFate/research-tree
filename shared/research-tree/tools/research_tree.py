@@ -81,10 +81,21 @@ def now_utc() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+def find_project(start: Path) -> Path:
+    """The project directory: the nearest of start and its parents holding .research-tree.json (real-run-error #2,
+    #14: a tool run from research/<id>/ or another subdirectory still finds its project); start when none does."""
+    start = start.resolve()
+    for directory in (start, *start.parents):
+        if (directory / MARKER).is_file():
+            return directory
+    return start
+
+
 def read_marker(cwd: Path) -> dict:
-    path = cwd / MARKER
+    path = find_project(cwd) / MARKER
     if not path.is_file():
-        raise TreeError(f"no research project here: {path} not found; run /research-tree init <plan.md>")
+        raise TreeError(f"no research project in {cwd} or a parent directory ({MARKER} not found); run "
+                        "/research-tree init <plan.md> in the project directory")
     return json.loads(path.read_text(encoding="utf-8"))
 
 
@@ -210,7 +221,35 @@ def init(cwd: Path, plan: Path, project_id: str | None, config: Path | None = No
             check["error"] = "REVIEW_UNAVAILABLE: configure models.reviewer before requesting reviews"
         marker["reviewer_backend"] = check
         write_marker(cwd, marker)
+    skills = ((config_parsed.get("platform") or {}).get("skills") or [])
+    if skills:
+        marker["skills_check"] = check_skills(skills, cwd)
+        write_marker(cwd, marker)
     return marker
+
+
+def skill_dirs(cwd: Path) -> list[Path]:
+    """Where the hosts keep installed skills: the user's and the project's Claude Code and Codex skill folders."""
+    import os
+    home = Path.home()
+    dirs = [home / ".claude" / "skills", cwd / ".claude" / "skills", home / ".agents" / "skills",
+            Path(os.environ.get("CODEX_HOME") or home / ".codex") / "skills", cwd / ".agents" / "skills"]
+    plugins = home / ".claude" / "plugins"
+    if plugins.is_dir():
+        dirs += [p for p in plugins.glob("**/skills") if p.is_dir()]
+    return dirs
+
+
+def check_skills(names: list[str], cwd: Path) -> dict:
+    """platform.skills against the skills installed for the hosts (real-run-error #4: a plural/singular slip went
+    unnoticed). Only a report for the start-up brief: the user decides; nothing is changed."""
+    import difflib
+    installed = sorted({p.name for d in skill_dirs(cwd) if d.is_dir() for p in d.iterdir()
+                        if (p / "SKILL.md").is_file()})
+    missing = [n for n in names if n not in installed]
+    return {"checked_at": now_utc(), "configured": list(names), "missing": missing,
+            "suggestions": {n: difflib.get_close_matches(n, installed, n=2, cutoff=0.8) for n in missing},
+            "searched": [str(d) for d in skill_dirs(cwd)]}
 
 
 def set_phase(cwd: Path, phase: str) -> dict:
@@ -256,7 +295,8 @@ def show_config(cwd: Path) -> dict:
                                       if effective["version"] == 2 else None)}
 
 
-def apply_config(cwd: Path, actor: str, words: str | None = None, require_project: bool = False) -> dict:
+def apply_config(cwd: Path, actor: str, words: str | None = None, require_project: bool = False,
+                 replace_metric_spec: bool = False) -> dict:
     """Put research-tree.yaml in effect: register it as a new config version when it changed, write the budget
     and gates into the project record, and register the user's words as an instruction when anything changed."""
     marker = read_marker(cwd)
@@ -271,7 +311,7 @@ def apply_config(cwd: Path, actor: str, words: str | None = None, require_projec
     project = projects[0] if projects else None
     if require_project and project is None:
         raise TreeError("the RLD has not created the project record yet (create_project)")
-    spec = register_metric_spec(cwd, marker, rld, config, project)
+    spec = register_metric_spec(cwd, marker, rld, config, project, replace_metric_spec)
     if project is not None and spec and spec["doc_id"] != project.get("metric_spec_doc_id"):
         fields["metric_spec_doc_id"] = spec["doc_id"]
     changes = {k: v for k, v in fields.items() if project is not None and project.get(k) != v}
@@ -325,14 +365,36 @@ def apply_config(cwd: Path, actor: str, words: str | None = None, require_projec
             "instruction": instruction, "effective": config}
 
 
-def register_metric_spec(cwd: Path, marker: dict, rld: ResearchDB, config: dict, project: dict | None) -> dict | None:
+def register_metric_spec(cwd: Path, marker: dict, rld: ResearchDB, config: dict, project: dict | None,
+                         replace: bool = False) -> dict | None:
     """A version-2 configuration states the metric specification: register it as the metric_spec document when its
-    content is new (rld/main, current; the previous version superseded). Returns {doc_id, path} or None (v1)."""
+    content is new (rld/main, current; the previous version superseded). Returns {doc_id, path} or None (v1).
+
+    The specification in effect is the project record's (real-run-error #16-#18), not only the one this file last
+    registered: when the RLD registered a newer version on a user instruction, a configuration whose content
+    equals it just takes it over, and one that differs is refused — naming the differences — unless the user
+    passes replace (config apply --replace-metric-spec). The file never silently undoes a recorded decision."""
     if config["version"] != 2:
         return None
     root = Path(marker["root"])
     text = json.dumps(project_config.metric_spec_document(config), ensure_ascii=False, indent=1) + "\n"
     current = marker.get("metric_spec")
+    in_effect = project.get("metric_spec_doc_id") if project else None
+    if in_effect and (not current or current["doc_id"] != in_effect):
+        doc = rld.get(in_effect)
+        effect_text = (root / "docs" / doc["path"]).read_text(encoding="utf-8")
+        if json.loads(effect_text) == json.loads(text):  # the file states what is in effect: take it over
+            marker["metric_spec"] = {"doc_id": in_effect, "path": doc["path"]}
+            write_marker(cwd, marker)
+            return marker["metric_spec"]
+        if not replace:
+            raise TreeError(
+                f"the metric specification in effect is {in_effect} ({doc['path']}), registered outside config apply "
+                f"(e.g. by the RLD on a user instruction), and {CONFIG_NAME} states another one: "
+                + "; ".join(spec_differences(json.loads(effect_text), json.loads(text)))
+                + f". Edit metric_specs in {CONFIG_NAME} to match {in_effect} and apply again, or — if the file's "
+                  "values are the user's decision — config apply --replace-metric-spec")
+        current = {"doc_id": in_effect, "path": doc["path"]}
     if current and (root / "docs" / current["path"]).read_text(encoding="utf-8") == text:
         return current
     numbers = [int(m.group(1)) for p in (root / "docs" / "project").glob("metric-spec.v*.json")
@@ -343,11 +405,28 @@ def register_metric_spec(cwd: Path, marker: dict, rld: ResearchDB, config: dict,
                                    summary="research-tree.yaml 的 metric_specs：第一个为主指标",
                                    about=[project["id"]] if project else [])
     rld.set_document_current(doc_id)
-    if current:
+    if current and rld.get(current["doc_id"]).get("status") == "current":
         rld.supersede_document(current["doc_id"], doc_id)
     marker["metric_spec"] = {"doc_id": doc_id, "path": rel}
     write_marker(cwd, marker)
     return marker["metric_spec"]
+
+
+def spec_differences(old: dict, new: dict) -> list[str]:
+    """What differs between two metric specifications, metric by metric and field by field."""
+    out = []
+    if old.get("primary") != new.get("primary"):
+        out.append(f"primary {old.get('primary')} -> {new.get('primary')}")
+    a = {m["name"]: m for m in old.get("metrics", [])}
+    b = {m["name"]: m for m in new.get("metrics", [])}
+    for name in sorted(set(a) | set(b)):
+        if name not in b or name not in a:
+            out.append(f"{name} {'removed' if name not in b else 'added'}")
+            continue
+        for key in sorted(set(a[name]) | set(b[name])):
+            if a[name].get(key) != b[name].get(key):
+                out.append(f"{name}.{key} {a[name].get(key)!r} (in effect) vs {b[name].get(key)!r} (file)")
+    return out or ["formatting only"]
 
 
 def check_protocol(root: Path, project: dict, config: dict) -> None:
@@ -527,7 +606,8 @@ def discovery_command(cwd: Path, args) -> dict:
     if args.action == "check":  # may the start-up plan be put to the user?
         return {"blocked": discovery_blocks_confirmation(cwd)}
     if args.action == "merge":
-        users = json.loads((cwd / args.user_hypotheses).read_text(encoding="utf-8")) if args.user_hypotheses else []
+        users = json.loads(resolve_input(args.user_hypotheses, root, cwd, getattr(args, "invoked", cwd)).read_text(
+            encoding="utf-8")) if args.user_hypotheses else []
         merged = discovery.merge(discovery.read_shards(root), users)
         return {"path": discovery.write_candidates(root, merged), "candidates": merged}
     if args.action == "feasibility":
@@ -557,6 +637,18 @@ def discovery_command(cwd: Path, args) -> dict:
         write_marker(cwd, marker)
         return result
     raise TreeError(f"unknown discovery action {args.action}")
+
+
+def resolve_input(path: str, root: Path, project: Path, invoked: Path) -> Path:
+    """A file argument: absolute, or relative to the research root like --artifact and --report, else to the
+    project directory or where the command was run (real-run-error #9: the two used to disagree)."""
+    given = Path(path)
+    if given.is_absolute():
+        return given
+    for base in (root, project, invoked):
+        if (base / given).is_file():
+            return base / given
+    raise TreeError(f"{path} not found under the research root {root}, the project directory {project} or {invoked}")
 
 
 def reviewer_records(reader: ResearchDB) -> list[dict]:
@@ -595,6 +687,8 @@ def main(argv: list[str] | None = None) -> int:
     cf.add_argument("--actor", default="rld/main", help="the RLD identity that registers the configuration")
     cf.add_argument("--words", help="the user's words, registered as an instruction when the configuration changed")
     cf.add_argument("--require-project", action="store_true", help="fail unless the project record exists")
+    cf.add_argument("--replace-metric-spec", action="store_true",
+                    help="the user's decision: the file's metric_specs replace a specification the RLD registered")
     ui = sub.add_parser("ui", help="the UI agent's outbox")
     ui.add_argument("action", choices=("reply", "confirm", "instruction", "question", "submit"))
     ui.add_argument("--run", required=True)
@@ -635,14 +729,17 @@ def main(argv: list[str] | None = None) -> int:
     dv.add_argument("--artifact", help="the stage's output, relative to the research root")
     dv.add_argument("--evidence", nargs="*", default=[], help="accept: review document ids or verifier outputs")
     dv.add_argument("--verifier", help="accept (literature, feasibility): the deterministic check")
-    dv.add_argument("--user-hypotheses", help="merge: JSON list of the user's hypotheses (title, summary, ...)")
+    dv.add_argument("--user-hypotheses", help="merge: JSON list of the user's hypotheses (title, summary, ...); "
+                                              "relative to the research root like --artifact")
     dv.add_argument("--triage", help="select: the triage review document id")
     dv.add_argument("--report", help="gate: the discovery report, relative to the research root")
     dv.add_argument("--candidate", help="cite: the candidate (CAND-…)")
     dv.add_argument("--literature", nargs="*", default=[], help="cite: literature document ids (D-…)")
     sub.add_parser("status")
     args = p.parse_args(argv)
-    cwd = Path.cwd()
+    invoked = Path.cwd()
+    cwd = invoked if args.cmd == "init" else find_project(invoked)
+    args.invoked = invoked
     try:
         if args.cmd == "init":
             result = init(cwd, args.plan, args.project_id, args.config)
@@ -653,8 +750,8 @@ def main(argv: list[str] | None = None) -> int:
         elif args.cmd == "phase":
             result = set_phase(cwd, args.set) if args.set else read_marker(cwd)
         elif args.cmd == "config":
-            result = (apply_config(cwd, args.actor, args.words, args.require_project) if args.action == "apply"
-                      else show_config(cwd))
+            result = (apply_config(cwd, args.actor, args.words, args.require_project, args.replace_metric_spec)
+                      if args.action == "apply" else show_config(cwd))
         elif args.cmd == "ui":
             fields = {"reply": ("text",), "confirm": (), "instruction": ("understanding", "kind", "about"),
                       "question": ("text", "about", "docs"), "submit": ("req",)}[args.action]

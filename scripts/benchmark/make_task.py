@@ -94,7 +94,7 @@ def main() -> int:
     dest = args.dest.resolve()
     project = dest / "project"
     subprocess.run([sys.executable, str(ROOT / "scripts" / "make_rt_test_project.py"), str(project),
-                    "--host", args.host, "--hypotheses", "0", "--with-reviewer", "--alert-node-h",
+                    "--host", args.host, "--legacy-toytrain", "--hypotheses", "0", "--with-reviewer", "--alert-node-h",
                     str(args.alert_node_h)], check=True, capture_output=True)
     train = project / "code" / "toytrain" / "train.py"
     text = train.read_text(encoding="utf-8")

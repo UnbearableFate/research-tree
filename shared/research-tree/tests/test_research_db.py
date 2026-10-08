@@ -3095,3 +3095,46 @@ class SanityScaleTest(Fixture):
             with self.assertRaisesRegex(ResearchDBError, "PAIRING_MISMATCH: .*the protocol requires 400"):
                 self.imported(method, counts={"n_val": 10})
         self.assertTrue(self.rld.get(f"{sanity}/s{self.rld.get(sanity)['seeds'][0]}")["valid"])
+
+
+class HarnessSanityFirstTest(Fixture):
+    """real-run-error #19: the rules say sanity, review, then freeze; the interface lets the root's sanity run
+    happen before the harness is frozen, and nothing else."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = Path(self.tmp.name) / "research" / "P-test"
+        (self.root / "docs").mkdir(parents=True)
+        self.db = self.root / "research_tree.db"
+        create_db.create_db(self.db)
+        self.rld = ResearchDB(self.db, "rld/main")
+        self.worker = ResearchDB(self.db, "worker/w1")
+        self.n = 0
+        self.effects = {}
+        self.repo = Path(self.tmp.name) / "code"
+        (self.repo / "harness").mkdir(parents=True)
+        self.git("init", "-q", "-b", "main")
+        self.harness = self.commit({"harness/stats.py": "stats v1\n"})
+        setup = self.doc(self.rld, "project/min-setup.v1.md", "min_setup")
+        specs = self.doc(self.rld, "project/metric-spec.v1.json", "metric_spec", body=json.dumps(SPECS))
+        protocol = self.doc(self.rld, "project/protocol.v1.json", "protocol", body=json.dumps(PROTOCOL))
+        self.rld.create_project("P-test", "test", setup, "acc", "higher", True, SECONDARY, SEEDS,
+                                repo_path=str(self.repo), metric_spec_doc_id=specs, protocol_doc_id=protocol)
+
+    def test_sanity_before_freeze_only(self):
+        design = self.doc(self.worker, "exp/s/design.v1.md", "experiment_design")
+        sanity = self.worker.create_experiment("sanity", "sota", design, self.harness, 1, 60, estimated_node_h=0.01)
+        self.assertEqual(self.rld.get(sanity)["kind"], "sanity")
+        with self.assertRaisesRegex(ResearchDBError, "freeze the harness"):
+            self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 60, estimated_node_h=0.01)
+        self.rld.update_project(harness_ref=self.harness, harness_paths=["harness"])
+        self.assertTrue(self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 60,
+                                                      estimated_node_h=0.01))
+
+    def test_help_lists_optional_parameters(self):
+        described = rdb.describe("create_experiment")
+        self.assertIn("estimated_node_h", described["optional_parameters"])
+        self.assertIn("metric_spec_doc_id", rdb.describe("create_project")["optional_parameters"])
+        listed = {m["method"]: m for m in rdb.describe()}
+        self.assertIn("valid", listed["update_run"]["optional_parameters"])
+        self.assertNotIn("optional_parameters", listed["get"])

@@ -34,6 +34,14 @@ EXECUTOR_STATUSES = ("pending", "running", "done", "failed")
 REPORT_SECTIONS = ("用户假说", "新发现候选", "淘汰想法")
 STATE_PATH = Path("cache") / "discovery" / "state.json"
 CANDIDATES_PATH = Path("docs") / "project" / "discovery" / "candidates.json"
+# What a finished stage's --artifact usually is (the gate needs one for every stage but brief)
+ARTIFACT_HINTS = {"literature": "docs/project/discovery/literature.md (the documents and their verification)",
+                  "candidates": "docs/project/discovery/candidates.json",
+                  "feasibility": "docs/project/discovery/candidates.json",
+                  "triage": "docs/project/discovery/triage.md (the triage review id and the selection)",
+                  "novelty": "docs/project/discovery/novelty-reviews.md (one line per candidate: review id, verdict)",
+                  "critique": "docs/project/discovery/critical-reviews.md (one line per candidate: review id, stance)",
+                  "refine": "docs/project/discovery/refined-hypotheses.md (the hypothesis documents written)"}
 
 
 class DiscoveryError(Exception):
@@ -104,6 +112,13 @@ def set_status(root: Path, name: str, status: str, artifact: str | None = None) 
         stage = _stage(state, name)
         if stage["status"] == "skipped":
             raise DiscoveryError(f"{name} is skipped in mode {state['mode']}")
+        if artifact and not (root / artifact.partition("#")[0]).is_file():
+            raise DiscoveryError(f"--artifact {artifact} is not a file under the research root {root}")
+        if status == "done" and name not in ("brief", "gate") and not (artifact or stage.get("artifact")):
+            # the gate checks every stage's output (real-run-error #15): say so when the stage is finished
+            raise DiscoveryError(f"{name} done needs --artifact, the stage's output file relative to the research root "
+                                 f"(e.g. {ARTIFACT_HINTS.get(name, 'docs/project/discovery/<stage>.md')}); the "
+                                 "discovery gate checks it")
         stage.update(status=status, updated=now(), **({"artifact": artifact} if artifact else {}))
         if name != "gate":
             state["gate"] = None  # anything redone invalidates an earlier gate result

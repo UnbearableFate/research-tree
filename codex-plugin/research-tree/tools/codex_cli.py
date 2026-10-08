@@ -47,8 +47,10 @@ def console(runtime):
                     print(json.dumps(runtime.control("config", {}), ensure_ascii=False, indent=2), flush=True)
                 elif text in {"/status", "/pane"}:
                     print(json.dumps(runtime.control(text[1:], {}), ensure_ascii=False, indent=2), flush=True)
-                elif text == "/config apply":
-                    print(json.dumps(runtime.control("config", {"apply": True, "words": text}), ensure_ascii=False), flush=True)
+                elif text in {"/config apply", "/config apply --replace-metric-spec"}:
+                    print(json.dumps(runtime.control("config", {"apply": True, "words": text,
+                                                                "replace_metric_spec": text.endswith("spec")}),
+                                     ensure_ascii=False), flush=True)
                 else:
                     runtime.start_ui(text)
             except Exception as exc:
@@ -64,6 +66,8 @@ def main():
     parser.add_argument("value", nargs="?")
     parser.add_argument("--id", dest="project_id")
     parser.add_argument("--config", dest="config_file")
+    parser.add_argument("--replace-metric-spec", action="store_true",
+                        help="config apply: the file's metric_specs replace a specification the RLD registered")
     parser.add_argument("--python", default="3.13")
     parser.add_argument("--update-uv", action="store_true")
     args = parser.parse_args()
@@ -91,7 +95,8 @@ def main():
         elif args.action == "config":
             if args.value not in {"show", "apply"}:
                 raise ValueError("config accepts show or apply")
-            params = {"apply": args.value == "apply", "words": "research-tree config apply"}
+            params = {"apply": args.value == "apply", "words": "research-tree config apply",
+                      "replace_metric_spec": bool(getattr(args, "replace_metric_spec", False))}
         result = runtime.control(args.action, params)
         print(json.dumps({"ok": True, "result": result}, ensure_ascii=False, indent=2))
         return 1 if args.action == "check" and result["stale"] else 0

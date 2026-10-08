@@ -48,6 +48,12 @@ class StateTest(unittest.TestCase):
         discovery.start(self.root, "precheck", "claude-opus-5-5")
         self.assertEqual({s["stage"] for s in discovery.load(self.root)["stages"] if s["status"] == "skipped"},
                          {"candidates", "feasibility", "triage"})
+        # real-run-error #15: a finished stage names its output, and the file exists
+        with self.assertRaisesRegex(discovery.DiscoveryError, "novelty done needs --artifact"):
+            discovery.set_status(self.root, "novelty", "done")
+        with self.assertRaisesRegex(discovery.DiscoveryError, "not a file"):
+            discovery.set_status(self.root, "novelty", "done", "x")
+        (self.root / "x").write_text("RV-0001 PROCEED\n")
         discovery.set_status(self.root, "novelty", "done", "x")
         with self.assertRaisesRegex(discovery.DiscoveryError, "another model family"):
             discovery.accept(self.root, "novelty", ["D-1"], [self.review("D-1", "novelty_precheck",

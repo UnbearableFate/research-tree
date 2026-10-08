@@ -320,7 +320,9 @@ python3 scripts/build_plugins.py --target all
 
 ## 本轮发布验证范围
 
-模拟/传输夹具验证接口与会话传输；真实 Codex/Claude 宿主测试包含实际插件与本地 CPU toy training，部分采用预声明 simulation_only 指标，另有 synthetic_proxy 的实际验证集 accuracy。本轮未执行 GPU、PBS 或集群科研训练；完整固定资源 A/B/C 科研 benchmark 仍 OPEN。测试数量不证明科学可靠性。详见随两个插件包发布的 [验证范围说明](shared/research-tree/RELEASE.md)。
+**证据一致性改进轮（S0–S7，见 [实施文档](plans/research-tree-implementation-and-real-scenarios.md)）：**每个阶段末，Claude Code 与 Codex 都在全新的虚构项目 ToyOpt Lab 中运行该阶段的真实场景（原生宿主、真实模型与插件、CPU 上的真实训练与实测用量），并由 Fable 5.1 新会话独立评审与终审。预设数值、模型替身与回执注入只用于确定性回归（REG），不代替真实场景（SC）。场景底座见 [`scripts/scenarios/`](scripts/scenarios/README.md)，阶段状态与证据见 `plans/design/test-logs/`。
+
+此前各轮：模拟/传输夹具验证接口与会话传输；真实 Codex/Claude 宿主测试包含实际插件与本地 CPU toy training，部分采用预声明 simulation_only 指标，另有 synthetic_proxy 的实际验证集 accuracy。本轮未执行 GPU、PBS 或集群科研训练；完整固定资源 A/B/C 科研 benchmark 仍 OPEN。测试数量不证明科学可靠性。详见随两个插件包发布的 [验证范围说明](shared/research-tree/RELEASE.md)。
 
 ## 开发与验证
 
@@ -330,9 +332,11 @@ python3 scripts/build_plugins.py --target all
 
 ```bash
 .venv/bin/python -m unittest discover -s shared/research-tree/tests
-.venv/bin/python -m unittest discover -s tests
+.venv/bin/python -m unittest discover -s tests          # 含场景底座的 REG-S0 测试（tests/test_scenarios.py）
 python3 scripts/build_plugins.py --target all
 ```
+
+**真实场景底座**（测试工具，不进入发布包）：`python3 scripts/make_rt_test_project.py <新目录> --host claude|codex --stage S0 --case SC-S0-01` 生成全新 ToyOpt Lab；`scripts/scenarios/observe.py` 只读核对数据库、重评分每个导入的 run 并统计作业启动；`scripts/scenarios/record.py validate` 拒绝缺少宿主、观测模型、原始证据或恢复记录的“通过”。
 
 **Claude 适配层**
 

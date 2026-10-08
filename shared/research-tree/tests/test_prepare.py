@@ -46,7 +46,7 @@ class PrepareTest(unittest.TestCase):
         done = self.prepare("--python=3.12")
         self.assertEqual(done.returncode, 0, done.stderr)
         self.assertEqual(self.calls(), ["--version", "init . --no-workspace --python=3.12",
-                                        "add --project . latticedb==0.15.0 jsonschema>=4.26 pyyaml>=6.0"])
+                                        "add --project . latticedb==0.15.0 jsonschema>=4.26 pyyaml>=6.0 pypdf>=5.1"])
         self.assertEqual((self.cwd / "plan.md").read_bytes(), (ROOT / "schema/plan.template.md").read_bytes())
         self.assertEqual((self.cwd / "research-tree.yaml").read_bytes(), (ROOT / "schema/config.template.yaml").read_bytes())
         self.assertIn("下一步", done.stdout)

@@ -71,6 +71,7 @@ export type ResearchProject = {
   /** Version 2: the metric_spec document registered from research-tree.yaml. */
   metric_spec?: { doc_id: string; path: string }
   reviewer_backend?: { checked_at: string; model: string | null; backend: string | null; ok: boolean; error: string | null }
+  skills_check?: { checked_at: string; configured: string[]; missing: string[]; suggestions: Record<string, string[]>; searched: string[] }
 }
 
 /** One subagent's model choice in research-tree.yaml. */

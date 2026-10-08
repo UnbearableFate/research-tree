@@ -403,6 +403,111 @@ class ConfigV2Test(unittest.TestCase):
         self.assertEqual(rld.get(out["result"]["instruction"]["doc_id"])["doc_type"], "user_instruction")
 
 
+class RealRunFixesTest(unittest.TestCase):
+    """plans/real-run-error.md #2/#14 (run from a subdirectory), #9 (relative inputs), #16-#18 (the metric
+    specification the RLD registered is not silently reverted by config apply)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.cwd = Path(self.tmp.name)
+        (self.cwd / "plan.md").write_text("# 计划\n", encoding="utf-8")
+        (self.cwd / "research-tree.yaml").write_text(
+            (REPO / "schema" / "config.template.yaml").read_text(encoding="utf-8").replace("mode: full", "mode: precheck"),
+            encoding="utf-8")
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def run_tool(self, *args, cwd=None):
+        out = subprocess.run([sys.executable, str(TOOL), *args], cwd=cwd or self.cwd, capture_output=True, text=True)
+        return out.returncode, json.loads(out.stdout)
+
+    def project(self):
+        code, out = self.run_tool("init", "plan.md", "--project-id", "P-fix")
+        self.assertEqual(code, 0, out)
+        marker = out["result"]
+        self.root = Path(marker["root"])
+        self.rld = ResearchDB(self.root / "research_tree.db", "rld/main")
+        (self.root / "docs/project/min-setup.v1.md").write_text("setup\n", encoding="utf-8")
+        setup = self.rld.register_document("project/min-setup.v1.md", "min_setup", "setup")
+        self.rld.set_document_current(setup)
+        protocol = {"version": 1, "eval_type": "real_gt", "pair_fields": ["seed"], "profile": "stage1_confirmed",
+                    "confirmation_seeds": [1042, 1043, 1044], "min_confirmation_pairs": 3,
+                    "max_confirmation_candidates": 2, "require_artifact_import": True}
+        (self.root / "docs/project/protocol.v1.json").write_text(json.dumps(protocol), encoding="utf-8")
+        proto = self.rld.register_document("project/protocol.v1.json", "protocol", "protocol")
+        self.rld.set_document_current(proto)
+        fields = {k: v for k, v in self.run_tool("config")[1]["result"]["db_fields"].items() if k in ("go_margin", "gate_seeds")}
+        self.rld.create_project("P-fix", "fix", setup, "accuracy", "higher", True, ["train_time_s"], [42, 43, 44],
+                                metric_spec_doc_id=marker["metric_spec"]["doc_id"], protocol_doc_id=proto, **fields)
+        return marker
+
+    def test_tools_find_the_project_from_a_subdirectory(self):
+        self.project()
+        code, out = self.run_tool("status", cwd=self.root)
+        self.assertEqual(code, 0, out)
+        self.assertEqual(out["result"]["project_id"], "P-fix")
+        code, out = self.run_tool("query", "get", '{"entity_id": "P-fix"}', cwd=self.root / "docs")
+        self.assertEqual((code, out["result"]["id"]), (0, "P-fix"))
+        # discovery inputs resolve against the research root, like --artifact (#9), from any directory
+        self.assertEqual(self.run_tool("discovery", "start")[0], 0)
+        users = self.root / "docs/project/discovery/user-hypotheses.json"
+        users.parent.mkdir(parents=True, exist_ok=True)
+        users.write_text(json.dumps([{"title": "动量", "summary": "s"}]), encoding="utf-8")
+        for where in (self.cwd, self.root):
+            code, out = self.run_tool("discovery", "merge", "--user-hypotheses",
+                                      "docs/project/discovery/user-hypotheses.json", cwd=where)
+            self.assertEqual(code, 0, out)
+        code, out = self.run_tool("discovery", "merge", "--user-hypotheses", "nope.json")
+        self.assertEqual(code, 2)
+        self.assertIn("not found under the research root", out["error"])
+
+    def test_unknown_platform_skills_are_reported_with_close_names(self):
+        """real-run-error #4: platform.skills named a skill the host did not have (plural vs singular)."""
+        import research_tree as rt
+        from unittest import mock
+        home = self.cwd / "home"
+        (home / ".claude/skills/miyabi-pbs-shell-template").mkdir(parents=True)
+        (home / ".claude/skills/miyabi-pbs-shell-template/SKILL.md").write_text("x")
+        with mock.patch.object(Path, "home", lambda: home):
+            check = rt.check_skills(["miyabi-pbs-shell-templates", "miyabi-pbs-shell-template"], self.cwd)
+        self.assertEqual(check["missing"], ["miyabi-pbs-shell-templates"])
+        self.assertEqual(check["suggestions"]["miyabi-pbs-shell-templates"], ["miyabi-pbs-shell-template"])
+
+    def test_config_apply_does_not_revert_the_rlds_metric_specification(self):
+        marker = self.project()
+        spec = json.loads((self.root / "docs" / marker["metric_spec"]["path"]).read_text(encoding="utf-8"))
+        for m in spec["metrics"]:
+            if m["name"] == "train_time_s":
+                m["allowed_regression"] = 0.5
+        (self.root / "docs/project/metric-spec.v2.json").write_text(json.dumps(spec, ensure_ascii=False, indent=1) + "\n",
+                                                                   encoding="utf-8")
+        mine = self.rld.register_document("project/metric-spec.v2.json", "metric_spec", "spec v2 (user instruction)")
+        self.rld.set_document_current(mine)
+        self.rld.update_project(metric_spec_doc_id=mine)
+        code, out = self.run_tool("config", "apply")  # the file still says 0.10: refused, nothing reverted
+        self.assertEqual(code, 2, out)
+        self.assertIn("train_time_s.allowed_regression 0.5 (in effect) vs 0.1 (file)", out["error"])
+        self.assertEqual(self.rld.get("P-fix")["metric_spec_doc_id"], mine)
+        self.assertEqual(self.rld.get(mine)["status"], "current")
+        config = self.cwd / "research-tree.yaml"
+        config.write_text(config.read_text(encoding="utf-8").replace("allowed_regression: 0.10", "allowed_regression: 0.5"),
+                          encoding="utf-8")
+        code, out = self.run_tool("config", "apply")  # the file now agrees: the version in effect is taken over
+        self.assertEqual(code, 0, out)
+        self.assertEqual(self.rld.get("P-fix")["metric_spec_doc_id"], mine)
+        self.assertEqual(json.loads((self.cwd / ".research-tree.json").read_text())["metric_spec"]["doc_id"], mine)
+        self.assertFalse((self.root / "docs/project/metric-spec.v3.json").exists())
+        # the user may decide the file's values replace it
+        config.write_text(config.read_text(encoding="utf-8").replace("allowed_regression: 0.5", "allowed_regression: 0.2"),
+                          encoding="utf-8")
+        code, out = self.run_tool("config", "apply", "--replace-metric-spec")
+        self.assertEqual(code, 0, out)
+        new = self.rld.get("P-fix")["metric_spec_doc_id"]
+        self.assertNotEqual(new, mine)
+        self.assertEqual(self.rld.get(mine)["status"], "superseded")
+
+
 class NotifyTest(unittest.TestCase):
     """00 §2.4 item 6: confirmation requests and usage alerts may also go to notify.url; every attempt is logged,
     a failure never raises, and an unanswered message to the RLD stays visible in `inbox`."""

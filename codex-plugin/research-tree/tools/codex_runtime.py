@@ -29,7 +29,8 @@ READS = set(READ_METHODS)
 HELP = {
     "init": {"plan": "plan.md (default)", "project_id": "optional", "config": "optional YAML other than research-tree.yaml"},
     "status": {}, "refresh": {}, "build": {}, "pane": {}, "check": {},
-    "config": {"apply": False, "words": "user's request when applying"},
+    "config": {"apply": False, "words": "user's request when applying",
+               "replace_metric_spec": "the user's decision: the file's metric_specs replace one the RLD registered"},
     "confirm": {"words": "verbatim user confirmation"},
     "instruction": {"words": "verbatim user instruction from the main conversation",
                     "understanding": "interpretation and scope", "kind": "指令", "about": ["project or node ID"]},
@@ -410,7 +411,8 @@ class Runtime:
             if not params.get("words", "").strip():
                 raise ValueError("config apply needs the user's request")
             with locked(self.cache / "control.lock"):
-                result = tree.apply_config(self.cwd, self.actor, words=params["words"])
+                result = tree.apply_config(self.cwd, self.actor, words=params["words"],
+                                           replace_metric_spec=bool(params.get("replace_metric_spec")))
             if result["new_version"] or result["updated_fields"]:
                 result["delivery"] = self.enqueue("用户已应用新配置。读取 research_control config；向活跃worker转告平台和预算变化。")
             return result
@@ -463,6 +465,17 @@ class Runtime:
         if name == "research_review":
             if self.actor != "rld/main":
                 raise ValueError("only the Leader organizes reviews")
+            if args.get("ticket"):  # a review started as a background job (the Claude host's process limit)
+                try:
+                    answer, _ = review_call._job_answer(review_call.wait_job(self.root, args["ticket"], 3600))
+                except review_call.ReviewError as exc:
+                    raise ValueError(str(exc)) from None
+                if not answer.get("ok"):
+                    raise ValueError(answer.get("error", "review failed"))
+                return answer.get("result", answer)
+            missing = [k for k in ("kind", "brief", "about") if not args.get(k)]
+            if missing:
+                raise ValueError(f"research_review needs {', '.join(missing)} (or only ticket, to collect a pending review)")
             entry = {"kind": args["kind"], "about": args["about"], "dimension": args.get("dimension"),
                      "session": args.get("session")}
             try:

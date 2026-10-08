@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Run the end-of-batch review of plans/design/14 §3 with Claude Code CLI (Fable 5.1) and record it.
+"""Run the end-of-stage review (plans/research-tree-implementation-and-real-scenarios.md §2.6) with Claude Code CLI
+(Fable 5.1, effort high) and record it.
 
-    python3 scripts/stage_review.py M1 --round 1 --design plans/design/04-harness-and-baseline.md \\
-        plans/design/05-experiments-and-evidence.md --base <commit> [--tests path ...]
+    python3 scripts/stage_review.py S0 --round 1 --design plans/research-tree-implementation-and-real-scenarios.md \\
+        --base <commit> [--tests path ...] [--final --evidence plans/design/test-logs/S0-claude.md ...]
 
 A new non-interactive session that reads the files itself; the brief holds only paths (no executor summary).
 The review counts only when is_error is false, terminal_reason is "completed" and modelUsage names only the
@@ -29,7 +30,8 @@ def main() -> int:
     p.add_argument("--design", nargs="+", required=True)
     p.add_argument("--base", required=True, help="commit before the batch; changed files are taken from it")
     p.add_argument("--tests", nargs="*", default=[])
-    p.add_argument("--final", action="store_true", help="the final review of the batch's complete diff (14 §1 step 5)")
+    p.add_argument("--final", action="store_true", help="the final review of the stage's complete diff and evidence")
+    p.add_argument("--evidence", nargs="*", default=[], help="scenario records and test logs of both hosts")
     args = p.parse_args()
     changed = subprocess.run(["git", "-C", str(REPO), "diff", "--name-only", "-z", args.base], capture_output=True,
                              text=True, check=True).stdout.split("\0")
@@ -40,7 +42,8 @@ def main() -> int:
     brief = (f"Review batch {args.batch}{' (final review of the complete diff)' if args.final else ''}. "
              f"Design: {', '.join(args.design)}. Changed files (git diff --name-only {args.base} plus new files): "
              f"{', '.join(changed)}. Tests: {', '.join(args.tests) or 'see changed files'}. "
-             "Read everything yourself; executor notes are not evidence.")
+             + (f"Scenario evidence (records, raw logs, observer output): {', '.join(args.evidence)}. " if args.evidence else "")
+             + "Read everything yourself; executor notes are not evidence.")
     cmd = ["claude", "-p", "--output-format", "json", "--model", MODEL, "--effort", "high",
            "--safe-mode", "--restricted", "--strict-mcp-config", "--tools", "Read,Grep,Glob",
            "--permission-mode", "dontAsk", "--permission-prompts", "none", "--no-session-persistence",

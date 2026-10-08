@@ -201,6 +201,34 @@ class ReviewCallTest(unittest.TestCase):
                 if not ready:
                     self.assertIn("REVIEW_UNAVAILABLE", check["error"])
 
+    def test_background_review_outlives_the_host_process_limit(self):
+        """real-run-error #10/#12: a review longer than the host lets one tool process live runs as a detached job;
+        the first call returns a ticket, the Leader collects the result with it, and nothing runs twice."""
+        self.project()
+        self.fake("pi")
+        self.env["FAKE_ANSWERS"] = json.dumps([{"text": block(NOVELTY)}])
+        out = []
+        with patch.dict(os.environ, self.env), patch("builtins.print", lambda s: out.append(json.loads(s))), \
+                patch.object(Path, "cwd", lambda: self.cwd):
+            review_call.main(["--kind", "novelty_precheck", "--brief", self.brief, "--about", "P-r", "--background",
+                              "--wait-s", "0"])
+            pending = out[-1]
+            self.assertTrue(pending["pending"], pending)
+            review_call.main(["--ticket", pending["ticket"], "--wait-s", "60"])
+            done = out[-1]
+            review_call.main(["--ticket", pending["ticket"], "--wait-s", "0"])  # collecting again repeats the answer
+            again = out[-1]
+            review_call.main(["--ticket", "RJ-nope", "--wait-s", "0"])
+            bad = out[-1]
+        self.assertTrue(done["ok"], done)
+        self.assertEqual(done, again)
+        self.assertEqual(done["result"]["result"], "PROCEED")
+        self.assertEqual(len(self.rld.reviews()), 1)
+        self.assertEqual(len([c for c in self.calls() if c[1:2] not in (["auth"], ["--list-models"])]), 1)  # one model call
+        self.assertFalse(bad["ok"])
+        outcomes = [json.loads(line)["outcome"] for line in (self.root / "logs/review_calls.jsonl").read_text().splitlines()]
+        self.assertEqual(outcomes, ["started", "ok"])
+
     def test_r01_r18_r19_backend_routing_without_fallback(self):
         self.project()
         out = self.call([{"text": block(NOVELTY)}])  # R01: pi not on PATH
