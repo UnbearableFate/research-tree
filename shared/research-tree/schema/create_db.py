@@ -21,7 +21,7 @@ from pathlib import Path
 
 from latticedb import Database, LatticeAlreadyExistsError
 
-SCHEMA_VERSION = 16
+SCHEMA_VERSION = 17
 SPEC_PATH = Path(__file__).with_name("research_tree.sql")
 DEFAULT_DB_PATH = Path("research_tree.db")
 

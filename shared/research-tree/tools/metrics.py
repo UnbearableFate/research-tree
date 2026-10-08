@@ -249,16 +249,18 @@ def run_values(specs: dict, run: dict, metrics: list[str]) -> dict[str, float]:
     return out
 
 
-def check_unit_mix(spec: dict, values: list[float], where: str) -> None:
+def check_unit_mix(spec: dict, values: list[float], where: str) -> str | None:
     """Bounded units (fraction, percentage): values of one comparison differing by the unit factor (>= 50 times)
-    mean one of them is in another unit (0.699 among 69.9). Checked value by value, not on means."""
+    may mean one of them is in another unit (0.699 among 69.9). S3 §7.1: legal values in the declared range are
+    never refused for their scale (0.001 and 0.1 are both fractions); the range and the unit recorded at import
+    are the hard checks, this returns a review hint (or None)."""
     if spec["input_unit"] not in IMPLIED_RANGES:
-        return
+        return None
     nonzero = [abs(v) for v in values if v]
     if len(nonzero) >= 2 and max(nonzero) / min(nonzero) >= 50:
-        raise MetricError("METRIC_UNIT_MISMATCH", f"{where}: {spec['name']} values range from {min(nonzero):g} to "
-                                                  f"{max(nonzero):g}; one of them is in another unit than "
-                                                  f"{spec['input_unit']}")
+        return (f"{where}: {spec['name']} values range from {min(nonzero):g} to {max(nonzero):g} "
+                f"({spec['input_unit']}); check that every run reports the same unit")
+    return None
 
 
 def pair_key(protocol: dict | None, run: dict) -> tuple:
@@ -356,6 +358,17 @@ def compare(specs: dict, protocol: dict | None, mine: list[dict], theirs: list[d
     mismatched = sorted(r["seed"] for r in theirs if r["seed"] in seeds_a and pair_key(protocol, r) not in a)
     independence = (protocol or {}).get("independence_fields") or []
     if independence:  # runs that share these (e.g. the same data order) are one independent repeat, not several
+        # S3 §7.2: on both sides every declared field is present and a scalar; a missing value is never counted
+        # as one more independent unit
+        for side in (a, b):
+            for k in keys:
+                manifest = side[k].get("manifest") or {}
+                bad = [f for f in independence if not isinstance(manifest.get(f), (str, int, float, bool))
+                       or manifest.get(f) is None]
+                if bad:
+                    raise MetricError("INDEPENDENCE_UNVERIFIED", f"{side[k]['id']} lacks the independence fields {bad} "
+                                                                 "the protocol declares (a missing value is not a new "
+                                                                 "independent unit)")
         distinct = {tuple((a[k].get("manifest") or {}).get(f) for f in independence) for k in keys}
         n_independent = len(distinct)
     else:
@@ -371,8 +384,10 @@ def compare(specs: dict, protocol: dict | None, mine: list[dict], theirs: list[d
             continue  # legacy secondary metrics: no direction known
         xs = [run_values(specs, a[k], [name])[name] for k in keys]
         ys = [run_values(specs, b[k], [name])[name] for k in keys]
-        check_unit_mix(by_name[name], xs + ys, "the compared runs")
+        hint = check_unit_mix(by_name[name], xs + ys, "the compared runs")
         result["metrics"][name] = effect(by_name[name], xs, ys, legacy_pct)
+        if hint:
+            result.setdefault("hints", []).append(hint)
     return result
 
 
