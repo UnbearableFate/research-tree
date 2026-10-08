@@ -1,0 +1,6 @@
+WARNING: failed to clean up stale arg0 temp dirs: Directory not empty (os error 39)
+Reading additional input from stdin...
+{"type":"thread.started","thread_id":"01a11c36-9a40-73f0-9665-22120f8f6d53"}
+{"type":"turn.started"}
+{"type":"item.completed","item":{"id":"item_0","type":"agent_message","text":"ok"}}
+{"type":"turn.completed","usage":{"input_tokens":14650,"cached_input_tokens":11008,"cache_write_input_tokens":0,"output_tokens":5,"reasoning_output_tokens":0}}

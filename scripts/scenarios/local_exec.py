@@ -176,8 +176,15 @@ def supervise(args) -> int:
     out.mkdir(parents=True, exist_ok=True)
     stdout = open(out / "job.stdout.log", "ab")
     started = time.time()
+    command = list(job["command"])
+    if args.launch != 1:  # an extra start writes into its own directory, never over the job's own artifacts
+        for i, arg in enumerate(command):
+            if arg == "--out" and i + 1 < len(command):
+                command[i + 1] = str(out)
+            elif arg.startswith("--out="):
+                command[i] = f"--out={out}"
     try:
-        child = subprocess.Popen(job["command"], cwd=job["cwd"], stdout=stdout, stderr=subprocess.STDOUT,
+        child = subprocess.Popen(command, cwd=job["cwd"], stdout=stdout, stderr=subprocess.STDOUT,
                                  stdin=subprocess.DEVNULL)
     except OSError as exc:
         with locked():

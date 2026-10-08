@@ -568,7 +568,17 @@ def start_job(cwd: Path, root: Path, argv: list[str]) -> str:
     subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "--run-job", ticket], cwd=cwd,
                      start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
                      stderr=subprocess.DEVNULL)
+    # the ticket is on record before anything is printed: a session the host killed finds it with --list-jobs
+    log_call(root, {"outcome": "background_started", "ticket": ticket, "argv": argv})
     return ticket
+
+
+def list_jobs(root: Path) -> list[dict]:
+    """Every background review job and its state (running or done), oldest first."""
+    folder = root / JOBS_DIR
+    jobs = [json.loads(p.read_text(encoding="utf-8")) for p in folder.glob("RJ-*.json")] if folder.is_dir() else []
+    return sorted(({k: j.get(k) for k in ("ticket", "status", "started_at", "finished_at", "argv")} for j in jobs),
+                  key=lambda j: j["started_at"])
 
 
 def wait_job(root: Path, ticket: str, wait_s: float) -> dict:
@@ -609,6 +619,7 @@ def _parser() -> argparse.ArgumentParser:
                         "a ticket instead of being cut off by the host's process limit")
     p.add_argument("--ticket", help="collect a background review: wait at most --wait-s for its answer")
     p.add_argument("--wait-s", type=float, default=0.0)
+    p.add_argument("--list-jobs", action="store_true", help="background review jobs and their state")
     p.add_argument("--run-job", help=argparse.SUPPRESS)
     return p
 
@@ -644,6 +655,9 @@ def main(argv: list[str] | None = None) -> int:
             answer, _ = _call(cwd, root, call)
             path.write_text(json.dumps({**job, "status": "done", "answer": answer, "finished_at": now()},
                                        ensure_ascii=False, indent=1), encoding="utf-8")
+            return 0
+        if args.list_jobs:
+            print(json.dumps({"ok": True, "jobs": list_jobs(root)}, ensure_ascii=False))
             return 0
         if args.ticket:
             answer, code = _job_answer(wait_job(root, args.ticket, args.wait_s))

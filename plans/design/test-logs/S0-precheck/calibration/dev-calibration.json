@@ -1,0 +1,59 @@
+{
+ "note": "S0 development calibration: dev training seeds 7-9, explore split only, frozen reference configs/reference.json (sgd lr 0.005, 1 epoch, batch 32) and the same with --method momentum; measured by tools/local_exec.py",
+ "runs": [
+  {
+   "run": "momentum-7",
+   "split": "explore",
+   "accuracy": 0.8375,
+   "final_loss": 0.5439951795137247,
+   "cpu_seconds": 0.0564,
+   "wall_seconds": 0.0582,
+   "walltime_used_s": 1
+  },
+  {
+   "run": "momentum-8",
+   "split": "explore",
+   "accuracy": 0.8375,
+   "final_loss": 0.5439345718802561,
+   "cpu_seconds": 0.0566,
+   "wall_seconds": 0.0579,
+   "walltime_used_s": 1
+  },
+  {
+   "run": "momentum-9",
+   "split": "explore",
+   "accuracy": 0.835,
+   "final_loss": 0.5429848966145485,
+   "cpu_seconds": 0.0565,
+   "wall_seconds": 0.0583,
+   "walltime_used_s": 1
+  },
+  {
+   "run": "sgd-7",
+   "split": "explore",
+   "accuracy": 0.7975,
+   "final_loss": 0.6655136629662153,
+   "cpu_seconds": 0.0624,
+   "wall_seconds": 0.0642,
+   "walltime_used_s": 1
+  },
+  {
+   "run": "sgd-8",
+   "split": "explore",
+   "accuracy": 0.7825,
+   "final_loss": 0.6655704803618703,
+   "cpu_seconds": 0.0571,
+   "wall_seconds": 0.0589,
+   "walltime_used_s": 1
+  },
+  {
+   "run": "sgd-9",
+   "split": "explore",
+   "accuracy": 0.8075,
+   "final_loss": 0.6686334442572837,
+   "cpu_seconds": 0.0577,
+   "wall_seconds": 0.0595,
+   "walltime_used_s": 1
+  }
+ ]
+}

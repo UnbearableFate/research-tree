@@ -14,6 +14,29 @@
   → `gpt-6-luna`；`codex exec -m gpt-6-luna -c model_reasoning_effort=medium` → `gpt-6-luna`。宿主版本：Claude Code
   2.1.294、codex-cli 0.160.1、pi 1.0.4、herdr 0.8.2；机器 fern01（本地，32 核，无 PBS/GPU 使用）。
 
+原始预检证据：[`S0-precheck/`](S0-precheck/)（各宿主 `--version`、`claude -p --help`、`codex exec --help`、
+`pi --list-models`，以及四个模型各一次实际调用的原始 JSON / 输出）。
+
+## 冻结的资源与运行边界（§3.4，S0 开发校准后冻结，适用于 S0–S6 每个阶段 × 宿主）
+
+开发校准（[`S0-precheck/calibration/dev-calibration.json`](S0-precheck/calibration/dev-calibration.json)；开发训练
+seed 7–9，仅 explore 切分，经 `tools/local_exec.py` 实测）：参考方法单次运行 CPU 0.057–0.062 s、墙钟 0.059–0.064 s，
+按整秒记账为 1 node-second；momentum 变体同量级。正式 seed（42–44、1042–1044、2042–2044）与 c1/c2 未参与校准。
+
+| 项目 | 上限 / 口径 |
+| --- | --- |
+| 单次运行 | `budget.per_run`：1 节点、10 分钟墙钟（实际约 0.06 s） |
+| 每宿主每阶段训练次数 | ≤ 150 次实际启动（含 sanity、失败、重试与确认）；本地 CPU，无 PBS、无 GPU |
+| 并发 | `max_parallel_workers: 2`；本地适配器同时 ≤ 4 个进程 |
+| 阶段墙钟 | 每宿主每阶段场景 ≤ 6 小时会话时间；超过即记录 BLOCKED 原因 |
+| 原生 agent 回合 | 控制器以用户身份的输入 ≤ 60 条 / 宿主 / 阶段；agent 内部回合不设上限，按实际记录 |
+| 产品 reviewer 调用 | ≤ 40 次 / 宿主 / 阶段；`review_usd_alert` 默认 null（提醒阈值，不是硬封顶），费用按后端回报逐次入账：pi `usage.cost.total`、Claude Code `total_cost_usd` |
+| 阶段评审 | Fable 5.1 high：每阶段至多 3 轮评审 + 1 次终审（单次约 6 USD，按 `total_cost_usd` 记） |
+| 修复轮数 | 同一问题两轮修复仍复现即按 §2.6 报告 |
+| 费用口径 | 已知费用按宿主/后端原始回报；交互式宿主会话本身的费用若无原始回报则记 unknown，不以 token 估算代替 |
+
+S7 的比较预算另列，不占用以上额度。
+
 ## 阶段矩阵
 
 | 阶段 | REG与构建 | Claude真实SC | Codex真实SC | 独立终审 | 阶段状态 |
@@ -57,3 +80,8 @@
 | 15 | 发现门要求 artifact 而说明未提 | `discovery set … done` 缺 artifact 或文件不存在即拒绝并给出示例；两端提示写明 D5–D7 的 artifact | `test_discovery.StateTest.test_review_stage_acceptance_needs_another_family` |
 | 16–18 | config apply 与 RLD 登记的指标规范漂移 | 以项目记录中的现行规范为准：内容一致则接管，不一致则拒绝并逐项列出差异；用户可 `config apply --replace-metric-spec` 决定以文件为准；不再静默回退 | `test_research_tree.…test_config_apply_does_not_revert_the_rlds_metric_specification` |
 | 19 | sanity 前必须冻结框架 | 允许根节点框架的 sanity 先于冻结；其他实验仍要求冻结 | `test_research_db.HarnessSanityFirstTest.test_sanity_before_freeze_only` |
+
+## S0 评审遗留与延期
+
+- 私有确认材料（§11.4）的生成边界：S0 生成器只产生非盲功能测试材料（`scenario.json` 记 `blind: false`），私有模式在 S7 实现（S0-r1 MINOR）。
+- REG-S0-05 中“同一材料改显示名不能变成未使用材料”在 S0 只验证“身份 = 内容哈希”；经材料使用记录的行为在 S2 的 REG 中验证（S0-r1 MINOR）。

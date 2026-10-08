@@ -55,6 +55,24 @@ def launches(project: Path) -> dict:
             "failed_exits": [e["key"] for e in ended if e.get("exit_code")]}
 
 
+def artifact_checks(out_dir: Path) -> dict:
+    """§3.2: the run's files exist and agree with each other — one loss per update step, a reloadable model,
+    predictions, and usage measured by the adapter (not a request cap)."""
+    manifest = json.loads((out_dir / "run_manifest.json").read_text(encoding="utf-8"))
+    curve = json.loads((out_dir / "curve.json").read_text(encoding="utf-8")) if (out_dir / "curve.json").is_file() else {}
+    usage = json.loads((out_dir / "usage.json").read_text(encoding="utf-8")) if (out_dir / "usage.json").is_file() else {}
+    steps = (manifest.get("counts") or {}).get("steps")
+    losses = curve.get("loss") or []
+    return {"files": {n: (out_dir / n).is_file() for n in ("model.json", "predictions.jsonl", "metrics.json",
+                                                           "train.log", "curve.json", "usage.json")},
+            "curve_steps": len(losses), "manifest_steps": steps,
+            "curve_matches_steps": bool(losses) and len(losses) == steps == len(curve.get("step") or []),
+            "loss_finite": all(isinstance(v, (int, float)) and v == v for v in losses),
+            "usage_measured": bool(usage.get("cpu_seconds")) and usage.get("source") is None
+                              and usage.get("pid") == (manifest.get("env") or {}).get("pid"),
+            "usage": {k: usage.get(k) for k in ("cpu_seconds", "wall_seconds", "walltime_used_s", "exit_code")}}
+
+
 def observe(project: Path, tools: Path = REPO_TOOLS) -> dict:
     project = Path(project).resolve()
     marker = json.loads((project / ".research-tree.json").read_text(encoding="utf-8"))
@@ -82,6 +100,7 @@ def observe(project: Path, tools: Path = REPO_TOOLS) -> dict:
                     entry["db_matches_scorer"] = (a.get("metric_value") is not None
                                                   and abs(a["metric_value"] - s["accuracy"]) < 1e-12)
                     rescored[entry["ref"]] = s["accuracy"]
+                    entry["artifacts"] = artifact_checks(out_dir)
                 except Exception as exc:  # reported, never hidden
                     entry["scorer_error"] = f"{type(exc).__name__}: {exc}"
             runs.append(entry)

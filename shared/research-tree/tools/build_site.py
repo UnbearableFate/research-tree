@@ -394,6 +394,8 @@ def review_attention(root: Path, project: dict) -> list[dict]:
                 continue
     latest = {}
     for c in calls:
+        if c.get("outcome") == "background_started":  # the job's own call is logged under its kind
+            continue
         latest[(c.get("kind"), c.get("about"), c.get("dimension"))] = c
     now = datetime.now(timezone.utc)
     out = []

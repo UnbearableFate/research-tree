@@ -227,7 +227,9 @@ class ReviewCallTest(unittest.TestCase):
         self.assertEqual(len([c for c in self.calls() if c[1:2] not in (["auth"], ["--list-models"])]), 1)  # one model call
         self.assertFalse(bad["ok"])
         outcomes = [json.loads(line)["outcome"] for line in (self.root / "logs/review_calls.jsonl").read_text().splitlines()]
-        self.assertEqual(outcomes, ["started", "ok"])
+        self.assertEqual(outcomes, ["background_started", "started", "ok"])
+        self.assertEqual([(j["ticket"], j["status"]) for j in review_call.list_jobs(self.root)],
+                         [(pending["ticket"], "done")])
 
     def test_r01_r18_r19_backend_routing_without_fallback(self):
         self.project()

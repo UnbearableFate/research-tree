@@ -731,7 +731,7 @@ init 的评审基座可用性检查：${JSON.stringify(project.reviewer_backend 
 
 function startPrompt(project: ResearchProject, confirmation: { doc_id: string; path: string }): string {
   return `用户已确认 ${project.project_id} 的立项计划（用户指令 ${confirmation.doc_id}，docs/${confirmation.path}）。
-请开始实现根节点：用 research_db 的 assign_worker（node_id=${project.project_id}）为根节点指派 worker（默认 root），用 update_task 把根节点任务（kind=harness，通常是 T-0001）指派给它（assignee_id=root），然后用 Agent 工具启动 subagent_type="${WORKER_AGENT}" 的子代理，任务说明以“你是 worker/root”开头，写明任务ID、请求文档和交付要求。worker 交付后，按规则审核框架与基线结果并冻结框架（update_project harness_ref/harness_paths），设置SOTA基线后再推进各节点。`
+请开始实现根节点：用 research_db 的 assign_worker（node_id=${project.project_id}）为根节点指派 worker（默认 root），用 update_task 把根节点任务（kind=harness，通常是 T-0001）指派给它（assignee_id=root），然后用 Agent 工具启动 subagent_type="${WORKER_AGENT}" 的子代理，任务说明以“你是 worker/root”开头，写明任务ID、请求文档和交付要求。顺序：worker 先跑框架的 sanity（冻结前允许），你审核框架代码后冻结框架（update_project harness_ref/harness_paths），worker 再在冻结的框架上登记并运行全部 seed 的基线（除 sanity 外的实验都要求已冻结）；你审核基线结果后设置SOTA基线，再推进各节点。`
 }
 
 const WORKFLOW = `## research-tree 工作流（由 research-tree mod 注入）

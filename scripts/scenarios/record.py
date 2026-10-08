@@ -109,6 +109,13 @@ def problems(record: dict, base: Path | None = None) -> list[str]:
                 out.append(f"review call {call.get('review_id') or call} is a mock")
             if call.get("outcome") == "ok" and not call.get("observed_model"):
                 out.append(f"review call {call.get('review_id') or call} has no observed model")
+            want = MATRIX.get(host, {})
+            if call.get("outcome") == "ok" and want and (
+                    call.get("backend") != want["reviewer_backend"]
+                    or str(call.get("observed_model") or "").split("/")[-1] != want["reviewer"].split("/")[-1]):
+                out.append(f"review call {call.get('review_id') or call} ran {call.get('backend')}/"
+                           f"{call.get('observed_model')}, not the {host} matrix reviewer "
+                           f"{want['reviewer_backend']}/{want['reviewer']}")
         if any("simulation_only" in json.dumps(a.get("actual"), ensure_ascii=False) for a in assertions):
             out.append("an assertion rests on a simulation_only evaluation")
     return out

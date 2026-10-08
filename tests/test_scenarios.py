@@ -172,6 +172,13 @@ class AdapterTest(unittest.TestCase):
             jobs = observe.launches(project)
             self.assertEqual(jobs["per_key"], {"lost-1": 1, "dup-1": 2})
             self.assertEqual(jobs["duplicate_jobs"], 1)
+            # the extra start wrote into its own directory: the job's artifacts are the first start's
+            ledger = [e for e in observe.jsonl(project / ".local-exec/launches.jsonl") if e.get("key") == "dup-1"
+                      and not e.get("ended")]
+            first = next(e["pid"] for e in ledger if e["launch"] == 1)
+            manifest = json.loads((project / "outputs/dup-1/run_manifest.json").read_text())
+            self.assertEqual(manifest["env"]["pid"], first)
+            self.assertTrue((project / "outputs/dup-1/duplicate-launch-2/run_manifest.json").is_file())
             consumed = json.loads(Path(str(faults) + ".consumed.json").read_text())
             self.assertEqual(sorted(consumed), ["F1", "F2"])
 
@@ -219,6 +226,8 @@ class RecordTest(unittest.TestCase):
                                                       "observed_model": "x"}]},
                            {**good, "review_calls": [{"review_id": "D-1", "backend": "pi", "outcome": "ok"}]},
                            {**good, "observed_model": "claude-sonnet-5-5"},
+                           {**good, "review_calls": [{"review_id": "D-1", "backend": "pi", "outcome": "ok",
+                                                      "observed_model": "claude-haiku-5-5"}]},
                            {**good, "assertions": [{**good["assertions"][0], "actual": {"eval_type": "simulation_only"}}]}):
                 self.assertTrue(record.problems(broken, base))
             reg = {**good, "evidence_class": "reg", "substitutes_used": ["mock_reviewer"]}
