@@ -120,6 +120,9 @@ literature:
   require_verified: true      # 只有 literature.py 核验存在的文献计入上面的数量
 
 models:
+  # 可用易读名称（忽略大小写），如 Haiku 5 / Haiku 5.5 → claude-haiku-5-5、Sonnet 5.5 → claude-sonnet-5-5。
+  # 正式 ID 原样使用；reviewer 的 Claude 易读名称会自动补 anthropic/。
+  # Codex 示例：GPT 6 Luna → gpt-6-luna、GPT 6.1 Sol → gpt-6.1-sol；reviewer 自动补 openai/。
   ui: {model: inherit, effort: null}
   worker: {model: inherit, effort: null}
   lens_assistant: {model: inherit, effort: null}

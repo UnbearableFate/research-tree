@@ -247,6 +247,10 @@ Claude 版提供内嵌窗口、面板和状态栏；Codex 版使用独立终端�
 | `models.reviewer` | 跨模型评审：`provider/model`、thinking、`require_cross_family`、超时 | `openai/gpt-6-astra`，high |
 | `review.trigger` / `budget.review_usd_alert` | GO 候选须跨模型复核 / 累计评审费用提醒（达到后暂停评审调用） | `candidate_ready` / `null` |
 
+模型支持 Claude 易读名称，忽略大小写与首尾空格。例如 `ui: {model: Haiku 5, effort: high}` 会解析为 `claude-haiku-5-5`；`Haiku 5.5` 和 `Claude Sonnet 5.5` 也可使用。此规则适用于 `ui`、`worker`、`lens_assistant` 和 `reviewer`（后者自动补 `anthropic/`）；正式模型 ID 保持原样。解析名称不代表服务端一定支持该模型或 effort，实际可用性取决于宿主与账号。
+
+Codex 侧同样支持 GPT 易读名称，如 `ui: {model: GPT 6 Luna, effort: high}` → `gpt-6-luna`、`GPT 6.1 Sol` → `gpt-6.1-sol`，也接受 `GPT-6 Luna`。这些转换同样适用于其他模型角色；`reviewer` 自动补 `openai/`。名称转换在两端共用的配置读取层完成，不会改变宿主支持哪些模型。
+
 `go_margin` 由主指标的 `minimum_practical_gain` 给出，单位与方向逐指标声明（如 accuracy 以百分点计）。门槛与统一 seed 在第一个实验登记后不能再修改；之后更换指标规范或协议须引用用户指令，旧 evaluation 随之失效。
 
 **提交与预算：**设置 `total_limit` 后，worker 每次提交依次 `reserve_submission` → `claim_submission` → 带 submission_key 提交 → `attach_job`，作业结束后按调度器的用量文件 `settle_reservation`。提交超时的运行保持 unknown，按 submission_key 核对，不会自动重提；实际用量超出预留或授权时准入暂停，由你决定后恢复。`budget_status` 查看已授权、已承诺与可用量；提高授权或上限只能由你修改配置文件并 `config apply`。

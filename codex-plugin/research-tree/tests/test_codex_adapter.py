@@ -292,6 +292,39 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         with self.assertRaisesRegex(ValueError, "verbatim"):
             self.runtime.control("instruction", {"words": "", "understanding": "pause"})
 
+    def test_display_model_names_reach_codex_exec_for_all_agent_roles(self):
+        for role, display, expected in (
+            ("ui", "GPT 6 Luna", "gpt-6-luna"),
+            ("lens_assistant", "GPT 6.1 Sol", "gpt-6.1-sol"),
+            ("worker", "GPT-6 Sol", "gpt-6-sol"),
+        ):
+            with self.subTest(role=role):
+                config = {"version": 2 if role == "lens_assistant" else 1,
+                          "models": {role: {"model": display, "effort": "high"}}}
+                if role == "lens_assistant":
+                    config["discovery"] = {"mode": "full", "lenses": ["contradiction"]}
+                original = json.dumps(config)
+                (self.cwd / "research-tree.yaml").write_text(original)
+                with patch.dict(os.environ, {"FAKE_CODEX_REPLY": json.dumps({"reply": "收到", "actions": []})}):
+                    if role == "ui":
+                        run = self.runtime.start_ui("查看计划")
+                    elif role == "lens_assistant":
+                        run = self.runtime.control("lens", {"lens": "contradiction", "task": "Generate candidates."})
+                    else:
+                        self.confirm()
+                        self.assign()
+                        run = self.runtime.start_worker("P-test", "实现根节点")
+                    state = self.wait_run(run)
+                self.assertEqual(state["status"], "completed", state)
+                calls = [json.loads(line) for line in (Path(self.temp.name) / "calls.jsonl").read_text().splitlines()]
+                argv = [call for call in calls if call[0] == "exec"][-1]
+                self.assertEqual(argv[argv.index("--model") + 1], expected)
+                self.assertIn('model_reasoning_effort="high"', argv)
+                self.assertEqual((self.cwd / "research-tree.yaml").read_text(), original)
+                records = [json.loads(line) for line in (self.runtime.root / "logs/agent_models.jsonl").read_text().splitlines()]
+                requested = [record for record in records if record["event"] == "requested" and record["actor"] == run["actor"]][-1]
+                self.assertEqual((requested["model"], requested["effort"]), (expected, "high"))
+
     def test_worker_binding_followup_and_resume_use_same_identity(self):
         self.confirm()
         self.assign()

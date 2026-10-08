@@ -341,6 +341,18 @@ class ConfigV2Test(unittest.TestCase):
         out = subprocess.run([sys.executable, str(TOOL), *args], cwd=self.cwd, capture_output=True, text=True)
         return out.returncode, json.loads(out.stdout)
 
+    def test_display_model_name_reaches_effective_config_without_rewriting_user_file(self):
+        path = self.cwd / "research-tree.yaml"
+        original = "discovery: {mode: off}\nmodels:\n  ui: {model: Haiku 5, effort: high}\n"
+        path.write_text(original, encoding="utf-8")
+        code, out = self.run_tool("init", "plan.md", "--project-id", "P-model-name")
+        self.assertEqual(code, 0, out)
+        code, out = self.run_tool("config")
+        self.assertEqual(code, 0, out)
+        self.assertEqual(out["result"]["effective"]["models"]["ui"],
+                         {"model": "claude-haiku-5-5", "effort": "high"})
+        self.assertEqual(path.read_text(encoding="utf-8"), original)
+
     def test_v2(self):
         code, out = self.run_tool("init", "plan.md", "--project-id", "P-v2")
         self.assertEqual(code, 0, out)

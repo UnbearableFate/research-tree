@@ -28,6 +28,43 @@ SCHEMA_PATH = SCHEMA_DIR / "config.schema.json"
 V1_TEMPLATE_PATH = SCHEMA_DIR / "config.v1.template.yaml"
 V1_SCHEMA_PATH = SCHEMA_DIR / "config.v1.schema.json"
 WALLTIME_RE = re.compile(r"^(?=\d)(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s)?$")
+CLAUDE_DISPLAY_RE = re.compile(r"(?:claude\s+)?(haiku|sonnet|opus)\s+(\d+)(?:[.-](\d+))?", re.IGNORECASE)
+GPT_DISPLAY_RE = re.compile(r"gpt[\s-]+(\d+(?:\.\d+)?)(?:[\s-]+([a-z]+(?:[\s-]+[a-z0-9]+)*))?", re.IGNORECASE)
+
+
+def _normalize_models(config: dict) -> None:
+    """Resolve display names once, before validation and either host consumes the config."""
+    models = config.get("models")
+    if not isinstance(models, dict):
+        return  # schema validation reports malformed configuration
+    for role in ("ui", "worker", "lens_assistant", "reviewer"):
+        spec = models.get(role)
+        if not isinstance(spec, dict) or not isinstance(spec.get("model"), str):
+            continue
+        value = spec["model"].strip()
+        name = value.removeprefix("anthropic/") if role == "reviewer" else value
+        match = CLAUDE_DISPLAY_RE.fullmatch(name)
+        if match:
+            family, major, minor = match.groups()
+            family = family.lower()
+            # The user-facing Haiku 5 name denotes the pinned 5.5 model.
+            if (family, major, minor) == ("haiku", "5", None):
+                minor = "5"
+            version = major + (f"-{minor}" if minor is not None else "")
+            name = f"claude-{version}-{family}" if int(major) < 4 else f"claude-{family}-{version}"
+            value = f"anthropic/{name}" if role == "reviewer" else name
+        else:
+            name = value.removeprefix("openai/") if role == "reviewer" else value
+            match = GPT_DISPLAY_RE.fullmatch(name)
+            if match:
+                version, variant = match.groups()
+                name = "gpt-" + version
+                if variant:
+                    name += "-" + re.sub(r"[\s-]+", "-", variant.lower())
+                value = f"openai/{name}" if role == "reviewer" else name
+            elif role != "reviewer" and value.lower() in ("inherit", "haiku", "sonnet", "opus"):
+                value = value.lower()
+        spec["model"] = value
 
 
 class ConfigError(Exception):
@@ -71,6 +108,7 @@ def parse(text: str, source: str = CONFIG_NAME) -> dict:
                           "permission filtering first); keep it false")
     if version == 2 and config.get("discovery", {}).get("mode") is False:
         config["discovery"]["mode"] = "off"  # YAML 1.1 reads an unquoted off as false
+    _normalize_models(config)
     validator = Draft202012Validator(json.loads((SCHEMA_PATH if version == 2 else V1_SCHEMA_PATH).read_text(encoding="utf-8")))
     errors = sorted(validator.iter_errors(config), key=lambda e: list(e.path))
     if errors:
