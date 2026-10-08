@@ -34,9 +34,16 @@ Say plainly when an idea clears the check. Do not manufacture overlap.
 (Source: ARIS novelty-check, Auto-claude-code-research-in-sleep @ 3b19a22.)
 
 verdict PROCEED_WITH_CAUTION stands for "PROCEED WITH CAUTION". With ABANDON, abandon_paper is the id of the
-named paper and must also appear in closest_prior_work; otherwise abandon_paper is null.
+named paper and must also appear in closest_prior_work; otherwise abandon_paper is null. An ABANDON counts only
+with abandon_evidence: literature_doc_id (the project's literature document of that paper, from the brief),
+identifier (its DOI or arXiv id), covered_claim (which part of the current claim it already contains), location
+(section, page or equation in the paper) and explanation; the system checks the paper's identity — without a
+verified source the verdict is recorded as NEEDS_EVIDENCE, and a network error is never a scientific negative.
+NEEDS_EVIDENCE: the material you were given cannot settle the verdict; name at most 3 precise searches in
+requested_queries (one follow-up round is run and returned to you). Do not ask for searches when the material
+already settles it.
 
 Schema:
 ```json
-{"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "object", "required": ["verdict", "score", "closest_prior_work", "delta_sentence", "abandon_paper"], "properties": {"verdict": {"enum": ["PROCEED", "PROCEED_WITH_CAUTION", "ABANDON"]}, "score": {"type": "integer", "minimum": 1, "maximum": 10}, "closest_prior_work": {"type": "array", "items": {"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "object", "required": ["title", "id", "overlap", "difference"], "properties": {"title": {"type": "string", "minLength": 1}, "id": {"type": "string", "minLength": 1}, "overlap": {"type": "string", "minLength": 1}, "difference": {"type": "string", "minLength": 1}}}, "minItems": 0}, "delta_sentence": {"type": "string", "minLength": 1}, "abandon_paper": {"type": ["string", "null"]}}, "title": "novelty_precheck"}
+{"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "object", "required": ["verdict", "score", "closest_prior_work", "delta_sentence", "abandon_paper"], "properties": {"verdict": {"enum": ["PROCEED", "PROCEED_WITH_CAUTION", "ABANDON", "NEEDS_EVIDENCE"]}, "score": {"type": "integer", "minimum": 1, "maximum": 10}, "closest_prior_work": {"type": "array", "items": {"$schema": "https://json-schema.org/draft/2020-12/schema", "type": "object", "required": ["title", "id", "overlap", "difference"], "properties": {"title": {"type": "string", "minLength": 1}, "id": {"type": "string", "minLength": 1}, "overlap": {"type": "string", "minLength": 1}, "difference": {"type": "string", "minLength": 1}}}, "minItems": 0}, "delta_sentence": {"type": "string", "minLength": 1}, "abandon_paper": {"type": ["string", "null"]}, "requested_queries": {"type": "array", "items": {"type": "string", "minLength": 3}, "maxItems": 3}, "abandon_evidence": {"type": ["object", "null"], "required": ["literature_doc_id", "identifier", "covered_claim", "location", "explanation"], "properties": {"literature_doc_id": {"type": "string", "minLength": 1}, "identifier": {"type": "string", "minLength": 1}, "covered_claim": {"type": "string", "minLength": 1}, "location": {"type": "string", "minLength": 1}, "explanation": {"type": "string", "minLength": 1}}}}, "title": "novelty_precheck"}
 ```

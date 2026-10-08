@@ -13,7 +13,8 @@
    "enum": [
     "PROCEED",
     "PROCEED_WITH_CAUTION",
-    "ABANDON"
+    "ABANDON",
+    "NEEDS_EVIDENCE"
    ]
   },
   "score": {
@@ -62,6 +63,49 @@
     "string",
     "null"
    ]
+  },
+  "requested_queries": {
+   "type": "array",
+   "items": {
+    "type": "string",
+    "minLength": 3
+   },
+   "maxItems": 3
+  },
+  "abandon_evidence": {
+   "type": [
+    "object",
+    "null"
+   ],
+   "required": [
+    "literature_doc_id",
+    "identifier",
+    "covered_claim",
+    "location",
+    "explanation"
+   ],
+   "properties": {
+    "literature_doc_id": {
+     "type": "string",
+     "minLength": 1
+    },
+    "identifier": {
+     "type": "string",
+     "minLength": 1
+    },
+    "covered_claim": {
+     "type": "string",
+     "minLength": 1
+    },
+    "location": {
+     "type": "string",
+     "minLength": 1
+    },
+    "explanation": {
+     "type": "string",
+     "minLength": 1
+    }
+   }
   }
  },
  "title": "novelty_precheck"

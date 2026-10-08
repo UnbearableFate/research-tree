@@ -392,6 +392,8 @@ CREATE TABLE obligation (
     resolution          JSON,                  -- RESOLVED：修复类型、证据文件与哈希、核验者
     waiver              JSON,                  -- WAIVED：用户指令文档
     disappearance       JSON,                  -- 从后续报告中消失（UNRESOLVED_DISAPPEARANCE），仍为 OPEN
+    review_issue        JSON,                  -- 来自复核回执：{subject, dimension, item, basis, claim_revision}（S4 §8.1）
+    findings            JSON,                  -- {"items": [{review_id, note, at}]}：同一检查项的有来源发现
     created_at          TEXT NOT NULL,
     updated_at          TEXT NOT NULL
 );
@@ -440,6 +442,21 @@ CREATE TABLE document (
     review_about        TEXT,                  -- 评审对象不是数据库实体时（发现阶段的候选 CAND-编号）
     review_basis        JSON,                  -- review：调用时由系统捕获的依据（方法身份、主张版本、evaluation、候选 revision 等，S1）
     review_basis_changed BOOLEAN,              -- review：模型作答期间依据已变（回执只作历史，不能取得当前资格）
+    reported_result     TEXT,                  -- review：评审者自报的顶层结论（S4；原样保存）
+    effective_result    TEXT,                  -- review：系统按统一规则从清单得出的结论（S4；review_result 与之相同）
+    normalization_warnings TEXT_LIST,          -- review：SUMMARY_CHECKLIST_MISMATCH、EVIDENCE_UNVERIFIED 等
+    evidence_manifest   JSON,                  -- review：{"paths": [引用路径的解析位置、类型、代码版本、哈希与核验状态]}
+    review_payload      JSON,                  -- review：结构化回执原文（S4）
+    review_applicability JSON,                 -- review：登记时该维度的适用性（必需/豁免、scope_ref、理由）
+    review_findings     JSON,                  -- review：{"items": [失败或不确定的清单项]}
+    receipt_key         TEXT,                  -- review：会话与回执内容的摘要；同一回执重复交付幂等
+    model_requested     TEXT,                  -- review：配置请求的模型
+    reviewer_provider   TEXT,                  -- review：观测模型的接入渠道（S4 §8.3）
+    reviewer_model_id   TEXT,                  -- review：规范化的模型 ID
+    reviewer_family     TEXT,                  -- review：模型家族；无法确定时为空（不能满足跨族要求）
+    parent_review_id    TEXT,                  -- review：补查后续评审所接续的前轮回执（S4 §8.4）
+    evidence_set        JSON,                  -- review：本次实际使用的补查资料集 {path, sha256}
+    followup            JSON,                  -- review：为本回执的 requested_queries 执行的补查 {manifest, sha256, queries, at}
     literature_check    TEXT,                  -- literature：verify_literature 的结果（verified / unverified）；只有 verified 计入文献下限
     literature_check_detail TEXT,              -- 核验方法与说明（arxiv / crossref / semantic_scholar_title …）
     created_at          TEXT NOT NULL

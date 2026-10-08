@@ -4,6 +4,7 @@
  "required": [
   "dimension",
   "result",
+  "checklist",
   "evidence_paths",
   "reason"
  ],
@@ -46,7 +47,13 @@
        "F",
        "G",
        "H",
-       "I"
+       "I",
+       "M",
+       "P1",
+       "P2",
+       "P3",
+       "P4",
+       "P5"
       ]
      },
      "result": {
@@ -63,7 +70,7 @@
      }
     }
    },
-   "minItems": 0
+   "minItems": 1
   },
   "evidence_paths": {
    "type": "array",
@@ -76,6 +83,14 @@
   "reason": {
    "type": "string",
    "minLength": 1
+  },
+  "requested_queries": {
+   "type": "array",
+   "items": {
+    "type": "string",
+    "minLength": 3
+   },
+   "maxItems": 3
   }
  },
  "title": "candidate_recheck"

@@ -1126,6 +1126,7 @@ export const register: Register = (on, options) => {
           code_ref: { type: 'string', description: 'code_review: the commit the reviewer reads (a submission checks the same commit)' },
           session: { type: 'string', description: 'Continue this review session (RV-…): a new version of its review' },
           add_dirs: { type: 'array', items: { type: 'string' }, description: 'Claude Code backend: other readable directories, e.g. the code repository' },
+          evidence_set: { type: 'string', description: 'a follow-up round: cache/literature/followup/<review>/manifest.json written by literature_followup for the earlier receipt (continue its session)' },
           ticket: { type: 'string', description: 'Collect a review that answered {pending, ticket} (RJ-…); give nothing else' },
         },
         required: [],
@@ -1326,7 +1327,7 @@ export const register: Register = (on, options) => {
   on('tool.call', { tool: REVIEW_TOOL }, async ($, e) => {
     try {
       if (e.agentId !== undefined) return { result: '只有 RLD（主会话）组织评审。', isError: true as const }
-      const input = e as unknown as { kind?: string; brief?: string; about?: string; dimension?: string; evaluation?: string; code_ref?: string; session?: string; add_dirs?: string[]; ticket?: string }
+      const input = e as unknown as { kind?: string; brief?: string; about?: string; dimension?: string; evaluation?: string; code_ref?: string; session?: string; add_dirs?: string[]; evidence_set?: string; ticket?: string }
       const project = (await $.state.get(projectRef)).value ?? (await loadProject($))
       if (!project) return { result: `当前目录没有研究项目：先运行 /${COMMAND} init`, isError: true as const }
       // the host runs one process for at most 600 s: the review runs as a detached job (review_call.py
@@ -1351,7 +1352,8 @@ export const register: Register = (on, options) => {
       const args = ['--kind', String(input.kind ?? ''), '--brief', String(input.brief ?? ''), '--about', String(input.about ?? ''),
         ...(input.dimension ? ['--dimension', input.dimension] : []), ...(input.evaluation ? ['--evaluation', input.evaluation] : []),
         ...(input.code_ref ? ['--code-ref', input.code_ref] : []),
-        ...(input.session ? ['--session', input.session] : []), ...(input.add_dirs ?? []).flatMap(d => ['--add-dir', d])]
+        ...(input.session ? ['--session', input.session] : []), ...(input.add_dirs ?? []).flatMap(d => ['--add-dir', d]),
+        ...(input.evidence_set ? ['--evidence-set', input.evidence_set] : [])]
       const out = await runTool($, cfg, 'review_call.py', [...args, '--background', '--wait-s', wait], MAX_PROCESS_MS)
       await refresh($, cfg)
       const text = (out.stdout || out.stderr).trim()

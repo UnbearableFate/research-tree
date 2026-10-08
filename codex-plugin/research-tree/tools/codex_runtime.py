@@ -500,7 +500,7 @@ class Runtime:
             try:
                 result = review_call.review(self.cwd, args["kind"], args["brief"], args["about"], args.get("dimension"),
                                             args.get("evaluation"), args.get("session"), args.get("add_dirs") or [],
-                                            self.actor, args.get("code_ref"))
+                                            self.actor, args.get("code_ref"), evidence_set=args.get("evidence_set"))
             except review_call.ReviewError as exc:
                 review_call.record_failure(self.root, entry, exc)
                 self.summary()
