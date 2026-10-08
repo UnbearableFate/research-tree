@@ -1,0 +1,128 @@
+{
+ "scenario_id": "SC-S0-01",
+ "stage": "S0",
+ "host": "claude",
+ "attempt": 2,
+ "status": "PASS",
+ "evidence_class": "real_sc",
+ "requires_resume": true,
+ "project_root": "/home/yu/workspace/rt-scenarios/S0/rt-S0-claude-a02",
+ "source_ref": "70479657db461729cae4bfda31f0cfa7a96c7e87",
+ "uncommitted_changes": [],
+ "build_path": "/home/yu/workspace/rt-scenarios/S0/dist-claude-S0a02",
+ "loaded_plugin_path": "/home/yu/workspace/rt-scenarios/S0/dist-claude-S0a02/plugins/research-tree",
+ "requested_model": "claude-haiku-5-5",
+ "observed_model": "claude-haiku-5-5",
+ "observed_effort": "medium",
+ "session_id": "1399ea6e-736f-40f5-b794-c2abc0c3b3d8",
+ "session_transcripts": [
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-claude-a02.ctl/sessions/1399ea6e-736f-40f5-b794-c2abc0c3b3d8.jsonl",
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-claude-a02.ctl/sessions/7ca9581d-263a-4cc6-b0ad-49e48f6e445b.jsonl"
+ ],
+ "review_calls": [],
+ "preconditions": [],
+ "commands": [
+  "/research-tree prepare",
+  "/research-tree init",
+  "计划我同意，再加一项要求：根节点 worker 把参考方法 3 个 seed 的基线运行导入并接受（valid）之后，先不要写基线结果文档、不要 evaluate，告诉我各运行的输出目录；我会自己写一份基线结果报告交给你登记。请把这项要求写进根节点任务，然后我会确认。",
+  "/research-tree confirm",
+  "重复检查那项先保持现状。这是我写的基线结果报告：user-reports/baseline-report.md（项目目录下）。请把它作为参考方法基线 E-0001 的实验结果登记（按原样登记并尝试设为现行），评估该基线并设为 SOTA；如实告诉我接口的回答，不要修改我的文件。",
+  "修正版在 user-reports/baseline-report.v2.md（均值写在 user-reports/baseline-summary.json，百分点）。请登记它作为 E-0001 的结果文档，评估基线并设为 SOTA；告诉我接口算出的均值。",
+  "exit session 1",
+  "/research-tree status",
+  "恢复当前工作：当前的 baseline 是什么、它的数字从哪里来，下一步是什么？只做核对与说明，先不要启动新实验。",
+  "/research-tree build",
+  "/research-tree check"
+ ],
+ "fault_plan": "/home/yu/workspace/rt-scenarios/S0/rt-S0-claude-a02.ctl/fault-plan.json",
+ "substitutes_used": [],
+ "assertions": [
+  {
+   "id": "C2",
+   "expected": "valid baseline runs rescored independently equal the DB values; curves, models, measured usage present",
+   "actual": [
+    {
+     "ref": "E-0001/s42@1",
+     "db": 0.805,
+     "scorer": 0.805
+    },
+    {
+     "ref": "E-0001/s43@1",
+     "db": 0.7525,
+     "scorer": 0.7525
+    },
+    {
+     "ref": "E-0001/s44@1",
+     "db": 0.8175,
+     "scorer": 0.8175
+    }
+   ],
+   "evidence": "/home/yu/workspace/rt-scenarios/S0/rt-S0-claude-a02.ctl/observer-final.json",
+   "verdict": "PASS"
+  },
+  {
+   "id": "C3",
+   "expected": "evaluation mean equals the mean of independent scores (pp)",
+   "actual": {
+    "evaluation": "EV-0001",
+    "recorded": 79.16666666666667,
+    "independent": 79.16666666666666
+   },
+   "evidence": "/home/yu/workspace/rt-scenarios/S0/rt-S0-claude-a02.ctl/observer-final.json",
+   "verdict": "PASS"
+  },
+  {
+   "id": "C5",
+   "expected": "no duplicate job; every process start accounted in the launch ledger",
+   "actual": {
+    "starts": 5,
+    "keys": 5,
+    "duplicate_jobs": 0,
+    "per_key": {
+     "T-0001:sanity:s42:a1": 1,
+     "E-0001:s42@1": 1,
+     "E-0001:s43@1": 1,
+     "E-0001:s44@1": 1,
+     "E-0001:s42-repeat-check@2": 1
+    },
+    "cpu_seconds": 0.2696,
+    "wall_seconds": 2.1252,
+    "failed_exits": []
+   },
+   "evidence": "/home/yu/workspace/rt-scenarios/S0/rt-S0-claude-a02.ctl/local-exec-state/launches.jsonl",
+   "verdict": "PASS"
+  }
+ ],
+ "raw_evidence_paths": [
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-claude-a02.ctl/commands.jsonl",
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-claude-a02.ctl/observer-final.json",
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-claude-a02.ctl/db-snapshot-final.json",
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-claude-a02.ctl/scenario.json",
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-claude-a02.ctl/sessions/1399ea6e-736f-40f5-b794-c2abc0c3b3d8.jsonl",
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-claude-a02.ctl/sessions/7ca9581d-263a-4cc6-b0ad-49e48f6e445b.jsonl"
+ ],
+ "observer_results": "/home/yu/workspace/rt-scenarios/S0/rt-S0-claude-a02.ctl/observer-final.json",
+ "state_before": null,
+ "state_after": null,
+ "resume_evidence": {
+  "new_session": "/home/yu/workspace/rt-scenarios/S0/rt-S0-claude-a02.ctl/sessions/7ca9581d-263a-4cc6-b0ad-49e48f6e445b.jsonl",
+  "question": [
+   "恢复当前工作：当前的 baseline 是什么、它的数字从哪里来，下一步是什么？只做核对与说明，先不要启动新实验。"
+  ],
+  "runs_before_after": "unchanged: the observer's launch ledger and run list after the resumed session equal the state before it (no new start)"
+ },
+ "resource_usage": {
+  "cpu_seconds": 0.2696,
+  "job_wall_seconds": 2.1252,
+  "plugin_node_seconds": 3,
+  "known_model_cost_usd": null,
+  "unknown_cost_calls": [
+   "interactive host session (no per-session bill in the raw records)"
+  ]
+ },
+ "failures": [],
+ "fixes_and_retests": [],
+ "remaining_gaps": [
+  "the root worker ran a harness sanity and a seed-42 repeat check outside the database (2 of 5 process starts have no run record); no reservation limit was set, the observer reports all 5 starts"
+ ]
+}

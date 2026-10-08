@@ -1,0 +1,172 @@
+{
+ "scenario_id": "SC-COMMON-01",
+ "stage": "S0",
+ "host": "codex",
+ "attempt": 2,
+ "status": "PASS",
+ "evidence_class": "real_sc",
+ "requires_resume": true,
+ "project_root": "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a02",
+ "source_ref": "762a60b02ac8d498850bfbad5cbdf8b4d3c6f9ed",
+ "uncommitted_changes": [],
+ "build_path": "/home/yu/workspace/rt-scenarios/S0/dist-codex-S0a02",
+ "loaded_plugin_path": "/home/yu/workspace/rt-scenarios/S0/codex-home-S0a02/plugins/cache/research-tree/research-tree/0.1.0",
+ "requested_model": "gpt-6-luna",
+ "observed_model": "gpt-6-luna",
+ "observed_effort": "medium",
+ "session_id": "rollout-2026-10-08T16-32-03-01a11c5b-8a39-7cf2-aa31-a10d2241c1f0",
+ "session_transcripts": [
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a02.ctl/sessions/rollout-2026-10-08T16-32-03-01a11c5b-8a39-7cf2-aa31-a10d2241c1f0.jsonl",
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a02.ctl/sessions/rollout-2026-10-08T16-43-57-01a11c66-6cd8-7d23-8e5d-51847451dbfe.jsonl",
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a02.ctl/sessions/rollout-2026-10-08T16-54-42-01a11c70-460a-7f01-abca-7877ad1ed739.jsonl",
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a02.ctl/sessions/rollout-2026-10-08T17-06-02-01a11c7a-a770-7e43-acd7-c89cd4ffa10b.jsonl"
+ ],
+ "review_calls": [],
+ "preconditions": [],
+ "commands": [
+  "$research-tree prepare",
+  "trusted plugin hooks (option 2) as the README instructs",
+  "approval",
+  "$research-tree init",
+  "approval",
+  "approval",
+  "approval",
+  "approval",
+  "approval",
+  "approval",
+  "计划我同意，再加一项要求：根节点 worker 把参考方法 3 个 seed 的基线运行导入并接受（valid）之后，先不要写基线结果文档、不要 evaluate，告诉我各运行的输出目录；我会自己写一份基线结果报告交给你登记。请把这项要求写进根节点任务，然后我会确认。",
+  "$research-tree confirm",
+  "environment fix: tools/local_exec.py replaced by the scheduler-service version and the service started outside the Codex sandbox (pane w3:p14); the earlier sanity job E-0001-s42-a1 had been killed with its sandboxed command",
+  "关于 sanity 作业丢失：这是本机调度器的问题——之前作业进程随提交它的沙箱命令一起被结束了。我已修好：现在由一个独立的调度服务运行作业（tools/local_exec.py 已更新，提交只是排队，由服务启动，作业不再随提交命令结束）。旧的 E-0001-s42-a1 作业确认没有完成、没有产物和用量文件。请按规则处理这个未知状态的运行与它的预留，然后让 worker 继续 T-0002（sanity、冻结、三个基线、导入后暂停）。",
+  "这是我写的基线结果报告：user-reports/baseline-report.md（项目目录下）。请把它作为参考方法基线 E-0002 的实验结果登记（按原样登记并尝试设为现行），评估该基线并设为 SOTA；如实告诉我接口的回答，不要修改我的文件。",
+  "修正版在 user-reports/baseline-report.v2.md（均值写在 user-reports/baseline-summary.json，百分点）。请登记它作为 E-0002 的结果文档，评估基线并设为 SOTA；告诉我接口算出的均值。",
+  "quit session 1",
+  "$research-tree status",
+  "恢复当前工作：当前的 baseline 是什么、它的数字从哪里来，下一步是什么？只做核对与说明，先不要启动新实验。",
+  "$research-tree build",
+  "$research-tree check"
+ ],
+ "fault_plan": "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a02.ctl/fault-plan.json",
+ "substitutes_used": [],
+ "assertions": [
+  {
+   "id": "C1",
+   "expected": "prepare, init, plan, confirm through the host's own commands",
+   "actual": [
+    "$research-tree prepare",
+    "$research-tree init",
+    "$research-tree confirm"
+   ],
+   "evidence": "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a02.ctl/commands.jsonl",
+   "verdict": "PASS"
+  },
+  {
+   "id": "C2",
+   "expected": "valid baseline runs rescored independently equal the DB values; curves, models, measured usage present",
+   "actual": [
+    {
+     "ref": "E-0001/s42@2",
+     "db": 0.67,
+     "scorer": 0.67
+    },
+    {
+     "ref": "E-0002/s42@1",
+     "db": 0.805,
+     "scorer": 0.805
+    },
+    {
+     "ref": "E-0002/s43@1",
+     "db": 0.7525,
+     "scorer": 0.7525
+    },
+    {
+     "ref": "E-0002/s44@1",
+     "db": 0.8175,
+     "scorer": 0.8175
+    }
+   ],
+   "evidence": "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a02.ctl/observer-final.json",
+   "verdict": "PASS"
+  },
+  {
+   "id": "C3",
+   "expected": "evaluation mean equals the mean of independent scores (pp)",
+   "actual": {
+    "evaluation": "EV-0001",
+    "recorded": 79.16666666666667,
+    "independent": 79.16666666666666
+   },
+   "evidence": "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a02.ctl/observer-final.json",
+   "verdict": "PASS"
+  },
+  {
+   "id": "C4",
+   "expected": "page built and build_site --check fresh; observer left the DB unchanged",
+   "actual": {
+    "site": {
+     "exit": 0,
+     "answer": "{\"page_version\": 136, \"db_version\": 136, \"stale\": false}"
+    },
+    "db_unchanged": true
+   },
+   "evidence": "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a02.ctl/observer-final.json",
+   "verdict": "PASS"
+  },
+  {
+   "id": "C5",
+   "expected": "no duplicate job; every process start accounted in the launch ledger",
+   "actual": {
+    "starts": 5,
+    "keys": 5,
+    "duplicate_jobs": 0,
+    "per_key": {
+     "E-0001-s42-a1": 1,
+     "E-0001-s42-a2": 1,
+     "E-0002-s42-a1": 1,
+     "E-0002-s43-a1": 1,
+     "E-0002-s44-a1": 1
+    },
+    "cpu_seconds": 0.2151,
+    "wall_seconds": 2.3426,
+    "failed_exits": []
+   },
+   "evidence": "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a02.ctl/local-exec-state/launches.jsonl",
+   "verdict": "PASS"
+  }
+ ],
+ "raw_evidence_paths": [
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a02.ctl/commands.jsonl",
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a02.ctl/observer-final.json",
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a02.ctl/db-snapshot-final.json",
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a02.ctl/scenario.json",
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a02.ctl/sessions/rollout-2026-10-08T16-32-03-01a11c5b-8a39-7cf2-aa31-a10d2241c1f0.jsonl",
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a02.ctl/sessions/rollout-2026-10-08T16-43-57-01a11c66-6cd8-7d23-8e5d-51847451dbfe.jsonl",
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a02.ctl/sessions/rollout-2026-10-08T16-54-42-01a11c70-460a-7f01-abca-7877ad1ed739.jsonl",
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a02.ctl/sessions/rollout-2026-10-08T17-06-02-01a11c7a-a770-7e43-acd7-c89cd4ffa10b.jsonl"
+ ],
+ "observer_results": "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a02.ctl/observer-final.json",
+ "state_before": null,
+ "state_after": null,
+ "resume_evidence": {
+  "new_session": "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a02.ctl/sessions/rollout-2026-10-08T17-06-02-01a11c7a-a770-7e43-acd7-c89cd4ffa10b.jsonl",
+  "question": [
+   "恢复当前工作：当前的 baseline 是什么、它的数字从哪里来，下一步是什么？只做核对与说明，先不要启动新实验。"
+  ],
+  "runs_before_after": "unchanged: the observer's launch ledger and run list after the resumed session equal the state before it (no new start)"
+ },
+ "resource_usage": {
+  "cpu_seconds": 0.2151,
+  "job_wall_seconds": 2.3426,
+  "plugin_node_seconds": 4,
+  "known_model_cost_usd": null,
+  "unknown_cost_calls": [
+   "interactive host session (no per-session bill in the raw records)"
+  ]
+ },
+ "failures": [],
+ "fixes_and_retests": [],
+ "remaining_gaps": [
+  "the first sanity job was killed with its sandboxed submit command (Codex PID namespace); the controller switched the project's scheduler to the service mode (7047965) and the run was recovered as failed attempt 1 + attempt 2; reservation RS-0001 released by the user's instruction, the killed process's few CPU-ms are not in the plugin's books",
+  "the resumed main session answered read-only without attaching as the RLD (hook: another RLD session registered); takeover would need research_control attach"
+ ]
+}

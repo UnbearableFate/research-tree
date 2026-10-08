@@ -1,0 +1,10 @@
+{"ts": "2026-10-08T16:12:23.926072Z", "agent": "rtx0", "prompt": "$research-tree prepare"}
+{"event":"trusted plugin hooks (option 2) as the README instructs"}
+{"event":"approval: prepare.sh outside sandbox (uv cache), option 2"}
+{"ts": "2026-10-08T16:13:48.594776Z", "agent": "rtx0", "prompt": "$research-tree init"}
+{"event":"approval","what":"run tool \"research_control\" (init)","choice":"Always allow"}
+{"ts": "2026-10-08T16:14:32.610153+00:00", "event": "approval", "what": "run tool \"research_db\"", "choice": "Always allow"}
+{"ts": "2026-10-08T16:15:33.875494+00:00", "event": "approval", "what": " $ python3  '/home/yu/workspace/rt-scenarios/S0/codex-home-S0a01/plugins/cache/research-tree/research-tre  e/0.1.0/tools/literature.py' search 'momentum stochastic gradient descent convergence  training gradient methods' --limit 5 ", "choice": "p (plugin tool, do not ask again)"}
+{"ts": "2026-10-08T16:22:27.844887Z", "agent": "rtx0", "prompt": "两者都不改配置文件。discovery.mode 是 off，插件生效的项目字段里 require_precheck 应为 false（research_control config 的 db_fields 就是这样算的）；这个项目记录里的 true 是从 yaml 原样抄过来的。我作为用户同意把项目记录的 require_precheck 改为 false（登记成我的用户指令），然后继续立项，并按以下决定写计划：评测类型用 synthetic_proxy（合成数据上的真实计算，结论只限于本任务）；只比较 accuracy；代码仓库是 code/。另外：根节点 worker 把参考方法 3 个 seed 的基线导入并接受（valid）后，先不要写基线结果文档、不要 evaluate，告诉我各运行的输出目录，我会自己写基线结果报告交给你登记。"}
+{"ts": "2026-10-08T16:26:08.635188+00:00", "event": "approval", "what": "run tool \"post_to_ui\"", "choice": "Always allow"}
+{"ts": "2026-10-08T16:26:26.303831Z", "agent": "rtx0", "prompt": "$research-tree confirm"}

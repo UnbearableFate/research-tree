@@ -1,0 +1,88 @@
+{
+ "scenario_id": "SC-S0-02",
+ "stage": "S0",
+ "host": "codex",
+ "attempt": 1,
+ "status": "FAIL",
+ "evidence_class": "real_sc",
+ "requires_resume": true,
+ "project_root": "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a01",
+ "source_ref": "b45974cf30713a949ac02e01f492e99fb3c49b7e",
+ "uncommitted_changes": [],
+ "build_path": "/home/yu/workspace/rt-scenarios/S0/dist-codex-S0a01",
+ "loaded_plugin_path": "/home/yu/workspace/rt-scenarios/S0/codex-home-S0a01/plugins/cache/research-tree/research-tree/0.1.0",
+ "requested_model": "gpt-6-luna",
+ "observed_model": "gpt-6-luna",
+ "observed_effort": "medium",
+ "session_id": "rollout-2026-10-08T16-12-34-01a11c49-b0f9-7aa1-a26c-f81ae9403e2b",
+ "session_transcripts": [
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a01.ctl/sessions/rollout-2026-10-08T16-12-34-01a11c49-b0f9-7aa1-a26c-f81ae9403e2b.jsonl",
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a01.ctl/sessions/rollout-2026-10-08T16-26-54-01a11c56-d30f-7a23-99cc-4f43448b2785.jsonl"
+ ],
+ "review_calls": [],
+ "preconditions": [],
+ "commands": [
+  "$research-tree prepare",
+  "trusted plugin hooks (option 2) as the README instructs",
+  "approval: prepare.sh outside sandbox (uv cache), option 2",
+  "$research-tree init",
+  "approval",
+  "approval",
+  "approval",
+  "两者都不改配置文件。discovery.mode 是 off，插件生效的项目字段里 require_precheck 应为 false（research_control config 的 db_fields 就是这样算的）；这个项目记录里的 true 是从 yaml 原样抄过来的。我作为用户同意把项目记录的 require_precheck 改为 false（登记成我的用户指令），然后继续立项，并按以下决定写计划：评测类型用 synthetic_proxy（合成数据上的真实计算，结论只限于本任务）；只比较 accuracy；代码仓库是 code/。另外：根节点 worker 把参考方法 3 个 seed 的基线导入并接受（valid）后，先不要写基线结果文档、不要 evaluate，告诉我各运行的输出目录，我会自己写基线结果报告交给你登记。",
+  "approval",
+  "$research-tree confirm"
+ ],
+ "fault_plan": "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a01.ctl/fault-plan.json",
+ "substitutes_used": [],
+ "assertions": [
+  {
+   "id": "R1",
+   "expected": "the wrong report (acc-s42 0.905, mean 82.5) is refused by the product check; no evaluation rests on it",
+   "actual": {
+    "draft_docs": [],
+    "evaluation_result_doc": null
+   },
+   "evidence": "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a01.ctl/baseline-report.wrong.md",
+   "verdict": "FAIL"
+  },
+  {
+   "id": "R2",
+   "expected": "after correction the evaluation equals the independent scorer mean 79.1667 pp",
+   "actual": null,
+   "evidence": "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a01.ctl/baseline-report.corrected.md",
+   "verdict": "FAIL"
+  }
+ ],
+ "raw_evidence_paths": [
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a01.ctl/commands.jsonl",
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a01.ctl/observer-final.json",
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a01.ctl/db-snapshot-final.json",
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a01.ctl/scenario.json",
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a01.ctl/sessions/rollout-2026-10-08T16-12-34-01a11c49-b0f9-7aa1-a26c-f81ae9403e2b.jsonl",
+  "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a01.ctl/sessions/rollout-2026-10-08T16-26-54-01a11c56-d30f-7a23-99cc-4f43448b2785.jsonl"
+ ],
+ "observer_results": "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a01.ctl/observer-final.json",
+ "state_before": null,
+ "state_after": null,
+ "resume_evidence": null,
+ "resource_usage": {
+  "cpu_seconds": 0,
+  "job_wall_seconds": 0,
+  "plugin_node_seconds": null,
+  "known_model_cost_usd": null,
+  "unknown_cost_calls": [
+   "interactive host session (no per-session bill in the raw records)"
+  ]
+ },
+ "failures": [
+  "planning prompt lacked the effective db_fields: the Leader created the project with require_precheck true although discovery was off (create_hypothesis refused)",
+  "worker update_task(status=in_progress, assignee_id=root) refused as a reassignment"
+ ],
+ "fixes_and_retests": [
+  "762a60b: Codex planning prompt gives db_fields; restating one's own assignee is a no-op; REG in test_codex_adapter and test_research_db; retested in attempt 2"
+ ],
+ "remaining_gaps": [
+  "stopped after two product defects; retested in attempt 2"
+ ]
+}
