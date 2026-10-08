@@ -389,7 +389,7 @@ TOYOPT_PLAN = '''<!-- research-tree:plan -->
 
 ## 初始假说
 
-### 假说 1：带动量的方法收敛更快
+### 假说 1：{hypothesis_title}
 在固定数据与更新预算（相同训练轮数、相同 batch）下，带动量的方法可能比当前参考方法收敛更快，
 因而在探索验证集上的准确率更高；理由：动量累积一致的梯度方向，在更新次数受限时走得更远。
 
@@ -532,7 +532,8 @@ def sha_file(path: Path) -> str:
 
 def make_toyopt(dest: Path, host: str, stage: str, case: str, attempt: int, controller: Path,
                 faults: Path | None, discovery_mode: str, total_limit: int | None, min_gain: float,
-                alert_node_h: float | None, review_usd_alert: float | None) -> dict:
+                alert_node_h: float | None, review_usd_alert: float | None,
+                hypothesis_title: str = "带动量的方法收敛更快") -> dict:
     code = dest / "code"
     shutil.copytree(SCENARIOS / "toyopt" / "toytrain", code / "toytrain",
                     ignore=shutil.ignore_patterns("__pycache__"))
@@ -546,7 +547,8 @@ def make_toyopt(dest: Path, host: str, stage: str, case: str, attempt: int, cont
         "ToyOpt Lab: training, runner, fixed splits, frozen reference configuration")
     (dest / "tools").mkdir()
     shutil.copyfile(SCENARIOS / "local_exec.py", dest / "tools" / "local_exec.py")
-    (dest / "plan.md").write_text(TOYOPT_PLAN.replace("{code}", str(code)), encoding="utf-8")
+    (dest / "plan.md").write_text(TOYOPT_PLAN.replace("{code}", str(code)).replace("{hypothesis_title}", hypothesis_title),
+                                  encoding="utf-8")
     (dest / "research-tree.yaml").write_text(toyopt_config(host, stage, discovery_mode, total_limit, min_gain,
                                                            alert_node_h, review_usd_alert), encoding="utf-8")
     controller.mkdir(parents=True, exist_ok=True)
@@ -584,6 +586,8 @@ def main() -> int:
     p.add_argument("--min-gain", type=float, default=1.0, help="primary metric's minimum_practical_gain (pp)")
     p.add_argument("--alert-node-h", type=float, default=None)
     p.add_argument("--review-usd-alert", type=float, default=None)
+    p.add_argument("--hypothesis-title", default="带动量的方法收敛更快",
+                   help="the user hypothesis's title in plan.md (S1 names it Zebra so a later Alpha sorts first)")
     p.add_argument("--legacy-toytrain", action="store_true",
                    help="the older toytrain project (the workflow benchmark's base)")
     p.add_argument("--hypotheses", type=int, choices=(0, 1, 2), default=2, help="legacy: user hypotheses in plan.md")
@@ -603,7 +607,7 @@ def main() -> int:
         dest.mkdir(parents=True, exist_ok=True)
         scenario = make_toyopt(dest, args.host, args.stage, args.case, args.attempt, controller, args.faults,
                                args.discovery, args.total_limit, args.min_gain, args.alert_node_h,
-                               args.review_usd_alert)
+                               args.review_usd_alert, args.hypothesis_title)
         print(json.dumps({"project": str(dest), "controller": str(controller), "instance": scenario["instance"]}))
         return 0
     code = dest / "code"

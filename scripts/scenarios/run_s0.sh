@@ -5,7 +5,7 @@ host=$1; att=$2; pane=$3; spane=$4
 R=/home/yu/workspace/rt-scenarios; S=$R/S0; REPO=/home/yu/workspace/research-tree
 P=$S/rt-S0-$host-a$att; C=$P.ctl; A=rt${host:0:2}$att
 cd $REPO
-python3 scripts/make_rt_test_project.py $P --host $host --stage S0 --case SC-COMMON-01 --attempt $((10#$att)) >/dev/null
+python3 scripts/make_rt_test_project.py $P --host $host --stage S0 --case SC-COMMON-01 --attempt $((10#$att)) >/dev/null || exit 2
 (git rev-parse HEAD; git status --porcelain) > $C/source_ref.txt
 rm -rf $S/dist-$host-S0a$att; cp -r dist/$host $S/dist-$host-S0a$att
 echo $pane > $C/pane.txt; echo $spane > $C/scheduler-pane.txt
