@@ -43,11 +43,20 @@ seed 7–9，仅 explore 切分，经 `tools/local_exec.py` 实测）：参考�
 
 S7 的比较预算另列，不占用以上额度。
 
+## 阻塞：Fable 5.1 不可用（2026-10-08 19:3x UTC 起）
+
+S1 第 1 轮评审（`scripts/stage_review.py S1 --round 1`）返回 `is_error=true, terminal_reason=api_error`，原文
+“Fable 5.1 requires usage credits. Switch to another model to continue.”（记录 `reviews/S1-r1-invalid-1.md`）；
+随后单独探测同样失败（原始输出 `test-logs/blocked/fable-2026-10-08T1938Z.json`），`claude-haiku-5-5` 同时可用。
+按实施文档 §2.2，不换模型：所有阶段评审与终审（S0 终审第 4 轮、S1 起各轮）为 **BLOCKED**，恢复条件是账户为
+Fable 5.1 补充 usage credits。期间继续不依赖评审的实现、REG 与两端真实场景，评审在恢复后按顺序补做；
+未完成终审的阶段不报告 PASS。
+
 ## 阶段矩阵
 
 | 阶段 | REG与构建 | Claude真实SC | Codex真实SC | 独立终审 | 阶段状态 |
 | --- | --- | --- | --- | --- | --- |
-| S0 | PASS | PASS（a02） | PASS（a02；a01 FAIL 已修复） | IN_PROGRESS | IN_PROGRESS |
+| S0 | PASS | PASS（a03） | PASS（a07；a04 FAIL 已修复，a05/a06 中止） | BLOCKED（Fable 不可用） | IN_PROGRESS |
 | S1 | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED |
 | S2 | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED |
 | S3 | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED |

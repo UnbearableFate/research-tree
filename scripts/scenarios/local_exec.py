@@ -109,9 +109,13 @@ DAEMON_STALE_S = 15.0
 def daemon() -> dict | None:
     """The scheduler service's heartbeat, when it is alive."""
     path = STATE / "daemon.json"
-    try:
-        beat = json.loads(path.read_text(encoding="utf-8"))
-    except (OSError, json.JSONDecodeError):
+    for _ in range(5):  # the heartbeat is replaced atomically; a read is retried anyway
+        try:
+            beat = json.loads(path.read_text(encoding="utf-8"))
+            break
+        except (OSError, json.JSONDecodeError):
+            time.sleep(0.05)
+    else:
         return None
     return beat if time.time() - beat.get("at", 0) < DAEMON_STALE_S else None
 
@@ -333,7 +337,9 @@ def serve(args) -> int:
     queue.mkdir(exist_ok=True)
     append("events.jsonl", {"call": "serve", "key": None, "exit": 0, "answer": {"pid": os.getpid()}})
     while True:
-        (STATE / "daemon.json").write_text(json.dumps({"pid": os.getpid(), "at": time.time()}), encoding="utf-8")
+        tmp = STATE / ".daemon.json.tmp"
+        tmp.write_text(json.dumps({"pid": os.getpid(), "at": time.time()}), encoding="utf-8")
+        tmp.replace(STATE / "daemon.json")  # atomic: a reader never sees a half-written heartbeat
         for req_file in sorted(queue.glob("*.json")):
             req = json.loads(req_file.read_text(encoding="utf-8"))
             req_file.unlink()

@@ -1,0 +1,19 @@
+{
+ "plans/design/test-logs/scenarios/S0/codex/evidence-a07/agent_models.jsonl": "b770f6fca8a5003682818b55a0d8416f5dad5cb6660e4f8890e203555ec8cd06",
+ "plans/design/test-logs/scenarios/S0/codex/evidence-a07/baseline-report.corrected.md": "acf15f58ebec19477f2654ca875a136e4eca8da31001d00f09070759c065711e",
+ "plans/design/test-logs/scenarios/S0/codex/evidence-a07/baseline-report.wrong.md": "c0c34d4cf2025c9fd76c7ec3fd44fd2d57cf72d4aba990dd5d78f43106f48b9a",
+ "plans/design/test-logs/scenarios/S0/codex/evidence-a07/commands.jsonl": "2298897e709f6c23bd4c9f500e932ad5d8364a815e9df2bc2a05b50ad4ce55b9",
+ "plans/design/test-logs/scenarios/S0/codex/evidence-a07/db-snapshot-final.json": "e88d88cd71fd8844b9686fae618fdba82117544652452a347237682b5f028c5d",
+ "plans/design/test-logs/scenarios/S0/codex/evidence-a07/fault-plan.json": "c673aaa3cc52d38eb42ee043b6373cad67258987f57897c0aaa3c2dbb20eb096",
+ "plans/design/test-logs/scenarios/S0/codex/evidence-a07/local-exec-events.jsonl": "bbf5edaedfcf6048ae41e896f154796392705eb732506036c8eda0892f97619b",
+ "plans/design/test-logs/scenarios/S0/codex/evidence-a07/local-exec-launches.jsonl": "6233db19a8978769afd3411017d66eb19e86c4494223f0c34832279eca6bcf6a",
+ "plans/design/test-logs/scenarios/S0/codex/evidence-a07/observer-after-resume.json": "89ff60f20929a13bf87f558208fce1b7ae69b0a66bea670eee6faa57fd90dcad",
+ "plans/design/test-logs/scenarios/S0/codex/evidence-a07/observer-before-report.json": "dabbb165917acc21636a7bbadf953d1aa662ec46d8a857acefb4bf2185f737cf",
+ "plans/design/test-logs/scenarios/S0/codex/evidence-a07/observer-before-resume.json": "2fd629240171cc63c780968e3d23756590df84ca963b09931227e272b1ce54fb",
+ "plans/design/test-logs/scenarios/S0/codex/evidence-a07/observer-final.json": "9789bb2ed6cc9ebed21f9b2e2322b82f9249f2da34ff479003c44501d5c4454c",
+ "plans/design/test-logs/scenarios/S0/codex/evidence-a07/scenario.json": "e8b8f412911d72c2267f1a7f9c937ae359ad1008f5ea28d85edf0a2ace7f08bf",
+ "plans/design/test-logs/scenarios/S0/codex/evidence-a07/sessions/rollout-2026-10-08T19-19-41-01a11cf5-02b7-70c3-86b9-b61b18983fc5.jsonl.gz": "0cdd3fe89d8466101c2aaf9bdb7eda062c1db86e403954f02e682bf5e00dede4",
+ "plans/design/test-logs/scenarios/S0/codex/evidence-a07/sessions/rollout-2026-10-08T19-32-10-01a11d00-6ef3-7d53-b6b4-edbbc17efd36.jsonl.gz": "94fb8ac5dbbf7e26c95401d4a6a45b741bf851ba50ed65703ea84763034fc9f1",
+ "plans/design/test-logs/scenarios/S0/codex/evidence-a07/sessions/rollout-2026-10-08T19-53-59-01a11d14-67ea-7b70-8cb2-f53a14a16027.jsonl.gz": "5931cb36bee09f2745434f6a59a61c988d817c243f23c68b67c6330070567622",
+ "plans/design/test-logs/scenarios/S0/codex/evidence-a07/source_ref.txt": "c4d43b78258f96a31ee22eda10f9cc84028173727df99c429b3942c7e5146a9a"
+}
