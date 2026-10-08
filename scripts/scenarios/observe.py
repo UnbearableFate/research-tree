@@ -120,6 +120,16 @@ def observe(project: Path, tools: Path = REPO_TOOLS) -> dict:
             "recorded_mean": recorded, "unit": unit, "independent_mean": None if mean is None else mean * scale,
             "mean_matches": None if mean is None or recorded is None else abs(recorded - mean * scale) < 1e-9,
             "run_refs": refs})
+    reader = ResearchDB(db, "ui/ui")
+    nodes = []  # S1: each node's claim revision and what its GO eligibility rests on now
+    for h in tables["hypothesis"]:
+        try:
+            elig = reader.get_eligibility(h["id"])
+        except Exception as exc:  # reported, never hidden
+            elig = {"error": f"{type(exc).__name__}: {exc}"}
+        nodes.append({"id": h["id"], "title": h.get("title"), "status": h.get("status"),
+                      "claim_revision": h.get("claim_revision"), "claim_sha": h.get("claim_sha"),
+                      "eligibility": elig})
     site = subprocess.run([sys.executable, str(tools / "build_site.py"), "--db", str(db), "--check"],
                           capture_output=True, text=True)
     after = sha(db)
@@ -128,7 +138,9 @@ def observe(project: Path, tools: Path = REPO_TOOLS) -> dict:
         "data_version": snap["meta"]["data_version"],
         "counts": {t: len(v) for t, v in tables.items()},
         "experiments": [{k: e.get(k) for k in ("id", "kind", "stage", "hypothesis_id", "code_ref", "seeds",
-                                                 "evaluation_id", "owner")} for e in tables["experiment"]],
+                                                 "evaluation_id", "owner", "method_spec_doc_id", "identity_status")}
+                        for e in tables["experiment"]],
+        "nodes": nodes,
         "runs": runs, "evaluations": evaluations,
         "obligations": [{k: o.get(k) for k in ("id", "about", "status", "severity", "pattern")}
                         for o in tables["obligation"]],
