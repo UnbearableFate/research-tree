@@ -187,6 +187,17 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         with self.assertRaisesRegex(ValueError, "needs kind, brief, about"):
             self.runtime.dispatch("research_review", {})
 
+    def test_planning_prompt_gives_the_effective_project_fields(self):
+        """Host drift found in the S0 Codex run: the Claude prompt hands the Leader the effective db_fields; the
+        Codex prompt only said 'the configuration's budget and gates', and the Leader copied require_precheck
+        from the YAML although discovery was off."""
+        import codex_prompts
+        import project_config
+        conf = project_config.parse((ROOT / "schema/config.template.yaml").read_text().replace("mode: full", "mode: off"))
+        text = codex_prompts.planning({"plan_instruction": "D-1", "root": "/r", "project_id": "P-x"}, conf)
+        self.assertIn('"require_precheck": false', text)
+        self.assertIn("不要从 yaml 原样抄写", text)
+
     def test_config_apply_passes_the_users_metric_spec_replacement(self):
         with patch("research_tree.apply_config", return_value={"new_version": False, "updated_fields": {}}) as apply:
             self.runtime.control("config", {"apply": True, "words": "/config apply --replace-metric-spec",

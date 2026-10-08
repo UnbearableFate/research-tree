@@ -3977,6 +3977,9 @@ class ResearchDB:
         with self._writer() as tx:
             task = tx.require(task_id, ("task",))
             changes = {}
+            if assignee_id is not None and assignee_id == task.get("assignee_id"):
+                assignee_id = None  # restating the current assignee changes nothing (S0 Codex run: a worker
+                # passed its own id along with status in_progress and was refused as if it reassigned the task)
             if assignee_id is not None:
                 self._require_role("rld")
                 if task["status"] != "open":

@@ -2551,7 +2551,11 @@ class TaskTest(Fixture):
             self.rld.create_task("review", "worker", req)
         with self.assertRaises(PermissionDenied):
             ResearchDB(self.db, "worker/w2").update_task(task, status="in_progress")
-        self.worker.update_task(task, status="in_progress")
+        with self.assertRaises(PermissionDenied):  # reassigning is the Leader's
+            self.worker.update_task(task, status="in_progress", assignee_id="w2")
+        # restating its own assignment changes nothing (the S0 Codex run's worker passed assignee_id with status)
+        self.worker.update_task(task, status="in_progress", assignee_id="w1")
+        self.assertEqual(self.rld.get(task)["status"], "in_progress")
         draft = self.doc(self.worker, "tasks/t/delivery.v1.md", "task_delivery", current=False)
         with self.assertRaisesRegex(ResearchDBError, "needs delivery_doc_id"):
             self.worker.update_task(task, status="delivered")
