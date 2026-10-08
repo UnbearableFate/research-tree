@@ -59,7 +59,7 @@ SPEC_PATH = Path(__file__).resolve().parent.parent / "schema" / "research_tree.s
 CLEANUP_SCRIPT = "research-tree-cleanup.py"
 CLEANUP_TEMPLATE = Path(__file__).resolve().parent.parent / "schema" / "cleanup.template.py"
 # The database layout this interface writes (schema/create_db.py SCHEMA_VERSION; a test keeps them equal).
-SCHEMA_VERSION = 20
+SCHEMA_VERSION = 21
 OPEN_ATTEMPTS = 40
 OPEN_RETRY_DELAY_S = 0.25
 
@@ -1562,19 +1562,32 @@ class ResearchDB:
                                              "reconsider_when": reconsider_when})
             return decision_id
 
-    def note_findings(self, node_id: str, new_findings: int, doc_id: str,
-                      direction: str | None = None) -> dict:
-        """At each decision batch, the number of new findings in the subtree under node_id (06 §5). Consecutive
-        batches with none: at project.stall_structural_at the subtree must change direction (a child with a
-        direction already recorded in it is refused, STALL_STRUCTURAL); at stall_human_at the RLD reports to the
-        user (report_to_user). doc_id is the current decision document identifying this batch. A repeat for the
-        same node and document never recounts or resets it; it returns the node's current stall state. A corrected
-        count needs a new decision document. direction records the direction when it has none yet. rld only."""
+    def note_findings(self, node_id: str, new_findings: int | None = None, doc_id: str | None = None,
+                      direction: str | None = None, finding_ids: list[str] | None = None,
+                      rationale: str | None = None) -> dict:
+        """At each decision batch, the new findings in the subtree under node_id (06 §5). Consecutive batches with
+        none: at project.stall_structural_at the subtree must change direction (a child with a direction already
+        recorded in it is refused, STALL_STRUCTURAL); at stall_human_at the RLD reports to the user
+        (report_to_user). doc_id is the current decision document identifying this batch; a repeat for the same
+        node and document never recounts or resets it.
+
+        S7 §11.2: the findings are named — finding_ids, current finding documents of this project about the
+        subtree (or the project) whose evidence still holds now (memory_status). One already counted, or one with
+        the same claim and evidence as one already counted, is not new. Only named, checked findings reset the
+        stall; new_findings, if also given, must equal how many were accepted, and a bare count above 0 resets
+        nothing (STALL_EVIDENCE_REQUIRED). rationale says why they are new information (the Leader's judgement,
+        kept with the decision). rld only."""
         self._require_role("rld")
-        if not isinstance(new_findings, int) or isinstance(new_findings, bool) or new_findings < 0:
+        if new_findings is not None and (not isinstance(new_findings, int) or isinstance(new_findings, bool)
+                                         or new_findings < 0):
             raise ResearchDBError("new_findings is a count >= 0")
         if not isinstance(doc_id, str) or not doc_id:
             raise ResearchDBError("note_findings needs a current decision document identifying the batch")
+        if finding_ids is not None and not (isinstance(finding_ids, list) and all(isinstance(x, str) for x in finding_ids)):
+            raise ResearchDBError("finding_ids is a list of finding document ids")
+        if new_findings and not finding_ids:
+            raise CodedError("STALL_EVIDENCE_REQUIRED", f"{new_findings} new finding(s) without finding_ids: a stall "
+                                                        "is reset by named findings the system can check, not by a count")
         with self._writer() as tx:
             project = self._project(tx)
             hyp = tx.require(node_id, ("hypothesis",))
@@ -1587,21 +1600,105 @@ class ResearchDB:
                         node=node_id, field="findings", doc=doc_id):
                 state = hyp["stall_state"]
                 return {"node_id": node_id, "streak": hyp["new_findings_streak"], "stall_state": state,
-                        "report_to_user": state == "human"}
-            streak = 0 if new_findings else (hyp.get("new_findings_streak") or 0) + 1
+                        "report_to_user": state == "human", "accepted": [], "not_counted": []}
+            subtree = self._subtree(tx, node_id) | {project["id"]}
+            counted = dict(hyp.get("counted_findings") or {"ids": [], "keys": []})
+            accepted, refused = [], []
+            for fid in dict.fromkeys(finding_ids or []):
+                d = tx.get(fid)
+                if d is None or d.get("_table") != "document" or d.get("doc_type") != "finding" or d["status"] != "current":
+                    refused.append(f"{fid}: not a current finding")
+                    continue
+                about = {e["target_id"] for e in tx.edges("rel_describes", source=fid)}
+                if about and not about & subtree:
+                    refused.append(f"{fid}: about {sorted(about)}, not this subtree")
+                    continue
+                status = self._memory_status(tx, project, d)
+                if status["evidence_state"] != "current":
+                    refused.append(f"{fid}: its evidence is {status['evidence_state']} ({'; '.join(status['recheck_reasons'])[:120]})")
+                    continue
+                data = memory.front_matter((self.docs_root / d["path"]).read_text(encoding="utf-8")) or {}
+                key = _sha({"claim": _norm_text(str(data.get("claim") or "")),
+                            "evidence": sorted(str(x) for x in data.get("evidence_ids") or [])})
+                if fid in counted["ids"] or key in counted["keys"]:
+                    refused.append(f"{fid}: already counted (the same finding, or the same claim and evidence)")
+                    continue
+                accepted.append(fid)
+                counted["ids"].append(fid)
+                counted["keys"].append(key)
+            if new_findings is not None and finding_ids is not None and new_findings != len(accepted):
+                raise CodedError("STALL_EVIDENCE_REQUIRED", f"new_findings {new_findings} but {len(accepted)} of the "
+                                                            f"named findings are new and checked: {refused}")
+            streak = 0 if accepted else (hyp.get("new_findings_streak") or 0) + 1
             state = ("human" if streak >= project.get("stall_human_at", 4) else
                      "structural" if streak >= project.get("stall_structural_at", 2) else "none")
-            changes = {"new_findings_streak": streak, "stall_state": state}
+            changes = {"new_findings_streak": streak, "stall_state": state, "counted_findings": counted}
             if direction and not hyp.get("direction"):
                 changes["direction"] = direction
             decision_id = tx.next_id("decision")
             self._insert(tx, "decision", {
                 "id": decision_id, "target_id": node_id, "field": "findings",
                 "from_value": str(hyp.get("new_findings_streak") or 0), "to_value": str(streak),
-                "reason": f"{new_findings} new finding(s) this batch; stall {state}", "doc_id": doc_id,
-                "decided_by": self.agent, "decided_at": now_utc()})
+                "reason": (f"{len(accepted)} new finding(s) this batch {accepted}; stall {state}"
+                           + (f"; not counted: {refused}" if refused else "")
+                           + (f"; why new: {rationale}" if rationale else ""))[:2000],
+                "doc_id": doc_id, "decided_by": self.agent, "decided_at": now_utc()})
             self._update(tx, node_id, changes)
-            return {"node_id": node_id, "streak": streak, "stall_state": state, "report_to_user": state == "human"}
+            return {"node_id": node_id, "streak": streak, "stall_state": state, "report_to_user": state == "human",
+                    "accepted": accepted, "not_counted": refused}
+
+    def repetition_advice(self, experiment_id: str, against: str = "sota") -> dict:
+        """S7 §11.1: whether more repeats of experiment_id would help decide its comparison with its reference
+        (against: sota or parent), from the protocol's fixed repetition policy, the measured paired differences in
+        the primary metric's canonical unit, their independence units, the declared search seed pool and the
+        available search budget. Advice only: nothing is reserved or run (a run goes through the budget as always).
+        Read-only."""
+        with self.reader() as tx:
+            project = self._project(tx)
+            exp = tx.require(experiment_id, ("experiment",))
+            ref_id = exp.get("parent_experiment_id") if against == "parent" else exp.get("baseline_experiment_id")
+            if not ref_id:
+                raise ResearchDBError(f"{experiment_id} has no {against} reference")
+            specs, protocol = self._specs(tx, project), self._protocol(tx, project) or {}
+            spec = metrics.spec_by_name(specs)[project["primary_metric"]]
+            sign = 1 if spec["direction"] == "higher" else -1
+            mine = {r["seed"]: r for r in (tx.get(f"{experiment_id}/s{s}") for s in exp["seeds"]) if r and r.get("valid")}
+            ref = tx.get(ref_id)
+            theirs = {r["seed"]: r for r in (tx.get(f"{ref_id}/s{s}") for s in ref["seeds"]) if r and r.get("valid")}
+            fields = protocol.get("independence_fields") or []
+            pairs = []
+            for seed in sorted(set(mine) & set(theirs)):
+                a = metrics.run_values(specs, mine[seed], [spec["name"]])[spec["name"]]
+                b = metrics.run_values(specs, theirs[seed], [spec["name"]])[spec["name"]]
+                manifest = mine[seed].get("manifest") or {}
+                unit = tuple(manifest.get(f) for f in fields) if fields and all(manifest.get(f) is not None for f in fields) else None
+                pairs.append({"seed": seed, "diff": sign * (a - b), "unit": unit})
+            same_identity = [e for e in (tx.get(i) for i in tx.ids("experiment"))
+                             if e.get("hypothesis_id") == exp.get("hypothesis_id")
+                             and e.get("method_spec_doc_id") == exp.get("method_spec_doc_id")]
+            used = sorted({s for e in same_identity for s in e["seeds"]})
+            committed = self._committed(tx)
+            limit = project.get("search_limit")
+        available = None if limit is None else limit - committed["search"]
+        out = metrics.repetition_advice(spec, pairs, float(spec["minimum_practical_gain"]), protocol.get("repetition"),
+                                        used, exp["nodes"] * exp["walltime_s"], available)
+        return {"experiment_id": experiment_id, "against": ref_id, "pairs": pairs, **out}
+
+    def _subtree(self, tx: _Tx, node_id: str) -> set[str]:
+        out, todo = set(), [node_id]
+        children: dict = {}
+        for h in (tx.get(i) for i in tx.ids("hypothesis")):
+            children.setdefault(h.get("parent_id"), []).append(h["id"])
+        while todo:
+            n = todo.pop()
+            if n not in out:
+                out.add(n)
+                todo += children.get(n, [])
+        for h in list(out):  # their experiments and evaluations
+            for row in tx.query("MATCH (e:Experiment)-[:TESTS]->(h:Hypothesis {id: $id}) RETURN e.id AS id", id=h):
+                out.add(row["id"])
+                out.update(v["id"] for v in self._evaluations_of(tx, row["id"]))
+        return out
 
     def _check_stall(self, tx: _Tx, parent_id: str | None, direction: str | None) -> None:
         """A new child below a stalled subtree takes a direction not yet recorded in that subtree."""
@@ -5824,7 +5921,7 @@ def default_worker_id(node_id: str, table: str) -> str:
 READ_METHODS = ("help", "get", "find", "edges", "children", "history", "go_candidates", "latest_result",
                 "screen_seed_count", "export_snapshot", "verify_document", "resume_package", "cleanup_due",
                 "get_eligibility", "evaluations", "preview_evaluation", "obligations", "budget_status",
-                "reconcile_submission", "reviews", "context_pack", "relations", "review_basis", "material_usage", "memory_status")
+                "reconcile_submission", "reviews", "context_pack", "relations", "review_basis", "material_usage", "memory_status", "repetition_advice")
 
 CLI_METHODS = sorted(
     name for name in vars(ResearchDB) if not name.startswith("_") and callable(getattr(ResearchDB, name))

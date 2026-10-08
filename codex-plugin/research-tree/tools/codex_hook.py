@@ -20,7 +20,7 @@ SHELL_BOUNDARIES = {";", "&&", "||", "|", "&", "\n"}
 READ_METHODS = {"help", "get", "find", "edges", "children", "history", "go_candidates", "latest_result",
                 "screen_seed_count", "export_snapshot", "verify_document", "resume_package", "cleanup_due",
                 "get_eligibility", "evaluations", "preview_evaluation", "obligations", "budget_status",
-                "reconcile_submission", "reviews", "context_pack", "relations", "review_basis", "material_usage", "memory_status"}
+                "reconcile_submission", "reviews", "context_pack", "relations", "review_basis", "material_usage", "memory_status", "repetition_advice"}
 WORKFLOW = f"""research-tree 项目已启用。主会话是唯一 Research Leader。
 读取 {ROOT / 'skills/research-tree/SKILL.md'} 与 {ROOT / 'rules/research-tree-rules.md'}。
 只通过 research_db 修改研究数据库；已生效文档写新版本；节点不能修改冻结框架。

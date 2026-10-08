@@ -142,6 +142,7 @@ CREATE TABLE hypothesis (
     -- 停滞计数（06 §5）
     direction           TEXT,                  -- 节点代表的研究方向（机制标签）；停滞的子树拒绝同方向的新子节点
     new_findings_streak INTEGER,               -- 连续几批没有新发现
+    counted_findings    JSON,                  -- note_findings 已计入的发现（S7）：{"ids": [...], "keys": [主张+证据摘要]}；同一发现或同一主张与证据不重复计数
     stall_state         TEXT CHECK (stall_state IN ('none', 'structural', 'human')),
     status_reason       TEXT,                  -- 当前状态的一句话理由；详细见最近 decision
     owner               TEXT NOT NULL,

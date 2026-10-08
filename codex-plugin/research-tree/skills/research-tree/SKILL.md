@@ -89,8 +89,10 @@ same code), never from cached labels. Each evaluation carries a deterministic ou
 negative_signal, inconclusive); a seed limit does not force a conclusion. Investment is a separate decision
 (`decide_disposition`: active, paused, retired, with reason, evidence and reopening condition); NOT GO needs no
 active node and a report covering unexplored, failed, uncertain, repeated, refuted and value judgements. Record
-new findings per decision batch with `note_findings(doc_id=<current decision document>)`; reuse of the same
-node/document does not count again. Close review findings only through `resolve_obligation`
+new findings per decision batch with `note_findings(node_id, finding_ids=[<new current finding documents>],
+doc_id=<current decision document>, rationale=<why they are new>)`; a bare count resets nothing, a finding already
+counted (or the same claim and evidence repackaged) is not new, and reuse of the same node/document does not count
+again. `repetition_advice(experiment_id)` says whether the protocol's repetition rule asks for more search seeds. Close review findings only through `resolve_obligation`
 (with evidence) or a user waiver. Accept tasks with `evidence_ids`.
 
 GO candidates (candidate_ready or confirmed) in a project whose configuration requires cross-model rechecks
