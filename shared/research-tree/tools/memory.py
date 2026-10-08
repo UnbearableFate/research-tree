@@ -8,7 +8,14 @@ Findings (docs/findings/, doc_type finding) and lessons (docs/lessons/, doc_type
     evidence_ids: [EV-0012, ...]      fix: "..."          applicability: {harness_ref?, config_doc_id?, ...}
     interpretation: "..."             evidence_runs: ["E-0008/s42@2"]   counterexamples: [...]
     limitations: "..."                status: proposed | observed | verified | contradicted | stale
-    status: observed | supported | contradicted | stale
+    status: observed | supported |    fix_verification: {failure_attempt_ref, criterion_doc_id,
+            contradicted | stale        run_attempt_refs, applied_fix_ref, check_evidence_refs}
+
+S5 (plans/research-tree-implementation-and-real-scenarios.md §9): the status in the front matter is what the author
+declares. Whether a lesson's fix is verified is derived by the system from fix_verification with the fixed
+checkers below (research_db._verify_fix), never from a boolean the author typed; the root cause's status is
+independent of it (a verified fix may have an unknown cause). memory_status() gives every reader the same answer:
+declared and effective status, evidence state, recheck reasons, scope and sources.
 
 Facts and interpretation stay apart. A lesson whose root cause is a guess is only `proposed` (K01); a lesson's fix
 is screened with its symptom and root cause for operational noise (capture_filter); neither may carry an injection or ask to widen permissions, gates
@@ -35,6 +42,11 @@ LESSON_STATUS = ("proposed", "observed", "verified", "contradicted", "stale")
 ROOT_CAUSE_STATUS = ("verified", "proposed", "unknown")
 PACK_LIMIT = 8000
 RUN_REF_RE = re.compile(r"(E-\d+/s-?\d+)@(\d+)")
+VERIFICATION_FIELDS = ("failure_attempt_ref", "criterion_doc_id", "run_attempt_refs", "applied_fix_ref",
+                       "check_evidence_refs")
+# the checks a fixed checker can establish from records and artifacts (S5 §9.1); anything else stays unverified
+CHECK_TYPES = ("exit_status", "import_valid", "launch_config", "read_count", "artifacts_match_manifest")
+SELF_REPORTED = ("fix_applied", "checks_passed", "verified", "passed")
 HEDGE_RE = re.compile(r"\b(?:guess|guessing|maybe|perhaps|probably|possibly|might|unverified|not\s+sure)\b|可能|猜|也许|大概|未验证|不确定",
                       re.I)
 
@@ -86,15 +98,30 @@ def check(doc_type: str, text: str) -> dict:
     if data["root_cause_status"] == "verified" and HEDGE_RE.search(str(data["root_cause"])):
         raise MemoryError_("the root cause reads as a guess (guess / maybe / 可能 / 猜 / 未验证): mark it proposed or "
                            "unknown until a log or a minimal test establishes it (K01)")
-    if data["root_cause_status"] != "verified" and data["status"] != "proposed":
-        raise MemoryError_(f"the root cause is {data['root_cause_status']}: the lesson is only proposed (K01)")
-    if data["status"] == "verified" and not data.get("evidence_runs"):
-        raise MemoryError_("a verified lesson cites the runs that verified the fix (evidence_runs E-…/s…@attempt)")
-    for field in ("symptom", "root_cause", "fix"):
-        noise = capture_filter.screen(str(data[field]))
-        if noise:
-            raise MemoryError_(f"the {field} reads as operational noise ({', '.join(noise)}): store how to fix it, "
-                               "not that something failed — " + capture_filter.reason_detail(noise[0]))
+    verification = data.get("fix_verification")
+    if data["root_cause_status"] != "verified" and data["status"] not in ("proposed", "verified"):
+        raise MemoryError_(f"the root cause is {data['root_cause_status']}: the lesson is proposed, or verified only "
+                           "for its fix through fix_verification (K01)")
+    if data["root_cause_status"] != "verified" and data["status"] == "verified" and not verification:
+        raise MemoryError_("a lesson whose root cause is not established is verified only for its fix: give "
+                           "fix_verification (the failed attempt, the criterion frozen before the check, the "
+                           "verifying attempts, the applied fix and the check evidence)")
+    if data["status"] == "verified" and not (data.get("evidence_runs") or verification):
+        raise MemoryError_("a verified lesson cites the runs that verified the fix (fix_verification, or "
+                           "evidence_runs E-…/s…@attempt)")
+    if verification is not None:
+        missing = [f for f in VERIFICATION_FIELDS if not (verification or {}).get(f)] \
+            if isinstance(verification, dict) else list(VERIFICATION_FIELDS)
+        if missing:
+            raise MemoryError_(f"fix_verification needs {', '.join(missing)} (records, never self-reported booleans)")
+    # S5 §9.2: the symptom states facts (an OOM or ImportError is a fact); the screen applies to what would harden
+    # into a rule — the root cause and the fix — and only for unfounded negative claims about tools
+    for field in ("root_cause", "fix"):
+        noise = [r for r in capture_filter.screen(str(data[field])) if r == "negative_tool_claim"]
+        if noise or capture_filter.permanent_avoidance(str(data[field])):
+            raise MemoryError_(f"the {field} reads as a permanent rule against a tool ('never use …', 'X is broken'): "
+                               "store the fix or workaround and the conditions it was verified under — "
+                               + capture_filter.reason_detail("negative_tool_claim"))
     for ref in data.get("evidence_runs") or []:
         if not RUN_REF_RE.fullmatch(str(ref)):
             raise MemoryError_(f"evidence_runs names run attempts like E-0008/s42@2, not {ref!r}")

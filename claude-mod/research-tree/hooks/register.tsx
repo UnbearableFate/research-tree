@@ -20,7 +20,7 @@ const ALERT_KIND = 'usage_alert'
 // The host's longest wait for one process (process.run accepts 1..600000 ms).
 const MAX_PROCESS_MS = 600_000  // the host's cap on one process (ms)
 // research_db.READ_METHODS (a test keeps the two equal)
-const READ_ONLY = /^(help|get|find|edges|children|history|go_candidates|latest_result|screen_seed_count|export_snapshot|verify_document|resume_package|cleanup_due|get_eligibility|evaluations|preview_evaluation|obligations|budget_status|reconcile_submission|reviews|context_pack|relations|review_basis|material_usage)$/
+const READ_ONLY = /^(help|get|find|edges|children|history|go_candidates|latest_result|screen_seed_count|export_snapshot|verify_document|resume_package|cleanup_due|get_eligibility|evaluations|preview_evaluation|obligations|budget_status|reconcile_submission|reviews|context_pack|relations|review_basis|material_usage|memory_status)$/
 
 const summaryRef = { plugin: 'research-tree', key: 'summary' } as const
 const errorRef = { plugin: 'research-tree', key: 'error' } as const
