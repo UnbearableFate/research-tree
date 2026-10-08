@@ -333,6 +333,28 @@ class ReviewCallTest(unittest.TestCase):
         self.assertIn("REVIEW_UNAVAILABLE: reviewer openai/gpt-6-astra is the Leader's family", out["error"])
         self.assertFalse([c for c in self.calls() if "-p" in c])  # the model was never called
 
+    def test_reg_s4_04_family_through_channels(self):
+        # the Leader reached through an aggregator is still OpenAI: refused before any model call
+        self.project(leader="openrouter/openai/gpt-6-luna")
+        self.fake("pi")
+        out = self.call([{"text": block(NOVELTY)}])
+        self.assertIn("is the Leader's family", out["error"])
+        self.assertFalse([c for c in self.calls() if "-p" in c])
+
+    def test_reg_s4_04_observed_identity_decides(self):
+        self.project()
+        self.fake("pi")
+        # the requested model answering through another channel is the same model
+        out = self.call([{"text": block(NOVELTY), "provider": "openrouter", "model": "openai/gpt-6-astra"}])
+        self.assertTrue(out["ok"], out)
+        self.assertEqual(self.rld.get(out["result"]["review_id"])["reviewer_family"], "openai")
+        # another model answered (here the Leader's own family): kept and paid, never an independent review
+        before = self.rld.get("P-r").get("review_cost_usd") or 0
+        out = self.call([{"text": block(NOVELTY), "provider": "anthropic", "model": "claude-opus-5-5", "cost": 0.03}])
+        self.assertIn("REVIEW_INVALID: the review ran on anthropic/claude-opus-5-5", out["error"])
+        self.assertAlmostEqual(self.rld.get("P-r")["review_cost_usd"] - before, 0.03)
+        self.assertEqual(len(self.rld.reviews()), 1)
+
     def test_inapplicable_code_ref_is_rejected_before_backend_and_cost(self):
         self.project(reviewer="anthropic/claude-sonnet-5-5", leader="gpt-6-luna")
         self.fake("claude")
