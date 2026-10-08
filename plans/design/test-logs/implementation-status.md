@@ -57,10 +57,10 @@ Fable 5.1 补充 usage credits。期间继续不依赖评审的实现、REG 与�
 | 阶段 | REG与构建 | Claude真实SC | Codex真实SC | 独立终审 | 阶段状态 |
 | --- | --- | --- | --- | --- | --- |
 | S0 | PASS | PASS（a03） | PASS（a07；a04 FAIL 已修复，a05/a06 中止） | BLOCKED（Fable 不可用） | IN_PROGRESS |
-| S1 | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED |
-| S2 | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED |
-| S3 | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED |
-| S4 | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED |
+| S1 | PASS（REG-S1-01..06，`test_identity.py`；已并入 `bug-fix-1008`） | FAIL（a01：夹具与控制器缺陷，已修复）；a02 进行中 | a01 中止（同一夹具缺陷，为节省 Codex 额度在身份步骤前停止） | BLOCKED（Fable 不可用） | IN_PROGRESS |
+| S2 | PASS（REG-S2-01..08，`test_confirmation.py`；分支 `s2-dev`） | NOT_STARTED | NOT_STARTED | BLOCKED（Fable 不可用） | IN_PROGRESS |
+| S3 | PASS（REG-S3-01..07，`test_units.py`；分支 `s3-dev`） | NOT_STARTED | NOT_STARTED | BLOCKED（Fable 不可用） | IN_PROGRESS |
+| S4 | IN_PROGRESS（REG-S4-01..08，`test_reviews_s4.py` 与 `test_review_call.py`；分支 `s4-dev`） | NOT_STARTED | NOT_STARTED | BLOCKED（Fable 不可用） | IN_PROGRESS |
 | S5 | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED |
 | S6 | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED |
 | S7 | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED | NOT_STARTED |
@@ -100,3 +100,14 @@ Fable 5.1 补充 usage credits。期间继续不依赖评审的实现、REG 与�
 
 - 私有确认材料（§11.4）的生成边界：S0 生成器只产生非盲功能测试材料（`scenario.json` 记 `blind: false`），私有模式在 S7 实现（S0-r1 MINOR）。
 - REG-S0-05 中“同一材料改显示名不能变成未使用材料”在 S0 只验证“身份 = 内容哈希”；经材料使用记录的行为在 S2 的 REG 中验证（S0-r1 MINOR）。
+
+## S1 真实场景记录
+
+- Claude a01（`scenarios/S1/claude/*/a01`）：SC-COMMON-01 PASS；SC-S1-01/02/03 FAIL。原因：ToyOpt runner 不接受动量的
+  `beta`、也不把它写进 manifest，导致每个 momentum 导入都被 `METHOD_SPEC_MISMATCH` 拒绝、节点没有评估，主张修订步骤因而
+  无可绑定的复核；控制器让 agent 用 `method_config` 登记，故配置漂移故障没有可改的文件；Alpha 在改动之后才评审，未能
+  检验“旧 revision 的回执失效”。另发现产品缺陷：`review_basis(candidate_recheck)` 缺 evaluation 时抛 TypeError。
+  修复（`5dada4f`）：runner 把优化器选项作为真实设置并记录，未知设置使运行失败；`review_basis` 给出明确错误并加回归测试；
+  控制器 v2（Alpha 改动前先评审、阻塞时重启、提交的配置文件、故障事件按 JSON 记录、结束时关闭 pane）。
+- Codex a01：在身份步骤之前中止（同一夹具缺陷会使其后续步骤无效，Codex 周额度只剩约 25%），会话原文保存在
+  `rt-S1-codex-a01.aborted-fixture.ctl/`，不形成记录。
