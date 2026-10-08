@@ -41,6 +41,7 @@ def template(scenario_id: str, stage: str, host: str, attempt: int) -> dict:
         "evidence_class": "real_sc", "requires_resume": True, "project_root": None, "source_ref": None,
         "uncommitted_changes": [], "build_path": None, "loaded_plugin_path": None,
         "requested_model": MATRIX[host]["main"], "observed_model": None, "observed_effort": None, "session_id": None,
+        "session_transcripts": [],
         "review_calls": [], "preconditions": [], "commands": [], "fault_plan": None, "substitutes_used": [],
         "assertions": [], "raw_evidence_paths": [], "observer_results": None, "state_before": None,
         "state_after": None, "resume_evidence": None,
@@ -71,6 +72,15 @@ def problems(record: dict, base: Path | None = None) -> list[str]:
         out.append("observed_model is missing (from the host's own records, not the configuration)")
     if not record.get("session_id"):
         out.append("session_id is missing")
+    if record.get("evidence_class") == "real_sc":
+        if not record.get("observed_effort"):
+            out.append("observed_effort is missing (from the host's own records)")
+        transcripts = record.get("session_transcripts") or []
+        if not transcripts or not all(_exists(p, base) for p in transcripts):
+            out.append("session_transcripts (the host's raw session files) are missing")
+        for call in record.get("review_calls") or []:
+            if call.get("outcome") == "ok" and not (call.get("raw_output") and _exists(call["raw_output"], base)):
+                out.append(f"review call {call.get('review_id') or call} has no raw reviewer output on file")
     if not record.get("commands"):
         out.append("commands actually run are missing")
     raw = record.get("raw_evidence_paths") or []

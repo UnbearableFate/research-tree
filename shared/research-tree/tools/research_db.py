@@ -770,7 +770,12 @@ class ResearchDB:
                                                         "document that records it (research-tree.yaml, config apply)")
             if {"max_parallel_workers", "alert_node_h"} & set(changes):
                 self._check_comparison_setup(final)
-            if {"repo_path", "harness_ref", "harness_paths"} & set(changes):
+            if set(changes) == {"repo_path"} and not project.get("harness_ref") and not tx.ids("experiment"):
+                # before the harness is frozen and before any experiment, the code repository may still be named
+                # or corrected on its own: the root's sanity run (before the freeze) needs its commits
+                if _git_commit(changes["repo_path"], "HEAD") is None:
+                    raise ResearchDBError(f"{changes['repo_path']} is not a git repository with a commit")
+            elif {"repo_path", "harness_ref", "harness_paths"} & set(changes):
                 if not (final.get("repo_path") and final.get("harness_ref") and final.get("harness_paths")):
                     raise ResearchDBError("freezing the harness needs repo_path, harness_ref and harness_paths")
                 for path in final["harness_paths"]:

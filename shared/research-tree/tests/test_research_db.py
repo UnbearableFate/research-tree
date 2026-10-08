@@ -3121,6 +3121,20 @@ class HarnessSanityFirstTest(Fixture):
         self.rld.create_project("P-test", "test", setup, "acc", "higher", True, SECONDARY, SEEDS,
                                 repo_path=str(self.repo), metric_spec_doc_id=specs, protocol_doc_id=protocol)
 
+    def test_repo_path_can_be_corrected_before_the_freeze(self):
+        """A project created with the wrong repository (e.g. the project root instead of code/) names the right one
+        before its harness sanity run; after an experiment exists it changes only with the frozen harness."""
+        other = Path(self.tmp.name) / "empty"
+        other.mkdir()
+        subprocess.run(["git", "-C", str(other), "init", "-q"], check=True)
+        with self.assertRaisesRegex(ResearchDBError, "not a git repository with a commit"):
+            self.rld.update_project(repo_path=str(other))
+        self.rld.update_project(repo_path=str(self.repo))
+        design = self.doc(self.worker, "exp/s2/design.v1.md", "experiment_design")
+        self.worker.create_experiment("sanity", "sota", design, self.harness, 1, 60, estimated_node_h=0.01)
+        with self.assertRaisesRegex(ResearchDBError, "freezing the harness needs"):
+            self.rld.update_project(repo_path=str(self.repo))
+
     def test_sanity_before_freeze_only(self):
         design = self.doc(self.worker, "exp/s/design.v1.md", "experiment_design")
         sanity = self.worker.create_experiment("sanity", "sota", design, self.harness, 1, 60, estimated_node_h=0.01)

@@ -174,6 +174,25 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         self.assertEqual((log[-1]["kind"], log[-1]["about"], log[-1]["outcome"]),
                          ("novelty_precheck", "P-test", "REVIEW_UNAVAILABLE"))
 
+    def test_research_review_ticket_collects_a_background_review(self):
+        """A review started as a background job (review_call.py --background) is collected with its ticket."""
+        jobs = self.runtime.root / "cache/reviews/jobs"
+        jobs.mkdir(parents=True)
+        answer = {"ok": True, "result": {"review_id": "D-0099", "result": "PROCEED"}}
+        (jobs / "RJ-0123456789ab.json").write_text(json.dumps({"ticket": "RJ-0123456789ab", "argv": [],
+                                                               "status": "done", "started_at": "t", "answer": answer}))
+        self.assertEqual(self.runtime.dispatch("research_review", {"ticket": "RJ-0123456789ab"}), answer["result"])
+        with self.assertRaisesRegex(ValueError, "not a review job ticket"):
+            self.runtime.dispatch("research_review", {"ticket": "nope"})
+        with self.assertRaisesRegex(ValueError, "needs kind, brief, about"):
+            self.runtime.dispatch("research_review", {})
+
+    def test_config_apply_passes_the_users_metric_spec_replacement(self):
+        with patch("research_tree.apply_config", return_value={"new_version": False, "updated_fields": {}}) as apply:
+            self.runtime.control("config", {"apply": True, "words": "/config apply --replace-metric-spec",
+                                            "replace_metric_spec": True})
+        self.assertTrue(apply.call_args.kwargs["replace_metric_spec"])
+
     def test_review_deadlines_leave_time_to_return_the_runtime_failure(self):
         from review_call import MAX_CALL_S
         client_timeout = json.loads((ROOT / ".mcp.json").read_text())["mcpServers"]["research_tree"]["tool_timeout_sec"]

@@ -652,7 +652,13 @@ def main(argv: list[str] | None = None) -> int:
             job = json.loads(path.read_text(encoding="utf-8"))
             call = _parser().parse_args(job["argv"])
             call.deadline_s = None
-            answer, _ = _call(cwd, root, call)
+            try:
+                answer, _ = _call(cwd, root, call)
+            except Exception as exc:  # a crashed job is still collectable and visible, never pending forever
+                failure = ReviewError("REVIEW_UNAVAILABLE", f"the background review crashed: {type(exc).__name__}: {exc}")
+                record_failure(root, {"kind": call.kind, "about": call.about, "dimension": call.dimension,
+                                      "session": call.session}, failure)
+                answer = {"ok": False, "error": str(failure)}
             path.write_text(json.dumps({**job, "status": "done", "answer": answer, "finished_at": now()},
                                        ensure_ascii=False, indent=1), encoding="utf-8")
             return 0

@@ -190,12 +190,13 @@ class RecordTest(unittest.TestCase):
         r = record.template("SC-S0-01", "S0", "claude", 1)
         r.update(status="PASS", project_root="/p", source_ref="abc", build_path="dist/claude",
                  loaded_plugin_path="/x/dist/claude/plugins/research-tree", observed_model="claude-haiku-5-5",
-                 session_id="s-1", commands=["herdr agent prompt rt '/research-tree init'"],
+                 session_id="s-1", observed_effort="medium", session_transcripts=[str(evidence)],
+                 commands=["herdr agent prompt rt '/research-tree init'"],
                  raw_evidence_paths=[str(evidence)], observer_results={"runs": []}, resume_evidence={"new_session": "s-2"},
                  assertions=[{"id": "A1", "expected": "baseline evaluation from real runs", "actual": "EV-0001",
                               "evidence": str(evidence), "verdict": "PASS"}],
                  review_calls=[{"review_id": "D-0010", "backend": "pi", "outcome": "ok",
-                                "observed_model": "gpt-6-luna"}])
+                                "observed_model": "gpt-6-luna", "raw_output": str(evidence)}])
         return r
 
     def test_reg_s0_03_missing_parts_cannot_pass(self):
@@ -205,7 +206,8 @@ class RecordTest(unittest.TestCase):
             self.assertEqual(record.problems(good, base), [])
             for key, value in (("host", None), ("observed_model", None), ("commands", []),
                                ("raw_evidence_paths", []), ("raw_evidence_paths", ["missing.log"]),
-                               ("resume_evidence", None), ("observer_results", None), ("session_id", None)):
+                               ("resume_evidence", None), ("observer_results", None), ("session_id", None),
+                               ("observed_effort", None), ("session_transcripts", [])):
                 broken = {**good, key: value}
                 self.assertTrue(record.problems(broken, base), f"{key}={value!r} passed")
             failing = {**good, "assertions": [{**good["assertions"][0], "verdict": "FAIL"}]}
@@ -227,7 +229,9 @@ class RecordTest(unittest.TestCase):
                            {**good, "review_calls": [{"review_id": "D-1", "backend": "pi", "outcome": "ok"}]},
                            {**good, "observed_model": "claude-sonnet-5-5"},
                            {**good, "review_calls": [{"review_id": "D-1", "backend": "pi", "outcome": "ok",
-                                                      "observed_model": "claude-haiku-5-5"}]},
+                                                      "observed_model": "claude-haiku-5-5", "raw_output": str(base / "session.log")}]},
+                           {**good, "review_calls": [{"review_id": "D-1", "backend": "pi", "outcome": "ok",
+                                                      "observed_model": "gpt-6-luna"}]},
                            {**good, "assertions": [{**good["assertions"][0], "actual": {"eval_type": "simulation_only"}}]}):
                 self.assertTrue(record.problems(broken, base))
             reg = {**good, "evidence_class": "reg", "substitutes_used": ["mock_reviewer"]}

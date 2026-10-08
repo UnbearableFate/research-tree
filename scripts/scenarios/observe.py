@@ -137,8 +137,13 @@ def observe(project: Path, tools: Path = REPO_TOOLS) -> dict:
         "jobs": launches(project),
         "site": {"exit": site.returncode, "answer": site.stdout.strip() or site.stderr.strip()[-300:]},
         "agent_models": jsonl(root / "logs" / "agent_models.jsonl"),
-        "review_calls": [{k: c.get(k) for k in ("kind", "about", "outcome", "backend", "model", "observed_model",
-                                                "cost_usd", "review_id")} for c in jsonl(root / "logs" / "review_calls.jsonl")],
+        "review_calls": [{**{k: c.get(k) for k in ("kind", "about", "dimension", "outcome", "backend", "cost_usd",
+                                                    "review_id", "session", "error")},
+                          "observed_model": c.get("model"),
+                          "raw_output": (f"{root}/cache/reviews/{c['session']}.v1.jsonl"
+                                         if c.get("outcome") == "ok" and c.get("session") else None)}
+                         for c in jsonl(root / "logs" / "review_calls.jsonl")
+                         if c.get("outcome") not in ("started", "background_started")],
     }
 
 
