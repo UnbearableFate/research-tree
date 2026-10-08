@@ -90,7 +90,8 @@ def observe(project: Path, tools: Path = REPO_TOOLS) -> dict:
         for n, a in sorted(attempts, key=lambda x: x[0]):
             entry = {"ref": f"{run['id']}@{n}", "exec_status": a.get("exec_status"), "valid": a.get("valid"),
                      "metric_value": a.get("metric_value"), "imported": bool(a.get("import_record")),
-                     "submission_key": a.get("submission_key"), "job_id": a.get("job_id")}
+                     "submission_key": a.get("submission_key"), "job_id": a.get("job_id"),
+                     "experiment_id": run["experiment_id"], "manifest_path": a.get("manifest_path")}
             if a.get("manifest_path"):
                 out_dir = (root / a["manifest_path"]).parent
                 try:
