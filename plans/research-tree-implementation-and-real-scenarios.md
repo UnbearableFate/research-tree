@@ -110,9 +110,9 @@ Claude 测试主会话使用当前 `AGENTS.md` 指定的 Haiku 5.5 high；Codex 
 
 | 角色 | Claude Code 验收 | Codex 验收 |
 | --- | --- | --- |
-| 测试主会话 / RLD | `claude-sonnet-5-5`，high | `gpt-6-luna`，reasoning medium |
+| 测试主会话 / RLD | `claude-haiku-5-5`，medium | `gpt-6-luna`，reasoning medium |
 | UI / worker / lens | inherit 已观测的主会话模型；记录有效 effort | inherit 已观测的主会话模型；记录有效 effort |
-| 产品 reviewer | `openai/gpt-6-luna`，thinking medium，通过 Pi | `anthropic/claude-sonnet-5-5`，thinking medium，通过 Claude Code CLI |
+| 产品 reviewer | `openai/gpt-6-luna`，thinking medium，通过 Pi | `anthropic/claude-haiku-5-5`，thinking medium，通过 Claude Code CLI |
 | 阶段代码评审及终审 | `claude-fable-5-1`，high，新 Claude Code 会话 | 同一次阶段评审覆盖两端代码与各自证据 |
 
 真实测试使用新启动的测试 agent，不继承实施者的“已经通过”结论。阶段代码评审只给设计、源码、测试和证据文件路径与中性目标，由 reviewer 自行读取。保留 14 的严格成功判据：Fable 原始响应 `is_error == false`、`terminal_reason == "completed"`，且实际 `modelUsage` 对应指定模型；CLI 差异在 S0 用当前 `--help`、模型清单与实际响应确认，不能只因进程 exit 0 就认定评审完成。
@@ -254,6 +254,10 @@ S0 交付：
 - 从同一正常模型生成一份故意写错 accuracy 的报告，输入事实记录在故障清单。
 - 通过正常产品入口尝试登记/评估；预期被现有数值核验拒绝或明确要求修正，不产生以错误数字为依据的有效 Evaluation。
 - 修复报告后重新提交，结果与原始 scorer 一致；保留前后记录。
+
+### 4.4 BUG修复
+
+修复plans/real-run-error.md记录的bug,并完成测试
 
 S0 完成条件：两端 SC-S0-01/02 与共有场景通过，Fable 终审确认场景底座没有用直接 DB 写入或模型替身制造成功。
 
