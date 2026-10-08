@@ -230,6 +230,7 @@ def handle(event):
     kind = event.get("hook_event_name")
     actor = os.environ.get("RESEARCH_TREE_ACTOR", "rld/main")
     # Only the main CLI records its address. Child sessions never become the Leader.
+    lease_answer = None
     if actor == "rld/main" and kind in {"SessionStart", "PostToolUse"} and event.get("session_id"):
         with locked(cache / "leader.lock"):
             previous = read_json(cache / "leader.json", {})
@@ -243,10 +244,10 @@ def handle(event):
                             "resume_package 核对原会话留下的任务、作业与未处理事件；确认原会话已不再工作后，用 "
                             f"research_control attach(session_id=\"{event['session_id']}\", model=当前模型) 登记交接，"
                             "再以 RLD 身份继续；不要重复提交已完成或状态 unknown 的工作。")
-                return {"systemMessage": "research-tree已有另一RLD会话；若需要接管，先核对原会话与作业，再用research_control attach登记交接。",
-                        "hookSpecificOutput": {"hookEventName": kind, "additionalContext": WORKFLOW + "\n" + takeover}}
+                lease_answer = {"systemMessage": "research-tree已有另一RLD会话；若需要接管，先核对原会话与作业，再用research_control attach登记交接。",
+                                "hookSpecificOutput": {"hookEventName": kind, "additionalContext": WORKFLOW + "\n" + takeover}}
             else:
-                return {"systemMessage": "research-tree已有另一RLD会话；若需要接管，先核对原会话与作业，再用research_control attach登记交接。"}
+                lease_answer = {"systemMessage": "research-tree已有另一RLD会话；若需要接管，先核对原会话与作业，再用research_control attach登记交接。"}
     if kind in {"SessionStart", "PostToolUse"} and event.get("model") and event.get("session_id"):
         # The model the session actually runs on: the observed side of rule 2's model records (for rld/main also
         # the Leader's family, which a reviewer must differ from: plans/design 09 §2.1 step 3).
@@ -272,6 +273,8 @@ def handle(event):
                     stream.write(json.dumps({"ts": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
                                              "agent": event["session_id"], "actor": actor,
                                              "event": "observed", "model": event["model"]}, ensure_ascii=False) + "\n")
+    if lease_answer is not None:  # after the model record: a session waiting to take over is observed too
+        return lease_answer
     summary = read_json(cache / "summary.json", {})
     if kind == "PreToolUse":
         reason = guard(event, cwd, summary, marker)

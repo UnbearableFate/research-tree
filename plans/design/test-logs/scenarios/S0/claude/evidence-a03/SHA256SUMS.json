@@ -1,0 +1,19 @@
+{
+ "plans/design/test-logs/scenarios/S0/claude/evidence-a03/agent_models.jsonl": "935e84673311d30c1d2f5f54d3fcad09d95c5cde90683bfb5c4a01fda9479cfd",
+ "plans/design/test-logs/scenarios/S0/claude/evidence-a03/baseline-report.corrected.md": "633282153308537e6b39e624307bfadfd5f8c2227c5ea4db07d5a58334b428e9",
+ "plans/design/test-logs/scenarios/S0/claude/evidence-a03/baseline-report.wrong.md": "ad8bee87e5c7d95cc01f81a1a7ed101b8019d6e0263c4d47d7a749d334821c74",
+ "plans/design/test-logs/scenarios/S0/claude/evidence-a03/commands.jsonl": "bc06abe0999c46e87596300467d62aa986a834966ebf461c63f1d7250bac8714",
+ "plans/design/test-logs/scenarios/S0/claude/evidence-a03/db-snapshot-final.json": "2a76e15284fe4614e3c0b3b1cde06cdeff5c8365f43597cadafaf2c050a8667e",
+ "plans/design/test-logs/scenarios/S0/claude/evidence-a03/fault-plan.json": "c673aaa3cc52d38eb42ee043b6373cad67258987f57897c0aaa3c2dbb20eb096",
+ "plans/design/test-logs/scenarios/S0/claude/evidence-a03/local-exec-events.jsonl": "422a7098d4c76c24d4b523a661ca5d3f6491d6008002781900fc529a91c3056d",
+ "plans/design/test-logs/scenarios/S0/claude/evidence-a03/local-exec-launches.jsonl": "d4e0995c06ac64c60eb3d9e44aebf8353e474ec5a520f909006c9a90aa0a57ac",
+ "plans/design/test-logs/scenarios/S0/claude/evidence-a03/observer-after-resume.json": "58d45311c3d9517ec9a1be14b64665f38e15bcc1d4dbbd797dfc6a9c359a01d0",
+ "plans/design/test-logs/scenarios/S0/claude/evidence-a03/observer-before-report.json": "632f5de4eb0ae95b0179c1a93bb2331798f18ffcd10797286506916bc2356391",
+ "plans/design/test-logs/scenarios/S0/claude/evidence-a03/observer-before-resume.json": "744e9660b13ce08987a962f97e5dde739efe9d7218c33d98543a0c1c0e68698f",
+ "plans/design/test-logs/scenarios/S0/claude/evidence-a03/observer-final.json": "df06010a3ac0dea034040cf8d40be11dc3e402137ffdc357f51bdaa098d4953f",
+ "plans/design/test-logs/scenarios/S0/claude/evidence-a03/review_calls.jsonl": "d06602d7b8ec8319f703ee42355f3f9e708034bac70cec4a8ed47600cbc954bb",
+ "plans/design/test-logs/scenarios/S0/claude/evidence-a03/scenario.json": "8145da54c2c4ea433ce87f76c463a8e7a41043e1a193595df243fd73f2363679",
+ "plans/design/test-logs/scenarios/S0/claude/evidence-a03/sessions/8714907b-b38f-4101-bbb3-abd23903ef86.jsonl.gz": "0033ad4f4111cd059ecde1237fdcc8069169d32114965d0958af1bf73d33e944",
+ "plans/design/test-logs/scenarios/S0/claude/evidence-a03/sessions/e1b7822a-e286-4a34-9bdd-5150c585c1f9.jsonl.gz": "f0927131590959083ef134ebc2efd7f8b0fcbcc466f246c2fff1517c40f0cd95",
+ "plans/design/test-logs/scenarios/S0/claude/evidence-a03/source_ref.txt": "65673d58075523023ddae3b7f2779536a964f1758dd0d74d688beeda330cda36"
+}

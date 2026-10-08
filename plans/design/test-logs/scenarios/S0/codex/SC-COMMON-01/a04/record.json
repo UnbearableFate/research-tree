@@ -1,0 +1,198 @@
+{
+ "scenario_id": "SC-COMMON-01",
+ "stage": "S0",
+ "host": "codex",
+ "attempt": 4,
+ "status": "FAIL",
+ "evidence_class": "real_sc",
+ "requires_resume": true,
+ "project_root": "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a04",
+ "source_ref": "af603a4aa7295a002c39f01b350904e5d7f91b8c",
+ "uncommitted_changes": [
+  "M",
+  "scripts/scenarios/s0_records.py"
+ ],
+ "build_path": "/home/yu/workspace/rt-scenarios/S0/dist-codex-S0a04",
+ "loaded_plugin_path": "/home/yu/workspace/rt-scenarios/S0/codex-home-S0a04/plugins/cache/research-tree/research-tree/0.1.0",
+ "requested_model": "gpt-6-luna",
+ "observed_model": "gpt-6-luna",
+ "observed_effort": "medium",
+ "session_id": "rollout-2026-10-08T18-36-50-01a11ccd-c803-7bb2-9f59-db71a5ee6649",
+ "session_transcripts": [
+  "plans/design/test-logs/scenarios/S0/codex/evidence-a04/sessions/rollout-2026-10-08T18-36-50-01a11ccd-c803-7bb2-9f59-db71a5ee6649.jsonl.gz",
+  "plans/design/test-logs/scenarios/S0/codex/evidence-a04/sessions/rollout-2026-10-08T18-54-08-01a11cdd-9cc8-78b1-9402-ed225fcc1aeb.jsonl.gz",
+  "plans/design/test-logs/scenarios/S0/codex/evidence-a04/sessions/rollout-2026-10-08T19-07-02-01a11ce9-6fb6-7d12-8980-5a4b26962334.jsonl.gz"
+ ],
+ "review_calls": [],
+ "preconditions": [],
+ "commands": [
+  "$research-tree prepare",
+  "trusted plugin hooks (option 2) as the README instructs",
+  "approval",
+  "$research-tree init",
+  "approval",
+  "approval",
+  "approval",
+  "approval",
+  "approval",
+  "approval",
+  "我的决定（计划里如有待定项按此处理）：评测类型用 synthetic_proxy（合成数据上的真实计算，结论只限于本合成任务）；只比较 accuracy；代码仓库是 code/（它自己的 git 仓库，已有提交），不要在项目根目录另建提交。再加一项要求：根节点 worker 把参考方法 3 个 seed 的基线运行导入并接受（valid）之后，先不要写基线结果文档、不要 evaluate，告诉我各运行的输出目录；我会自己写基线结果报告交给你登记。请把这些写进计划和根节点任务，然后我会确认。",
+  "$research-tree confirm",
+  "这是我写的基线结果报告：user-reports/baseline-report.md（项目目录下）。请把它作为参考方法基线 E-0002 的实验结果登记（按原样登记并尝试设为现行），评估该基线并设为 SOTA；如实告诉我接口的回答，不要修改我的文件。",
+  "修正版在 user-reports/baseline-report.v2.md（均值写在 user-reports/baseline-summary.json，百分点）。请登记它作为 E-0002 的结果文档，评估基线并设为 SOTA；告诉我接口算出的均值。",
+  "end session 1",
+  "$research-tree status",
+  "恢复当前工作：先按插件的恢复方式接手（需要的话登记交接），然后说明当前的 baseline 是什么、它的数字从哪里来、下一步是什么。只做核对与说明，先不要启动新实验。",
+  "$research-tree build",
+  "$research-tree check"
+ ],
+ "fault_plan": "plans/design/test-logs/scenarios/S0/codex/evidence-a04/fault-plan.json",
+ "substitutes_used": [],
+ "assertions": [
+  {
+   "id": "C1",
+   "expected": "prepare, init and confirm entered through the host's own command",
+   "actual": [
+    "$research-tree prepare",
+    "$research-tree init",
+    "$research-tree confirm"
+   ],
+   "evidence": "plans/design/test-logs/scenarios/S0/codex/evidence-a04/commands.jsonl",
+   "verdict": "PASS"
+  },
+  {
+   "id": "C2",
+   "expected": "every valid baseline run rescored independently equals the DB value; curve, model, predictions and measured usage present",
+   "actual": [
+    {
+     "ref": "E-0002/s42@1",
+     "db": 0.805,
+     "scorer": 0.805
+    },
+    {
+     "ref": "E-0002/s43@1",
+     "db": 0.7525,
+     "scorer": 0.7525
+    },
+    {
+     "ref": "E-0002/s44@1",
+     "db": 0.8175,
+     "scorer": 0.8175
+    }
+   ],
+   "evidence": "plans/design/test-logs/scenarios/S0/codex/evidence-a04/observer-final.json",
+   "verdict": "PASS"
+  },
+  {
+   "id": "C3",
+   "expected": "the baseline evaluation's mean equals the mean of the independent scores (pp)",
+   "actual": {
+    "evaluation": "EV-0001",
+    "recorded": 79.16666666666667,
+    "independent": 79.16666666666666
+   },
+   "evidence": "plans/design/test-logs/scenarios/S0/codex/evidence-a04/observer-final.json",
+   "verdict": "PASS"
+  },
+  {
+   "id": "C4",
+   "expected": "page built and build_site --check fresh; the observer never changed the DB",
+   "actual": {
+    "site": {
+     "exit": 0,
+     "answer": "{\"page_version\": 137, \"db_version\": 137, \"stale\": false}"
+    },
+    "db_unchanged": true
+   },
+   "evidence": "plans/design/test-logs/scenarios/S0/codex/evidence-a04/observer-final.json",
+   "verdict": "PASS"
+  },
+  {
+   "id": "C5",
+   "expected": "no duplicate process start for any submission key",
+   "actual": {
+    "starts": 4,
+    "keys": 4,
+    "duplicate_jobs": 0,
+    "per_key": {
+     "rt-s0-codex-a04-E0001-sanity-s42-a1": 1,
+     "rt-s0-codex-a04-E0002-baseline-s42-a1": 1,
+     "rt-s0-codex-a04-E0002-baseline-s43-a1": 1,
+     "rt-s0-codex-a04-E0002-baseline-s44-a1": 1
+    },
+    "cpu_seconds": 0.2098,
+    "wall_seconds": 2.7588,
+    "failed_exits": []
+   },
+   "evidence": "plans/design/test-logs/scenarios/S0/codex/evidence-a04/local-exec-launches.jsonl",
+   "verdict": "PASS"
+  },
+  {
+   "id": "C6",
+   "expected": "the resumed session re-ran nothing: run list, process starts and evaluations equal before and after it",
+   "actual": {
+    "runs": [
+     "E-0001/s42@1",
+     "E-0002/s42@1",
+     "E-0002/s43@1",
+     "E-0002/s44@1"
+    ],
+    "starts": {
+     "rt-s0-codex-a04-E0001-sanity-s42-a1": 1,
+     "rt-s0-codex-a04-E0002-baseline-s42-a1": 1,
+     "rt-s0-codex-a04-E0002-baseline-s43-a1": 1,
+     "rt-s0-codex-a04-E0002-baseline-s44-a1": 1
+    },
+    "evaluations": 1
+   },
+   "evidence": "plans/design/test-logs/scenarios/S0/codex/evidence-a04/observer-after-resume.json",
+   "verdict": "PASS"
+  }
+ ],
+ "raw_evidence_paths": [
+  "plans/design/test-logs/scenarios/S0/codex/evidence-a04/commands.jsonl",
+  "plans/design/test-logs/scenarios/S0/codex/evidence-a04/fault-plan.json",
+  "plans/design/test-logs/scenarios/S0/codex/evidence-a04/scenario.json",
+  "plans/design/test-logs/scenarios/S0/codex/evidence-a04/agent_models.jsonl",
+  "plans/design/test-logs/scenarios/S0/codex/evidence-a04/observer-before-report.json",
+  "plans/design/test-logs/scenarios/S0/codex/evidence-a04/observer-before-resume.json",
+  "plans/design/test-logs/scenarios/S0/codex/evidence-a04/observer-after-resume.json",
+  "plans/design/test-logs/scenarios/S0/codex/evidence-a04/observer-final.json",
+  "plans/design/test-logs/scenarios/S0/codex/evidence-a04/db-snapshot-final.json",
+  "plans/design/test-logs/scenarios/S0/codex/evidence-a04/baseline-report.wrong.md",
+  "plans/design/test-logs/scenarios/S0/codex/evidence-a04/baseline-report.corrected.md",
+  "plans/design/test-logs/scenarios/S0/codex/evidence-a04/source_ref.txt",
+  "plans/design/test-logs/scenarios/S0/codex/evidence-a04/local-exec-launches.jsonl",
+  "plans/design/test-logs/scenarios/S0/codex/evidence-a04/local-exec-events.jsonl",
+  "plans/design/test-logs/scenarios/S0/codex/evidence-a04/sessions/rollout-2026-10-08T18-36-50-01a11ccd-c803-7bb2-9f59-db71a5ee6649.jsonl.gz",
+  "plans/design/test-logs/scenarios/S0/codex/evidence-a04/sessions/rollout-2026-10-08T18-54-08-01a11cdd-9cc8-78b1-9402-ed225fcc1aeb.jsonl.gz",
+  "plans/design/test-logs/scenarios/S0/codex/evidence-a04/sessions/rollout-2026-10-08T19-07-02-01a11ce9-6fb6-7d12-8980-5a4b26962334.jsonl.gz"
+ ],
+ "observer_results": "plans/design/test-logs/scenarios/S0/codex/evidence-a04/observer-final.json",
+ "state_before": null,
+ "state_after": null,
+ "resume_evidence": {
+  "new_session": "plans/design/test-logs/scenarios/S0/codex/evidence-a04/sessions/rollout-2026-10-08T19-07-02-01a11ce9-6fb6-7d12-8980-5a4b26962334.jsonl.gz",
+  "question": [
+   "恢复当前工作：先按插件的恢复方式接手（需要的话登记交接），然后说明当前的 baseline 是什么、它的数字从哪里来、下一步是什么。只做核对与说明，先不要启动新实验。"
+  ],
+  "observer_before": "plans/design/test-logs/scenarios/S0/codex/evidence-a04/observer-before-resume.json",
+  "observer_after": "plans/design/test-logs/scenarios/S0/codex/evidence-a04/observer-after-resume.json",
+  "unchanged": true,
+  "attach": true
+ },
+ "resource_usage": {
+  "cpu_seconds": 0.2098,
+  "job_wall_seconds": 2.7588,
+  "plugin_node_seconds": 4,
+  "known_model_cost_usd": null,
+  "unknown_cost_calls": [
+   "the interactive host session's own cost has no raw bill"
+  ]
+ },
+ "failures": [],
+ "fixes_and_retests": [],
+ "remaining_gaps": [
+  "the resumed session attached as RLD but passed model gpt-6.1-sol, which attach recorded as the Leader's model (the hook had not logged the new session's model); fixed: attach takes the hook-observed model and the hook records a waiting session's model; retested in a05"
+ ]
+}

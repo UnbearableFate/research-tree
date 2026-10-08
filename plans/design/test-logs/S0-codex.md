@@ -8,7 +8,7 @@ commands.jsonl。
 | 尝试 | 源码 | 结果 | 说明 |
 | --- | --- | --- | --- |
 | a01 | `b45974c` | FAIL | 两个产品缺陷（见下），停止并修复 |
-| a02 | `762a60b`（+ 运行中替换为调度服务版 `tools/local_exec.py`，`7047965`） | PASS | 记录：`scenarios/S0/codex/*/a02/record.json` |
+| a02 | `762a60b`（运行中把项目的 `tools/local_exec.py` 替换为调度服务版：sha256 `027a4bb6461f…`，即 `7047965` 的 `scripts/scenarios/local_exec.py`） | PASS | 记录：`scenarios/S0/codex/*/a02/record.json` |
 
 ## a01 发现的缺陷
 

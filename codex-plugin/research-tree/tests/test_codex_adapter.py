@@ -76,6 +76,9 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         self.environment = patch.dict(os.environ, {"PATH": str(self.bin) + os.pathsep + os.environ["PATH"],
                                                  "FAKE_CODEX_DIR": self.temp.name})
         self.environment.start()
+        research_tree.log_agent_model(self.runtime.root, {"agent": "11111111-1111-4111-8111-111111111111",
+                                                          "actor": "rld/main", "event": "observed",
+                                                          "model": "fixture-model"})
         self.runtime.control("attach", {"session_id": "11111111-1111-4111-8111-111111111111", "model": "fixture-model"})
 
     def tearDown(self):
@@ -195,7 +198,12 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         context = first["hookSpecificOutput"]["additionalContext"]
         self.assertIn("research_control attach", context)
         self.assertIn("22222222-2222-4222-8222-222222222222", context)
-        self.runtime.control("attach", {"session_id": "22222222-2222-4222-8222-222222222222", "model": "fixture-model"})
+        with self.assertRaisesRegex(ValueError, "runs fixture-model .*not gpt-6.1-sol"):  # the caller's word never sets it
+            self.runtime.control("attach", {"session_id": "22222222-2222-4222-8222-222222222222", "model": "gpt-6.1-sol"})
+        with self.assertRaisesRegex(ValueError, "no observed model"):
+            self.runtime.control("attach", {"session_id": "33333333-3333-4333-8333-333333333333"})
+        self.assertEqual(self.runtime.control("attach", {"session_id": "22222222-2222-4222-8222-222222222222"})["model"],
+                         "fixture-model")
         again = codex_hook.handle({"hook_event_name": "SessionStart", "cwd": str(self.cwd),
                                    "session_id": "22222222-2222-4222-8222-222222222222", "model": "fixture-model"})
         self.assertNotIn("attach(", again["hookSpecificOutput"]["additionalContext"])

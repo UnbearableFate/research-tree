@@ -7,7 +7,7 @@
 
 | 尝试 | 源码 | 结果 | 说明 |
 | --- | --- | --- | --- |
-| a01 | `3375c8d` + S0-r1 修复（未提交前的工作树，见 source_ref） | PASS（被 a02 取代） | 之后共享代码又改（冻结前改 repo_path、update_task 指派重述），按 §2.6 在最终构建上重跑 a02 |
+| a01 | `324320d`（source_ref.txt） | PASS（被 a02 取代） | 之后共享代码又改（冻结前改 repo_path、update_task 指派重述），按 §2.6 在最终构建上重跑 a02 |
 | a02 | `7047965`（最终 S0 构建，调度服务模式） | PASS | 记录：`scenarios/S0/claude/*/a02/record.json` |
 
 ## a02 过程（用户输入见 commands.jsonl）

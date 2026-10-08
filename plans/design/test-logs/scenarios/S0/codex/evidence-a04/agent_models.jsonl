@@ -1,0 +1,5 @@
+{"ts": "2026-10-08T18:38:43Z", "agent": "01a11ccd-c803-7bb2-9f59-db71a5ee6649", "actor": "rld/main", "event": "observed", "model": "gpt-6-luna"}
+{"ts": "2026-10-08T18:54:08Z", "agent": "01a11cdd-9cc8-78b1-9402-ed225fcc1aeb", "actor": "worker/root", "event": "requested", "model": "gpt-6-luna", "effort": "medium"}
+{"ts": "2026-10-08T18:54:11Z", "agent": "01a11cdd-9cc8-78b1-9402-ed225fcc1aeb", "actor": "worker/root", "event": "observed", "model": "gpt-6-luna"}
+{"ts": "2026-10-08T18:59:20Z", "agent": "01a11cdd-9cc8-78b1-9402-ed225fcc1aeb", "actor": "worker/root", "event": "requested", "model": "gpt-6-luna", "effort": "medium"}
+{"ts": "2026-10-08T19:07:34Z", "agent": "01a11ce9-6fb6-7d12-8980-5a4b26962334", "actor": "rld/main", "event": "observed", "model": "gpt-6-luna"}

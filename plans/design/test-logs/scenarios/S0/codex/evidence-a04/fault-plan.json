@@ -1,0 +1,15 @@
+{
+ "faults": [
+  {
+   "id": "F-S0-02",
+   "target": "user-reports/baseline-report.md: acc-s42 stated 0.905 (metrics.json has 0.805) and mean 82.5 (runs give 79.16666666666666)",
+   "trigger": "after the reference baseline's runs are valid, before its evaluation; handed to the RLD as the user's report",
+   "times": 1,
+   "invariants": [
+    "no evaluation of the reference baseline rests on the wrong numbers",
+    "the product refuses the report or a correction is requested",
+    "after correction the evaluation equals the independent scorer mean"
+   ]
+  }
+ ]
+}

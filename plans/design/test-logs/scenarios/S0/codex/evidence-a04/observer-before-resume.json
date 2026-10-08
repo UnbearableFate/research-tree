@@ -1,0 +1,322 @@
+{
+ "project": "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a04",
+ "db": "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a04/research/rt-s0-codex-a04/research_tree.db",
+ "db_sha256_unchanged": true,
+ "phase": "confirmed",
+ "data_version": 137,
+ "counts": {
+  "project": 1,
+  "hypothesis": 1,
+  "experiment": 2,
+  "branch": 0,
+  "document": 31,
+  "decision": 0,
+  "task": 1,
+  "evaluation": 1,
+  "obligation": 0,
+  "reservation": 4,
+  "run": 4
+ },
+ "experiments": [
+  {
+   "id": "E-0001",
+   "kind": "sanity",
+   "stage": "screen",
+   "hypothesis_id": null,
+   "code_ref": "38f4de30d9755c82b28d9297b595a28854a35747",
+   "seeds": [
+    42
+   ],
+   "evaluation_id": null,
+   "owner": "root"
+  },
+  {
+   "id": "E-0002",
+   "kind": "baseline",
+   "stage": "screen",
+   "hypothesis_id": null,
+   "code_ref": "38f4de30d9755c82b28d9297b595a28854a35747",
+   "seeds": [
+    42,
+    43,
+    44
+   ],
+   "evaluation_id": "EV-0001",
+   "owner": "root"
+  }
+ ],
+ "runs": [
+  {
+   "ref": "E-0001/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.67,
+   "imported": true,
+   "submission_key": "rt-s0-codex-a04-E0001-sanity-s42-a1",
+   "job_id": "local-rt-s0-codex-a04-E0001-sanity-s42-a1",
+   "experiment_id": "E-0001",
+   "manifest_path": "outputs/E-0001/s42/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.67,
+    "correct": 67,
+    "n": 100,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 14,
+    "manifest_steps": 14,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0491,
+     "wall_seconds": 0.9623,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0002/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.805,
+   "imported": true,
+   "submission_key": "rt-s0-codex-a04-E0002-baseline-s42-a1",
+   "job_id": "local-rt-s0-codex-a04-E0002-baseline-s42-a1",
+   "experiment_id": "E-0002",
+   "manifest_path": "outputs/E-0002/s42/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.805,
+    "correct": 322,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.054,
+     "wall_seconds": 0.6054,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0002/s43@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.7525,
+   "imported": true,
+   "submission_key": "rt-s0-codex-a04-E0002-baseline-s43-a1",
+   "job_id": "local-rt-s0-codex-a04-E0002-baseline-s43-a1",
+   "experiment_id": "E-0002",
+   "manifest_path": "outputs/E-0002/s43/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.7525,
+    "correct": 301,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0527,
+     "wall_seconds": 0.4784,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0002/s44@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.8175,
+   "imported": true,
+   "submission_key": "rt-s0-codex-a04-E0002-baseline-s44-a1",
+   "job_id": "local-rt-s0-codex-a04-E0002-baseline-s44-a1",
+   "experiment_id": "E-0002",
+   "manifest_path": "outputs/E-0002/s44/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.8175,
+    "correct": 327,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.054,
+     "wall_seconds": 0.7127,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  }
+ ],
+ "evaluations": [
+  {
+   "id": "EV-0001",
+   "experiment_id": "E-0002",
+   "outcome": null,
+   "gate_passed": null,
+   "verification_level": "artifact_imported",
+   "recorded_mean": 79.16666666666667,
+   "unit": "percentage_point",
+   "independent_mean": 79.16666666666666,
+   "mean_matches": true,
+   "run_refs": [
+    "E-0002/s42@1",
+    "E-0002/s43@1",
+    "E-0002/s44@1"
+   ]
+  }
+ ],
+ "obligations": [],
+ "reservations": [
+  {
+   "id": "RS-0001",
+   "submission_key": "rt-s0-codex-a04-E0001-sanity-s42-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s0-codex-a04-E0001-sanity-s42-a1"
+  },
+  {
+   "id": "RS-0002",
+   "submission_key": "rt-s0-codex-a04-E0002-baseline-s42-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s0-codex-a04-E0002-baseline-s42-a1"
+  },
+  {
+   "id": "RS-0003",
+   "submission_key": "rt-s0-codex-a04-E0002-baseline-s43-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s0-codex-a04-E0002-baseline-s43-a1"
+  },
+  {
+   "id": "RS-0004",
+   "submission_key": "rt-s0-codex-a04-E0002-baseline-s44-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s0-codex-a04-E0002-baseline-s44-a1"
+  }
+ ],
+ "jobs": {
+  "starts": 4,
+  "keys": 4,
+  "duplicate_jobs": 0,
+  "per_key": {
+   "rt-s0-codex-a04-E0001-sanity-s42-a1": 1,
+   "rt-s0-codex-a04-E0002-baseline-s42-a1": 1,
+   "rt-s0-codex-a04-E0002-baseline-s43-a1": 1,
+   "rt-s0-codex-a04-E0002-baseline-s44-a1": 1
+  },
+  "cpu_seconds": 0.2098,
+  "wall_seconds": 2.7588,
+  "failed_exits": []
+ },
+ "site": {
+  "exit": 1,
+  "answer": "{\"page_version\": null, \"db_version\": 137, \"stale\": true}"
+ },
+ "agent_models": [
+  {
+   "ts": "2026-10-08T18:38:43Z",
+   "agent": "01a11ccd-c803-7bb2-9f59-db71a5ee6649",
+   "actor": "rld/main",
+   "event": "observed",
+   "model": "gpt-6-luna"
+  },
+  {
+   "ts": "2026-10-08T18:54:08Z",
+   "agent": "01a11cdd-9cc8-78b1-9402-ed225fcc1aeb",
+   "actor": "worker/root",
+   "event": "requested",
+   "model": "gpt-6-luna",
+   "effort": "medium"
+  },
+  {
+   "ts": "2026-10-08T18:54:11Z",
+   "agent": "01a11cdd-9cc8-78b1-9402-ed225fcc1aeb",
+   "actor": "worker/root",
+   "event": "observed",
+   "model": "gpt-6-luna"
+  },
+  {
+   "ts": "2026-10-08T18:59:20Z",
+   "agent": "01a11cdd-9cc8-78b1-9402-ed225fcc1aeb",
+   "actor": "worker/root",
+   "event": "requested",
+   "model": "gpt-6-luna",
+   "effort": "medium"
+  }
+ ],
+ "review_calls": []
+}

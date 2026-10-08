@@ -39,7 +39,8 @@ HELP = {
     "lens": {"lens": "configured discovery lens or variant/combination/competing/repair",
              "task": "candidate-generation task with read-only source paths; full discovery, planning only"},
     "agents": {}, "inbox": {}, "acknowledge": {"ids": ["event-id"]},
-    "chat": {}, "ui_path": {}, "attach": {"session_id": "main Codex session UUID", "model": "current model"},
+    "chat": {}, "ui_path": {}, "attach": {"session_id": "main Codex session UUID",
+                                          "model": "optional; must equal the model the hook observed for the session"},
 }
 
 
@@ -429,8 +430,26 @@ class Runtime:
             return self.agents()
         if action == "attach":
             session = str(uuid.UUID(params["session_id"]))
-            write_json(self.cache / "leader.json", {"session_id": session, "model": params.get("model"), "at": now_utc()})
-            return {"session_id": session}
+            # the Leader's model decides which reviewer family may review: it is the model the hook observed for
+            # this session, never the caller's word (S0 Codex a04: a resumed session passed a model it did not run)
+            observed = None
+            log = self.root / "logs" / "agent_models.jsonl"
+            if log.is_file():
+                for line in log.read_text(encoding="utf-8").splitlines():
+                    try:
+                        entry = json.loads(line)
+                    except json.JSONDecodeError:
+                        continue
+                    if (entry.get("agent"), entry.get("actor"), entry.get("event")) == (session, "rld/main", "observed"):
+                        observed = entry.get("model")
+            if observed is None:
+                raise ValueError(f"no observed model is recorded for session {session}: attach from that session "
+                                 "itself after its first tool call (the hook records its model)")
+            if params.get("model") and params["model"] != observed:
+                raise ValueError(f"session {session} runs {observed} (observed by the hook), not {params['model']}; "
+                                 "attach with the observed model or without model")
+            write_json(self.cache / "leader.json", {"session_id": session, "model": observed, "at": now_utc()})
+            return {"session_id": session, "model": observed}
         if action in {"inbox", "acknowledge"}:
             with locked(self.cache / "inbox.lock"):
                 inbox = read_json(self.cache / "inbox.json", [])

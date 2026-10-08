@@ -1,0 +1,86 @@
+{
+ "generator_version": "toyopt-lab-1",
+ "host": "codex",
+ "stage": "S0",
+ "case": "SC-COMMON-01",
+ "attempt": 4,
+ "instance": "S0-codex-SC-COMMON-01-a04",
+ "project": "/home/yu/workspace/rt-scenarios/S0/rt-S0-codex-a04",
+ "created_at": "2026-10-08T18:36:19Z",
+ "code_inputs_sha256": {
+  "__init__.py": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "data.py": "1f2065678b5a8794068492024309a24351400708cc825f65d5319704ca02b981",
+  "methods.py": "0081b3bc081faa42e21ed4e847ffd483b8a6be8aa83206731bc0bbac7630d56e",
+  "run.py": "98cb0a66c10ad5478d2a4a69ad0d76a7e7aca2e1befced476d284d1f8b855f6e",
+  "train.py": "014d9c33f6a522f549724f284c8fd27f1fafbbc4abb9ed1c6da67f8368b749c9"
+ },
+ "local_exec_sha256": "027a4bb6461f6b5c6dd09b43374a41f0aaa9032b015058efbffeb147da53e56f",
+ "reference": {
+  "method": "sgd",
+  "lr": 0.005,
+  "epochs": 1,
+  "batch": 32,
+  "accum": 1
+ },
+ "splits": {
+  "generator_version": "toyopt-data-1",
+  "n_features": 16,
+  "task_seed": 1234,
+  "splits": {
+   "train": {
+    "file": "train.jsonl",
+    "n": 1200,
+    "role": "train",
+    "sha256": "417cb63ca377e3fe0e28d03cbfa4d95947a777c75f972c26dbf4385cddec5ee6",
+    "split_id": "train@417cb63ca377"
+   },
+   "explore": {
+    "file": "explore.jsonl",
+    "n": 400,
+    "role": "exploration_validation",
+    "sha256": "a944a8bd1763e467fde19688311f9a0e9ae95db39ef021e86fdb81e14856f2c2",
+    "split_id": "explore@a944a8bd1763"
+   },
+   "c1": {
+    "file": "c1.jsonl",
+    "n": 400,
+    "role": "confirmation",
+    "sha256": "9ef6495496289305db8ea8a249f4f83a27bad3d819d79fb2378ce6521b3af8ba",
+    "split_id": "c1@9ef649549628"
+   },
+   "c2": {
+    "file": "c2.jsonl",
+    "n": 400,
+    "role": "confirmation",
+    "sha256": "9653cb2b037b27c97fd16f1a761a7e20d17e3371ea010d631eaba5d2f5bd5d56",
+    "split_id": "c2@9653cb2b037b"
+   }
+  }
+ },
+ "seed_blocks": {
+  "search": [
+   42,
+   43,
+   44
+  ],
+  "c1": [
+   1042,
+   1043,
+   1044
+  ],
+  "c2": [
+   2042,
+   2043,
+   2044
+  ]
+ },
+ "blind": false,
+ "material_access": "non-blind functional test (§3.2): c1 and c2 are inside the project repository",
+ "material_handed_to_research": [
+  "train",
+  "explore",
+  "c1",
+  "c2"
+ ],
+ "fault_plan": "fault-plan.json"
+}
