@@ -1,0 +1,62 @@
+{
+ "updated": "2026-10-08T21:08:40Z",
+ "candidates": [
+  {
+   "title": "Alpha：学习率预热（前 10% 更新步线性升温）可能让 SGD 在一轮内更稳",
+   "summary": "学习率按余弦曲线衰减（从参考学习率 0.005 在全部 38 次更新中衰减到 0），可能让 SGD 在一轮内更稳。",
+   "dedup_key": "alpha-10-sgd",
+   "origin": "user",
+   "found_by": [
+    "user"
+   ],
+   "selected": true,
+   "id": "CAND-0002",
+   "revision": 2,
+   "content_sha": "3bec719fbd20e13760e62e1e9614342e8fd6264e4b79fee271737489523f1102",
+   "revisions": [
+    {
+     "revision": 1,
+     "content_sha": "72863784037da62bda341d52461f185e76d20bd2067ea06133dce4219925589b",
+     "at": "2026-10-08T21:03:22Z"
+    },
+    {
+     "revision": 2,
+     "content_sha": "3bec719fbd20e13760e62e1e9614342e8fd6264e4b79fee271737489523f1102",
+     "at": "2026-10-08T21:08:40Z"
+    }
+   ],
+   "literature": [
+    "D-0016",
+    "D-0017",
+    "D-0018"
+   ],
+   "present": true
+  },
+  {
+   "title": "Zebra：重球动量在固定更新预算下收敛更快",
+   "summary": "在固定数据与更新预算（相同训练轮数、相同 batch）下，带动量的方法可能比当前参考方法收敛更快，因而在探索验证集上的准确率更高；理由：动量累积一致的梯度方向，在更新次数受限时走得更远。",
+   "dedup_key": "zebra",
+   "origin": "user",
+   "found_by": [
+    "user"
+   ],
+   "selected": true,
+   "id": "CAND-0001",
+   "revision": 1,
+   "content_sha": "ee6d922bd0411f8b9b6eb325c6e9413451e3f9e565d4988c619b805c2a8b74cc",
+   "revisions": [
+    {
+     "revision": 1,
+     "content_sha": "ee6d922bd0411f8b9b6eb325c6e9413451e3f9e565d4988c619b805c2a8b74cc",
+     "at": "2026-10-08T20:57:48Z"
+    }
+   ],
+   "literature": [
+    "D-0006",
+    "D-0007",
+    "D-0008"
+   ],
+   "present": true
+  }
+ ]
+}

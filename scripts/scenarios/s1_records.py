@@ -47,7 +47,8 @@ def archive(ctl: Path, dest: Path) -> dict[str, str]:
     return out
 
 
-def make(host: str, attempt: int, status: str, notes: list[str], layout: str) -> None:
+def make(host: str, attempt: int, status: str, notes: list[str], layout: str, blocked: str | None = None,
+         only: list[str] | None = None) -> None:
     ctl = S / f"rt-S1-{host}-a{attempt:02d}.ctl"
     proj = S / f"rt-S1-{host}-a{attempt:02d}"
     names = LAYOUT[layout]
@@ -216,7 +217,9 @@ def make(host: str, attempt: int, status: str, notes: list[str], layout: str) ->
     for sc, assertions in (("SC-COMMON-01", common), ("SC-S1-01", s101), ("SC-S1-02", s102), ("SC-S1-03", s103)):
         r = record.template(sc, "S1", host, attempt)
         failed = [x["id"] for x in assertions if x["verdict"] != "PASS"]
-        r.update({"status": "FAIL" if failed else status, "source_ref": src[0], "uncommitted_changes": src[1:],
+        stopped = blocked and (not only or sc in only)
+        state = ("BLOCKED" if stopped else "FAIL") if failed else status
+        r.update({"status": state, **({"failures": [f"BLOCKED: {blocked}"]} if stopped and failed else {}), "source_ref": src[0], "uncommitted_changes": src[1:],
                   "project_root": str(proj), "build_path": str(S / f"dist-{host}-S1a{attempt:02d}"),
                   "loaded_plugin_path": str(S / f"dist-{host}-S1a{attempt:02d}/plugins/research-tree"),
                   "observed_model": model, "observed_effort": effort,
@@ -246,8 +249,12 @@ def main() -> int:
     p.add_argument("--status", default="PASS")
     p.add_argument("--layout", choices=sorted(LAYOUT), default="v2")
     p.add_argument("--note", action="append", default=[])
+    p.add_argument("--blocked", help="the environment stopped the attempt (e.g. the host's usage limit): a scenario "
+                                     "whose assertions could not all run is BLOCKED, not FAIL")
+    p.add_argument("--blocked-scenario", action="append", default=[],
+                   help="limit --blocked to these scenarios (the others failed before the block)")
     args = p.parse_args()
-    make(args.host, args.attempt, args.status, args.note, args.layout)
+    make(args.host, args.attempt, args.status, args.note, args.layout, args.blocked, args.blocked_scenario)
     return 0
 
 

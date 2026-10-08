@@ -1,0 +1,86 @@
+{
+ "mode": "precheck",
+ "executor_model": null,
+ "created": "2026-10-08T20:55:32Z",
+ "gate": {
+  "verdict": "PASS",
+  "reasons": [],
+  "at": "2026-10-08T21:01:22Z",
+  "report": "docs/project/reports/discovery.v1.md"
+ },
+ "stages": [
+  {
+   "stage": "brief",
+   "status": "done",
+   "artifact": null,
+   "evidence": null,
+   "updated": "2026-10-08T20:55:32Z"
+  },
+  {
+   "stage": "literature",
+   "status": "accepted",
+   "artifact": "docs/project/discovery/literature.md",
+   "evidence": [
+    "cache/discovery/literature-verify.txt"
+   ],
+   "updated": "2026-10-08T20:57:45Z",
+   "verifier": "literature.py"
+  },
+  {
+   "stage": "candidates",
+   "status": "skipped",
+   "artifact": null,
+   "evidence": null,
+   "updated": "2026-10-08T20:55:32Z"
+  },
+  {
+   "stage": "feasibility",
+   "status": "skipped",
+   "artifact": null,
+   "evidence": null,
+   "updated": "2026-10-08T20:55:32Z"
+  },
+  {
+   "stage": "triage",
+   "status": "skipped",
+   "artifact": null,
+   "evidence": null,
+   "updated": "2026-10-08T20:55:32Z"
+  },
+  {
+   "stage": "novelty",
+   "status": "accepted",
+   "artifact": "docs/project/discovery/novelty-reviews.md",
+   "evidence": [
+    "D-0009"
+   ],
+   "updated": "2026-10-08T21:00:35Z",
+   "verifier": null
+  },
+  {
+   "stage": "critique",
+   "status": "accepted",
+   "artifact": "docs/project/discovery/critical-reviews.md",
+   "evidence": [
+    "D-0011"
+   ],
+   "updated": "2026-10-08T21:00:35Z",
+   "verifier": null
+  },
+  {
+   "stage": "refine",
+   "status": "done",
+   "artifact": "docs/project/discovery/refined-hypotheses.md",
+   "evidence": null,
+   "updated": "2026-10-08T21:01:11Z"
+  },
+  {
+   "stage": "gate",
+   "status": "done",
+   "artifact": "docs/project/reports/discovery.v1.md",
+   "evidence": null,
+   "updated": "2026-10-08T21:01:22Z"
+  }
+ ],
+ "updated": "2026-10-08T21:01:22Z"
+}

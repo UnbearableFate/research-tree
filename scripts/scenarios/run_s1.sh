@@ -39,7 +39,20 @@ else
   CMD='$research-tree'; wait_agent() { $R/drive_codex.sh $A $pane $C ${1:-3600} >/dev/null; }
 fi
 start_agent
-say() { $R/say.sh $C $A 120000 "$1" >/dev/null 2>&1; sleep 5; wait_agent ${2:-3600}; }
+limit_hit() {  # the host's account limit is an environment block, never an agent answer: stop the attempt
+  herdr pane read $pane 2>/dev/null | tail -60 | grep -qiE "hit your (session|usage|weekly) limit|usage limit reached|You've hit your usage limit"
+}
+say() {
+  $R/say.sh $C $A 120000 "$1" >/dev/null 2>&1; sleep 5; wait_agent ${2:-3600}
+  if limit_hit; then
+    echo '{"event":"BLOCKED: the host reported its usage limit; the attempt stops here"}' >> $C/commands.jsonl
+    echo "[$(date +%T)] BLOCKED: host usage limit"; ck blocked-usage-limit
+    if [ $host = claude ]; then herdr agent prompt $A "/exit" >/dev/null 2>&1; else herdr agent prompt $A "/quit" >/dev/null 2>&1; fi
+    sleep 4; herdr pane send-keys $(cat $C/scheduler-pane.txt) ctrl+c >/dev/null 2>&1
+    for p in $(cat $C/pane.txt) $(cat $C/scheduler-pane.txt); do herdr pane close $p >/dev/null 2>&1; done
+    exit 3
+  fi
+}
 ck() {  # read-only checkpoint: observer, discovery pool, eligibility of every node
   $REPO/.venv/bin/python $REPO/scripts/scenarios/observe.py $P --tools $S/dist-$host-S1a$att/plugins/research-tree/tools --out $C/checkpoint-$1.json >/dev/null 2>&1
   root=$(ls -d $P/research/*/ 2>/dev/null | head -1)

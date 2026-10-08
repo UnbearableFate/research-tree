@@ -1,0 +1,190 @@
+{
+ "project": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a02",
+ "db": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a02/research/rt-s1-claude-a02/research_tree.db",
+ "db_sha256_unchanged": true,
+ "phase": "awaiting_confirmation",
+ "data_version": 51,
+ "counts": {
+  "project": 1,
+  "hypothesis": 2,
+  "experiment": 0,
+  "branch": 0,
+  "document": 23,
+  "decision": 0,
+  "task": 1,
+  "evaluation": 0,
+  "obligation": 0,
+  "reservation": 0,
+  "run": 0
+ },
+ "experiments": [],
+ "nodes": [
+  {
+   "id": "H-0001",
+   "title": "Zebra：重球动量在固定更新预算下收敛更快",
+   "status": "pending",
+   "claim_revision": 1,
+   "claim_sha": "a617a531083ac22fa8aad85341512b35868ae3ac1e2758ee0cdeab90f8158d72",
+   "eligibility": {
+    "hypothesis_id": "H-0001",
+    "eligible": false,
+    "basis_evaluation_id": null,
+    "experiment_id": null,
+    "evidence_state": "none",
+    "reasons": [
+     "NO_EVALUATION"
+    ],
+    "verification_level": null,
+    "gate_passed": null,
+    "guardrails_passed": null,
+    "stage": null,
+    "outcome": null,
+    "confirmation_evaluation_id": null,
+    "open_obligations": [],
+    "rechecks": null,
+    "recheck_evaluation_id": null,
+    "rld_rechecks": null
+   }
+  },
+  {
+   "id": "H-0002",
+   "title": "Alpha：学习率预热（前 10% 更新步线性升温）可能让 SGD 在一轮内更稳",
+   "status": "pending",
+   "claim_revision": 1,
+   "claim_sha": "a1251caf428690a7356b2dd7f5bd89d2f8793f5366417357e259f03d52567be8",
+   "eligibility": {
+    "hypothesis_id": "H-0002",
+    "eligible": false,
+    "basis_evaluation_id": null,
+    "experiment_id": null,
+    "evidence_state": "none",
+    "reasons": [
+     "NO_EVALUATION"
+    ],
+    "verification_level": null,
+    "gate_passed": null,
+    "guardrails_passed": null,
+    "stage": null,
+    "outcome": null,
+    "confirmation_evaluation_id": null,
+    "open_obligations": [],
+    "rechecks": null,
+    "recheck_evaluation_id": null,
+    "rld_rechecks": null
+   }
+  }
+ ],
+ "runs": [],
+ "evaluations": [],
+ "obligations": [],
+ "reservations": [],
+ "jobs": {
+  "starts": 0,
+  "keys": 0,
+  "duplicate_jobs": 0,
+  "per_key": {},
+  "cpu_seconds": 0,
+  "wall_seconds": 0,
+  "failed_exits": []
+ },
+ "site": {
+  "exit": 1,
+  "answer": "{\"page_version\": null, \"db_version\": 51, \"stale\": true}"
+ },
+ "agent_models": [
+  {
+   "ts": "2026-10-08T20:58:04Z",
+   "agent": "main",
+   "actor": "rld/main",
+   "event": "observed",
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "ts": "2026-10-08T21:12:04Z",
+   "agent": "main",
+   "actor": "rld/main",
+   "event": "observed",
+   "model": "claude-haiku-5-5"
+  }
+ ],
+ "review_calls": [
+  {
+   "kind": "novelty_precheck",
+   "about": "CAND-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.002577,
+   "review_id": "D-0009",
+   "session": "RV-0001",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a02/research/rt-s1-claude-a02/cache/reviews/RV-0001.v1.jsonl"
+  },
+  {
+   "kind": "critical_review",
+   "about": "CAND-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.003051,
+   "review_id": "D-0010",
+   "session": "RV-0002",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a02/research/rt-s1-claude-a02/cache/reviews/RV-0002.v1.jsonl"
+  },
+  {
+   "kind": "critical_review",
+   "about": "CAND-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.002302,
+   "review_id": "D-0011",
+   "session": "RV-0002",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a02/research/rt-s1-claude-a02/cache/reviews/RV-0002.v1.jsonl"
+  },
+  {
+   "kind": "novelty_precheck",
+   "about": "CAND-0002",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.003674,
+   "review_id": "D-0019",
+   "session": "RV-0003",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a02/research/rt-s1-claude-a02/cache/reviews/RV-0003.v1.jsonl"
+  },
+  {
+   "kind": "critical_review",
+   "about": "CAND-0002",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.002355,
+   "review_id": "D-0020",
+   "session": "RV-0004",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a02/research/rt-s1-claude-a02/cache/reviews/RV-0004.v1.jsonl"
+  },
+  {
+   "kind": "critical_review",
+   "about": "CAND-0002",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.002578,
+   "review_id": "D-0021",
+   "session": "RV-0004",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a02/research/rt-s1-claude-a02/cache/reviews/RV-0004.v1.jsonl"
+  }
+ ]
+}

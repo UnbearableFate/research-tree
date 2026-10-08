@@ -1440,8 +1440,12 @@ export const register: Register = (on, options) => {
     const project = (await $.state.get(projectRef)).value
     const summary = (await $.state.get(summaryRef)).value
     const conf = (await $.state.get(configRef)).value
+    const env = await venv($)
+    // S1 real scenario a02: a resumed session must find the discovery workflow without the init prompt
+    const py = 'python' in env ? `${env.python} ` : ''
     const status = project
       ? `\n\n当前项目：${project.project_id}（${L(project.phase)}，${project.root}）` + (summary ? `\n${statusText(summary, project)}` : '') +
+        `\n\n### 立项前发现与文献（命令行，在项目目录运行）\n- 发现流程：${py}${$.plugin.root}/tools/research_tree.py discovery status | start | set --stage <阶段> --status <状态> | accept --stage <阶段> --evidence <回执ID…> | merge --user-hypotheses <JSON> | cite --candidate CAND-… --literature D-… | gate --report <报告>（发现门；重新 merge 或补齐回执后重新运行）\n- 文献：${py}${$.plugin.root}/tools/literature.py search | verify | note | text | fetch` +
         `\n\n### 开发与实验平台（${CONFIG_FILE}）\n${platformText(conf?.effective)}`
       : `\n\n当前目录没有研究项目（/${COMMAND} prepare 后 /${COMMAND} init 可新建）。`
     return { sections: [...composed.sections, { id: `${PLUGIN}:workflow`, text: WORKFLOW + status, scope: 'session' as const }] }

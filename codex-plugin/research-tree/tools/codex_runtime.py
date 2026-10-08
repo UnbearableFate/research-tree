@@ -385,7 +385,16 @@ class Runtime:
             self.summary()
             return {"project": marker, "next": codex_prompts.planning(marker, tree.show_config(self.cwd)["effective"])}
         if action in {"status", "refresh"}:
-            return {"project": self.marker, "summary": self.summary(), "agents": self.agents()}
+            # S1 real scenario a02: a resumed session finds the discovery and literature commands here
+            py = self.cwd / ".venv" / "bin" / "python"
+            tools = Path(__file__).resolve().parent
+            commands = {"discovery": f"{py} {tools}/research_tree.py discovery status | start | set --stage <stage> "
+                                     "--status <status> | accept --stage <stage> --evidence <review ids> | merge "
+                                     "--user-hypotheses <json> | cite --candidate CAND-… --literature D-… | gate "
+                                     "--report <report> (run in the project directory; rerun the gate after a merge "
+                                     "or new receipts)",
+                        "literature": f"{py} {tools}/literature.py search | verify | note | text | fetch"}
+            return {"project": self.marker, "summary": self.summary(), "agents": self.agents(), "commands": commands}
         if action == "chat":
             return self.chat()
         if action == "ui_path":
