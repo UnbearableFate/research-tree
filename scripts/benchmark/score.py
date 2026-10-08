@@ -5,8 +5,10 @@
 
 Metrics: outcome (go / not_go / active), false_go (GO where the truth has no gain, or on the wrong knob set),
 found (GO on the true best knob set), premature_elimination (the true best knob set tested and then retired),
-efficiency (valid runs per committed node-hour, failures included), duplicate_attempts (runs resubmitted beyond their
-first attempt), repeated_failures (failures reported again for a root cause after a verified lesson about it),
+efficiency (valid runs per committed node-hour, failures included), the attempt counts of §10.3 kept apart
+(research_attempts, authorized_retries, transport_retries, duplicate_jobs from the execution ledger, duplicate
+settlement requests, injected_failures) and avoidable_repeated_failures (a failure of a fault class whose fix was
+already verified, not injected again; scripts/scenarios/attempt_metrics.py),
 user_burden (registered user instructions after the first; steering typed straight into the Leader's session is
 not registered and must be counted from the host log), review_cost_usd, coverage (distinct knob sets tested) and
 wall_clock_h (project creation to its last decision). Recovery time and the agents' token cost need the host logs
@@ -40,11 +42,12 @@ def score(records: dict, truth: dict) -> dict:
         "found": go and bool(best) and go_knobs == best,
         "premature_elimination": bool(best) and any(sorted(t["knobs"]) == best and t["node_retired"] for t in tested),
         "efficiency": round(records.get("valid_runs", 0) / hours, 3) if hours else None,
-        "duplicate_attempts": records.get("extra_attempts", 0),
+        **{k: records.get(k) for k in ("research_attempts", "authorized_retries", "transport_retries",
+                                        "duplicate_jobs", "duplicate_settlement_requests", "injected_failures")},
         "user_burden": max(0, records.get("user_instructions", 0) - 1),
         "review_cost_usd": records.get("review_cost_usd", 0.0),
         "coverage": len({tuple(sorted(t["knobs"])) for t in tested}),
-        "repeated_failures": records.get("repeated_failures", 0),
+        "avoidable_repeated_failures": records.get("avoidable_repeated_failures", 0),
         "wall_clock_h": records.get("wall_clock_h"),
     }
 
@@ -75,19 +78,9 @@ def gather(project_dir: Path) -> dict:
         if project["status"] == "go" and db.get_eligibility(h["id"])["eligible"]:
             go_knobs = knobs_of(db.get_eligibility(h["id"])["experiment_id"])
     users = [d for d in db.find("document") if d["doc_type"] == "user_instruction"]
-    # failures reported for a root cause that a verified lesson already covered (08 §1.2)
-    import memory
-    learned = []
-    for d in db.find("document"):
-        if d["doc_type"] == "lesson" and d["status"] == "current":
-            head = memory.front_matter((root / "docs" / d["path"]).read_text(encoding="utf-8")) or {}
-            if head.get("status") == "verified":
-                learned.append((str(head.get("root_cause", "")).lower(), d["created_at"]))
-    repeated = 0
-    for t in db.find("task"):
-        for f in ((t.get("failure_log") or {}).get("entries") or []):
-            rc = f["root_cause"]
-            repeated += any(cause and (cause in rc or rc in cause) and at <= f["at"] for cause, at in learned)
+    sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scenarios"))
+    import attempt_metrics
+    counts = attempt_metrics.metrics(project_dir, db.export_snapshot()["tables"], root)
     decisions = sorted(d["decided_at"] for d in db.find("decision"))
     from datetime import datetime
     def ts(x):
@@ -96,9 +89,9 @@ def gather(project_dir: Path) -> dict:
     return {"status": project["status"], "go_knobs": go_knobs, "tested": tested,
             "valid_runs": sum(1 for r in runs if r.get("valid")),
             "node_seconds": db.budget_status()["committed"]["total"],
-            "extra_attempts": sum(max(0, (r.get("attempt") or 1) - 1) for r in runs),
+            **{k: v for k, v in counts.items() if k != "starts_per_key"},
             "user_instructions": len(users), "review_cost_usd": project.get("review_cost_usd") or 0.0,
-            "repeated_failures": repeated, "wall_clock_h": wall}
+            "wall_clock_h": wall}
 
 
 def main() -> int:

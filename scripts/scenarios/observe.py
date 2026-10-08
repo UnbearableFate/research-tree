@@ -22,6 +22,7 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import scorer  # noqa: E402
+import attempt_metrics  # noqa: E402
 
 REPO_TOOLS = HERE.parents[1] / "shared" / "research-tree" / "tools"
 
@@ -136,6 +137,7 @@ def observe(project: Path, tools: Path = REPO_TOOLS) -> dict:
                                                   "reserved_units", "actual_units", "job_id")}
                          for r in tables["reservation"]],
         "jobs": launches(project),
+        "attempts": attempt_metrics.metrics(project, tables, root),
         "site": {"exit": site.returncode, "answer": site.stdout.strip() or site.stderr.strip()[-300:]},
         "agent_models": jsonl(root / "logs" / "agent_models.jsonl"),
         "review_calls": [{**{k: c.get(k) for k in ("kind", "about", "dimension", "outcome", "backend", "cost_usd",
