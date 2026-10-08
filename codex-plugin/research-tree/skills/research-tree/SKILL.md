@@ -109,6 +109,17 @@ identity (`method_spec`, execution fields such as output paths, walltime, seeds 
 and refuses an import whose reported configuration differs (`METHOD_SPEC_MISMATCH`). A changed claim
 (`update_hypothesis` statement or document) is a new claim revision: reviews, waivers and your recheck decisions
 of the old revision stop applying and are redone; `review_basis` shows what a review would be bound to.
+Independent confirmation (profile stage1_confirmed) is bound end to end: `freeze_candidate(hypothesis_id,
+search_evaluation_id)` freezes the selected method from the node's current search basis; `create_confirmation_batch(
+[candidate_spec ids], material)` freezes the list, the reference they were selected against and one of the
+protocol's named confirmation materials (evaluation split and seed block). The worker then registers the batch's
+confirmation baseline (`kind="baseline", stage="confirm", confirmation_batch_id, confirmation_of=<frozen reference>,
+method_config=<reference's configuration>`) and the candidate's confirmation (`stage="confirm", candidate_spec_id,
+confirmation_batch_id`, the candidate's configuration). A material in use is never declared again for a later
+candidate (`CONFIRMATION_MATERIAL_REUSED`): a method changed after confirmation feedback is a new candidate on
+another declared material, or stays unconfirmed. Execution failures may be retried as new attempts; an imported
+valid result is never marked invalid or retracted to run again. `material_usage` shows the record.
+
 Before a method or ablation experiment is submitted (design.sanity_first / design.code_review), the node needs a
 valid `kind="sanity"` run that projects onto this method identity (`method_config` of the method plus the
 protocol's allowed `sanity_overrides`) and a cross-model code review made after the method experiment was

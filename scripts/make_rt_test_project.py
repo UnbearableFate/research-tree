@@ -440,7 +440,7 @@ eval_loss、final_loss（由模型输出计算）与 train_time_s 作为诊断�
 
 
 def toyopt_config(host: str, stage: str, discovery_mode: str, total_limit: int | None, min_gain: float,
-                  alert_node_h: float | None, review_usd_alert: float | None) -> str:
+                  alert_node_h: float | None, review_usd_alert: float | None, splits: dict | None = None) -> str:
     total = "null" if total_limit is None else str(total_limit)
     alert = "null" if alert_node_h is None else str(alert_node_h)
     review_alert = "null" if review_usd_alert is None else str(review_usd_alert)
@@ -500,6 +500,9 @@ def toyopt_config(host: str, stage: str, discovery_mode: str, total_limit: int |
           confirmation_seeds: [{", ".join(map(str, SEEDS["c1"]))}]
           min_confirmation_pairs: 3
           max_confirmation_candidates: 2
+          confirmation_materials:
+            - {{name: c1, seeds: [{", ".join(map(str, SEEDS["c1"]))}], split_sha256: {(splits or {}).get("c1", {}).get("sha256", "0" * 64)}, manifest_field: eval_split_sha256}}
+            - {{name: c2, seeds: [{", ".join(map(str, SEEDS["c2"]))}], split_sha256: {(splits or {}).get("c2", {}).get("sha256", "0" * 64)}, manifest_field: eval_split_sha256}}
 
         budget:
           per_run: {{nodes: 1, walltime: 10m}}
@@ -550,7 +553,8 @@ def make_toyopt(dest: Path, host: str, stage: str, case: str, attempt: int, cont
     (dest / "plan.md").write_text(TOYOPT_PLAN.replace("{code}", str(code)).replace("{hypothesis_title}", hypothesis_title),
                                   encoding="utf-8")
     (dest / "research-tree.yaml").write_text(toyopt_config(host, stage, discovery_mode, total_limit, min_gain,
-                                                           alert_node_h, review_usd_alert), encoding="utf-8")
+                                                           alert_node_h, review_usd_alert, splits["splits"]),
+                                             encoding="utf-8")
     controller.mkdir(parents=True, exist_ok=True)
     plan = json.loads(faults.read_text(encoding="utf-8")) if faults else {"faults": []}
     (controller / "fault-plan.json").write_text(json.dumps(plan, ensure_ascii=False, indent=1) + "\n",

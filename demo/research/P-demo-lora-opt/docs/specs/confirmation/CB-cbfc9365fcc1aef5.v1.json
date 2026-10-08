@@ -1,0 +1,1 @@
+{"candidates":["D-0045"],"material":{"key":"seeds:1042,1043,1044","manifest_field":"eval_split_sha256","name":"default","seeds":[1042,1043,1044],"split_sha256":null},"method_specs":["D-0038"],"min_pairs":3,"protocol_doc_id":"D-0006","reference":{"experiment_id":"E-0001","method_spec_doc_id":"D-0009"},"version":1}

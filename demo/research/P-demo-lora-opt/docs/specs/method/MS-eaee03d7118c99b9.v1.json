@@ -1,0 +1,1 @@
+{"code_ref":"94b67d55163cce5121bd6afc9b5742c0aca92755","config":{"lr":0.0002,"optimizer":"orthogonal-update"},"data":{"train_steps":1000},"harness_ref":"59bf87c44c3890fd95ee8ac97c2911ef41c67cba","protocol_doc_id":"D-0006","version":1}

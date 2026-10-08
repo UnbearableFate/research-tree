@@ -58,7 +58,7 @@ SPEC_PATH = Path(__file__).resolve().parent.parent / "schema" / "research_tree.s
 CLEANUP_SCRIPT = "research-tree-cleanup.py"
 CLEANUP_TEMPLATE = Path(__file__).resolve().parent.parent / "schema" / "cleanup.template.py"
 # The database layout this interface writes (schema/create_db.py SCHEMA_VERSION; a test keeps them equal).
-SCHEMA_VERSION = 15
+SCHEMA_VERSION = 16
 OPEN_ATTEMPTS = 40
 OPEN_RETRY_DELAY_S = 0.25
 
@@ -124,6 +124,8 @@ DOC_REF_TYPES = {
     ("experiment", "code_review_waiver_doc_id"): ("decision",),
     ("experiment", "method_spec_doc_id"): ("method_spec",),
     ("experiment", "sanity_target_spec_doc_id"): ("method_spec",),
+    ("experiment", "candidate_spec_doc_id"): ("candidate_spec",),
+    ("experiment", "confirmation_batch_doc_id"): ("confirmation_batch",),
     ("decision", "doc_id"): ("decision", "report"),
     ("task", "request_doc_id"): ("task_request",),
     ("task", "delivery_doc_id"): ("task_delivery",),
@@ -153,6 +155,8 @@ DOC_AUTHORS = {
     "finding": ("rld", "worker"),  # 08 §1.1
     "lesson": ("rld", "worker", "assistant"),  # 08 §1.2
     "method_spec": ("rld", "worker"),  # written by create_experiment itself (S1), never by hand
+    "candidate_spec": ("rld",),  # freeze_candidate (S2)
+    "confirmation_batch": ("rld",),  # create_confirmation_batch (S2)
 }
 CANDIDATE_ID_RE = re.compile(r"CAND-\d{4,}")
 # S1 (plans/research-tree-implementation-and-real-scenarios.md §5.1): configuration fields that only say where or
@@ -277,7 +281,8 @@ OPTIONAL_PARAMS = {
                        "harness_paths", "sota_experiment_id") + GATE_FIELDS + LIMIT_FIELDS + EVIDENCE_DOC_FIELDS,
     "update_hypothesis": ("title", "statement", "doc_id", "owner"),
     "create_experiment": ("config_path", "owner", "keep", "keep_reason", "stage", "selection_rationale",
-                          "estimated_node_h", "milestone", "budget_pool", "ablation_of", "source_review_id"),
+                          "estimated_node_h", "milestone", "budget_pool", "ablation_of", "source_review_id",
+                          "candidate_spec_id", "confirmation_batch_id", "baseline_experiment_id", "confirmation_of"),
     "update_run": REPORTED_FIELDS + ("attempt",) + RUN_MEASUREMENTS,
     "update_document": ("title", "summary"),
 }
@@ -1432,7 +1437,7 @@ class ResearchDB:
                 if any(r["evidence_state"] == "stale" for r in results):
                     raise CodedError("EVIDENCE_STALE", message)
                 confirming = {"CONFIRMATION_REQUIRED", "CONFIRMATION_FAILED", "CONFIRMATION_REUSED",
-                              "CONFIRMATION_STALE"}
+                              "CONFIRMATION_STALE", "CONFIRMATION_IDENTITY_UNVERIFIED"}
                 if any(r["reasons"] and set(r["reasons"]) <= confirming for r in based):
                     raise CodedError("CONFIRMATION_REQUIRED", message)
                 if any("OBLIGATION_OPEN" in r["reasons"] for r in based):
@@ -2061,6 +2066,11 @@ class ResearchDB:
         stage = optional.pop("stage", None) or "screen"
         if stage not in ("screen", "replicate", "confirm"):
             raise ResearchDBError("stage is screen, replicate or confirm")
+        confirm_args = {k: optional.pop(k, None) for k in ("candidate_spec_id", "confirmation_batch_id",
+                                                           "baseline_experiment_id", "confirmation_of")}
+        if stage != "confirm" and any(confirm_args.values()):
+            raise ResearchDBError(f"{', '.join(k for k, v in confirm_args.items() if v)} belong to a confirmation "
+                                  "(stage confirm)")
         if optional.get("owner") and self.role != "rld":
             raise PermissionDenied("only rld assigns an experiment to another owner")
         if optional.get("keep") and not (optional.get("keep_reason") or "").strip():
@@ -2096,7 +2106,14 @@ class ResearchDB:
                     raise ResearchDBError("a sanity experiment runs one seed")
                 seeds = project["seeds"][:1]
             elif stage == "confirm":
-                pool = protocol.get("confirmation_seeds") or []
+                # S2: a confirmation runs on its batch's frozen material (evaluation split and training seed block)
+                if not confirm_args["confirmation_batch_id"]:
+                    raise CodedError("CONFIRMATION_IDENTITY_UNVERIFIED", "a confirmation names its confirmation_batch_id "
+                                                                         "(create_confirmation_batch) and, for a "
+                                                                         "method, its candidate_spec_id "
+                                                                         "(freeze_candidate)")
+                batch = self._json_doc(tx, confirm_args["confirmation_batch_id"], "confirmation_batch")
+                pool = list(batch["material"]["seeds"])
                 need = protocol.get("min_confirmation_pairs") or 3
                 if len(pool) < need:
                     raise CodedError("PROTOCOL_CHANGE_REQUIRED", f"the protocol declares {len(pool)} confirmation_seeds; "
@@ -2158,8 +2175,9 @@ class ResearchDB:
             refs = {}
             if kind == "sanity":
                 pass
-            elif hypothesis_id is not None and stage == "confirm":
-                refs["baseline_experiment_id"] = self._confirm_setup(tx, project, protocol, node, resolved)
+            elif stage == "confirm":
+                refs.update(self._confirm_setup(tx, project, protocol, node if hypothesis_id else None, kind,
+                                                identity, confirm_args, batch))
             elif hypothesis_id is not None:
                 refs["baseline_experiment_id"] = project.get("sota_experiment_id")
                 parent = node.get("parent_id")
@@ -2426,32 +2444,184 @@ class ResearchDB:
             self._update(tx, task_id, {"blocked_reason": None, "failure_log": {"entries": []}})
             tx.link("rel_describes", doc_id, task_id)
 
-    def _confirm_setup(self, tx: _Tx, project: dict, protocol: dict, hyp: dict, code_ref: str) -> str:
-        """A node's confirmation: its frozen candidate and the confirmation baseline it is compared with."""
-        latest = self._latest_evaluated(tx, hyp["id"])
-        state = self._eligibility(tx, project, hyp)
-        if latest is None or state["stage"] not in ("candidate_ready", "confirmed"):
-            blocking = [r for r in state["reasons"] if not r.startswith(("RECHECK", "CONFIRMATION"))]
-            raise CodedError("OBLIGATION_OPEN" if "OBLIGATION_OPEN" in blocking else "CONFIRMATION_REQUIRED",
-                             f"{hyp['id']} is not candidate_ready ({', '.join(blocking) or 'no evaluation'}): "
-                             "confirmation comes after a current search result that passes the gate and guardrails "
-                             "with no open obligation")
-        if code_ref != latest["code_ref"]:
-            raise CodedError("CONFIRMATION_REQUIRED", f"a confirmation runs the frozen candidate {latest['id']} "
-                                                      f"(code {latest['code_ref'][:10]}), not other code")
-        limit = protocol.get("max_confirmation_candidates")
-        confirmed = {e.get("hypothesis_id") for e in (tx.get(i) for i in tx.ids("experiment"))
-                     if e.get("stage") == "confirm" and e.get("hypothesis_id")}
-        if limit is not None and hyp["id"] not in confirmed and len(confirmed) >= limit:
-            raise CodedError("BUDGET_EXCEEDED", f"max_confirmation_candidates is {limit}: {sorted(confirmed)} are "
-                                                "being confirmed")
+    def _confirm_setup(self, tx: _Tx, project: dict, protocol: dict, hyp: dict | None, kind: str, identity: dict,
+                       args: dict, batch: dict) -> dict:
+        """S2 §6.1: what a confirmation experiment is bound to, checked before anything is written. A confirmation
+        baseline re-runs the batch's frozen reference (the same method identity) on the batch's material; a
+        method's confirmation runs exactly the frozen candidate's identity and is compared with that baseline,
+        fixed now: a later control or a new SOTA never moves it."""
+        batch_id = args["confirmation_batch_id"]
+        out = {"confirmation_batch_doc_id": batch_id, "material_key": batch["material"]["key"]}
+        if kind == "baseline":
+            if args["confirmation_of"] != batch["reference"]["experiment_id"]:
+                raise CodedError("CONFIRMATION_BASELINE_MISMATCH",
+                                 f"the batch's reference is {batch['reference']['experiment_id']}; a confirmation baseline "
+                                 f"names it as confirmation_of (got {args['confirmation_of']})")
+            if identity["method_spec_doc_id"] != batch["reference"]["method_spec_doc_id"]:
+                raise CodedError("CONFIRMATION_BASELINE_MISMATCH",
+                                 f"a confirmation baseline runs the reference's method identity "
+                                 f"{batch['reference']['method_spec_doc_id']}, not {identity['method_spec_doc_id']}")
+            return {**out, "confirmation_of": args["confirmation_of"]}
+        if hyp is None or kind != "method":
+            raise ResearchDBError("a confirmation is a method experiment of a node or a baseline")
+        candidate_id = args["candidate_spec_id"]
+        if candidate_id not in batch["candidates"]:
+            raise CodedError("CANDIDATE_IDENTITY_MISMATCH", f"{candidate_id} is not in batch {batch_id} "
+                                                            f"({batch['candidates']}); the list is frozen")
+        candidate = self._json_doc(tx, candidate_id, "candidate_spec")
+        if candidate["hypothesis_id"] != hyp["id"] or identity["method_spec_doc_id"] != candidate["method_spec_doc_id"]:
+            raise CodedError("CANDIDATE_IDENTITY_MISMATCH",
+                             f"{candidate_id} froze {candidate['hypothesis_id']}'s method identity "
+                             f"{candidate['method_spec_doc_id']}; this experiment is {identity['method_spec_doc_id']} of "
+                             f"{hyp['id']} — a changed configuration is a new candidate on new material")
         baselines = [e for e in (tx.get(i) for i in tx.ids("experiment")) if e["kind"] == "baseline"
-                     and e.get("stage") == "confirm" and e.get("evaluated_at") and e.get("harness_ref") == project["harness_ref"]]
-        if not baselines:
-            raise CodedError("CONFIRMATION_REQUIRED", "no confirmation baseline: run the SOTA method on the "
-                                                      "confirmation seeds first (create_experiment kind=baseline, "
-                                                      "stage=confirm) and evaluate it")
-        return max(baselines, key=lambda e: int(e["id"].split("-")[1]))["id"]
+                     and e.get("confirmation_batch_doc_id") == batch_id]
+        chosen = args["baseline_experiment_id"]
+        if chosen is None and len(baselines) == 1:
+            chosen = baselines[0]["id"]
+        if chosen not in {e["id"] for e in baselines}:
+            raise CodedError("CONFIRMATION_BASELINE_MISMATCH",
+                             f"a confirmation of batch {batch_id} is compared with that batch's confirmation baseline "
+                             f"({[e['id'] for e in baselines] or 'none yet: create it first'}), not {chosen}")
+        return {**out, "candidate_spec_doc_id": candidate_id, "baseline_experiment_id": chosen}
+
+    # -- frozen candidates, confirmation batches, material usage (S2 §6.1–§6.2) -------------------------------------
+
+    def _register_json(self, tx: _Tx, doc_type: str, folder: str, prefix: str, content: dict, title: str) -> str:
+        """A content-addressed, system-written JSON document (the same content is the same document)."""
+        text = _canonical(content)
+        sha = hashlib.sha256(text.encode("utf-8")).hexdigest()
+        found = tx.ids("document", "WHERE n.sha256 = $s AND n.doc_type = $t", s=sha, t=doc_type)
+        if found:
+            return found[0]
+        rel = f"{folder}/{prefix}-{sha[:16]}.v1.json"
+        file = self.docs_root / rel
+        file.parent.mkdir(parents=True, exist_ok=True)
+        file.write_text(text, encoding="utf-8")
+        return self._insert(tx, "document", {
+            "id": tx.next_id("document"), "path": rel, "version": 1, "doc_type": doc_type, "title": title[:120],
+            "status": "current", "author_role": self.role, "author_id": self.agent, "sha256": sha})
+
+    def freeze_candidate(self, hypothesis_id: str, search_evaluation_id: str) -> str:
+        """S2: record which method was selected from which search evidence, before any confirmation material is
+        used — an immutable candidate_spec (the node's method identity, the search evaluation, the claim revision
+        and the reference it beat). The evaluation must be the node's current search basis, pass the gate and
+        guardrails, with no open obligation; reviews that need the confirmation's numbers are not required here.
+        Nothing is added to the method identity afterwards. The same call again returns the same document. rld."""
+        self._require_role("rld")
+        with self._writer() as tx:
+            project = self._project(tx)
+            hyp = tx.require(hypothesis_id, ("hypothesis",))
+            state = self._eligibility(tx, project, hyp)
+            ev = tx.require(search_evaluation_id, ("evaluation",))
+            exp = tx.get(ev["experiment_id"])
+            if state["basis_evaluation_id"] != ev["id"] or exp.get("hypothesis_id") != hypothesis_id:
+                raise CodedError("CANDIDATE_IDENTITY_MISMATCH", f"{ev['id']} is not {hypothesis_id}'s current search "
+                                                                f"basis ({state['basis_evaluation_id']})")
+            blocking = [r for r in state["reasons"] if not r.startswith(("RECHECK", "CONFIRMATION"))]
+            if blocking:
+                raise CodedError("OBLIGATION_OPEN" if "OBLIGATION_OPEN" in blocking else "CONFIRMATION_REQUIRED",
+                                 f"{hypothesis_id} is not ready to freeze ({', '.join(blocking)}): a candidate comes "
+                                 "from a current search result that passes the gate and guardrails, nothing open")
+            if not exp.get("method_spec_doc_id"):
+                raise CodedError("CONFIRMATION_IDENTITY_UNVERIFIED", f"{exp['id']} has no method identity")
+            sota = tx.require(ev["baseline_experiment_id"], ("experiment",)) if ev.get("baseline_experiment_id") else None
+            content = {"version": 1, "hypothesis_id": hypothesis_id, "method_spec_doc_id": exp["method_spec_doc_id"],
+                       "code_ref": exp["code_ref"], "search_evaluation_id": ev["id"],
+                       "inputs_digest": ev.get("inputs_digest"), "claim_revision": hyp.get("claim_revision"),
+                       "claim_sha": hyp.get("claim_sha"),
+                       "reference": {"experiment_id": sota and sota["id"],
+                                     "method_spec_doc_id": sota and sota.get("method_spec_doc_id")}}
+            return self._register_json(tx, "candidate_spec", "specs/candidate", "CS", content,
+                                       f"candidate {hypothesis_id} {exp['method_spec_doc_id']}")
+
+    def _materials(self, protocol: dict) -> dict:
+        """The confirmation materials the protocol declares: {name: {seeds, split_sha256?, manifest_field}}; a
+        protocol without them has one material, its confirmation_seeds (identity: the seed block)."""
+        declared = (protocol or {}).get("confirmation_materials") or []
+        if not declared:
+            return {"default": {"name": "default", "seeds": list((protocol or {}).get("confirmation_seeds") or [])}}
+        return {m["name"]: m for m in declared}
+
+    @staticmethod
+    def _material_key(material: dict) -> str:
+        """A material's identity: the evaluation split's content when declared, never a display name or a
+        document id; a training seed block alone only names data the protocol keeps fixed."""
+        if material.get("split_sha256"):
+            return f"split:{material['split_sha256']}"
+        return "seeds:" + ",".join(map(str, sorted(material["seeds"])))
+
+    def create_confirmation_batch(self, candidate_spec_ids: list[str], material: str) -> str:
+        """S2: freeze who is confirmed, against what and on which material, before the material is used: the
+        candidate list (counted by distinct method identity against max_confirmation_candidates over the whole
+        project), the reference they were all selected against, the protocol's named confirmation material
+        (evaluation split and training seed block) and the pairing protocol. A material already used by another
+        batch cannot be declared again (CONFIRMATION_MATERIAL_REUSED); once a batch's material is in use no
+        candidate joins it — a changed method is a new candidate, on new material. rld."""
+        self._require_role("rld")
+        if not candidate_spec_ids or len(set(candidate_spec_ids)) != len(candidate_spec_ids):
+            raise ResearchDBError("candidate_spec_ids lists distinct frozen candidates")
+        with self._writer() as tx:
+            project = self._project(tx)
+            protocol = self._protocol(tx, project) or {}
+            materials = self._materials(protocol)
+            if material not in materials:
+                raise CodedError("CONFIRMATION_IDENTITY_UNVERIFIED", f"the protocol declares the confirmation "
+                                                                     f"materials {sorted(materials)}, not {material!r}")
+            chosen = materials[material]
+            key = self._material_key(chosen)
+            if set(chosen["seeds"]) & set(project["seeds"]):
+                raise CodedError("PROTOCOL_CHANGE_REQUIRED", f"material {material}'s seeds overlap the search seeds")
+            candidates = [self._json_doc(tx, c, "candidate_spec") for c in candidate_spec_ids]
+            refs = {(c["reference"]["experiment_id"], c["reference"]["method_spec_doc_id"]) for c in candidates}
+            if len(refs) != 1 or None in next(iter(refs)):
+                raise CodedError("CONFIRMATION_BASELINE_MISMATCH", "the candidates of one batch were selected against "
+                                                                   f"one reference; they name {sorted(map(str, refs))}")
+            limit = protocol.get("max_confirmation_candidates")
+            earlier = {self._json_doc(tx, c, "candidate_spec")["method_spec_doc_id"]
+                       for b in (tx.get(i) for i in tx.ids("document", "WHERE n.doc_type = $t", t="confirmation_batch"))
+                       for c in self._json_doc(tx, b["id"], "confirmation_batch")["candidates"]}
+            mine = {c["method_spec_doc_id"] for c in candidates}
+            if limit is not None and len(earlier | mine) > limit:
+                raise CodedError("BUDGET_EXCEEDED", f"max_confirmation_candidates is {limit} distinct methods; "
+                                                    f"{len(earlier | mine)} with this batch")
+            used = {e["material_key"] for e in (project.get("material_usage") or {}).get("events", [])}
+            if key in used:
+                raise CodedError("CONFIRMATION_MATERIAL_REUSED", f"material {material} ({key[:24]}…) was already used "
+                                                                 "for a confirmation; feedback from it made later "
+                                                                 "changes exploration — use another declared material")
+            ref_exp, ref_spec = next(iter(refs))
+            content = {"version": 1, "candidates": list(candidate_spec_ids), "method_specs": sorted(mine),
+                       "reference": {"experiment_id": ref_exp, "method_spec_doc_id": ref_spec},
+                       "material": {"name": material, "key": key, "seeds": list(chosen["seeds"]),
+                                    "split_sha256": chosen.get("split_sha256"),
+                                    "manifest_field": chosen.get("manifest_field", "eval_split_sha256")},
+                       "protocol_doc_id": project.get("protocol_doc_id"),
+                       "min_pairs": protocol.get("min_confirmation_pairs") or 3}
+            return self._register_json(tx, "confirmation_batch", "specs/confirmation", "CB", content,
+                                       f"confirmation batch {material} ({len(candidate_spec_ids)} candidates)")
+
+    def _use_material(self, tx: _Tx, project: dict, exp: dict, ref: str, event: str) -> None:
+        """Record that a confirmation run put its material into use (submitted, unknown, imported). A material
+        another batch already used is refused; the record is kept whatever later happens to the run."""
+        key = exp.get("material_key")
+        if not key:
+            return
+        events = list((project.get("material_usage") or {}).get("events", []))
+        others = {e["batch"] for e in events if e["material_key"] == key} - {exp["confirmation_batch_doc_id"]}
+        if others:
+            raise CodedError("CONFIRMATION_MATERIAL_REUSED", f"{exp['id']}'s material ({key[:24]}…) was used by batch "
+                                                             f"{sorted(others)}; a later candidate needs new material")
+        events.append({"material_key": key, "batch": exp["confirmation_batch_doc_id"],
+                       "candidate_spec": exp.get("candidate_spec_doc_id"), "experiment": exp["id"], "run": ref,
+                       "event": event, "at": now_utc()})
+        tx.set(project["id"], {"material_usage": {"events": events}})
+
+    def material_usage(self) -> dict:
+        """The confirmation-material usage record (S2): every run that put a material into use, by batch, never
+        shortened by retractions, renames or restarts. Read-only."""
+        with self.reader() as tx:
+            return self._project(tx).get("material_usage") or {"events": []}
 
     def _node_evaluations(self, tx: _Tx, hyp_id: str, stage: str | None = None) -> list[dict]:
         """The current evaluations of a node's method experiments (search stages unless stage is given), in order."""
@@ -2561,6 +2731,13 @@ class ResearchDB:
             retry = changes.get("attempt") == run["attempt"] + 1 and new in ("planned", "submitted")
             if "attempt" in changes and not retry:
                 raise ResearchDBError("attempt only increases by one, together with exec_status planned or submitted")
+            exp_now = tx.get(run["experiment_id"])
+            if retry and exp_now.get("stage") == "confirm" and (run.get("retracted_at") or any(
+                    a.get("valid") is True or a.get("retracted_at") for a in (run.get("attempts") or {}).values())):
+                # S2 §6.2: a confirmation result that was valid is the result; it is never re-run on the same
+                # material to replace it (no picking the best attempt)
+                raise CodedError("CONFIRMATION_MATERIAL_REUSED", f"{run_id} had a valid confirmation result; it is not "
+                                                                 "run again on the same material")
             if retry:
                 if old not in ("succeeded", "failed", "cancelled"):
                     raise ResearchDBError(f"{run_id} attempt {run['attempt']} is {old}: resubmit only a finished attempt "
@@ -2580,6 +2757,13 @@ class ResearchDB:
             if run.get("retracted_at") and not retry:
                 raise ResearchDBError(f"{run_id} attempt {run['attempt']} was retracted ({run.get('retracted_reason')}); "
                                       "resubmit it as a new attempt (attempt + 1 with exec_status planned or submitted)")
+            if (exp_now.get("stage") == "confirm" and changes.get("valid") is False and run.get("import_record")
+                    and run.get("exec_status") == "succeeded"):
+                # an imported, succeeded confirmation run is accepted or retracted with a decision, never quietly
+                # marked invalid to make room for another attempt (S2 §6.2, REG-S2-06)
+                raise CodedError("CONFIRMATION_MATERIAL_REUSED", f"{run_id} is an imported confirmation result: a "
+                                                                 "result that is merely poor stays; a proven execution "
+                                                                 "fault is retracted by the Leader (retract_run)")
             if run.get("import_record") and not retry:
                 for field in ("metric_value", "secondary"):
                     if field in changes and changes[field] != run.get(field):
@@ -2616,6 +2800,10 @@ class ResearchDB:
                     metrics.run_values(self._specs(tx, project), {**final, "id": run_id},
                                        [n for n in [project["primary_metric"], *project["secondary_metrics"]]
                                         if n in metrics.spec_by_name(self._specs(tx, project))])
+            if new in ("submitted", "unknown", "running") and (old == "planned" or retry):
+                # S2: the confirmation material is in use from the first submission on, whatever happens next
+                self._use_material(tx, self._project(tx), exp_now, f"{run_id}@{changes.get('attempt', run['attempt'])}",
+                                   new)
             self._update(tx, run_id, changes)
             if new == "unknown" and run.get("submission_key"):  # a lost answer keeps the reservation held (05 §4.5)
                 held = self._reservation(tx, run["submission_key"])
@@ -2714,6 +2902,16 @@ class ResearchDB:
             if manifest.get(key) != want:
                 raise CodedError("PAIRING_MISMATCH", f"{manifest_file.name}: {key} is {manifest.get(key)!r}, "
                                                      f"the protocol fixes {want!r}; this run cannot join the comparison")
+        if exp.get("confirmation_batch_doc_id"):  # S2: the run evaluated the batch's material, nothing else
+            with self.reader() as tx2:
+                material = self._json_doc(tx2, exp["confirmation_batch_doc_id"], "confirmation_batch")["material"]
+            field = material.get("manifest_field") or "eval_split_sha256"
+            if material.get("split_sha256") and manifest.get(field) != material["split_sha256"]:
+                raise CodedError("CONFIRMATION_MATERIAL_REUSED" if manifest.get(field) else "PAIRING_MISMATCH",
+                                 f"{manifest_file.name}: {field} is {manifest.get(field)!r}, the batch's material "
+                                 f"{material['name']} is {material['split_sha256']}")
+            if sorted(material["seeds"]) and run["seed"] not in material["seeds"]:
+                raise CodedError("PAIRING_MISMATCH", f"seed {run['seed']} is not in material {material['name']}")
         if method_spec is not None:  # S1: the run reports the configuration its experiment's identity states
             reported = manifest.get("config")
             if isinstance(reported, str):
@@ -2791,6 +2989,9 @@ class ResearchDB:
                                                           f"its metrics file says {changes[key]!r}")
             if current.get("valid") is True:  # a valid run is frozen: only the import fields are added
                 changes = {k: v for k, v in changes.items() if k in IMPORT_FIELDS}
+            exp_now = tx.get(current["experiment_id"])
+            if exp_now.get("material_key"):
+                self._use_material(tx, self._project(tx), exp_now, f"{run_id}@{attempt}", "imported")
             self._update(tx, run_id, changes)
             return {"run_id": run_id, "attempt": attempt, "imported": True, "import_record": record,
                     "metrics": {k: values[k] for k in names}}
@@ -4519,21 +4720,41 @@ class ResearchDB:
                 "recheck_evaluation_id": recheck_ev, "rld_rechecks": rld_rechecks}
 
     def _confirmation(self, tx: _Tx, project: dict, protocol: dict, hyp: dict, basis_exp: dict) -> tuple:
-        """The node's independent confirmation of its candidate code (06 §2.2, §2.5): a current confirm-stage
-        evaluation of the same code that passes the gate and guardrails, on confirmation seeds that no earlier
-        confirmation of other code of this node has used (feedback used to change the code is exploration)."""
-        confirms = [e for e in (tx.get(r["id"]) for r in tx.query(
-            "MATCH (e:Experiment)-[:TESTS]->(h:Hypothesis {id: $id}) RETURN e.id AS id", id=hyp["id"]))
-            if e.get("stage") == "confirm" and e.get("evaluation_id")]
-        mine = [e for e in confirms if e["code_ref"] == basis_exp["code_ref"]]
-        if not mine:
+        """The node's independent confirmation of its frozen candidate (S2 §6): a current confirm-stage evaluation
+        of an experiment bound to a candidate_spec of the basis's method identity, compared with its batch's
+        confirmation baseline of the frozen reference, on a material no other batch used before it; it passes the
+        gate and guardrails. A confirmation without these bindings (before S2) stays history:
+        CONFIRMATION_IDENTITY_UNVERIFIED."""
+        confirms = [e for e in self._node_experiments(tx, hyp["id"])
+                    if e.get("stage") == "confirm" and e.get("evaluation_id")]
+        if not confirms:
             return None, "CONFIRMATION_REQUIRED"
-        exp = max(mine, key=lambda e: int(e["id"].split("-")[1]))
+        bound = []
+        for e in confirms:
+            if not (e.get("candidate_spec_doc_id") and e.get("confirmation_batch_doc_id")):
+                continue
+            candidate = self._json_doc(tx, e["candidate_spec_doc_id"], "candidate_spec")
+            if candidate["method_spec_doc_id"] == basis_exp.get("method_spec_doc_id") and \
+                    e.get("method_spec_doc_id") == candidate["method_spec_doc_id"]:
+                bound.append(e)
+        if not bound:
+            legacy = [e for e in confirms if not e.get("candidate_spec_doc_id")]
+            return (tx.get(legacy[-1]["evaluation_id"])["id"] if legacy else None,
+                    "CONFIRMATION_IDENTITY_UNVERIFIED" if legacy else "CONFIRMATION_REQUIRED")
+        exp = max(bound, key=lambda e: int(e["id"].split("-")[1]))
         ev = tx.get(exp["evaluation_id"])
-        earlier = [e for e in confirms if e["code_ref"] != exp["code_ref"] and int(e["id"].split("-")[1]) <
-                   int(exp["id"].split("-")[1])]
-        if any(set(e["seeds"]) & set(exp["seeds"]) for e in earlier):
+        batch = self._json_doc(tx, exp["confirmation_batch_doc_id"], "confirmation_batch")
+        baseline = tx.get(exp["baseline_experiment_id"]) if exp.get("baseline_experiment_id") else None
+        if baseline is None or baseline.get("confirmation_batch_doc_id") != exp["confirmation_batch_doc_id"] or \
+                ev.get("baseline_experiment_id") != baseline["id"]:
+            return ev["id"], "CONFIRMATION_IDENTITY_UNVERIFIED"
+        events = (project.get("material_usage") or {}).get("events", [])
+        mine = [i for i, x in enumerate(events) if x["batch"] == exp["confirmation_batch_doc_id"]]
+        if any(x["material_key"] == batch["material"]["key"] and x["batch"] != exp["confirmation_batch_doc_id"]
+               and (not mine or i < mine[0]) for i, x in enumerate(events)):
             return ev["id"], "CONFIRMATION_REUSED"
+        if batch["reference"]["experiment_id"] != project.get("sota_experiment_id"):
+            return ev["id"], "CONFIRMATION_STALE"  # a new SOTA: the old confirmation is history, never rebound
         if self._stale_reasons(tx, project, ev):
             return ev["id"], "CONFIRMATION_STALE"
         if not ev.get("gate_passed") or ev.get("guardrails_passed") is False:
@@ -4554,11 +4775,10 @@ class ResearchDB:
             baseline = tx.get(ev["baseline_experiment_id"])
             base_ev = tx.get(baseline["evaluation_id"]) if baseline.get("evaluation_id") else None
             reference = project.get("sota_experiment_id")
-            if ev.get("stage") == "confirm":  # a confirmation compares with the current confirmation baseline
-                current = [e for e in (tx.get(i) for i in tx.ids("experiment")) if e["kind"] == "baseline"
-                           and e.get("stage") == "confirm" and e.get("evaluated_at")
-                           and e.get("harness_ref") == project.get("harness_ref")]
-                reference = max(current, key=lambda e: int(e["id"].split("-")[1]))["id"] if current else None
+            if ev.get("stage") == "confirm":
+                # S2: a confirmation stays compared with the baseline fixed when it was created (its batch's);
+                # a later control or confirmation baseline does not move it
+                reference = tx.get(ev["experiment_id"]).get("baseline_experiment_id")
             if ev["baseline_experiment_id"] != reference or (
                     baseline.get("evaluation_id") and baseline["evaluation_id"] != ev.get("baseline_evaluation_id")) or (
                     base_ev is not None and self._stale_reasons(tx, project, {**base_ev, "baseline_experiment_id": None})):
@@ -4763,7 +4983,7 @@ def default_worker_id(node_id: str, table: str) -> str:
 READ_METHODS = ("help", "get", "find", "edges", "children", "history", "go_candidates", "latest_result",
                 "screen_seed_count", "export_snapshot", "verify_document", "resume_package", "cleanup_due",
                 "get_eligibility", "evaluations", "preview_evaluation", "obligations", "budget_status",
-                "reconcile_submission", "reviews", "context_pack", "relations", "review_basis")
+                "reconcile_submission", "reviews", "context_pack", "relations", "review_basis", "material_usage")
 
 CLI_METHODS = sorted(
     name for name in vars(ResearchDB) if not name.startswith("_") and callable(getattr(ResearchDB, name))

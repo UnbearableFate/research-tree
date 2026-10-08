@@ -149,7 +149,8 @@ def protocol_requirements(config: dict) -> dict:
     return {"profile": config["evidence_policy"]["profile"], "confirmation_seeds": v["confirmation_seeds"],
             "min_confirmation_pairs": v["min_confirmation_pairs"],
             "max_confirmation_candidates": v["max_confirmation_candidates"],
-            "require_artifact_import": config["evidence_policy"]["require_artifact_import"]}
+            "require_artifact_import": config["evidence_policy"]["require_artifact_import"],
+            **({"confirmation_materials": v["confirmation_materials"]} if v.get("confirmation_materials") else {})}
 
 
 def walltime_seconds(value: int | str) -> int:

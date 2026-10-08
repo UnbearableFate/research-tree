@@ -99,7 +99,8 @@ CREATE TABLE project (
     worker_session_at   TEXT,                  -- 当前会话绑定的时间
     resume_doc_ids      TEXT_LIST,             -- 恢复 worker 所需的文档：节点文档、任务请求与交付等（自动维护，可追加）
     created_at          TEXT NOT NULL,
-    updated_at          TEXT NOT NULL
+    updated_at          TEXT NOT NULL,
+    material_usage      JSON                   -- 确认材料使用史（S2）：{"events": [{material_key, batch, candidate_spec, run, event, at}]}，只追加，不随撤回、改名或恢复删除
 );
 
 -- 假说树节点
@@ -206,7 +207,11 @@ CREATE TABLE experiment (
     method_spec_sha     TEXT,                  -- 方法身份指纹（只作索引，内容见文档）
     effective_config    JSON,                  -- 登记时解析的有效配置（全部字段，含纯执行字段）
     sanity_target_spec_doc_id TEXT,            -- sanity：它投影的目标方法身份（允许的覆盖项见 sanity_overrides）
-    sanity_overrides    JSON,                  -- sanity：相对目标方法声明的覆盖项（协议允许的小样本/短训练）                  -- (kind, stage, method, request, config_path 内容) 的哈希；与 code_ref、seeds 一起去重
+    sanity_overrides    JSON,                  -- sanity：相对目标方法声明的覆盖项（协议允许的小样本/短训练）
+    candidate_spec_doc_id TEXT,                -- 确认（S2）：冻结的候选（candidate_spec 文档）
+    confirmation_batch_doc_id TEXT,            -- 确认（S2）：所属确认批次（confirmation_batch 文档：名单、参照与材料）
+    confirmation_of     TEXT,                  -- 确认基线（S2）：它确认的搜索参照实验（批次冻结的 SOTA）
+    material_key        TEXT,                  -- 确认（S2）：确认材料的身份（评测切分内容），换文档 ID 或训练 seed 不变                  -- (kind, stage, method, request, config_path 内容) 的哈希；与 code_ref、seeds 一起去重
     keep                TEXT_LIST,             -- 判定后仍保留的产物类别（例：final_weights），登记实验时声明
     keep_reason         TEXT,                  -- 声明保留的理由（哪个后续实验要用这些产物）
     cleanup             JSON,                  -- 清理账本：键为第几次清理，值为时间、执行者、保留类别、逐项结果与释放字节数
@@ -404,6 +409,8 @@ CREATE TABLE document (
                             'workflow', 'report', 'config',
                             'protocol', 'metric_spec',
                             'method_spec',     -- 方法身份（S1）：代码版本、方法、科学配置、数据与比较协议的不可变快照（系统登记）
+                            'candidate_spec',  -- 冻结候选（S2）：方法身份、据以选择的搜索评估、主张版本与参照（系统登记）
+                            'confirmation_batch', -- 确认批次（S2）：候选名单、冻结参照、确认材料与配对要求（系统登记）
                             'review',          -- 跨模型非交互评审（review_call.py，作者只能是 reviewer）
                             'finding',         -- 研究发现（08 §1.1：事实与解释分开，带证据与局限）
                             'lesson',          -- 运行经验（08 §1.2：症状、根因与状态、已验证的修复、适用范围、反例）

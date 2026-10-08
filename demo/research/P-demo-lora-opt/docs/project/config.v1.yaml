@@ -72,6 +72,9 @@ verification:
   confirmation_seeds: [1042, 1043, 1044]
   min_confirmation_pairs: 3
   max_confirmation_candidates: 2
+  # 命名的确认材料（S2）：每份是评测切分（内容哈希 split_sha256，runner 在 manifest 的 manifest_field 中报告）与训练 seed 块；
+  # 确认批次各用一份，用过的材料不能给反馈之后的新候选再用。为空时只有一份由 confirmation_seeds 构成的材料。
+  confirmation_materials: []
   allow_inconclusive_at_limit: true
   inference_mode: descriptive
 
