@@ -111,6 +111,9 @@ CREATE TABLE hypothesis (
     statement           TEXT NOT NULL,         -- 一句话可证伪假说；完整内容见 doc
     doc_id              TEXT NOT NULL,         -- 假说文档
     candidate_id        TEXT,                  -- 发现阶段的候选（CAND-编号）；其查新与评审回执在建节点时核对
+    claim_revision      INTEGER,               -- 主张版本（S1）：statement、Claim map 与目标文档规范化后变化即递增；旧记录为空=未登记
+    claim_sha           TEXT,                  -- 当前主张版本的内容指纹（复核依据比较它）
+    claim_history       JSON,                  -- {"revisions": [{revision, sha, statement, doc_id, at}]}：历史版本保留
     exploration         BOOLEAN NOT NULL DEFAULT FALSE,  -- 探索与当前赢家不同的机制（用探索份额，06 §4.3、§4.5）
     status              TEXT NOT NULL CHECK (status IN (
                             'pending',         -- 待验证
@@ -197,7 +200,13 @@ CREATE TABLE experiment (
     config_hash         TEXT,
     ablation_of         TEXT,                  -- 消融：被消融的实验（同节点）；与它代码和配置都相同即 no-op，拒绝
     source_review_id    TEXT,                  -- 消融：出题的 ablation_plan 评审文档
-    code_review_waiver_doc_id TEXT,            -- 代码审查不可用时 RLD 放行的决定文档（03 §8）                  -- (kind, stage, method, request, config_path 内容) 的哈希；与 code_ref、seeds 一起去重
+    code_review_waiver_doc_id TEXT,            -- 代码审查不可用时 RLD 放行的决定文档（03 §8）
+    code_review_waiver_basis JSON,             -- 放行时系统记录的依据（方法身份与主张版本）；之后改变即失效（S1）
+    method_spec_doc_id  TEXT,                  -- 方法身份（S1）：不可变 method_spec 文档；旧实验为空 = legacy_unbound
+    method_spec_sha     TEXT,                  -- 方法身份指纹（只作索引，内容见文档）
+    effective_config    JSON,                  -- 登记时解析的有效配置（全部字段，含纯执行字段）
+    sanity_target_spec_doc_id TEXT,            -- sanity：它投影的目标方法身份（允许的覆盖项见 sanity_overrides）
+    sanity_overrides    JSON,                  -- sanity：相对目标方法声明的覆盖项（协议允许的小样本/短训练）                  -- (kind, stage, method, request, config_path 内容) 的哈希；与 code_ref、seeds 一起去重
     keep                TEXT_LIST,             -- 判定后仍保留的产物类别（例：final_weights），登记实验时声明
     keep_reason         TEXT,                  -- 声明保留的理由（哪个后续实验要用这些产物）
     cleanup             JSON,                  -- 清理账本：键为第几次清理，值为时间、执行者、保留类别、逐项结果与释放字节数
@@ -394,6 +403,7 @@ CREATE TABLE document (
                             'user_instruction', 'task_request', 'task_delivery',
                             'workflow', 'report', 'config',
                             'protocol', 'metric_spec',
+                            'method_spec',     -- 方法身份（S1）：代码版本、方法、科学配置、数据与比较协议的不可变快照（系统登记）
                             'review',          -- 跨模型非交互评审（review_call.py，作者只能是 reviewer）
                             'finding',         -- 研究发现（08 §1.1：事实与解释分开，带证据与局限）
                             'lesson',          -- 运行经验（08 §1.2：症状、根因与状态、已验证的修复、适用范围、反例）
@@ -420,6 +430,8 @@ CREATE TABLE document (
     basis_code_ref      TEXT,                  -- 该 evaluation 的代码版本（只核实现的维度按它复用）
     review_session      TEXT,                  -- 评审会话（RV-编号）；同会话续接写新版本
     review_about        TEXT,                  -- 评审对象不是数据库实体时（发现阶段的候选 CAND-编号）
+    review_basis        JSON,                  -- review：调用时由系统捕获的依据（方法身份、主张版本、evaluation、候选 revision 等，S1）
+    review_basis_changed BOOLEAN,              -- review：模型作答期间依据已变（回执只作历史，不能取得当前资格）
     literature_check    TEXT,                  -- literature：verify_literature 的结果（verified / unverified）；只有 verified 计入文献下限
     literature_check_detail TEXT,              -- 核验方法与说明（arxiv / crossref / semantic_scholar_title …）
     created_at          TEXT NOT NULL
@@ -439,7 +451,8 @@ CREATE TABLE decision (
     reason              TEXT NOT NULL,         -- 一句话理由
     doc_id              TEXT,                  -- 详细理由文档（节点状态和项目状态变更必填）
     decided_by          TEXT NOT NULL,         -- RLD 身份；用户指令导致的变更另用 rel_based_on 指向指令文档
-    decided_at          TEXT NOT NULL
+    decided_at          TEXT NOT NULL,
+    basis               JSON                   -- 系统记录的决定依据（复核 pass：方法身份与主张版本，S1）
     -- 依据的 experiment/document 用 rel_based_on 记录
 );
 

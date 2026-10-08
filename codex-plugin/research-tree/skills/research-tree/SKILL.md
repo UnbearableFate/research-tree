@@ -104,8 +104,15 @@ outside the research root (Claude Code backend). Report `REVIEW_UNAVAILABLE`, `R
 directly. `get_eligibility` lists in `rechecks` which review checked which evaluation or code, with backend and
 model.
 
+Every experiment states its configuration (`method_config` or `config_path`); the interface registers its method
+identity (`method_spec`, execution fields such as output paths, walltime, seeds and the evaluation split excluded)
+and refuses an import whose reported configuration differs (`METHOD_SPEC_MISMATCH`). A changed claim
+(`update_hypothesis` statement or document) is a new claim revision: reviews, waivers and your recheck decisions
+of the old revision stop applying and are redone; `review_basis` shows what a review would be bound to.
 Before a method or ablation experiment is submitted (design.sanity_first / design.code_review), the node needs a
-valid `kind="sanity"` run of the same code and a cross-model code review of that commit: write the brief (code
+valid `kind="sanity"` run that projects onto this method identity (`method_config` of the method plus the
+protocol's allowed `sanity_overrides`) and a cross-model code review made after the method experiment was
+registered (it binds the commit's method identities and the claim revision of that moment): write the brief (code
 directory and commit, hypothesis document, protocol; no conclusions) and call `research_review(kind="code_review",
 about=<node>, code_ref=<commit>, add_dirs=[<code dir>])`; when the reviewer is unavailable, releasing it is your
 recorded decision (`waive_code_review` with a decision document). After a positive signal or candidate_ready ask

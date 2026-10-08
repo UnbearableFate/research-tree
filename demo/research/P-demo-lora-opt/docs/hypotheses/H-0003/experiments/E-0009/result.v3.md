@@ -1,5 +1,5 @@
 ---
-id: "D-0044"
+id: "D-0048"
 doc_type: "experiment_result"
 version: 3
 title: "E-0009 确认结果"
@@ -7,7 +7,7 @@ summary: "E-0009 独立确认"
 about: []
 author_role: "worker"
 author_id: "h0003"
-created_at: "2026-10-07T07:14:24Z"
+created_at: "2026-10-08T19:21:28Z"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
 

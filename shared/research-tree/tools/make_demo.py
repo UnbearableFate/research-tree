@@ -108,7 +108,7 @@ class Demo:
         sdesign = self.doc(worker, f"{folder}/sanity-design.v1.md", "experiment_design", f"{h} sanity",
                            design_body(f"最小规模 sanity：代码 {code[:10]}。"), "sanity")
         sanity = worker.create_experiment("sanity", f"{change}（sanity）", sdesign, code, 1, 600, hypothesis_id=h,
-                                          estimated_node_h=0.2)
+                                          method_config={"optimizer": change, "lr": 2e-4}, estimated_node_h=0.2)
         self.values[sanity] = self.finish_experiment(worker, sanity, {}, nodes=1)
         self.git("tag", f"exp/{sanity}", code)
         reviewer = ResearchDB(self.root / "research_tree.db", "reviewer/pi")
@@ -120,7 +120,8 @@ class Demo:
                                      f"# code_review：{h}\n\n方法在优化器 step 中实现并被调用；评测标签取自数据集切分；"
                                      "未发现 CRITICAL/MAJOR 问题（虚构）。\n", encoding="utf-8")
         reviewer.register_review(rel, f"code_review {h}", "code_review", [h], "clear", f"RV-{n:04d}", "pi",
-                                 "openai/gpt-6-astra", 0.03, code_ref=code, summary="pi openai/gpt-6-astra: clear")
+                                 "openai/gpt-6-astra", 0.03, code_ref=code, summary="pi openai/gpt-6-astra: clear",
+                                 basis=reviewer.review_basis(h, "code_review", code_ref=code))
 
     def doc(self, actor: ResearchDB, path: str, doc_type: str, title: str, body: str, summary: str,
             about: tuple[str, ...] = (), parent: str | None = None) -> str:
@@ -187,7 +188,8 @@ class Demo:
             (run_dir / "manifest.json").write_text(json.dumps({
                 "experiment_id": exp, "seed": seed, "attempt": attempt, "code_ref": record["code_ref"],
                 "exit_status": 0, "metrics_path": "metrics.json", "counts": {"n_train": 2000, "n_eval": 8000},
-                "data_version": "commonsense-mix-v1（虚构）", "train_steps": 1000, "config": {"lora_rank": 16},
+                "data_version": "commonsense-mix-v1（虚构）", "train_steps": 1000,
+                "config": {"lora_rank": 16, **(record.get("effective_config") or {})},
                 "env": {"cluster": "demo（虚构）"}, "log_path": "train.log", "curve_path": "curve.json",
                 "output_path": ".", "nodes_used": nodes, "walltime_used_s": int(v["train_time_s"]) + 60,
                 "units": {m["name"]: m["input_unit"] for m in METRIC_SPECS["metrics"]}},
@@ -293,7 +295,8 @@ class Demo:
         rld.update_project(harness_ref=harness, harness_paths=["harness"])
         sota_design = self.doc(w1, "baselines/E-0001/design.v1.md", "experiment_design", "SOTA基线 BaseOpt-A",
                                "在冻结框架下运行虚构的SOTA优化器 BaseOpt-A，3个seed，每个seed 4 nodes。\n", "SOTA基线设计")
-        sota = w1.create_experiment("baseline", "BaseOpt-A（虚构SOTA）", sota_design, harness, 4, 3600, estimated_node_h=12.0)
+        sota = w1.create_experiment("baseline", "BaseOpt-A（虚构SOTA）", sota_design, harness, 4, 3600,
+                                    method_config={"optimizer": "BaseOpt-A", "lr": 2e-4}, estimated_node_h=12.0)
         self.values = {sota: self.finish_experiment(w1, sota, {}, nodes=4)}
         accs = [v["acc"] for v in self.values[sota].values()]
         sota_result = self.doc(w1, "baselines/E-0001/result.v1.md", "experiment_result", "SOTA基线结果",
@@ -358,7 +361,7 @@ class Demo:
                            design_body(f"代码 {code[:10]}：{change}。"), change)
             self.ready(worker, h, code, folder, change)
             exp = worker.create_experiment("method", change, dsg, code, 4, 3600, hypothesis_id=h, n_seeds=n_seeds,
-                                           estimated_node_h=12.0, selection_rationale=f"检验{change}能否超过SOTA（虚构）")
+                                           method_config={"optimizer": change, "lr": 2e-4}, estimated_node_h=12.0, selection_rationale=f"检验{change}能否超过SOTA（虚构）")
             self.git("tag", f"exp/{exp}", code)
             self.values[exp] = self.finish_experiment(worker, exp, effect, nodes=4)
             return self.evaluate(h, worker, exp, verdict_fn)
@@ -494,7 +497,8 @@ class Demo:
         cb_design = self.doc(w_root, "baselines/confirm/design.v1.md", "experiment_design", "确认基线",
                              "在确认 seed 1042–1044 上运行 BaseOpt-A，作为确认的参照。\n", "确认基线设计")
         cbase = w_root.create_experiment("baseline", "BaseOpt-A（确认基线）", cb_design, self.harness, 4, 3600,
-                                         stage="confirm", estimated_node_h=12.0)
+                                         stage="confirm", method_config={"optimizer": "BaseOpt-A", "lr": 2e-4},
+                                         estimated_node_h=12.0)
         self.values[cbase] = self.finish_experiment(w_root, cbase, {}, nodes=4)
         cb_result = self.doc(w_root, "baselines/confirm/result.v1.md", "experiment_result", "确认基线结果",
                              "确认 seed 上的基线结果。\n" + self.evidence(cbase), "确认基线")
@@ -503,7 +507,8 @@ class Demo:
                             f"{h3} 独立确认", design_body(f"冻结代码 {rld.get(e3)['code_ref'][:10]}，确认 seed 1042–1044。"),
                             "独立确认")
         conf = wk3.create_experiment("method", "moment-balance（确认）", c_design, rld.get(e3)["code_ref"], 4, 3600,
-                                     hypothesis_id=h3, stage="confirm", estimated_node_h=12.0)
+                                     hypothesis_id=h3, stage="confirm",
+                                     method_config={"optimizer": "moment-balance", "lr": 2e-4}, estimated_node_h=12.0)
         self.values[conf] = self.finish_experiment(wk3, conf, {"acc": 0.24, "peak_mem_gb": 1.0, "loss_auc": -0.02}, nodes=4)
         cmps = [self.paired(self.values[conf], self.values[cbase], "sota", cbase)]
         c_result = self.doc(wk3, f"hypotheses/{h3}/experiments/{conf}/result.v3.md", "experiment_result",
@@ -528,7 +533,8 @@ class Demo:
                 f"{FICTION}# candidate_recheck：{h3}（{dimension}）\n\n{note}\n", encoding="utf-8")
             reviewer.register_review(rel, f"candidate_recheck {h3} {dimension}", "candidate_recheck", [h3], "pass",
                                      f"RV-{n:04d}", "pi", "openai/gpt-6-astra", 0.05, dimension=dimension,
-                                     evaluation_id=basis, summary=f"pi openai/gpt-6-astra: pass")
+                                     evaluation_id=basis, summary=f"pi openai/gpt-6-astra: pass",
+                                     basis=reviewer.review_basis(h3, "candidate_recheck", dimension, basis))
         del db_path
         # H-0004: child of H-0001 — no gain against the parent; pruned.
         h4 = node("子批次二阶矩 + 动量重标度", "按子批次方差重标度动量可减少噪声。", [lit[0], lit[1], lit[4]], parent=h1,

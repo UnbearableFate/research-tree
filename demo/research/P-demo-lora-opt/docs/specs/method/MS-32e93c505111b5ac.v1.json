@@ -1,0 +1,1 @@
+{"code_ref":"373d9c59c7c5414f95c8982b21f13d481407f2dd","config":{"lr":0.0002,"optimizer":"subbatch-moment"},"data":{"train_steps":1000},"harness_ref":"a1b62ca4c6b69dc36dc9b698c39a27ef850102df","protocol_doc_id":"D-0006","version":1}

@@ -1,5 +1,5 @@
 ---
-id: "D-0038"
+id: "D-0042"
 doc_type: "novelty"
 version: 1
 title: "H-0003 新颖性复核"
@@ -7,7 +7,7 @@ summary: "未被直接覆盖"
 about: ["H-0003"]
 author_role: "rld"
 author_id: "main"
-created_at: "2026-10-07T07:14:14Z"
+created_at: "2026-10-08T19:21:12Z"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
 

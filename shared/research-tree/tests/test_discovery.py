@@ -101,8 +101,9 @@ class StateTest(unittest.TestCase):
 
     def test_gate_reports_what_is_missing(self):
         discovery.start(self.root, "precheck", "claude-opus-5-5")
-        discovery.write_candidates(self.root, [{"id": "CAND-0001", "title": "u", "origin": "user", "selected": True,
-                                                "literature": ["D-1", "D-2"]}])
+        merged = discovery.merge([], [{"title": "u", "summary": "s", "literature": ["D-1", "D-2"]}])
+        discovery.write_candidates(self.root, merged)
+        basis = {"candidate_id": "CAND-0001", "revision": 1, "content_sha": merged[0]["content_sha"]}
         result = discovery.evaluate(self.root, [], {"D-1": True, "D-2": False}, 2, "report.md")
         self.assertEqual(result["verdict"], "BLOCKED")
         text = "; ".join(result["reasons"])
@@ -114,9 +115,9 @@ class StateTest(unittest.TestCase):
             discovery.set_status(self.root, stage, "done", "a.md")
         discovery.accept(self.root, "literature", ["a.md"], verifier="literature.py")
         reviews = [{"id": "D-7", "review_kind": "novelty_precheck", "reviewer_model": "openai/gpt-6-luna",
-                    "status": "current", "review_about": "CAND-0001"},
+                    "status": "current", "review_about": "CAND-0001", "review_basis": basis},
                    {"id": "D-8", "review_kind": "critical_review", "reviewer_model": "openai/gpt-6-luna",
-                    "status": "current", "review_about": "CAND-0001"}]
+                    "status": "current", "review_about": "CAND-0001", "review_basis": basis}]
         discovery.accept(self.root, "novelty", ["D-7"], reviews)
         discovery.accept(self.root, "critique", ["D-8"], reviews)
         (self.root / "report.md").write_text("## 用户假说\n\nCAND-0001: PROCEED\n\n## 新发现候选\n\n无\n\n## 淘汰想法\n\n无\n")
@@ -147,7 +148,7 @@ class ReceiptTest(Fixture):
         path = f"reviews/RV-{self.n:04d}.v1.md"
         (reviewer.docs_root / path).write_text(result, encoding="utf-8")
         return reviewer.register_review(path, "r", kind, [about], result, f"RV-{self.n:04d}", "pi",
-                                        "openai/gpt-6-luna", 0.0)
+                                        "openai/gpt-6-luna", 0.0, basis=reviewer.review_basis(about, kind))
 
     def test_r10_unverified_literature_does_not_count(self):
         self.rld.update_project(literature_verification=True)
@@ -167,6 +168,8 @@ class ReceiptTest(Fixture):
         state = self.root / "cache" / "discovery" / "state.json"
         state.parent.mkdir(parents=True)
         state.write_text(json.dumps({"gate": {"verdict": "PASS"}}))
+        discovery.write_candidates(self.root, discovery.merge([], [{"title": "u1", "summary": "a"},
+                                                                    {"title": "u2", "summary": "b"}]))
         with self.assertRaisesRegex(ResearchDBError, "CAND-0001 has no novelty_precheck and no critical_review"):
             self.rld.create_hypothesis("h", "s", doc, self.literature, candidate_id="CAND-0001")
         self.review("CAND-0001", "novelty_precheck", "ABANDON")

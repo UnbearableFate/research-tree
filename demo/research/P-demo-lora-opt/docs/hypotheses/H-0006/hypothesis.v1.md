@@ -1,5 +1,5 @@
 ---
-id: "D-0064"
+id: "D-0070"
 doc_type: "hypothesis"
 version: 1
 title: "完整Kronecker二阶预条件"
@@ -7,7 +7,7 @@ summary: "对每层使用完整Kronecker因子预条件。"
 about: []
 author_role: "rld"
 author_id: "main"
-created_at: "2026-10-07T07:14:44Z"
+created_at: "2026-10-08T19:22:07Z"
 parent: "P-demo-lora-opt"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
@@ -18,7 +18,7 @@ parent: "P-demo-lora-opt"
 
 ## 创建理由
 
-参考：D-0013, D-0014, D-0011。理论上最充分利用二阶信息，但成本未知。
+参考：D-0014, D-0015, D-0012。理论上最充分利用二阶信息，但成本未知。
 
 ## 问题锚点
 
@@ -42,7 +42,7 @@ parent: "P-demo-lora-opt"
 
 ## 最接近工作与差异
 
-见 D-0013, D-0014。
+见 D-0014, D-0015。
 
 ## Claim map
 
