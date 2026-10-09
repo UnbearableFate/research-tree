@@ -451,6 +451,10 @@ def toyopt_config(host: str, stage: str, discovery_mode: str, total_limit: int |
                   "            minimum_practical_gain: 0\n            allowed_regression: 1024\n"
                   "            aggregation: paired_run_mean") if later else ""
     independence = "\n          independence_fields: [train_seed]" if later else ""
+    # S7 (§11.1): the bounded repetition rule, fixed before the experiments; its seeds are search seeds only
+    if stage == "S7":
+        independence += ("\n          repetition: {enabled: true, se_multiple: 2.0, batch: 2, "
+                         "seed_pool: [45, 46, 47, 48]}")
     return textwrap.dedent(f'''\
         # ToyOpt Lab 真实宿主测试配置（{host} 宿主，{stage}；模型矩阵见实施文档 §2.2）
         version: 2
