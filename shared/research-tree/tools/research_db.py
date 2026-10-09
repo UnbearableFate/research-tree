@@ -612,7 +612,9 @@ class ResearchDB:
                 raise ResearchDBError(
                     f"{self.db_path} has schema_version {version}, this plugin writes version {SCHEMA_VERSION}: "
                     + ("back up the research directory, run `python <plugin>/schema/create_db.py --upgrade "
-                       f"{self.db_path}`, then migrate_evaluations (dry_run first)" if isinstance(version, int)
+                       f"{self.db_path}`, then the record migrations, each with dry_run first: migrate_evaluations, "
+                       "migrate_identity, migrate_units, migrate_reviews, migrate_memory, migrate_budget"
+                       if isinstance(version, int)
                        and version < SCHEMA_VERSION else "use the plugin version that wrote it")
                     + "; reading still works")
             yield tx
