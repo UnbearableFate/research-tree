@@ -102,7 +102,12 @@ example `brief="docs/reviews/briefs/H-0001-numbers.v1.md"`. If the argument omit
 outside the research root (Claude Code backend). Report `REVIEW_UNAVAILABLE`, `REVIEW_INVALID` or
 `REVIEW_BUDGET` as they are; never replace a review with your own judgement, and never run `pi` or `claude -p`
 directly. `get_eligibility` lists in `rechecks` which review checked which evaluation or code, with backend and
-model.
+model. The receipt's checklist decides the result
+(a failed item fails the dimension even under a top-level pass); never ask a reviewer to turn a legal fail into a
+pass. A failed item becomes an OPEN obligation; close it with `resolve_obligation(id, fix_type, evidence=<a later
+current recheck of that dimension that passes the item>)` — a new overall pass closes nothing by itself. When a
+reviewer answers NEEDS_EVIDENCE (or an uncertain novelty recheck) with `requested_queries`, run
+`literature_followup(review_id)` once and continue the same review session with `evidence_set` set to its manifest.
 
 Every experiment states its configuration (`method_config` or `config_path`); the interface registers its method
 identity (`method_spec`, execution fields such as output paths, walltime, seeds and the evaluation split excluded)

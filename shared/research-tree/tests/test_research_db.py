@@ -49,6 +49,29 @@ PROTOCOL = {"version": 1, "eval_type": "real_gt", "pair_fields": ["seed"], "prof
 METHOD_CONFIG = {"lr": 0.05}  # every experiment states its configuration (S1 method identity)
 
 
+def recheck_payload(fixture, dimension: str, result: str, evaluation: str) -> dict:
+    """A structured candidate_recheck receipt (S4 §8.1): the dimension's checklist (a fail or uncertain on its
+    first item only) and evidence the system can resolve — a research-root file, and for method_code a file of the
+    evaluated commit."""
+    import review_rules
+    evidence = fixture.root / "docs" / "evidence.md"
+    evidence.parent.mkdir(parents=True, exist_ok=True)
+    if not evidence.is_file():
+        evidence.write_text("evidence\n", encoding="utf-8")
+    paths = ["docs/evidence.md"]
+    if dimension == "method_code":
+        code = fixture.rld.get(fixture.rld.get(evaluation)["experiment_id"])["code_ref"]
+        files = subprocess.run(["git", "-C", str(fixture.repo), "ls-tree", "-r", "--name-only", code],
+                               capture_output=True, text=True).stdout.split()
+        paths.append(files[0])
+    items = review_rules.RECHECK_ITEMS[dimension]
+    first = result if result in ("fail", "uncertain", "not_applicable") else "pass"
+    rest = "not_applicable" if result == "not_applicable" else "pass"
+    return {"dimension": dimension, "result": result, "evidence_paths": paths, "reason": f"{dimension}: {result}",
+            "checklist": [{"item": i, "result": first if n == 0 else rest, "note": f"{i} checked"}
+                          for n, i in enumerate(items)]}
+
+
 class Fixture(unittest.TestCase):
     """A project with a metric specification, a protocol, a frozen harness and an evaluated SOTA baseline
     (0.5 node-hours per seed). Every number the tests evaluate comes from the runs: a method experiment's runs
@@ -1672,7 +1695,8 @@ class ConfirmationTest(Fixture):
             (reviewer.docs_root / path).write_text("pass\n", encoding="utf-8")
             reviewer.register_review(path, "r", "candidate_recheck", [h], "pass", f"RV-{n:04d}", "pi",
                                      "openai/gpt-6-astra", 0.0, dimension=dimension, evaluation_id=ev,
-                                     basis=reviewer.review_basis(h, "candidate_recheck", dimension, ev))
+                                     basis=reviewer.review_basis(h, "candidate_recheck", dimension, ev),
+                                     payload=recheck_payload(self, dimension, "pass", ev))
         for n, dimension in enumerate(rdb.RECHECK_DIMENSIONS, 1):
             review(n, dimension, search_ev)
         self.batch_id = self.batch(h)
@@ -2746,7 +2770,8 @@ class CandidateRecheckTest(Fixture):
         return rev.register_review(path, f"candidate_recheck {h} {dimension}", "candidate_recheck", [h], result,
                                    f"RV-{self.n:04d}", "pi", "openai/gpt-6-astra", 0.01, dimension=dimension,
                                    evaluation_id=evaluation,
-                                   basis=rev.review_basis(h, "candidate_recheck", dimension, evaluation))
+                                   basis=rev.review_basis(h, "candidate_recheck", dimension, evaluation),
+                                   payload=recheck_payload(self, dimension, result, evaluation))
 
     def test_go_needs_bound_cross_model_rechecks(self):
         h, exp = self.candidate()
@@ -2758,7 +2783,9 @@ class CandidateRecheckTest(Fixture):
         basis = state["basis_evaluation_id"]
         for dimension in ("numbers", "protocol", "method_code", "novelty"):
             self.review(h, dimension, "pass", basis)
-        self.review(h, "theory", "not_applicable", basis)
+        self.review(h, "theory", "not_applicable", basis)  # S4: no protocol exemption, so N/A is uncertain
+        self.assertEqual(self.rld.get_eligibility(h)["reasons"], ["RECHECK_UNCERTAIN"])
+        self.review(h, "theory", "pass", basis)  # an empirical claim with no unfounded guarantee passes theory
         state = self.rld.get_eligibility(h)
         self.assertTrue(state["eligible"], state)
         # what was checked, on which evaluation, and by whom
@@ -2769,9 +2796,13 @@ class CandidateRecheckTest(Fixture):
         self.assertIn("RECHECK_UNCERTAIN", self.rld.get_eligibility(h)["reasons"])
         self.review(h, "numbers", "fail", basis)
         self.assertIn("RECHECK_FAILED", self.rld.get_eligibility(h)["reasons"])
-        self.review(h, "numbers", "pass", basis)
+        passed = self.review(h, "numbers", "pass", basis)
+        # S4 §8.1: the fail left an OPEN finding; a later pass closes it only by the Leader's explicit resolution
+        self.assertEqual(self.rld.get_eligibility(h)["reasons"], ["OBLIGATION_OPEN"])
+        (finding,) = self.rld.obligations(about=h, status="OPEN")
+        self.rld.resolve_obligation(finding["id"], "re_evaluated", passed)
         self.assertTrue(self.rld.get_eligibility(h)["eligible"])
-        self.assertEqual(self.rld.get("P-test")["review_cost_usd"], 0.08)
+        self.assertEqual(self.rld.get("P-test")["review_cost_usd"], 0.09)  # nine registered receipts
 
     def test_completed_cross_model_reviews_explain_pending_rld_decisions(self):
         h, exp = self.concluded("beats_sota")

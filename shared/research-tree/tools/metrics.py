@@ -59,7 +59,8 @@ REQUIRED_SPEC_FIELDS = ("name", "direction", "input_unit", "canonical_unit", "ef
 PROTOCOL_FIELDS = {"version", "eval_type", "pair_fields", "match", "required_counts", "gate_comparison",
                    "min_pairs", "require_artifact_import", "inference_mode", "description", "profile",
                    "confirmation_seeds", "min_confirmation_pairs", "max_confirmation_candidates",
-                   "independence_fields", "confirmation_materials", "execution_fields", "sanity_overrides_allowed"}
+                   "independence_fields", "confirmation_materials", "execution_fields", "sanity_overrides_allowed",
+                   "review_applicability"}
 # 06 §2.4: screening ends at candidate_ready; stage1_confirmed needs an independent confirmation for GO.
 PROFILES = ("screening", "stage1_confirmed")
 OUTCOMES = ("positive_signal", "negative_signal", "inconclusive", "invalid")
@@ -190,6 +191,15 @@ def check_protocol(doc: Any) -> dict:
     fields = doc.get("independence_fields", [])
     if not (isinstance(fields, list) and all(isinstance(f, str) and f for f in fields)):
         raise MetricError("PROTOCOL_CHANGE_REQUIRED", "independence_fields is a list of manifest fields")
+    # S4 §8.1: which recheck dimensions a claim may exempt as a whole (only novelty and theory; an empirical
+    # result's numbers, protocol and method-code are always reviewed)
+    allowed = doc.get("review_applicability", {})
+    if not (isinstance(allowed, dict) and set(allowed) <= {"novelty", "theory"} and all(
+            isinstance(v, dict) and set(v) <= {"exemptible", "reason"} and isinstance(v.get("exemptible"), bool)
+            for v in allowed.values())):
+        raise MetricError("PROTOCOL_CHANGE_REQUIRED", 'review_applicability is {"novelty"|"theory": {"exemptible": '
+                                                      'true|false, "reason": ...}}; numbers, protocol and '
+                                                      "method_code are never exempt")
     return doc
 
 

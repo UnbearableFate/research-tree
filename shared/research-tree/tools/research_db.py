@@ -50,6 +50,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import evidence as claims_check  # noqa: E402
 import memory  # noqa: E402
 import metrics  # noqa: E402
+import review_rules  # noqa: E402
 import threat_scan  # noqa: E402
 from metrics import MetricError  # noqa: E402
 
@@ -58,7 +59,7 @@ SPEC_PATH = Path(__file__).resolve().parent.parent / "schema" / "research_tree.s
 CLEANUP_SCRIPT = "research-tree-cleanup.py"
 CLEANUP_TEMPLATE = Path(__file__).resolve().parent.parent / "schema" / "cleanup.template.py"
 # The database layout this interface writes (schema/create_db.py SCHEMA_VERSION; a test keeps them equal).
-SCHEMA_VERSION = 17
+SCHEMA_VERSION = 18
 OPEN_ATTEMPTS = 40
 OPEN_RETRY_DELAY_S = 0.25
 
@@ -169,6 +170,8 @@ EXECUTION_FIELDS = ("out", "output", "output_dir", "output_path", "out_dir", "lo
 # What a sanity run may change relative to the method it checks (a protocol may list its own sanity_overrides_allowed)
 SANITY_OVERRIDES = ("epochs", "steps", "max_steps", "n_train", "n_eval", "sanity", "subset", "limit_batches")
 METHOD_SPEC_DIR = "specs/method"
+APPLICABILITY_SECTION = "评审适用性"
+FOLLOWUP_ROUNDS = 1  # S4 §8.4: automatic literature follow-up rounds per review chain
 POSITIVE_NOVELTY = ("PROCEED", "PROCEED_WITH_CAUTION")  # 09 §3: CAUTION is positive; only a named ABANDON is not
 # 06 §4: relations that let a node rest on negative or inconclusive history (code parent and scientific basis differ)
 EVIDENCE_RELATIONS = ("combines", "repairs", "tests_assumption")
@@ -1176,6 +1179,9 @@ class ResearchDB:
             raise CodedError("PRECHECK_REQUIRED", f"{candidate_id} has no {' and no '.join(missing)} receipt for its "
                                                    f"current revision {candidate.get('revision')} (research_review "
                                                    f"with about={candidate_id}); the node is created after both")
+        if novelty["review_result"] == "NEEDS_EVIDENCE":  # S4 §8.4: pending evidence, not a negative verdict
+            raise CodedError("PRECHECK_REQUIRED", f"{candidate_id}'s novelty receipt {novelty['id']} needs evidence: "
+                                                   "literature_followup, then review again with the evidence set")
         negative = [f"{novelty['id']} {novelty['review_result']}"] if novelty["review_result"] not in POSITIVE_NOVELTY else []
         if critique["review_result"] != "proceed":
             negative.append(f"{critique['id']} stance {critique['review_result']}")
@@ -1214,9 +1220,29 @@ class ResearchDB:
 
     def _claim_content(self, tx: _Tx, project: dict, statement: str, doc_id: str) -> dict:
         sections, _ = self._doc_sections(tx, doc_id)
-        return {"statement": _norm_text(statement), "claim_map": _norm_text(self._section(sections, "Claim map")),
-                "scope": _norm_text(self._section(sections, "适用范围") or self._section(sections, "停止条件")),
-                "goal_doc_id": project.get("goal_doc_id")}
+        content = {"statement": _norm_text(statement), "claim_map": _norm_text(self._section(sections, "Claim map")),
+                   "scope": _norm_text(self._section(sections, "适用范围") or self._section(sections, "停止条件")),
+                   "goal_doc_id": project.get("goal_doc_id")}
+        declared = self._section(sections, APPLICABILITY_SECTION)
+        if declared is not None:  # S4 §8.1: which review dimensions the claim declares not part of it
+            content["review_applicability"] = _norm_text(declared)
+        return content
+
+    def _declared_applicability(self, tx: _Tx, hyp: dict) -> dict | None:
+        """The claim's '## 评审适用性' block ({dimension: {required, scope_ref, reason}}), or None."""
+        if not hyp.get("doc_id"):
+            return None
+        body = self._section(self._doc_sections(tx, hyp["doc_id"])[0], APPLICABILITY_SECTION)
+        blocks = re.findall(r"```json[ \t]*\n(.*?)```", body or "", re.S)
+        try:
+            value = json.loads(blocks[-1]) if blocks else None
+        except json.JSONDecodeError:
+            return None
+        return value if isinstance(value, dict) else None
+
+    def _applicability(self, tx: _Tx, hyp: dict) -> dict:
+        """Per recheck dimension: required or exempt, from the frozen protocol and the current claim (S4 §8.1)."""
+        return review_rules.applicability(self._protocol(tx, self._project(tx)), self._declared_applicability(tx, hyp))
 
     def _claim_fields(self, tx: _Tx, project: dict, hyp: dict | None, statement: str, doc_id: str) -> dict:
         """The claim revision fields to write: a first revision, the next one when the claim changed, else none."""
@@ -1659,6 +1685,10 @@ class ResearchDB:
             if ob["status"] != "OPEN":
                 raise ResearchDBError(f"{obligation_id} is {ob['status']}, not OPEN")
             receipt = {"fix_type": fix_type, "verified_by": f"{self.role}/{self.agent}", "resolved_at": now_utc()}
+            if ob.get("review_issue"):  # S4 §8.1: a reviewer's finding closes with a review of that very item
+                receipt.update(self._review_resolution(tx, ob, fix_type, evidence))
+                self._update(tx, obligation_id, {"status": "RESOLVED", "resolution": receipt})
+                return
             if ENTITY_ID_RE.match(evidence):
                 item = tx.require(evidence, ("evaluation", "document"))
                 if item["_table"] == "document" and item["status"] != "current":
@@ -1668,6 +1698,42 @@ class ResearchDB:
                 path = self._inside_project(evidence, self.db_path.parent, "evidence")
                 receipt.update(evidence_path=self._research_rel(path), evidence_sha256=sha256_file(path))
             self._update(tx, obligation_id, {"status": "RESOLVED", "resolution": receipt})
+
+    def _review_resolution(self, tx: _Tx, ob: dict, fix_type: str, evidence: str) -> dict:
+        """What closes a recheck finding: a later current candidate_recheck of the same node and dimension, bound to
+        the current basis, whose checklist passes the very item (a top-level 'summary' finding: the whole
+        dimension passes). claim_narrowed also needs a newer claim revision than the one the finding was about.
+        Any other file, run or review does not close it."""
+        issue = ob["review_issue"]
+        hyp = tx.require(issue["subject"], ("hypothesis",))
+        doc = tx.get(evidence) if ENTITY_ID_RE.match(evidence) else None
+        sources = {i["review_id"] for i in (ob.get("findings") or {}).get("items", [])}
+        why = None
+        if doc is None or doc.get("doc_type") != "review" or doc.get("review_kind") != "candidate_recheck":
+            why = "evidence is the id of a candidate_recheck review of the same item"
+        elif doc["status"] != "current" or doc.get("review_dimension") != issue["dimension"] \
+                or not tx.edges("rel_describes", source=doc["id"], target=hyp["id"]):
+            why = f"{evidence} is not the current {issue['dimension']} recheck of {hyp['id']}"
+        elif doc["id"] in sources:
+            why = f"{evidence} is the review that reported the finding"
+        elif not self._review_bound(tx, doc, hyp["id"], issue["dimension"], doc.get("basis_evaluation_id")):
+            why = f"{evidence} no longer applies to the node's current basis"
+        else:
+            items = {e.get("item"): e.get("result") for e in (doc.get("review_payload") or {}).get("checklist", [])}
+            effective = doc.get("effective_result")
+            exempt = (doc.get("review_applicability") or {}).get("exempt")
+            ok_item = (effective in ("pass", "not_applicable") if issue["item"] == "summary"
+                       else items.get(issue["item"]) == "pass"
+                       or (exempt and items.get(issue["item"]) == "not_applicable"))
+            if effective not in ("pass", "not_applicable") or not ok_item:
+                why = (f"{evidence} does not pass {issue['dimension']} {issue['item']} "
+                       f"(effective {effective}, item {items.get(issue['item'])})")
+        if why is None and fix_type == "claim_narrowed" and not (hyp.get("claim_revision") or 0) > (issue.get("claim_revision") or 0):
+            why = f"claim_narrowed needs a newer claim revision of {hyp['id']} than {issue.get('claim_revision')}"
+        if why:
+            raise CodedError("OBLIGATION_EVIDENCE_MISMATCH", f"{ob['id']}: {why}")
+        return {"evidence_id": evidence, "item": issue["item"], "claim_revision": hyp.get("claim_revision"),
+                "review_basis": doc.get("review_basis")}
 
     def waive_obligation(self, obligation_id: str, user_instruction_doc_id: str) -> None:
         """Close an OPEN obligation by the user's decision (a current user_instruction document); a waiver is
@@ -4041,7 +4107,9 @@ class ResearchDB:
                         session: str, backend: str, reviewer_model: str, cost_usd: float,
                         dimension: str | None = None, evaluation_id: str | None = None,
                         supersedes: str | None = None, summary: str | None = None, code_ref: str | None = None,
-                        basis: dict | None = None) -> str:
+                        basis: dict | None = None, payload: dict | None = None,
+                        model_requested: str | None = None, parent_review_id: str | None = None,
+                        evidence_set: dict | None = None) -> str:
         """reviewer only (review_call.py, plans/design 09 §2.1 step 7): register a written review as current, with
         its kind, result, backend and observed model. A candidate_recheck names its dimension and the evaluation it
         checked; it is bound to that evaluation and its code. A code_review names code_ref, the commit it read.
@@ -4049,7 +4117,14 @@ class ResearchDB:
         (a follow-up round writes a new version). The cost is added to the project's review_cost_usd.
         basis: what the review rested on when the call started (review_basis); it is compared with the current
         basis here, and a review whose subject changed while the reviewer answered is kept as history only
-        (review_basis_changed)."""
+        (review_basis_changed).
+
+        S4 §8.1: payload is the structured receipt. A candidate_recheck's effective result is computed here from its
+        checklist and the dimension's current applicability (review_rules.normalize_recheck, the same rule
+        review_call applies), never taken from the caller's result; a pass whose cited files cannot be resolved to
+        the research root or the reviewed commit is uncertain. A legal fail records its failed items as OPEN
+        obligations in the same write. The same receipt delivered again (same session and content) returns the
+        review already registered."""
         self._require_role("reviewer")
         m = DOC_PATH_RE.match(path)
         if not m or not path.startswith("reviews/"):
@@ -4063,9 +4138,16 @@ class ResearchDB:
         file = self.docs_root / path
         if not file.is_file():
             raise ResearchDBError(f"document file not found: {file}")
+        if payload is not None and not isinstance(payload, dict):
+            raise ResearchDBError("payload is the receipt's structured JSON object")
+        receipt_key = _sha({"session": session, "kind": kind, "about": list(about), "dimension": dimension,
+                            "evaluation_id": evaluation_id, "payload": payload}) if payload is not None else None
         with self._writer() as tx:
             project = self._project(tx)
-            if tx.ids("document", "WHERE n.path = $path", path=path):
+            same_path = tx.ids("document", "WHERE n.path = $path", path=path)
+            if same_path:
+                if receipt_key and tx.get(same_path[0]).get("receipt_key") == receipt_key:
+                    return same_path[0]  # the same receipt delivered again: nothing new is written or counted
                 raise ResearchDBError(f"{path} is already registered")
             candidates = [a for a in about if CANDIDATE_ID_RE.fullmatch(a)]
             if len(candidates) > 1 or (candidates and len(about) > 1):
@@ -4086,8 +4168,35 @@ class ResearchDB:
                                           f"{exp.get('hypothesis_id')}")
                 fields = {"review_dimension": dimension, "basis_evaluation_id": ev["id"],
                           "basis_code_ref": exp["code_ref"]}
+                if payload is None:
+                    raise CodedError("REVIEW_INVALID", "a candidate_recheck is registered with its structured receipt "
+                                                       "(payload): its checklist decides the result")
+                applies = self._applicability(tx, targets[0])
+                norm = review_rules.normalize_recheck(dimension, payload, applies)
+                if norm["invalid"]:
+                    raise CodedError("REVIEW_INVALID", f"{path}: " + "; ".join(norm["invalid"]))
+                effective, warnings = norm["effective_result"], list(norm["warnings"])
+                manifest = self._evidence_manifest(tx, project, payload.get("evidence_paths") or [], exp["code_ref"])
+                if effective == "pass":
+                    unverified = [m["cited"] for m in manifest if m["status"] != "verified"]
+                    code_ok = any(m["status"] == "verified" and m["kind"] == "code" for m in manifest)
+                    if unverified or not manifest or (dimension == "method_code" and not code_ok):
+                        effective = "uncertain"
+                        warnings.append("EVIDENCE_UNVERIFIED: " + (
+                            f"cited files not found at the research root or in commit {exp['code_ref'][:10]}: "
+                            f"{unverified[:6]}" if unverified else "no cited file" if not manifest else
+                            "a method_code pass cites no file of the reviewed commit"))
+                if result != effective and result != norm["reported_result"]:
+                    warnings.append(f"CALLER_RESULT_IGNORED: the caller passed {result}")
+                result = effective
+                fields.update(reported_result=norm["reported_result"], effective_result=effective,
+                              normalization_warnings=warnings, evidence_manifest={"paths": manifest},
+                              review_applicability=applies[dimension],
+                              review_findings={"items": norm["findings"]})
             elif dimension or evaluation_id:
                 raise ResearchDBError("dimension and evaluation_id belong to a candidate_recheck")
+            if kind == "novelty_precheck" and payload is not None:
+                result = self._novelty_effective(tx, payload, fields)
             if kind == "code_review":  # bound to the code it read (03 §8): a submission checks the same commit
                 resolved = _git_commit(project.get("repo_path") or "", code_ref or "") if code_ref else None
                 if resolved is None:
@@ -4111,6 +4220,20 @@ class ResearchDB:
                     now_basis = None
                 fields["review_basis"] = basis
                 fields["review_basis_changed"] = basis != now_basis
+            if payload is not None:
+                fields.update(review_payload=payload, receipt_key=receipt_key)
+            if parent_review_id:  # S4 §8.4: a follow-up round after the requested searches
+                parent = tx.require(parent_review_id, ("document",))
+                if parent.get("doc_type") != "review" or parent.get("review_kind") != kind:
+                    raise ResearchDBError(f"{parent_review_id} is not a {kind} review")
+                fields["parent_review_id"] = parent_review_id
+                if basis is not None and parent.get("review_basis") != basis:
+                    fields["review_basis_changed"] = True  # the subject changed during the follow-up: history only
+            if evidence_set is not None:
+                fields["evidence_set"] = evidence_set
+            observed = review_rules.parse_model(reviewer_model)
+            fields.update(model_requested=model_requested, reviewer_provider=observed["provider"],
+                          reviewer_model_id=observed["model_id"], reviewer_family=observed["family"])
             doc_id = self._insert(tx, "document", {
                 "id": tx.next_id("document"), "path": path, "version": int(m.group(1)), "doc_type": "review",
                 "title": title, "summary": summary, "status": "current", "author_role": self.role,
@@ -4123,8 +4246,247 @@ class ResearchDB:
             if previous:
                 self._update(tx, previous["id"], {"status": "superseded"})
                 tx.link("rel_supersedes", doc_id, previous["id"])
+            if kind == "candidate_recheck" and result == "fail":
+                self._record_review_findings(tx, targets[0], doc_id, dimension, fields)
             self._update(tx, project["id"], {"review_cost_usd": round((project.get("review_cost_usd") or 0) + cost_usd, 6)})
             return doc_id
+
+    def _novelty_effective(self, tx: _Tx, payload: dict, fields: dict) -> str:
+        """S4 §8.4: an ABANDON counts only with a verified source (a current literature document the system
+        verified, whose DOI or arXiv id is the one named, with a location); otherwise it is NEEDS_EVIDENCE."""
+        import literature
+        reported = payload.get("verdict")
+        effective, warnings = reported, []
+        if reported == "ABANDON":
+            ev = payload.get("abandon_evidence") or {}
+            doc = tx.get(ev.get("literature_doc_id") or "") if ev.get("literature_doc_id") else None
+            why = None
+            if doc is None or (doc.get("doc_type"), doc.get("status")) != ("literature", "current"):
+                why = "abandon_evidence names no current literature document"
+            elif doc.get("literature_check") != "verified":
+                why = f"{doc['id']} is not verified (verify_literature)"
+            elif not str(ev.get("location") or "").strip() or not str(ev.get("covered_claim") or "").strip():
+                why = "abandon_evidence has no location in the paper or no covered claim"
+            else:
+                head = self._front_matter(doc)
+                named = str(ev.get("identifier") or "")
+                ids = {x for x in (literature.normalize_doi(head.get("doi")), literature.normalize_arxiv_id(head.get("arxiv_id"))) if x}
+                if not ids & {x for x in (literature.normalize_doi(named), literature.normalize_arxiv_id(named)) if x}:
+                    why = f"{named!r} is not the DOI or arXiv id of {doc['id']} ({sorted(ids)})"
+            if why:
+                effective = "NEEDS_EVIDENCE"
+                warnings.append(f"ABANDON_UNVERIFIED: {why}")
+        fields.update(reported_result=reported, effective_result=effective, normalization_warnings=warnings)
+        return effective
+
+    def _front_matter(self, doc: dict) -> dict:
+        import yaml
+        path = self.docs_root / doc["path"]
+        text = path.read_text(encoding="utf-8") if path.is_file() else ""
+        block = re.match(r"^---\n(.*?)\n---", text, re.S)
+        try:
+            return (yaml.safe_load(block.group(1)) if block else None) or {}
+        except yaml.YAMLError:
+            return {}
+
+    def literature_followup(self, review_id: str, sources: list[str] | None = None,
+                            user_instruction_doc_id: str | None = None) -> dict:
+        """S4 §8.4: run the searches a review asked for (requested_queries, at most 3; a novelty_precheck with
+        NEEDS_EVIDENCE or a novelty recheck that is uncertain) once, keep each query's raw results, time and
+        failure under cache/literature/followup/<review>/, and record the manifest on the review. A query already
+        done is not run again (a resumed session repeats nothing). One follow-up round per review chain unless the
+        user's current instruction allows another. The next review round passes the manifest as evidence_set.
+        rld only."""
+        self._require_role("rld")
+        import literature
+        with self.reader() as tx:
+            doc = tx.require(review_id, ("document",))
+            if doc.get("doc_type") != "review":
+                raise ResearchDBError(f"{review_id} is not a review")
+            queries = list((doc.get("review_payload") or {}).get("requested_queries") or [])[:3]
+            asks = (doc.get("review_kind"), doc.get("review_result")) in (
+                ("novelty_precheck", "NEEDS_EVIDENCE"), ("candidate_recheck", "uncertain"))
+            if not queries or not asks or (doc.get("review_kind") == "candidate_recheck"
+                                           and doc.get("review_dimension") != "novelty"):
+                raise ResearchDBError(f"{review_id} requests no follow-up searches")
+            rounds, cur = 0, doc
+            while cur is not None:
+                if cur.get("followup") and cur["id"] != review_id:
+                    rounds += 1
+                cur = tx.get(cur["parent_review_id"]) if cur.get("parent_review_id") else None
+            if rounds >= FOLLOWUP_ROUNDS and not doc.get("followup"):
+                ui = tx.get(user_instruction_doc_id) if user_instruction_doc_id else None
+                if not ui or (ui.get("doc_type"), ui.get("status")) != ("user_instruction", "current"):
+                    raise CodedError("FOLLOWUP_LIMIT", f"{review_id}'s chain had {rounds} follow-up round(s); another "
+                                                       "needs the user's current instruction (user_instruction_doc_id)")
+        folder = self.db_path.parent / "cache" / "literature" / "followup" / review_id
+        folder.mkdir(parents=True, exist_ok=True)
+        entries = []
+        for i, query in enumerate(queries, 1):
+            path = folder / f"q{i}.json"
+            old = _read_json(path, "follow-up result") if path.is_file() else None
+            if old and old.get("status") == "done" and old.get("query") == query:
+                entries.append({"query": query, "path": self._research_rel(path), "status": "done", "reused": True})
+                continue
+            record = {"query": query, "sources": sources or list(literature.SOURCES), "started_at": now_utc()}
+            try:
+                found = literature.search(query, sources or literature.SOURCES)
+                record.update(status="done", results=[literature.safe(r) for r in found])
+            except Exception as exc:  # a failed search is recorded, never a scientific negative
+                record.update(status="failed", error=f"{type(exc).__name__}: {exc}"[:500])
+            record["finished_at"] = now_utc()
+            tmp = path.with_suffix(".tmp")
+            tmp.write_text(json.dumps(record, ensure_ascii=False, indent=1), encoding="utf-8")
+            tmp.replace(path)
+            entries.append({"query": query, "path": self._research_rel(path), "status": record["status"],
+                            "reused": False})
+        manifest = {"review_id": review_id, "about": doc.get("review_about") or None, "queries": entries,
+                    "written_at": now_utc()}
+        mpath = folder / "manifest.json"
+        previous = _read_json(mpath, "follow-up manifest") if mpath.is_file() else None
+        if previous and all(e["reused"] for e in entries) and \
+                [e["path"] for e in previous.get("queries", [])] == [e["path"] for e in entries]:
+            manifest = previous  # nothing new was run: the same manifest, the same hash
+        else:
+            mpath.write_text(json.dumps(manifest, ensure_ascii=False, indent=1), encoding="utf-8")
+        record = {"manifest": self._research_rel(mpath), "sha256": sha256_file(mpath),
+                  "queries": len(entries), "at": manifest["written_at"]}
+        with self._writer() as tx:
+            self._update(tx, review_id, {"followup": record})
+        return {**record, "entries": entries}
+
+    def migrate_reviews(self, dry_run: bool = True) -> dict:
+        """S4 §8.5: receipts registered before the checklist rule. Their documents stay readable; a pass without
+        an effective result is never completed into a current pass (the recheck shows needs_recheck); a negative
+        candidate_recheck becomes OPEN obligations (its failed items, or a summary item) so the migration cannot
+        make it disappear. Idempotent. rld only."""
+        self._require_role("rld")
+        report = {"negative_kept_open": [], "needs_recheck": []}
+        with self.reader() as tx:
+            old = [d for d in (tx.get(i) for i in tx.ids("document", "WHERE n.doc_type = $t", t="review"))
+                   if d.get("review_kind") == "candidate_recheck" and d.get("effective_result") is None
+                   and d["status"] == "current"]
+        for d in old:
+            (report["negative_kept_open"] if d.get("review_result") == "fail" else report["needs_recheck"]).append(d["id"])
+        if dry_run:
+            return report
+        with self._writer() as tx:
+            for doc_id in report["negative_kept_open"]:
+                d = tx.get(doc_id)
+                hyp = next((tx.get(e["target_id"]) for e in tx.edges("rel_describes", source=doc_id)
+                            if (tx.get(e["target_id"]) or {}).get("_table") == "hypothesis"), None)
+                if hyp is None:
+                    continue
+                text = (self.docs_root / d["path"]).read_text(encoding="utf-8") if (self.docs_root / d["path"]).is_file() else ""
+                blocks = re.findall(r"```json[ \t]*\n(.*?)```", text, re.S)
+                try:
+                    data = json.loads(blocks[-1]) if blocks else {}
+                except json.JSONDecodeError:
+                    data = {}
+                failed = [{"item": e.get("item"), "result": "fail", "note": str(e.get("note") or "")}
+                          for e in (data.get("checklist") or []) if isinstance(e, dict) and e.get("result") == "fail"]
+                findings = failed or [{"item": "summary", "result": "fail",
+                                       "note": str(data.get("reason") or d.get("summary") or "a negative recheck before S4")}]
+                self._record_review_findings(tx, hyp, doc_id, d.get("review_dimension"),
+                                             {"review_basis": d.get("review_basis"), "review_findings": {"items": findings}})
+        return report
+
+    def _record_review_findings(self, tx: _Tx, hyp: dict, doc_id: str, dimension: str, fields: dict) -> None:
+        """S4 §8.1: one OPEN obligation per (subject, basis, dimension, item) of a legal fail; the same item found
+        again by another receipt is appended (and reopens a resolved one, with history); the same receipt never
+        adds or reopens anything."""
+        basis = fields.get("review_basis") or {}
+        now = now_utc()
+        for finding in [f for f in fields["review_findings"]["items"] if f["result"] == "fail"]:
+            issue = {"subject": hyp["id"], "dimension": dimension, "item": finding["item"], "basis": basis,
+                     "claim_revision": hyp.get("claim_revision")}
+            fingerprint = _fingerprint("candidate_recheck", f"{dimension}:{finding['item']}", _sha(issue))
+            entry = {"review_id": doc_id, "receipt": fields.get("receipt_key"), "note": finding["note"][:2000], "at": now}
+            same = tx.ids("obligation", "WHERE n.fingerprint = $f", f=fingerprint)
+            if same:
+                ob = tx.get(same[0])
+                items = list((ob.get("findings") or {}).get("items", []))
+                if any(i["review_id"] == doc_id or (entry["receipt"] and i.get("receipt") == entry["receipt"])
+                       for i in items):
+                    continue  # the same receipt again (also as a new version of its session): not a new observation
+                changes = {"findings": {"items": items + [entry]}}
+                if ob["status"] == "RESOLVED":
+                    history = list((ob.get("history") or {}).get("events", []))
+                    history.append({"at": now, "event": "reopened", "by_review": doc_id, "resolution": ob.get("resolution")})
+                    changes.update(status="OPEN", history={"events": history})
+                self._update(tx, ob["id"], changes)
+                continue
+            self._insert(tx, "obligation", {
+                "id": tx.next_id("obligation"), "about": hyp["id"], "source": f"candidate_recheck:{doc_id}",
+                "pattern": f"{dimension}:{finding['item']}", "fingerprint": fingerprint, "severity": "MAJOR",
+                "status": "OPEN", "claim": f"{dimension} {finding['item']} ({review_rules.ITEM_MEANING.get(finding['item'], 'summary')}): "
+                                           f"{finding['note'][:500]}",
+                "evidence_excerpt": finding["note"][:300] or None, "review_issue": issue,
+                "findings": {"items": [entry]}})
+
+    def _evidence_manifest(self, tx: _Tx, project: dict, cited: list, code_ref: str) -> list[dict]:
+        """S4 §8.2: where each cited path is. A path resolves to a file under the research root, or to a file of the
+        reviewed commit (a path in the repository, a node worktree or the review's code snapshot, whose content
+        must equal the commit's); a relative path found in both is ambiguous. Existence and version are checked;
+        that the reviewer read it is not claimed."""
+        research = self.db_path.parent.resolve()
+        repo = project.get("repo_path") or ""
+        trees = [Path(repo).resolve()] if repo else []
+        trees += [Path(b["worktree_path"]).resolve() for b in (tx.get(i) for i in tx.ids("branch"))
+                  if b.get("worktree_path")]
+        snapshots = research / "cache" / "reviews" / "code"
+        out = []
+        for raw in cited:
+            entry = {"cited": raw, "kind": None, "status": "missing"}
+            if not isinstance(raw, str) or not raw.strip():
+                entry["status"] = "unparsable"
+                out.append(entry)
+                continue
+            text = re.sub(r"(#L\d+(-L?\d+)?|:\d+(-\d+)?)$", "", raw.strip())
+            path = Path(text)
+            if not path.is_absolute() and (research / text).resolve().is_relative_to(snapshots):
+                path = research / text  # a file of the review's code snapshot, named from the research root
+            hits = []
+            if path.is_absolute():
+                real = path.resolve()
+                for top in [snapshots / code_ref] + trees:
+                    if real.is_relative_to(top):
+                        hits.append(("code", str(real.relative_to(top)), real))
+                        break
+                else:
+                    if real.is_relative_to(research):
+                        hits.append(("research", str(real.relative_to(research)), real))
+                    else:
+                        entry["status"] = "outside"
+            else:
+                rel = text[2:] if text.startswith("./") else text
+                if (research / rel).is_file():
+                    hits.append(("research", rel, research / rel))
+                if repo and _git_blob(repo, code_ref, rel) is not None:
+                    hits.append(("code", rel, None))
+                if len(hits) > 1:
+                    entry.update(status="ambiguous", candidates=[h[0] for h in hits])
+                    out.append(entry)
+                    continue
+            if hits:
+                kind, rel, real = hits[0]
+                entry.update(kind=kind, path=rel)
+                if kind == "research":
+                    if real.is_file():
+                        entry.update(status="verified", sha256=sha256_file(real))
+                else:
+                    blob = _git_blob(repo, code_ref, rel) if repo else None
+                    entry["code_ref"] = code_ref
+                    if blob is None:
+                        entry["status"] = "not_in_commit"
+                    elif real is not None and real.is_file() and real.read_bytes() != blob:
+                        entry["status"] = "wrong_version"
+                    elif real is not None and not real.is_file():
+                        entry["status"] = "missing"
+                    else:
+                        entry.update(status="verified", sha256=hashlib.sha256(blob).hexdigest())
+            out.append(entry)
+        return out
 
     def review_basis(self, about: str, kind: str, dimension: str | None = None, evaluation_id: str | None = None,
                      code_ref: str | None = None) -> dict:
@@ -4215,6 +4577,7 @@ class ResearchDB:
         docs = [d for d in docs if d["status"] == "current" and d.get("review_kind") == "candidate_recheck"
                 and tx.edges("rel_describes", source=d["id"], target=hyp["id"])]
         rows, reasons = [], []
+        applies = self._applicability(tx, hyp)
         for dimension, binding in RECHECK_DIMENSIONS.items():
             mine = [d for d in docs if d.get("review_dimension") == dimension]
             if not mine:
@@ -4227,12 +4590,19 @@ class ResearchDB:
             # protocol; method identity, claim revision and literature for the others); a review without a basis
             # (before S1) needs a new review
             bound = self._review_bound(tx, d, hyp["id"], dimension, evaluation_id)
-            state = ("stale" if not bound else {"pass": "pass", "not_applicable": "pass", "fail": "failed",
-                                                "uncertain": "uncertain"}[d["review_result"]])
+            # S4 §8.5: a receipt registered before the checklist rule has no effective result and is reviewed again
+            effective = d.get("effective_result")
+            if effective == "not_applicable" and not applies[dimension].get("exempt"):
+                bound = False  # the protocol or the claim no longer exempts the dimension
+            state = ("stale" if not bound or effective is None else
+                     {"pass": "pass", "not_applicable": "exempt", "fail": "failed", "uncertain": "uncertain"}[effective])
             rows.append({"dimension": dimension, "state": state, "required": evaluation_id if binding == "evaluation"
                          else basis_exp["code_ref"], "review_id": d["id"], "path": d["path"],
-                         "basis": d.get("review_basis"), "needs_recheck": not d.get("review_basis"),
-                         "result": d["review_result"], "backend": d.get("review_backend"),
+                         "basis": d.get("review_basis"), "needs_recheck": not d.get("review_basis") or effective is None,
+                         "result": d["review_result"], "reported_result": d.get("reported_result"),
+                         "warnings": d.get("normalization_warnings") or [],
+                         "applicability": d.get("review_applicability"),
+                         "reviewer_family": d.get("reviewer_family") or "unverified", "backend": d.get("review_backend"),
                          "reviewer_model": d.get("reviewer_model"), "evaluation_id": d.get("basis_evaluation_id"),
                          "code_ref": d.get("basis_code_ref")})
             reasons += {"stale": ["RECHECK_STALE"], "failed": ["RECHECK_FAILED"],
@@ -4981,6 +5351,14 @@ def _git_commit(repo: str, ref: str) -> str | None:
         capture_output=True, text=True,
     )
     return result.stdout.strip() if result.returncode == 0 else None
+
+
+def _git_blob(repo: str, ref: str, rel: str) -> bytes | None:
+    """The bytes of rel in commit ref, or None when the commit has no such file."""
+    if not repo or not ref or not rel or rel.startswith("/") or ".." in Path(rel).parts:
+        return None
+    result = subprocess.run(["git", "-C", repo, "cat-file", "blob", f"{ref}:{rel}"], capture_output=True)
+    return result.stdout if result.returncode == 0 else None
 
 
 def _git_ok(repo: str, *args: str) -> bool:

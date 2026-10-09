@@ -333,6 +333,28 @@ class ReviewCallTest(unittest.TestCase):
         self.assertIn("REVIEW_UNAVAILABLE: reviewer openai/gpt-6-astra is the Leader's family", out["error"])
         self.assertFalse([c for c in self.calls() if "-p" in c])  # the model was never called
 
+    def test_reg_s4_04_family_through_channels(self):
+        # the Leader reached through an aggregator is still OpenAI: refused before any model call
+        self.project(leader="openrouter/openai/gpt-6-luna")
+        self.fake("pi")
+        out = self.call([{"text": block(NOVELTY)}])
+        self.assertIn("is the Leader's family", out["error"])
+        self.assertFalse([c for c in self.calls() if "-p" in c])
+
+    def test_reg_s4_04_observed_identity_decides(self):
+        self.project()
+        self.fake("pi")
+        # the requested model answering through another channel is the same model
+        out = self.call([{"text": block(NOVELTY), "provider": "openrouter", "model": "openai/gpt-6-astra"}])
+        self.assertTrue(out["ok"], out)
+        self.assertEqual(self.rld.get(out["result"]["review_id"])["reviewer_family"], "openai")
+        # another model answered (here the Leader's own family): kept and paid, never an independent review
+        before = self.rld.get("P-r").get("review_cost_usd") or 0
+        out = self.call([{"text": block(NOVELTY), "provider": "anthropic", "model": "claude-opus-5-5", "cost": 0.03}])
+        self.assertIn("REVIEW_INVALID: the review ran on anthropic/claude-opus-5-5", out["error"])
+        self.assertAlmostEqual(self.rld.get("P-r")["review_cost_usd"] - before, 0.03)
+        self.assertEqual(len(self.rld.reviews()), 1)
+
     def test_inapplicable_code_ref_is_rejected_before_backend_and_cost(self):
         self.project(reviewer="anthropic/claude-sonnet-5-5", leader="gpt-6-luna")
         self.fake("claude")
@@ -445,20 +467,22 @@ class ReviewCallTest(unittest.TestCase):
 class RecheckCallTest(ReviewCallTest):  # noqa: the base tests run again here
     """K06 and concurrency through review_call itself."""
 
-    def test_k06_method_code_pass_must_cite_code(self):
-        self.project()
-        self.fake("pi")
+    def test_k06_structure_is_corrected_a_verdict_is_not(self):
+        """S4 §8.1: only a missing, repeated or foreign checklist item is sent back; a method_code pass that cites no
+        code is structurally fine here and is made uncertain when registered (test_reviews_s4, REG-S4-03)."""
+        schema = json.loads((TOOLS.parent / "schema/reviews/candidate_recheck.schema.json").read_text())
         recheck = {"dimension": "method_code", "result": "pass", "evidence_paths": ["docs/hypotheses/H-0001/result.v1.md"],
                    "reason": "the report says the method is implemented"}
-        found = review_call.problems("candidate_recheck", recheck, json.loads(
-            (TOOLS.parent / "schema/reviews/candidate_recheck.schema.json").read_text()), "method_code")
-        self.assertTrue(any("K06" in f for f in found), found)
-        ok = {**recheck, "evidence_paths": ["code/toytrain/methods.py"]}
-        self.assertEqual(review_call.problems("candidate_recheck", ok, json.loads(
-            (TOOLS.parent / "schema/reviews/candidate_recheck.schema.json").read_text()), "method_code"), [])
-        empty = {**recheck, "dimension": "numbers", "evidence_paths": []}
-        self.assertIn("evidence_paths", "; ".join(review_call.problems("candidate_recheck", empty, json.loads(
-            (TOOLS.parent / "schema/reviews/candidate_recheck.schema.json").read_text()), "numbers")))
+        self.assertTrue(any("checklist" in f for f in review_call.problems("candidate_recheck", recheck, schema, "method_code")))
+        items = [{"item": i, "result": "pass", "note": "seen"} for i in ("D", "G", "M")]
+        self.assertEqual(review_call.problems("candidate_recheck", {**recheck, "checklist": items}, schema, "method_code"), [])
+        self.assertTrue(any("missing" in f for f in review_call.problems(
+            "candidate_recheck", {**recheck, "checklist": items[:2]}, schema, "method_code")))
+        self.assertTrue(any("do not belong" in f for f in review_call.problems(
+            "candidate_recheck", {**recheck, "checklist": items + [{"item": "H", "result": "pass", "note": "x"}]},
+            schema, "method_code")))
+        failed = {**recheck, "result": "fail", "checklist": [{**items[0], "result": "fail"}, *items[1:]]}
+        self.assertEqual(review_call.problems("candidate_recheck", failed, schema, "method_code"), [])  # a legal fail
 
     def test_concurrent_reviews_get_their_own_numbers(self):
         import threading
