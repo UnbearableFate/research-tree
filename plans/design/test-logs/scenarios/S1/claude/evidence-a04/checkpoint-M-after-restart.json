@@ -1,0 +1,938 @@
+{
+ "project": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a04",
+ "db": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a04/research/rt-s1-claude-a04/research_tree.db",
+ "db_sha256_unchanged": true,
+ "phase": "confirmed",
+ "data_version": 215,
+ "counts": {
+  "project": 1,
+  "hypothesis": 1,
+  "experiment": 6,
+  "branch": 1,
+  "document": 47,
+  "decision": 0,
+  "task": 1,
+  "evaluation": 1,
+  "obligation": 0,
+  "reservation": 12,
+  "run": 12
+ },
+ "experiments": [
+  {
+   "id": "E-0001",
+   "kind": "sanity",
+   "stage": "screen",
+   "hypothesis_id": null,
+   "code_ref": "9da1058c904cbcce3fe9f4423e27e2630cc28637",
+   "seeds": [
+    42
+   ],
+   "evaluation_id": null,
+   "owner": "root",
+   "method_spec_doc_id": "D-0028",
+   "identity_status": null
+  },
+  {
+   "id": "E-0002",
+   "kind": "baseline",
+   "stage": "screen",
+   "hypothesis_id": null,
+   "code_ref": "9da1058c904cbcce3fe9f4423e27e2630cc28637",
+   "seeds": [
+    42,
+    43,
+    44
+   ],
+   "evaluation_id": "EV-0001",
+   "owner": "root",
+   "method_spec_doc_id": "D-0032",
+   "identity_status": null
+  },
+  {
+   "id": "E-0003",
+   "kind": "baseline",
+   "stage": "screen",
+   "hypothesis_id": null,
+   "code_ref": "9da1058c904cbcce3fe9f4423e27e2630cc28637",
+   "seeds": [
+    42,
+    43,
+    44
+   ],
+   "evaluation_id": null,
+   "owner": "root",
+   "method_spec_doc_id": "D-0033",
+   "identity_status": null
+  },
+  {
+   "id": "E-0004",
+   "kind": "sanity",
+   "stage": "screen",
+   "hypothesis_id": "H-0001",
+   "code_ref": "cb5d6101e84188d078a3c9f25ae969a60c768216",
+   "seeds": [
+    42
+   ],
+   "evaluation_id": null,
+   "owner": "main",
+   "method_spec_doc_id": "D-0040",
+   "identity_status": null
+  },
+  {
+   "id": "E-0005",
+   "kind": "method",
+   "stage": "screen",
+   "hypothesis_id": "H-0001",
+   "code_ref": "cb5d6101e84188d078a3c9f25ae969a60c768216",
+   "seeds": [
+    42,
+    43,
+    44
+   ],
+   "evaluation_id": null,
+   "owner": "main",
+   "method_spec_doc_id": "D-0039",
+   "identity_status": null
+  },
+  {
+   "id": "E-0006",
+   "kind": "method",
+   "stage": "screen",
+   "hypothesis_id": "H-0001",
+   "code_ref": "cb5d6101e84188d078a3c9f25ae969a60c768216",
+   "seeds": [
+    42
+   ],
+   "evaluation_id": null,
+   "owner": "main",
+   "method_spec_doc_id": "D-0047",
+   "identity_status": null
+  }
+ ],
+ "nodes": [
+  {
+   "id": "H-0001",
+   "title": "Zebra：重球动量在固定更新预算下收敛更快",
+   "status": "pending",
+   "claim_revision": 1,
+   "claim_sha": "b4bf8097a9be5e359e9772b2d309e035e33b3dfe939cf1c7f54b19e5010c80bb",
+   "eligibility": {
+    "hypothesis_id": "H-0001",
+    "eligible": false,
+    "basis_evaluation_id": null,
+    "experiment_id": null,
+    "evidence_state": "none",
+    "reasons": [
+     "NO_EVALUATION"
+    ],
+    "verification_level": null,
+    "gate_passed": null,
+    "guardrails_passed": null,
+    "stage": null,
+    "outcome": null,
+    "confirmation_evaluation_id": null,
+    "open_obligations": [],
+    "rechecks": null,
+    "recheck_evaluation_id": null,
+    "rld_rechecks": null
+   }
+  }
+ ],
+ "runs": [
+  {
+   "ref": "E-0001/s42@1",
+   "exec_status": "failed",
+   "valid": null,
+   "metric_value": null,
+   "imported": false,
+   "submission_key": "rt-s1-claude-a04:E-0001:s42@1",
+   "job_id": "local-rt-s1-claude-a04:E-0001:s42@1",
+   "experiment_id": "E-0001",
+   "manifest_path": null
+  },
+  {
+   "ref": "E-0001/s42@2",
+   "exec_status": "failed",
+   "valid": null,
+   "metric_value": null,
+   "imported": false,
+   "submission_key": null,
+   "job_id": null,
+   "experiment_id": "E-0001",
+   "manifest_path": null
+  },
+  {
+   "ref": "E-0001/s42@3",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.67,
+   "imported": true,
+   "submission_key": "rt-s1-claude-a04:E-0001:s42@3",
+   "job_id": "local-rt-s1-claude-a04:E-0001:s42@3",
+   "experiment_id": "E-0001",
+   "manifest_path": "outputs/E-0001/s42-a3/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.67,
+    "correct": 67,
+    "n": 100,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 14,
+    "manifest_steps": 14,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.066,
+     "wall_seconds": 0.651,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0002/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.805,
+   "imported": true,
+   "submission_key": "rt-s1-claude-a04:E-0002:s42@1",
+   "job_id": "local-rt-s1-claude-a04:E-0002:s42@1",
+   "experiment_id": "E-0002",
+   "manifest_path": "outputs/E-0002/s42-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.805,
+    "correct": 322,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0641,
+     "wall_seconds": 0.8582,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0002/s43@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.7525,
+   "imported": true,
+   "submission_key": "rt-s1-claude-a04:E-0002:s43@1",
+   "job_id": "local-rt-s1-claude-a04:E-0002:s43@1",
+   "experiment_id": "E-0002",
+   "manifest_path": "outputs/E-0002/s43-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.7525,
+    "correct": 301,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0631,
+     "wall_seconds": 0.5302,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0002/s44@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.8175,
+   "imported": true,
+   "submission_key": "rt-s1-claude-a04:E-0002:s44@1",
+   "job_id": "local-rt-s1-claude-a04:E-0002:s44@1",
+   "experiment_id": "E-0002",
+   "manifest_path": "outputs/E-0002/s44-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.8175,
+    "correct": 327,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0632,
+     "wall_seconds": 0.4312,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0003/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.8375,
+   "imported": true,
+   "submission_key": "rt-s1-claude-a04:E-0003:s42@1",
+   "job_id": "local-rt-s1-claude-a04:E-0003:s42@1",
+   "experiment_id": "E-0003",
+   "manifest_path": "outputs/E-0003/s42-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.8375,
+    "correct": 335,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0648,
+     "wall_seconds": 0.4906,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0003/s43@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.8375,
+   "imported": true,
+   "submission_key": "rt-s1-claude-a04:E-0003:s43@1",
+   "job_id": "local-rt-s1-claude-a04:E-0003:s43@1",
+   "experiment_id": "E-0003",
+   "manifest_path": "outputs/E-0003/s43-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.8375,
+    "correct": 335,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0667,
+     "wall_seconds": 0.5453,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0003/s44@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.84,
+   "imported": true,
+   "submission_key": "rt-s1-claude-a04:E-0003:s44@1",
+   "job_id": "local-rt-s1-claude-a04:E-0003:s44@1",
+   "experiment_id": "E-0003",
+   "manifest_path": "outputs/E-0003/s44-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.84,
+    "correct": 336,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0629,
+     "wall_seconds": 0.4914,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0004/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.8,
+   "imported": true,
+   "submission_key": "rt-s1-claude-a04:E-0004:s42@1",
+   "job_id": "local-rt-s1-claude-a04:E-0004:s42@1",
+   "experiment_id": "E-0004",
+   "manifest_path": "outputs/E-0004/s42-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.8,
+    "correct": 80,
+    "n": 100,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 14,
+    "manifest_steps": 14,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0684,
+     "wall_seconds": 0.9732,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0005/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.84,
+   "imported": true,
+   "submission_key": "rt-s1-claude-a04:E-0005:s42@1",
+   "job_id": "local-rt-s1-claude-a04:E-0005:s42@1",
+   "experiment_id": "E-0005",
+   "manifest_path": "outputs/E-0005/s42-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.84,
+    "correct": 336,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.064,
+     "wall_seconds": 0.4949,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0005/s43@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.84,
+   "imported": true,
+   "submission_key": "rt-s1-claude-a04:E-0005:s43@1",
+   "job_id": "local-rt-s1-claude-a04:E-0005:s43@1",
+   "experiment_id": "E-0005",
+   "manifest_path": "outputs/E-0005/s43-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.84,
+    "correct": 336,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0654,
+     "wall_seconds": 0.4816,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0005/s44@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.835,
+   "imported": true,
+   "submission_key": "rt-s1-claude-a04:E-0005:s44@1",
+   "job_id": "local-rt-s1-claude-a04:E-0005:s44@1",
+   "experiment_id": "E-0005",
+   "manifest_path": "outputs/E-0005/s44-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.835,
+    "correct": 334,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0666,
+     "wall_seconds": 0.4946,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0006/s42@1",
+   "exec_status": "planned",
+   "valid": null,
+   "metric_value": null,
+   "imported": false,
+   "submission_key": null,
+   "job_id": null,
+   "experiment_id": "E-0006",
+   "manifest_path": null
+  }
+ ],
+ "evaluations": [
+  {
+   "id": "EV-0001",
+   "experiment_id": "E-0002",
+   "outcome": null,
+   "gate_passed": null,
+   "verification_level": "artifact_imported",
+   "recorded_mean": 79.16666666666667,
+   "unit": "percentage_point",
+   "independent_mean": 79.16666666666666,
+   "mean_matches": true,
+   "run_refs": [
+    "E-0002/s42@1",
+    "E-0002/s43@1",
+    "E-0002/s44@1"
+   ]
+  }
+ ],
+ "obligations": [],
+ "reservations": [
+  {
+   "id": "RS-0001",
+   "submission_key": "rt-s1-claude-a04:E-0001:s42@1",
+   "budget_pool": "search",
+   "accounting_status": "reserved",
+   "reserved_units": 600,
+   "actual_units": null,
+   "job_id": "local-rt-s1-claude-a04:E-0001:s42@1"
+  },
+  {
+   "id": "RS-0002",
+   "submission_key": "rt-s1-claude-a04:E-0001:s42@3",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s1-claude-a04:E-0001:s42@3"
+  },
+  {
+   "id": "RS-0003",
+   "submission_key": "rt-s1-claude-a04:E-0002:s42@1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s1-claude-a04:E-0002:s42@1"
+  },
+  {
+   "id": "RS-0004",
+   "submission_key": "rt-s1-claude-a04:E-0002:s43@1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s1-claude-a04:E-0002:s43@1"
+  },
+  {
+   "id": "RS-0005",
+   "submission_key": "rt-s1-claude-a04:E-0002:s44@1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s1-claude-a04:E-0002:s44@1"
+  },
+  {
+   "id": "RS-0006",
+   "submission_key": "rt-s1-claude-a04:E-0003:s42@1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s1-claude-a04:E-0003:s42@1"
+  },
+  {
+   "id": "RS-0007",
+   "submission_key": "rt-s1-claude-a04:E-0003:s43@1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s1-claude-a04:E-0003:s43@1"
+  },
+  {
+   "id": "RS-0008",
+   "submission_key": "rt-s1-claude-a04:E-0003:s44@1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s1-claude-a04:E-0003:s44@1"
+  },
+  {
+   "id": "RS-0009",
+   "submission_key": "rt-s1-claude-a04:E-0004:s42@1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s1-claude-a04:E-0004:s42@1"
+  },
+  {
+   "id": "RS-0010",
+   "submission_key": "rt-s1-claude-a04:E-0005:s42@1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s1-claude-a04:E-0005:s42@1"
+  },
+  {
+   "id": "RS-0011",
+   "submission_key": "rt-s1-claude-a04:E-0005:s43@1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s1-claude-a04:E-0005:s43@1"
+  },
+  {
+   "id": "RS-0012",
+   "submission_key": "rt-s1-claude-a04:E-0005:s44@1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s1-claude-a04:E-0005:s44@1"
+  }
+ ],
+ "jobs": {
+  "starts": 11,
+  "keys": 11,
+  "duplicate_jobs": 0,
+  "per_key": {
+   "rt-s1-claude-a04:E-0001:s42@3": 1,
+   "rt-s1-claude-a04:E-0002:s42@1": 1,
+   "rt-s1-claude-a04:E-0002:s43@1": 1,
+   "rt-s1-claude-a04:E-0002:s44@1": 1,
+   "rt-s1-claude-a04:E-0003:s42@1": 1,
+   "rt-s1-claude-a04:E-0003:s43@1": 1,
+   "rt-s1-claude-a04:E-0003:s44@1": 1,
+   "rt-s1-claude-a04:E-0004:s42@1": 1,
+   "rt-s1-claude-a04:E-0005:s42@1": 1,
+   "rt-s1-claude-a04:E-0005:s43@1": 1,
+   "rt-s1-claude-a04:E-0005:s44@1": 1
+  },
+  "cpu_seconds": 0.7152,
+  "wall_seconds": 6.4422,
+  "failed_exits": []
+ },
+ "site": {
+  "exit": 1,
+  "answer": "{\"page_version\": null, \"db_version\": 215, \"stale\": true}"
+ },
+ "agent_models": [
+  {
+   "ts": "2026-10-09T00:23:13Z",
+   "agent": "main",
+   "actor": "rld/main",
+   "event": "observed",
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "ts": "2026-10-09T00:38:13Z",
+   "agent": "main",
+   "actor": "rld/main",
+   "event": "observed",
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "ts": "2026-10-09T00:42:17Z",
+   "agent": "add2845f809cf2de8",
+   "actor": "worker/root",
+   "event": "requested",
+   "model": "claude-haiku-5-5",
+   "effort": "medium"
+  },
+  {
+   "ts": "2026-10-09T00:45:06Z",
+   "agent": "add2845f809cf2de8",
+   "actor": "worker/root",
+   "event": "observed",
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "ts": "2026-10-09T01:00:54Z",
+   "agent": "main",
+   "actor": "rld/main",
+   "event": "observed",
+   "model": "claude-haiku-5-5"
+  }
+ ],
+ "review_calls": [
+  {
+   "kind": "novelty_precheck",
+   "about": "CAND-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.001813,
+   "review_id": "D-0008",
+   "session": "RV-0001",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a04/research/rt-s1-claude-a04/cache/reviews/RV-0001.v1.jsonl"
+  },
+  {
+   "kind": "critical_review",
+   "about": "CAND-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.003276,
+   "review_id": "D-0009",
+   "session": "RV-0002",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a04/research/rt-s1-claude-a04/cache/reviews/RV-0002.v1.jsonl"
+  },
+  {
+   "kind": "novelty_precheck",
+   "about": "CAND-0002",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.00249,
+   "review_id": "D-0017",
+   "session": "RV-0003",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a04/research/rt-s1-claude-a04/cache/reviews/RV-0003.v1.jsonl"
+  },
+  {
+   "kind": "critical_review",
+   "about": "CAND-0002",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.002666,
+   "review_id": "D-0018",
+   "session": "RV-0004",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a04/research/rt-s1-claude-a04/cache/reviews/RV-0004.v1.jsonl"
+  },
+  {
+   "kind": "novelty_precheck",
+   "about": "CAND-0002",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.002559,
+   "review_id": "D-0021",
+   "session": "RV-0005",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a04/research/rt-s1-claude-a04/cache/reviews/RV-0005.v1.jsonl"
+  },
+  {
+   "kind": "critical_review",
+   "about": "CAND-0002",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.003681,
+   "review_id": "D-0022",
+   "session": "RV-0006",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a04/research/rt-s1-claude-a04/cache/reviews/RV-0006.v1.jsonl"
+  },
+  {
+   "kind": "code_review",
+   "about": "H-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.003697,
+   "review_id": "D-0041",
+   "session": "RV-0007",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a04/research/rt-s1-claude-a04/cache/reviews/RV-0007.v1.jsonl"
+  },
+  {
+   "kind": "code_review",
+   "about": "E-0005",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.004792,
+   "review_id": "D-0042",
+   "session": "RV-0008",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a04/research/rt-s1-claude-a04/cache/reviews/RV-0008.v1.jsonl"
+  },
+  {
+   "kind": "code_review",
+   "about": "H-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.005374,
+   "review_id": "D-0043",
+   "session": "RV-0009",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a04/research/rt-s1-claude-a04/cache/reviews/RV-0009.v1.jsonl"
+  }
+ ]
+}

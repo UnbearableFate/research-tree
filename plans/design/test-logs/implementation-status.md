@@ -121,3 +121,7 @@ Fable 5.1 补充 usage credits。期间继续不依赖评审的实现、REG 与�
   `discovery merge`，把 candidates.json 改写成旧格式（编号互换、revision 丢失），随后停在提问对话框。修复：命令行无条件注入；
   删除旧 scratchpad 中的插件构建与登录副本；旧场景构建打包进 `rt-scenarios/archive/`，控制器在每次尝试结束时打包自己的构建；
   控制器遇到 agent 提问时记录并关闭对话框再继续。
+- Claude a04（`scenarios/S1/claude/*/a04`）：**SC-COMMON-01 PASS，SC-S1-01 PASS**（Zebra 编号与 revision 不变；Alpha 改动后 revision 2，
+  门因旧 revision 回执阻塞、重启并重新 merge 后仍阻塞；Alpha 当前 revision 的真实评审（pi，openai/gpt-6-luna）后门通过）。
+  SC-S1-02/03 FAIL：控制器要求把方法配置写在 configs/，而 agent 冻结框架时把 configs/ 列入 harness_paths，它正确地拒绝了
+  （会破坏框架核对），于是实验①–③没有登记、配置漂移故障无文件可改。控制器已改为 zebra/（框架之外）；a05 重测 S1-02/03。

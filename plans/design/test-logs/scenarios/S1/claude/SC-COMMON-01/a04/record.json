@@ -1,0 +1,386 @@
+{
+ "scenario_id": "SC-COMMON-01",
+ "stage": "S1",
+ "host": "claude",
+ "attempt": 4,
+ "status": "PASS",
+ "evidence_class": "real_sc",
+ "requires_resume": true,
+ "project_root": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a04",
+ "source_ref": "2a5c068bf8a0719e6707754c5e82a30320e1550f",
+ "uncommitted_changes": [],
+ "build_path": "/home/yu/workspace/rt-scenarios/S1/dist-claude-S1a04",
+ "loaded_plugin_path": "/home/yu/workspace/rt-scenarios/S1/dist-claude-S1a04/plugins/research-tree",
+ "requested_model": "claude-haiku-5-5",
+ "observed_model": "claude-haiku-5-5",
+ "observed_effort": "medium",
+ "session_id": "281d4bf0-b37c-412b-a471-996f82533378",
+ "session_transcripts": [
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/sessions/281d4bf0-b37c-412b-a471-996f82533378.jsonl.gz",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/sessions/59e4bf64-e7f8-4ae1-975f-4dcecac59c52.jsonl.gz",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/sessions/ffb66837-4991-4fe3-97e2-6a454ecd53aa.jsonl.gz"
+ ],
+ "review_calls": [
+  {
+   "kind": "novelty_precheck",
+   "about": "CAND-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.001813,
+   "review_id": "D-0008",
+   "session": "RV-0001",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a04/research/rt-s1-claude-a04/cache/reviews/RV-0001.v1.jsonl"
+  },
+  {
+   "kind": "critical_review",
+   "about": "CAND-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.003276,
+   "review_id": "D-0009",
+   "session": "RV-0002",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a04/research/rt-s1-claude-a04/cache/reviews/RV-0002.v1.jsonl"
+  },
+  {
+   "kind": "novelty_precheck",
+   "about": "CAND-0002",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.00249,
+   "review_id": "D-0017",
+   "session": "RV-0003",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a04/research/rt-s1-claude-a04/cache/reviews/RV-0003.v1.jsonl"
+  },
+  {
+   "kind": "critical_review",
+   "about": "CAND-0002",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.002666,
+   "review_id": "D-0018",
+   "session": "RV-0004",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a04/research/rt-s1-claude-a04/cache/reviews/RV-0004.v1.jsonl"
+  },
+  {
+   "kind": "novelty_precheck",
+   "about": "CAND-0002",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.002559,
+   "review_id": "D-0021",
+   "session": "RV-0005",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a04/research/rt-s1-claude-a04/cache/reviews/RV-0005.v1.jsonl"
+  },
+  {
+   "kind": "critical_review",
+   "about": "CAND-0002",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.003681,
+   "review_id": "D-0022",
+   "session": "RV-0006",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a04/research/rt-s1-claude-a04/cache/reviews/RV-0006.v1.jsonl"
+  },
+  {
+   "kind": "code_review",
+   "about": "H-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.003697,
+   "review_id": "D-0041",
+   "session": "RV-0007",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a04/research/rt-s1-claude-a04/cache/reviews/RV-0007.v1.jsonl"
+  },
+  {
+   "kind": "code_review",
+   "about": "E-0005",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.004792,
+   "review_id": "D-0042",
+   "session": "RV-0008",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a04/research/rt-s1-claude-a04/cache/reviews/RV-0008.v1.jsonl"
+  },
+  {
+   "kind": "code_review",
+   "about": "H-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.005374,
+   "review_id": "D-0043",
+   "session": "RV-0009",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a04/research/rt-s1-claude-a04/cache/reviews/RV-0009.v1.jsonl"
+  }
+ ],
+ "preconditions": [],
+ "commands": [
+  "/research-tree prepare",
+  "/research-tree init",
+  "我的决定：评测类型用 synthetic_proxy（合成数据上的真实计算，结论只限于本合成任务）；只比较 accuracy；代码仓库是 code/（它自己的 git 仓库，已有提交），不要在项目根目录另建提交。立项前的发现流程（precheck：文献、查新、批判性评审、发现门）请完整走完，然后告诉我发现门的结论和每个候选的编号。",
+  "我想再加一个用户假说：Alpha：学习率预热（前 10% 更新步线性升温）可能让 SGD 在一轮内更稳。请按发现流程把它加入用户假说文件并重新 merge 候选，不要删改 Zebra；然后为 Alpha 做真实的查新与批判性评审（research_review），再运行发现门，告诉我门的结论和每个候选的编号与 revision。评审结论如何就按它处理。",
+  "Alpha 的机制改一下：不用预热，改为余弦学习率衰减（标题不变，只改用户假说文件里它的说明与机制），重新 merge，再运行发现门，告诉我 Alpha 的编号和 revision、门的结论。这一步先不要为 Alpha 重新评审。",
+  "end session (after Alpha changed, before its new reviews)",
+  "/research-tree status",
+  "恢复当前工作：不要改动任何候选或评审，重新 merge 一次候选，再运行一次发现门，告诉我结论和每个候选的编号与 revision。",
+  "现在请为 Alpha 的当前版本做真实的查新与批判性评审（research_review），然后重新运行发现门，告诉我结论；评审结论如何就按它处理，不要预设 Alpha 应该通过。",
+  "立项计划只建 Zebra 一个初始节点即可（Alpha 留待以后）。请据此完成或更新立项计划并请我确认。",
+  "/research-tree confirm",
+  "请在 Zebra 节点的工作树里写三个方法配置文件并提交到同一个提交：configs/zebra-m1.json（momentum，lr 0.005，beta 0.9，其余同参考方法）、configs/zebra-m2.json（与 m1 完全相同，只多一个 output_dir 字段指向另一个输出目录）、configs/zebra-m3.json（momentum，lr 0.01，beta 0.9，其余同参考方法）。然后在 Zebra 上用这个提交和 config_path 登记三个方法实验（运行时 runner 用 --config 读对应文件），先不要运行。告诉我三个实验的方法身份（method_spec）是否相同，以及为什么。",
+  "controller fault F-S1-03 applied",
+  "请运行实验①的 seed 42（按项目流程提交、等待、导入），如实告诉我导入结果；如果接口拒绝，告诉我拒绝的原因，不要改配置文件来绕过。",
+  "controller restored the configuration file(s) of F-S1-03",
+  "我已把被改动的配置文件恢复原样。请把实验①按规则走完：sanity（投影到实验①的方法身份）、代码审查、三个 seed 运行、导入、评估；然后尝试提交实验③的 seed 42，如实告诉我接口的回答（不要为③另做 sanity 或审查）。",
+  "请为 Zebra 当前的评估做 GO 候选所需的跨模型复核：numbers、protocol、method_code、novelty、theory 五个维度各一次 research_review(kind=candidate_recheck)，然后告诉我 get_eligibility 中每个维度的状态。若评估未过门槛，就如实告诉我，并仍为当前评估做这五个维度的复核。",
+  "把 Zebra 的主张扩大为：重球动量在所有数据分布上都有收敛保证。请写新版本的假说文档（主张、Claim map 与适用范围都改）并登记为 Zebra 的新主张版本，然后告诉我主张版本号、哪些复核还有效、哪些失效，以及数字有没有变。",
+  "那个扩大的主张没有证据，请恢复为原来的范围（只限本合成任务、固定更新预算）作为新的主张版本，并只为受影响的维度重新做复核；告诉我结果。",
+  "end session (after the claim revisions)",
+  "/research-tree status",
+  "恢复当前工作：先按插件的恢复方式接手（需要的话登记交接），再告诉我 Zebra 的主张版本、各复核维度的状态和发现门的结论。只核对，不启动新实验。",
+  "/research-tree build",
+  "/research-tree check"
+ ],
+ "fault_plan": "plans/design/test-logs/scenarios/S1/claude/evidence-a04/fault-plan.json",
+ "substitutes_used": [],
+ "assertions": [
+  {
+   "id": "C1",
+   "expected": "prepare, init and confirm entered through the host's own command",
+   "actual": [
+    "/research-tree prepare",
+    "/research-tree init",
+    "/research-tree confirm"
+   ],
+   "evidence": "plans/design/test-logs/scenarios/S1/claude/evidence-a04/commands.jsonl",
+   "verdict": "PASS"
+  },
+  {
+   "id": "C2",
+   "expected": "every valid baseline run rescored independently equals the DB value; artifacts present",
+   "actual": [
+    {
+     "ref": "E-0002/s42@1",
+     "db": 0.805,
+     "scorer": 0.805
+    },
+    {
+     "ref": "E-0002/s43@1",
+     "db": 0.7525,
+     "scorer": 0.7525
+    },
+    {
+     "ref": "E-0002/s44@1",
+     "db": 0.8175,
+     "scorer": 0.8175
+    }
+   ],
+   "evidence": "plans/design/test-logs/scenarios/S1/claude/evidence-a04/checkpoint-final.json",
+   "verdict": "PASS"
+  },
+  {
+   "id": "C3",
+   "expected": "the baseline evaluation equals the independent mean",
+   "actual": {
+    "id": "EV-0001",
+    "recorded_mean": 79.16666666666667,
+    "independent_mean": 79.16666666666666
+   },
+   "evidence": "plans/design/test-logs/scenarios/S1/claude/evidence-a04/checkpoint-final.json",
+   "verdict": "PASS"
+  },
+  {
+   "id": "C4",
+   "expected": "page built and fresh; the observer never changed the DB",
+   "actual": {
+    "site": {
+     "exit": 0,
+     "answer": "{\"page_version\": 215, \"db_version\": 215, \"stale\": false}"
+    },
+    "db_unchanged": true
+   },
+   "evidence": "plans/design/test-logs/scenarios/S1/claude/evidence-a04/checkpoint-final.json",
+   "verdict": "PASS"
+  },
+  {
+   "id": "C5",
+   "expected": "no duplicate process start for any submission key",
+   "actual": {
+    "starts": 11,
+    "keys": 11,
+    "duplicate_jobs": 0,
+    "per_key": {
+     "rt-s1-claude-a04:E-0001:s42@3": 1,
+     "rt-s1-claude-a04:E-0002:s42@1": 1,
+     "rt-s1-claude-a04:E-0002:s43@1": 1,
+     "rt-s1-claude-a04:E-0002:s44@1": 1,
+     "rt-s1-claude-a04:E-0003:s42@1": 1,
+     "rt-s1-claude-a04:E-0003:s43@1": 1,
+     "rt-s1-claude-a04:E-0003:s44@1": 1,
+     "rt-s1-claude-a04:E-0004:s42@1": 1,
+     "rt-s1-claude-a04:E-0005:s42@1": 1,
+     "rt-s1-claude-a04:E-0005:s43@1": 1,
+     "rt-s1-claude-a04:E-0005:s44@1": 1
+    },
+    "cpu_seconds": 0.7152,
+    "wall_seconds": 6.4422,
+    "failed_exits": []
+   },
+   "evidence": "plans/design/test-logs/scenarios/S1/claude/evidence-a04/checkpoint-final.json",
+   "verdict": "PASS"
+  },
+  {
+   "id": "C6",
+   "expected": "the resumed session re-ran nothing",
+   "actual": {
+    "runs": [
+     "E-0001/s42@1",
+     "E-0001/s42@2",
+     "E-0001/s42@3",
+     "E-0002/s42@1",
+     "E-0002/s43@1",
+     "E-0002/s44@1",
+     "E-0003/s42@1",
+     "E-0003/s43@1",
+     "E-0003/s44@1",
+     "E-0004/s42@1",
+     "E-0005/s42@1",
+     "E-0005/s43@1",
+     "E-0005/s44@1",
+     "E-0006/s42@1"
+    ],
+    "starts": {
+     "rt-s1-claude-a04:E-0001:s42@3": 1,
+     "rt-s1-claude-a04:E-0002:s42@1": 1,
+     "rt-s1-claude-a04:E-0002:s43@1": 1,
+     "rt-s1-claude-a04:E-0002:s44@1": 1,
+     "rt-s1-claude-a04:E-0003:s42@1": 1,
+     "rt-s1-claude-a04:E-0003:s43@1": 1,
+     "rt-s1-claude-a04:E-0003:s44@1": 1,
+     "rt-s1-claude-a04:E-0004:s42@1": 1,
+     "rt-s1-claude-a04:E-0005:s42@1": 1,
+     "rt-s1-claude-a04:E-0005:s43@1": 1,
+     "rt-s1-claude-a04:E-0005:s44@1": 1
+    }
+   },
+   "evidence": "plans/design/test-logs/scenarios/S1/claude/evidence-a04/checkpoint-M-after-restart.json",
+   "verdict": "PASS"
+  }
+ ],
+ "raw_evidence_paths": [
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/commands.jsonl",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/fault-plan.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/scenario.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/agent_models.jsonl",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/review_calls.jsonl",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/db-snapshot-final.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/source_ref.txt",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/local-exec-launches.jsonl",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/local-exec-events.jsonl",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/sessions/281d4bf0-b37c-412b-a471-996f82533378.jsonl.gz",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/sessions/59e4bf64-e7f8-4ae1-975f-4dcecac59c52.jsonl.gz",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/sessions/ffb66837-4991-4fe3-97e2-6a454ecd53aa.jsonl.gz",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/checkpoint-A-discovery.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/checkpoint-B-alpha-reviewed.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/checkpoint-C-alpha-changed.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/checkpoint-D-gate-after-restart.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/checkpoint-E-alpha-rereviewed.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/checkpoint-F-sota.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/checkpoint-G-identities.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/checkpoint-H-config-drift.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/checkpoint-I-zebra-evaluated.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/checkpoint-J-rechecked.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/checkpoint-K-claim-broadened.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/checkpoint-L-claim-narrowed.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/checkpoint-M-after-restart.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/checkpoint-final.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/checkpoint-progress.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/candidates-A-discovery.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/candidates-B-alpha-reviewed.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/candidates-C-alpha-changed.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/candidates-D-gate-after-restart.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/candidates-E-alpha-rereviewed.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/candidates-F-sota.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/candidates-G-identities.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/candidates-H-config-drift.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/candidates-I-zebra-evaluated.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/candidates-J-rechecked.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/candidates-K-claim-broadened.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/candidates-L-claim-narrowed.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/candidates-M-after-restart.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/candidates-final.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/candidates-progress.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/discovery-state-A-discovery.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/discovery-state-B-alpha-reviewed.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/discovery-state-C-alpha-changed.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/discovery-state-D-gate-after-restart.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/discovery-state-E-alpha-rereviewed.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/discovery-state-F-sota.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/discovery-state-G-identities.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/discovery-state-H-config-drift.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/discovery-state-I-zebra-evaluated.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/discovery-state-J-rechecked.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/discovery-state-K-claim-broadened.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/discovery-state-L-claim-narrowed.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/discovery-state-M-after-restart.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/discovery-state-final.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/discovery-state-progress.json",
+  "plans/design/test-logs/scenarios/S1/claude/evidence-a04/fault-applied.json"
+ ],
+ "observer_results": "plans/design/test-logs/scenarios/S1/claude/evidence-a04/checkpoint-final.json",
+ "state_before": null,
+ "state_after": null,
+ "resume_evidence": {
+  "sessions": [
+   "plans/design/test-logs/scenarios/S1/claude/evidence-a04/sessions/281d4bf0-b37c-412b-a471-996f82533378.jsonl.gz",
+   "plans/design/test-logs/scenarios/S1/claude/evidence-a04/sessions/59e4bf64-e7f8-4ae1-975f-4dcecac59c52.jsonl.gz",
+   "plans/design/test-logs/scenarios/S1/claude/evidence-a04/sessions/ffb66837-4991-4fe3-97e2-6a454ecd53aa.jsonl.gz"
+  ],
+  "question": [
+   "恢复当前工作：不要改动任何候选或评审，重新 merge 一次候选，再运行一次发现门，告诉我结论和每个候选的编号与 revision。",
+   "恢复当前工作：先按插件的恢复方式接手（需要的话登记交接），再告诉我 Zebra 的主张版本、各复核维度的状态和发现门的结论。只核对，不启动新实验。"
+  ],
+  "observer_before": "plans/design/test-logs/scenarios/S1/claude/evidence-a04/checkpoint-L-claim-narrowed.json",
+  "observer_after": "plans/design/test-logs/scenarios/S1/claude/evidence-a04/checkpoint-M-after-restart.json",
+  "unchanged": true
+ },
+ "resource_usage": {
+  "cpu_seconds": 0.7152,
+  "job_wall_seconds": 6.4422,
+  "plugin_node_seconds": null,
+  "known_model_cost_usd": null,
+  "unknown_cost_calls": [
+   "the interactive host session's own cost has no raw bill"
+  ]
+ },
+ "failures": [],
+ "fixes_and_retests": [],
+ "remaining_gaps": [
+  "The controller asked for the method configuration files under configs/, which the agent had frozen as part of the harness; it refused to put them there (rightly: the harness check would fail), so experiments ①–③ were never registered and the configuration drift had no file to change. SC-S1-03 needs another attempt with the files outside the harness (controller fixed: zebra/)."
+ ]
+}

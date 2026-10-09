@@ -89,7 +89,7 @@ say "立项计划只建 Zebra 一个初始节点即可（Alpha 留待以后）�
 say "$CMD confirm" 5400
 for i in $(seq 1 24); do ck progress >/dev/null; n=$(python3 -c "import json; d=json.load(open('$C/checkpoint-progress.json')); print(1 if any(e['kind']=='baseline' and e.get('evaluation_id') for e in d['experiments']) else 0)" 2>/dev/null); echo "[$(date +%T)] baseline evaluated: $n"; [ "${n:-0}" = 1 ] && break; wait_agent 1800; say "继续推进根节点：框架 sanity、冻结、参考方法三个 seed 的基线、评估并设为 SOTA；完成后告诉我。" 3600; done
 ck F-sota
-say "请在 Zebra 节点的工作树里写三个方法配置文件并提交到同一个提交：configs/zebra-m1.json（momentum，lr 0.005，beta 0.9，其余同参考方法）、configs/zebra-m2.json（与 m1 完全相同，只多一个 output_dir 字段指向另一个输出目录）、configs/zebra-m3.json（momentum，lr 0.01，beta 0.9，其余同参考方法）。然后在 Zebra 上用这个提交和 config_path 登记三个方法实验（运行时 runner 用 --config 读对应文件），先不要运行。告诉我三个实验的方法身份（method_spec）是否相同，以及为什么。" 3600
+say "请在 Zebra 节点的工作树里（冻结框架之外的 zebra/ 目录）写三个方法配置文件并提交到同一个提交：zebra/m1.json（momentum，lr 0.005，beta 0.9，其余同参考方法）、zebra/m2.json（与 m1 完全相同，只多一个 output_dir 字段指向另一个输出目录）、zebra/m3.json（momentum，lr 0.01，beta 0.9，其余同参考方法）。然后在 Zebra 上用这个提交和 config_path 登记三个方法实验（运行时 runner 用 --config 读对应文件），先不要运行。告诉我三个实验的方法身份（method_spec）是否相同，以及为什么。" 3600
 ck G-identities
 $REPO/.venv/bin/python - "$C" "$P" "$S/dist-$host-S1a$att/plugins/research-tree/tools" <<'PY'
 import glob, json, sys
@@ -109,7 +109,7 @@ for place in places:
             cfg = json.loads(path.read_text())
         except (json.JSONDecodeError, UnicodeDecodeError):
             continue
-        if isinstance(cfg, dict) and cfg.get("method") == "momentum" and cfg.get("lr") == 0.005 and "zebra-m" in path.name:
+        if isinstance(cfg, dict) and cfg.get("method") == "momentum" and cfg.get("lr") == 0.005 and "zebra" in path.parts:
             (C / f"fault-original-{len(record['changed'])}.json").write_text(path.read_text())
             path.write_text(json.dumps({**cfg, "lr": 0.02}, indent=1) + "\n")
             record["changed"].append(str(path))

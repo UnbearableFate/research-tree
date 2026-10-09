@@ -1,0 +1,91 @@
+{
+ "mode": "precheck",
+ "executor_model": null,
+ "created": "2026-10-09T00:21:46Z",
+ "gate": {
+  "verdict": "BLOCKED",
+  "reasons": [
+   "CAND-0002 (Alpha：学习率预热（前 10% 更新步线性升温）可能让 SGD 在一轮内更稳): no novelty_precheck receipt for its current revision 2",
+   "CAND-0002 (Alpha：学习率预热（前 10% 更新步线性升温）可能让 SGD 在一轮内更稳): no critical_review receipt for its current revision 2"
+  ],
+  "at": "2026-10-09T00:38:07Z",
+  "report": "docs/project/reports/discovery.v2.md"
+ },
+ "stages": [
+  {
+   "stage": "brief",
+   "status": "done",
+   "artifact": null,
+   "evidence": null,
+   "updated": "2026-10-09T00:21:46Z"
+  },
+  {
+   "stage": "literature",
+   "status": "accepted",
+   "artifact": "docs/project/discovery/literature-list.md",
+   "evidence": [
+    "verify_literature D-0006, D-0007, D-0014, D-0015, D-0016: all verified (arxiv, title overlap 1.00)"
+   ],
+   "updated": "2026-10-09T00:32:14Z",
+   "verifier": "literature.py"
+  },
+  {
+   "stage": "candidates",
+   "status": "skipped",
+   "artifact": null,
+   "evidence": null,
+   "updated": "2026-10-09T00:21:46Z"
+  },
+  {
+   "stage": "feasibility",
+   "status": "skipped",
+   "artifact": null,
+   "evidence": null,
+   "updated": "2026-10-09T00:21:46Z"
+  },
+  {
+   "stage": "triage",
+   "status": "skipped",
+   "artifact": null,
+   "evidence": null,
+   "updated": "2026-10-09T00:21:46Z"
+  },
+  {
+   "stage": "novelty",
+   "status": "accepted",
+   "artifact": "docs/project/discovery/novelty-reviews.md",
+   "evidence": [
+    "D-0008",
+    "D-0017"
+   ],
+   "updated": "2026-10-09T00:32:15Z",
+   "verifier": null
+  },
+  {
+   "stage": "critique",
+   "status": "accepted",
+   "artifact": "docs/project/discovery/critical-reviews.md",
+   "evidence": [
+    "D-0009",
+    "D-0018"
+   ],
+   "updated": "2026-10-09T00:32:15Z",
+   "verifier": null
+  },
+  {
+   "stage": "refine",
+   "status": "done",
+   "artifact": "docs/project/discovery/refined-hypotheses.md",
+   "evidence": null,
+   "updated": "2026-10-09T00:32:16Z"
+  },
+  {
+   "stage": "gate",
+   "status": "failed",
+   "artifact": "docs/project/reports/discovery.v2.md",
+   "evidence": null,
+   "updated": "2026-10-09T00:38:07Z"
+  }
+ ],
+ "updated": "2026-10-09T00:38:07Z"
+}
