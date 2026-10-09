@@ -24,12 +24,12 @@ S1–S7 的实现都已合入 `bug-fix-1008`（2026-10-09，经集成分支 `int
 - 记录：`s1_records.py`、`s2_records.py`（S3–S7 的记录脚本尚未写，按同样方式从检查点计算断言）。
 - **用户要求：herdr 测试结束后及时关闭 pane。**
 - 测试宿主（Claude Code）与实施会话共用账户额度；Codex 周额度约剩 25%（10-14 重置），Codex 场景只在 Claude 先跑通后再跑。
-- S1 进度：a04/a05 已得到 SC-COMMON-01 与 SC-S1-01 的 PASS（Claude）；SC-S1-03 的 I1–I3、I5 PASS；a06 在合并后的构建上重测
-  S1-02/03。之前各次失败的原因与修复见 implementation-status.md。
+- S1 进度：两端四个 SC 全部 PASS（Claude a07、Codex a03），只差 Fable 终审。2026-10-09 按用户指示在此停止。
+  S2 Claude a01/a02 的发现与修复见 implementation-status.md（含尚未处理的“代码审查发现无异议通道”问题）。
 
 ## 3. 剩余工作（按顺序）
 
-1. S1：Claude a06 → 记录；Codex S1。
+1. S1：完成（两端 PASS），等待 Fable 终审。
 2. S2…S7 依次：Claude 场景 → 记录脚本 → Codex 场景；S3 另跑 `run_s3_upgrade.sh`（旧项目用 S1 的真实项目，新构建用当前 dist）。
 3. S7 pilot（12 个 episode）：需冻结 B=`616d646` 与 C 的构建，宿主与调度服务在 `scripts/private_eval/sandbox.sh` 中运行，
    私有评测器在沙箱外；预算很可能不足，届时按实施文档 §11.5 标注“S7-pilot 未完成”。

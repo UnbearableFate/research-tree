@@ -1,0 +1,86 @@
+{
+ "mode": "precheck",
+ "executor_model": "gpt-6-luna",
+ "created": "2026-10-09T06:00:58Z",
+ "gate": {
+  "verdict": "PASS",
+  "reasons": [],
+  "at": "2026-10-09T06:11:59Z",
+  "report": "docs/project/reports/discovery.v2.md"
+ },
+ "stages": [
+  {
+   "stage": "brief",
+   "status": "done",
+   "artifact": "docs/project/goal.v1.md",
+   "evidence": null,
+   "updated": "2026-10-09T06:01:04Z"
+  },
+  {
+   "stage": "literature",
+   "status": "accepted",
+   "artifact": "docs/literature/LIT-0001.v1.md",
+   "evidence": [
+    "D-0007"
+   ],
+   "updated": "2026-10-09T06:05:52Z",
+   "verifier": "literature.py"
+  },
+  {
+   "stage": "candidates",
+   "status": "skipped",
+   "artifact": null,
+   "evidence": null,
+   "updated": "2026-10-09T06:00:58Z"
+  },
+  {
+   "stage": "feasibility",
+   "status": "skipped",
+   "artifact": null,
+   "evidence": null,
+   "updated": "2026-10-09T06:00:58Z"
+  },
+  {
+   "stage": "triage",
+   "status": "skipped",
+   "artifact": null,
+   "evidence": null,
+   "updated": "2026-10-09T06:00:58Z"
+  },
+  {
+   "stage": "novelty",
+   "status": "accepted",
+   "artifact": "docs/project/discovery/novelty-reviews.md",
+   "evidence": [
+    "D-0008"
+   ],
+   "updated": "2026-10-09T06:09:07Z",
+   "verifier": null
+  },
+  {
+   "stage": "critique",
+   "status": "accepted",
+   "artifact": "docs/project/discovery/critical-reviews.md",
+   "evidence": [
+    "D-0009"
+   ],
+   "updated": "2026-10-09T06:09:09Z",
+   "verifier": null
+  },
+  {
+   "stage": "refine",
+   "status": "done",
+   "artifact": "docs/project/discovery/refined-hypotheses.md",
+   "evidence": null,
+   "updated": "2026-10-09T06:09:47Z"
+  },
+  {
+   "stage": "gate",
+   "status": "done",
+   "artifact": "docs/project/reports/discovery.v2.md",
+   "evidence": null,
+   "updated": "2026-10-09T06:11:59Z"
+  }
+ ],
+ "updated": "2026-10-09T06:11:59Z"
+}

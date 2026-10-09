@@ -57,7 +57,7 @@ Fable 5.1 补充 usage credits。期间继续不依赖评审的实现、REG 与�
 | 阶段 | REG与构建 | Claude真实SC | Codex真实SC | 独立终审 | 阶段状态 |
 | --- | --- | --- | --- | --- | --- |
 | S0 | PASS | PASS（a03） | PASS（a07；a04 FAIL 已修复，a05/a06 中止） | BLOCKED（Fable 不可用） | IN_PROGRESS |
-| S1 | PASS（REG-S1-01..06） | PASS（a07 四个 SC；a04–a06 各有部分 PASS） | 未开始（a01 中止） | BLOCKED（Fable 不可用） | IN_PROGRESS |
+| S1 | PASS（REG-S1-01..06） | PASS（a07 四个 SC） | PASS（a03 四个 SC） | BLOCKED（Fable 不可用） | IN_PROGRESS（只差终审） |
 | S2 | PASS（REG-S2-01..08，`test_confirmation.py`；分支 `s2-dev`） | NOT_STARTED | NOT_STARTED | BLOCKED（Fable 不可用） | IN_PROGRESS |
 | S3 | PASS（REG-S3-01..07，`test_units.py`；分支 `s3-dev`） | NOT_STARTED | NOT_STARTED | BLOCKED（Fable 不可用） | IN_PROGRESS |
 | S4 | PASS（REG-S4-01..08，`test_reviews_s4.py` 与 `test_review_call.py`；分支 `s4-dev`） | NOT_STARTED | NOT_STARTED | BLOCKED（Fable 不可用） | IN_PROGRESS |
@@ -153,3 +153,6 @@ Fable 5.1 补充 usage credits。期间继续不依赖评审的实现、REG 与�
   它把快照路径的大小写写错后称文件不可读；把搜索用的 explore 切分当成违反“确认须用 c1/c2”。按规则 reviewer 可用时 Leader
   不能豁免，于是没有搜索评估、没有候选，agent 正确地拒绝了全部确认步骤。产品层面的发现：代码审查没有“对审查发现提出异议并由
   下一轮复核处理”的通道，误报的 MAJOR 会在两轮后卡住节点（S4 只为 candidate_recheck 建了发现闭环）。记入剩余问题。
+- Codex a03（含 `research_control commit` 修复的构建）：**SC-COMMON-01、SC-S1-01、SC-S1-02、SC-S1-03 全部 PASS**（gpt-6-luna medium）。
+  S1 两端真实场景完成；阶段状态只差 Fable 终审（BLOCKED）。Codex 周额度剩约 7%（10-14 重置）。
+- 2026-10-09 按用户指示（"finish S1 and stop"）在 S1 完成后停止；S2–S7 的真实场景未继续（控制器已写好，见 AGENTS-README.md）。

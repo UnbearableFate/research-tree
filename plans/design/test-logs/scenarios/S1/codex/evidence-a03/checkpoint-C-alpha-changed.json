@@ -1,0 +1,141 @@
+{
+ "project": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03",
+ "db": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/research_tree.db",
+ "db_sha256_unchanged": true,
+ "phase": "awaiting_confirmation",
+ "data_version": 73,
+ "counts": {
+  "project": 1,
+  "hypothesis": 1,
+  "experiment": 0,
+  "branch": 0,
+  "document": 31,
+  "decision": 0,
+  "task": 1,
+  "evaluation": 0,
+  "obligation": 0,
+  "reservation": 0,
+  "run": 0
+ },
+ "experiments": [],
+ "nodes": [
+  {
+   "id": "H-0001",
+   "title": "Zebra: Heavy-ball momentum converges faster under a fixed update budget",
+   "status": "pending",
+   "claim_revision": 1,
+   "claim_sha": "63d1d37a5279cd032f5f0f6e645164970508a194570e4c5bc32779ee5ebade8e",
+   "eligibility": {
+    "hypothesis_id": "H-0001",
+    "eligible": false,
+    "basis_evaluation_id": null,
+    "experiment_id": null,
+    "evidence_state": "none",
+    "reasons": [
+     "NO_EVALUATION"
+    ],
+    "verification_level": null,
+    "gate_passed": null,
+    "guardrails_passed": null,
+    "stage": null,
+    "outcome": null,
+    "confirmation_evaluation_id": null,
+    "open_obligations": [],
+    "rechecks": null,
+    "recheck_evaluation_id": null,
+    "rld_rechecks": null
+   }
+  }
+ ],
+ "runs": [],
+ "evaluations": [],
+ "obligations": [],
+ "reservations": [],
+ "jobs": {
+  "starts": 0,
+  "keys": 0,
+  "duplicate_jobs": 0,
+  "per_key": {},
+  "cpu_seconds": 0,
+  "wall_seconds": 0,
+  "failed_exits": []
+ },
+ "attempts": {
+  "research_attempts": 0,
+  "authorized_retries": 0,
+  "transport_retries": 0,
+  "duplicate_jobs": 0,
+  "duplicate_import_requests": null,
+  "duplicate_settlement_requests": 0,
+  "injected_failures": 0,
+  "avoidable_repeated_failures": 0,
+  "starts_per_key": {}
+ },
+ "site": {
+  "exit": 1,
+  "answer": "{\"page_version\": null, \"db_version\": 73, \"stale\": true}"
+ },
+ "agent_models": [
+  {
+   "ts": "2026-10-09T05:59:12Z",
+   "agent": "01a11f3c-8a76-7f61-ae5c-d40e5a027507",
+   "actor": "rld/main",
+   "event": "observed",
+   "model": "gpt-6-luna"
+  }
+ ],
+ "review_calls": [
+  {
+   "kind": "novelty_precheck",
+   "about": "CAND-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "claude_code",
+   "cost_usd": 0.005176,
+   "review_id": "D-0008",
+   "session": "RV-0001",
+   "error": null,
+   "observed_model": "anthropic/claude-haiku-5-5",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0001.v1.jsonl"
+  },
+  {
+   "kind": "critical_review",
+   "about": "CAND-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "claude_code",
+   "cost_usd": 0.007989,
+   "review_id": "D-0009",
+   "session": "RV-0002",
+   "error": null,
+   "observed_model": "anthropic/claude-haiku-5-5",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0002.v1.jsonl"
+  },
+  {
+   "kind": "novelty_precheck",
+   "about": "CAND-0002",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "claude_code",
+   "cost_usd": 0.004123,
+   "review_id": "D-0024",
+   "session": "RV-0003",
+   "error": null,
+   "observed_model": "anthropic/claude-haiku-5-5",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0003.v1.jsonl"
+  },
+  {
+   "kind": "critical_review",
+   "about": "CAND-0002",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "claude_code",
+   "cost_usd": 0.009459,
+   "review_id": "D-0025",
+   "session": "RV-0004",
+   "error": null,
+   "observed_model": "anthropic/claude-haiku-5-5",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0004.v1.jsonl"
+  }
+ ]
+}

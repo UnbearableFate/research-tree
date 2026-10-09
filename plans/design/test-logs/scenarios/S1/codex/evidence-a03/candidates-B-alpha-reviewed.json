@@ -1,0 +1,70 @@
+{
+ "updated": "2026-10-09T06:18:14Z",
+ "candidates": [
+  {
+   "title": "Alpha: Linear learning-rate warmup may stabilize SGD within one epoch",
+   "summary": "Linearly raise SGD's learning rate from zero to the reference learning rate over the first 10% of update steps, then hold it fixed for the rest of the one-epoch run; this may make SGD more stable within that epoch. Stability is to be examined through the project's accuracy-only comparison.",
+   "mechanism": "A gradual initial learning-rate increase may reduce disruption from early updates before reaching the reference rate.",
+   "closest_work": "Learning-rate warmup schedules in stochastic gradient training; the closest setting and evidence for short-run synthetic logistic regression require literature review.",
+   "estimated_run": {
+    "nodes": 1,
+    "walltime_s": 10
+   },
+   "dedup_key": "alpha-linear-learning-rate-warmup-may-stabilize-sgd-within-one-epoch",
+   "origin": "user",
+   "found_by": [
+    "user"
+   ],
+   "selected": true,
+   "id": "CAND-0002",
+   "revision": 1,
+   "content_sha": "dd291ec9b37656583154cdd6a49b3ba76ad04f973041b7bfa69d9961e03c6f77",
+   "revisions": [
+    {
+     "revision": 1,
+     "content_sha": "dd291ec9b37656583154cdd6a49b3ba76ad04f973041b7bfa69d9961e03c6f77",
+     "at": "2026-10-09T06:15:37Z"
+    }
+   ],
+   "present": true,
+   "feasible": true,
+   "feasibility_reasons": [],
+   "literature": [
+    "D-0021",
+    "D-0022"
+   ]
+  },
+  {
+   "title": "Zebra: Heavy-ball momentum converges faster under a fixed update budget",
+   "summary": "With the same training data, epochs, and batch size, heavy-ball momentum may reach higher explore accuracy than the project's reference SGD within the fixed update budget because accumulated gradients can move farther along consistent directions.",
+   "mechanism": "Heavy-ball momentum accumulates a velocity from successive gradients and may accelerate progress when gradient directions remain aligned.",
+   "closest_work": "Classical heavy-ball momentum and momentum methods for stochastic optimization; applicability to this tiny synthetic logistic-regression setup must be checked.",
+   "estimated_run": {
+    "nodes": 1,
+    "walltime_s": 10
+   },
+   "dedup_key": "zebra-heavy-ball-momentum-converges-faster-under-a-fixed-update-budget",
+   "origin": "user",
+   "found_by": [
+    "user"
+   ],
+   "selected": true,
+   "id": "CAND-0001",
+   "revision": 1,
+   "content_sha": "55aecb1d748d014463b258187fa49480ce456560e3a64138821e9d9389603b9d",
+   "revisions": [
+    {
+     "revision": 1,
+     "content_sha": "55aecb1d748d014463b258187fa49480ce456560e3a64138821e9d9389603b9d",
+     "at": "2026-10-09T06:05:56Z"
+    }
+   ],
+   "literature": [
+    "D-0007"
+   ],
+   "feasible": true,
+   "feasibility_reasons": [],
+   "present": true
+  }
+ ]
+}
