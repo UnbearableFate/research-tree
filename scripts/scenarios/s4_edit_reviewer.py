@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""F-S4-03a (run_s4.sh): the fictional user's edit of models.reviewer.model in research-tree.yaml.
+"""F-S4-03a (s4.sh via scenario.sh): the fictional user's edit of models.reviewer.model in research-tree.yaml.
 
     s4_edit_reviewer.py <research-tree.yaml> same-family|restore <host>
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""F-S3-02 (run_s3.sh): copies of a real, succeeded but not yet imported run's manifest with a declared field taken
+"""F-S3-02 (s3.sh via scenario.sh): copies of a real, succeeded but not yet imported run's manifest with a declared field taken
 out, written to <research root>/fault-injection/. The original stays untouched; the copies point at the same
 artifacts. Records what it made in <ctl>/fault-applied.json.
 

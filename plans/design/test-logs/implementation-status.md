@@ -156,3 +156,16 @@ Fable 5.1 补充 usage credits。期间继续不依赖评审的实现、REG 与�
 - Codex a03（含 `research_control commit` 修复的构建）：**SC-COMMON-01、SC-S1-01、SC-S1-02、SC-S1-03 全部 PASS**（gpt-6-luna medium）。
   S1 两端真实场景完成；阶段状态只差 Fable 终审（BLOCKED）。Codex 周额度剩约 7%（10-14 重置）。
 - 2026-10-09 按用户指示（"finish S1 and stop"）在 S1 完成后停止；S2–S7 的真实场景未继续（控制器已写好，见 AGENTS-README.md）。
+
+## 加速措施（用户 2026-10-09 批准："do 1, 2 and 3"）
+
+- 并行测试 `scripts/run_tests.py`：每个测试类一个进程，全量约 45 秒（串行约 8 分钟），按发现得到的测试类与串行一致。
+- 冒烟检查 `scripts/scenarios/smoke.sh`：S2–S7 控制器以替身 agent/herdr 走完全流程，只查控制器管道（bash 错误、助手脚本
+  退出码、观察器、提示里指向冻结框架的路径）；**不是证据，不进入任何记录**。
+- 开场分叉重试（**偏离实施文档 §2.5**）：S2–S7 控制器改为 `scenario.sh` + `lib.sh` + `sN.sh`；完整运行在根基线评估后保存
+  项目快照，阶段专属场景的重试可以在 bwrap 中把快照副本绑定在原路径上、新会话恢复后直接跑阶段正文。约束：每个阶段 ×
+  宿主仍须至少一次完整不分叉运行，SC-COMMON-01 只由它证明（`record.py` 校验，分叉记录带 `forked_from`）；修复涉及开场
+  路径（prepare/init/confirm/基线、schema、迁移）时不分叉。§2.6 的“重建后在新目录重跑”仍满足：分叉是新目录、新构建。
+- 事故：第一次冒烟运行把构建打包到了真实归档目录，覆盖了 `rt-scenarios/archive/build-S2-claude-a01.tar.gz`。已从该 attempt
+  记录的源码 commit `b8b8226`（当时工作树干净）重新构建并打包，包内 `REBUILT.txt` 说明来源；冒烟产物此后只写
+  `rt-scenarios/smoke/`。

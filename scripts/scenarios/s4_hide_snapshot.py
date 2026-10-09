@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""F-S4-04 (run_s4.sh): the code snapshot a method_code review reads (cache/reviews/code/<commit>/) holds another
+"""F-S4-04 (s4.sh via scenario.sh): the code snapshot a method_code review reads (cache/reviews/code/<commit>/) holds another
 version of the method's code: the snapshot is prepared from Zebra's commit and toytrain/methods.py in it is altered,
 so a reviewer that reads and cites it cites a file that is not the reviewed commit's. `restore` removes the prepared
 snapshot, so the next review extracts the real one. Records in <ctl>/snapshot-fault.json.

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Write the S2 scenario records of one host attempt from its controller directory (run_s2.sh).
+"""Write the S2 scenario records of one host attempt from its controller directory (s2.sh via scenario.sh).
 
     python3 scripts/scenarios/s2_records.py claude 1 [--status PASS] [--note "..."] [--blocked "..."]
 
@@ -61,6 +61,9 @@ def make(host: str, attempt: int, status: str, notes: list[str], blocked: str | 
     sha = {name: (entry or {}).get("sha256") for name, entry in (splits.get("splits") or splits).items()
            if isinstance(entry, dict)}
     root = Path((load(proj / ".research-tree.json") or {}).get("root") or "")
+    fork = load(ctl / "forked_from.json")
+    if fork and str(root).startswith(fork["project"]):  # a fork's records name the original path: read the copy
+        root = proj / root.relative_to(fork["project"])
     exps = {e["id"]: e for e in snap["tables"].get("experiment", [])}
     runs = snap["tables"].get("run", [])
     project = (snap["tables"].get("project") or [{}])[0]
@@ -200,6 +203,8 @@ def make(host: str, attempt: int, status: str, notes: list[str], blocked: str | 
     sessions = [p for key, p in files.items() if key.startswith("session:")]
     for sc, assertions in (("SC-COMMON-01", common), ("SC-S2-01", s201), ("SC-S2-02", s202), ("SC-S2-03", s203),
                            ("SC-S2-04", s204)):
+        if fork and sc == "SC-COMMON-01":
+            continue  # the opening is another attempt's (forked_from): SC-COMMON-01 stays with the unbroken run
         r = record.template(sc, "S2", host, attempt)
         failed = [x["id"] for x in assertions if x["verdict"] != "PASS"]
         stopped = blocked and (not only or sc in only)
@@ -217,6 +222,8 @@ def make(host: str, attempt: int, status: str, notes: list[str], blocked: str | 
                                       "observer_before": ev("checkpoint-M-c2.json"),
                                       "observer_after": ev("checkpoint-N-after-restart.json"), "unchanged": resume_same},
                   "remaining_gaps": notes,
+                  "forked_from": fork and {"snapshot": fork.get("snapshot"), "attempt": fork["attempt"],
+                                           "project": fork["project"]},
                   "resource_usage": {"cpu_seconds": (obs.get("jobs") or {}).get("cpu_seconds"),
                                      "job_wall_seconds": (obs.get("jobs") or {}).get("wall_seconds"),
                                      "plugin_node_seconds": None, "known_model_cost_usd": None,

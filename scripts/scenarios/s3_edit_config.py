@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The fictional user's edits of research-tree.yaml in the S3 scenario (run_s3.sh), one named edit at a time.
+"""The fictional user's edits of research-tree.yaml in the S3 scenario (s3.sh via scenario.sh), one named edit at a time.
 
     s3_edit_config.py <research-tree.yaml> input-mib | canonical-mib | primary-fraction
 

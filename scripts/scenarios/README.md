@@ -31,3 +31,32 @@
    与对话）。故障清单在启动前写好，经 `RT_LOCAL_EXEC_FAULTS` 交给适配器。
 4. 结束后运行 `observe.py <项目> --tools dist/<host>/plugins/research-tree/tools --out <记录目录>/observer.json`，
    把原始会话、观测模型、评审回执与快照路径写进 `record.py new` 生成的记录，再 `record.py validate`。
+
+## S2–S7 控制器：`scenario.sh` + `lib.sh` + `sN.sh`（2026-10-09 起）
+
+- `bash scenario.sh <S2..S7> <claude|codex> <两位 attempt> <agent-pane> <scheduler-pane>`：生成全新项目，跑开场
+  （prepare、init、用户决定、confirm、根基线，即 SC-COMMON-01 前缀），把开场后的项目存为
+  `rt-scenarios/<阶段>/prefix-<host>-aNN.tar.gz`（加同名 `.json`），再跑阶段正文 `sN.sh` 与共有后缀（build、check、
+  终检查点、证据、关 pane、打包构建）。共用部分在 `lib.sh`；各阶段只有 `decision()`（立项时用户的决定）与 `body()`。
+  S0、S1 仍用 `run_s0.sh`、`run_s1.sh`；SC-S3-03 用 `run_s3_upgrade.sh`。
+- **从开场分叉重试**：`FORK=rt-scenarios/<阶段>/prefix-<host>-aNN.tar.gz bash scenario.sh ...`。快照解到本次 attempt
+  自己的目录，agent、调度服务与控制器的所有读写都在 bwrap 中运行，副本绑定在快照原路径上（数据库、标记文件与 worktree
+  记的是绝对路径）；新会话先按插件的恢复入口接手，再跑阶段正文。开场的检查点以 `prefix-*.json` 复制过来，
+  `forked_from.json` 写明来源。规则：
+  - 每个阶段 × 宿主至少保留一次**完整不分叉**的运行，SC-COMMON-01 只能由它证明（`record.py` 拒绝分叉 attempt 的
+    SC-COMMON-01，记录脚本也不为分叉 attempt 写它）；分叉 attempt 的记录带 `forked_from`。
+  - 修复改动了开场路径（prepare/init/confirm/基线、schema、迁移）时不要分叉，跑完整新 attempt。
+  - 开场时若有 worktree 在项目目录之外（agent 自选位置），快照不保存（commands.jsonl 记原因），不能分叉。
+  - 同一快照的分叉一次只跑一个（它们共用原路径，宿主会话目录也按原路径命名）。
+  - 这是实施文档 §2.5（每个项目执行完整前缀）的偏离，由用户 2026-10-09 批准，用于缩短阶段专属场景的重试。
+- **冒烟检查**：`bash smoke.sh <阶段> [host]`（约 30 秒）以 `SMOKE=1` 运行同一控制器：agent 与 herdr 换成记日志的
+  替身，提示只写入日志，检查点与助手脚本照常执行，报告 bash 错误、助手脚本非零退出、观察器失败，以及提示中指向冻结
+  框架（code/toytrain、configs、data）的文件路径。全新项目上没有数据库，检查点会跳过、依赖数据库的助手会失败；
+  加 `FORK=<快照>` 可让它们在真实开场上执行。冒烟产物都在 `rt-scenarios/smoke/`，构建也打包在那里，不碰真实归档。
+  **冒烟只检查控制器的管道，永远不是证据**；agent 会怎么做完全没有检查。
+
+## 测试套件
+
+`python3 scripts/run_tests.py`（先 `python3 scripts/build_plugins.py`）：共享核心、仓库测试与 Codex 适配器按测试类
+并行，约 45 秒（串行约 8 分钟）；开发中用 `python3 scripts/run_tests.py test_units test_s7` 只跑相关模块，
+`--suite repo|codex|shared` 选套件。提交或合并前跑全部。

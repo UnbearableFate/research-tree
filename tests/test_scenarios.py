@@ -275,6 +275,17 @@ class RecordTest(unittest.TestCase):
             reg = {**good, "evidence_class": "reg", "substitutes_used": ["mock_reviewer"]}
             self.assertEqual(record.problems(reg, base), [])
 
+    def test_a_forked_attempt_cannot_show_the_common_opening(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            fork = {"snapshot": "rt-scenarios/S2/prefix-claude-a03.tar.gz", "attempt": "a03"}
+            stage = {**self.full(base), "forked_from": fork}
+            self.assertEqual(record.problems(stage, base), [])
+            common = {**stage, "scenario_id": "SC-COMMON-01"}
+            self.assertTrue(record.problems(common, base))
+            self.assertTrue(record.problems({**stage, "forked_from": {"attempt": "a03"}}, base))
+            self.assertEqual(record.problems({**common, "forked_from": None}, base), [])
+
     def test_fault_plan_shape(self):
         self.assertEqual(record.check_faults({"faults": [{"id": "F1", "target": "report", "trigger": "before import",
                                                           "times": 1, "invariants": ["no evaluation"]}]}), [])

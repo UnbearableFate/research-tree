@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The fictional user's budget edits in the S6 scenario (run_s6.sh).
+"""The fictional user's budget edits in the S6 scenario (s6.sh via scenario.sh).
 
     s6_budget.py one-more <research-tree.yaml> <project> <plugin tools dir>   # room for exactly one more search run
     s6_budget.py lift <research-tree.yaml>                                     # no total limit again

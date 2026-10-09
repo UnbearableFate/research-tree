@@ -11,6 +11,10 @@ host's own records, never the configured one), the commands actually run, raw ev
 with expected / actual / evidence / verdict PASS, the observer's result, and the resume evidence when the scenario
 resumes. A real host scenario (evidence_class real_sc) must not rest on a canned model answer, a mock reviewer,
 preset scores or a direct database write: those belong to REG or simulation records.
+
+A retry may start from another attempt's saved opening (scripts/scenarios/lib.sh, FORK=...): its records name that
+snapshot in forked_from. A forked attempt can show a stage's own scenarios, never SC-COMMON-01 (the opening is not
+its own), and a stage x host cell is PASS only when some unbroken attempt of that stage and host passed SC-COMMON-01.
 """
 from __future__ import annotations
 
@@ -48,7 +52,7 @@ def template(scenario_id: str, stage: str, host: str, attempt: int) -> dict:
         "session_transcripts": [],
         "review_calls": [], "preconditions": [], "commands": [], "fault_plan": None, "substitutes_used": [],
         "assertions": [], "raw_evidence_paths": [], "observer_results": None, "state_before": None,
-        "state_after": None, "resume_evidence": None,
+        "state_after": None, "resume_evidence": None, "forked_from": None,
         "resource_usage": {"cpu_seconds": None, "job_wall_seconds": None, "plugin_node_seconds": None,
                            "known_model_cost_usd": None, "unknown_cost_calls": []},
         "failures": [], "fixes_and_retests": [], "remaining_gaps": []}
@@ -117,6 +121,12 @@ def problems(record: dict, base: Path | None = None) -> list[str]:
             out.append(f"assertion {a.get('id', i)} verdict is one of {VERDICTS}")
         elif a["verdict"] != "PASS":
             out.append(f"assertion {a.get('id', i)} is {a['verdict']}")
+    fork = record.get("forked_from")
+    if fork:
+        if str(record.get("scenario_id", "")).startswith("SC-COMMON"):
+            out.append("SC-COMMON-01 needs an unbroken attempt: this one was forked from a saved opening")
+        if not (isinstance(fork, dict) and fork.get("snapshot") and fork.get("attempt")):
+            out.append("forked_from names the prefix snapshot and the attempt that made it")
     if record.get("evidence_class") == "real_sc":
         used = list(record.get("substitutes_used") or [])  # any substitute, named in SUBSTITUTES or not
         if used:
@@ -179,7 +189,9 @@ def summary(base: Path) -> dict:
         if latest is None or record["attempt"] >= latest["attempt"]:
             bad = problems(record, path.parent)
             cell[record["scenario_id"]] = {"attempt": record["attempt"], "status": record["status"],
-                                           "valid": not bad, "problems": bad[:5]}
+                                           "valid": not bad, "problems": bad[:5],
+                                           **({"forked_from": record["forked_from"].get("attempt")}
+                                              if isinstance(record.get("forked_from"), dict) else {})}
     return out
 
 

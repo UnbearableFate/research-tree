@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""F-S4-01 (run_s4.sh): a summary of Zebra's current evaluation whose numbers contradict the metrics files — the mean
+"""F-S4-01 (s4.sh via scenario.sh): a summary of Zebra's current evaluation whose numbers contradict the metrics files — the mean
 raised by 5 points and every per-seed accuracy changed — written as docs/reports/zebra-summary-draft.md. The metrics,
 the manifests and the registered result document are not touched. Records what it wrote in <ctl>/fault-applied.json.
 

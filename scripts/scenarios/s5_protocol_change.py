@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""F-S5-03 (run_s5.sh): the fictional user's protocol change in research-tree.yaml —
+"""F-S5-03 (s5.sh via scenario.sh): the fictional user's protocol change in research-tree.yaml —
 verification.max_confirmation_candidates 2 -> 1 (the protocol document changes; the harness and the runs do not).
 
     s5_protocol_change.py <research-tree.yaml>
