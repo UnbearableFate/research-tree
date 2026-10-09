@@ -1,0 +1,67 @@
+{
+ "updated": "2026-10-09T02:30:57Z",
+ "candidates": [
+  {
+   "title": "Alpha：学习率预热（前 10% 更新步线性升温）可能让 SGD 在一轮内更稳",
+   "summary": "用户原话（标题）：学习率预热（前 10% 更新步线性升温）可能让 SGD 在一轮内更稳。机制（研究组的修改，按用户指示改为余弦学习率衰减，待用户确认）：在一轮（1 个 epoch，batch 32，38 次更新）的 SGD 中，学习率按余弦曲线从参考值 lr 0.005 衰减到 0（或较小的下限），而不是恒定；理由：后期步长变小，参数在一轮末尾更接近稳定点，因而三个统一训练 seed（42、43、44）上的探索集准确率更一致。“更稳”（研究组的操作化，待用户确认）：三 seed 准确率的均值与 SD，余弦衰减方法的 SD 更小或均值更高。与恒定学习率的参考 SGD（lr 0.005）比较。来源：用户在主会话中的指示（2026-10-09，将 Alpha 的机制改为余弦衰减）。",
+   "dedup_key": "alpha-10-sgd",
+   "origin": "user",
+   "found_by": [
+    "user"
+   ],
+   "selected": true,
+   "id": "CAND-0002",
+   "revision": 3,
+   "content_sha": "50f71e4f30fb73bef5d39a7ca9ae70ccc637499ee615750c850ea93b603129d3",
+   "revisions": [
+    {
+     "revision": 1,
+     "content_sha": "d698c4d2783c21cd4647169f7c07697e3b4d71e59ad3b98c95e79f5e133fbefc",
+     "at": "2026-10-09T02:23:36Z"
+    },
+    {
+     "revision": 2,
+     "content_sha": "56bac30e478dbf855d679db21317254ebde7154bebdbb12fc7202ba3c6104143",
+     "at": "2026-10-09T02:23:43Z"
+    },
+    {
+     "revision": 3,
+     "content_sha": "50f71e4f30fb73bef5d39a7ca9ae70ccc637499ee615750c850ea93b603129d3",
+     "at": "2026-10-09T02:27:42Z"
+    }
+   ],
+   "literature": [
+    "D-0017",
+    "D-0018",
+    "D-0019"
+   ],
+   "present": true
+  },
+  {
+   "title": "Zebra：重球动量在固定更新预算下收敛更快",
+   "summary": "在固定数据与更新预算（相同训练轮数 1、相同 batch 32，即 38 次更新）下，带动量 β=0.9 的方法（重球动量）相比参考 SGD（lr 0.005）在探索集上准确率更高；理由：动量累积一致的梯度方向，在更新次数受限时走得更远。来源：D-0001（plan.md 原文）。",
+   "dedup_key": "zebra",
+   "origin": "user",
+   "found_by": [
+    "user"
+   ],
+   "selected": true,
+   "id": "CAND-0001",
+   "revision": 1,
+   "content_sha": "15812c0ec5a46f854519c3c7f3ae08c7a8a48b9de24448f6fd658106a37f96ce",
+   "revisions": [
+    {
+     "revision": 1,
+     "content_sha": "15812c0ec5a46f854519c3c7f3ae08c7a8a48b9de24448f6fd658106a37f96ce",
+     "at": "2026-10-09T02:15:09Z"
+    }
+   ],
+   "literature": [
+    "D-0006",
+    "D-0007",
+    "D-0008"
+   ],
+   "present": true
+  }
+ ]
+}

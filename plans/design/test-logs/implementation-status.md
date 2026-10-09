@@ -130,3 +130,7 @@ Fable 5.1 补充 usage credits。期间继续不依赖评审的实现、REG 与�
   而 blocking（S1 构建只把 code/ 给 reviewer，节点提交在 worktree 里）——这是 S4 已实现的“所审提交的只读代码快照”所补的缺口。
   因此没有评估，SC-S1-02 无可绑定的复核；另外 agent 拒绝登记无证据的扩大主张（合理），控制器提示改为明确这是用户的决定。
   后续 S1 在合并 S2–S7 后的构建上重测。
+- Claude a06（合并 S2–S7 后的构建）：SC-COMMON-01、SC-S1-01、**SC-S1-03 PASS**（m1/m2 同一身份 D-0050、m3 新身份 D-0051；漂移的
+  run 被拒导入；①评估 EV-0004；③因 SANITY_REQUIRED 被拒）。SC-S1-02 FAIL（K1–K3）：五维真实复核已做（reviewer 的真实结论
+  四维 uncertain/failed、method_code pass，按原样记录），但扩大的主张被接口拒绝——agent 的新假说文档同时改了问题锚点，
+  触发防漂移检查（DESIGN_SECTION_MISSING），因此没有新的主张版本。控制器提示改为“问题锚点保持逐字一致”，a07 重测。

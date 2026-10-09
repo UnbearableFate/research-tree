@@ -1,0 +1,62 @@
+{
+ "updated": "2026-10-09T02:24:47Z",
+ "candidates": [
+  {
+   "title": "Alpha：学习率预热（前 10% 更新步线性升温）可能让 SGD 在一轮内更稳",
+   "summary": "用户原话：学习率预热（前 10% 更新步线性升温）可能让 SGD 在一轮内更稳。设定（研究组的操作化，待用户确认）：1 个 epoch、batch 32、38 次更新；前 10% 的更新步（约 4 步）把学习率从 0 线性升到参考值 lr 0.005，之后保持不变；与恒定学习率的参考 SGD（lr 0.005）比较。“更稳”（研究组的操作化，待用户确认）：三个统一训练 seed（42、43、44）上探索集准确率的均值与 SD，预热方法的 SD 更小或均值更高。来源：用户在主会话中的新增指令（2026-10-09）。",
+   "dedup_key": "alpha-10-sgd",
+   "origin": "user",
+   "found_by": [
+    "user"
+   ],
+   "selected": true,
+   "id": "CAND-0002",
+   "revision": 2,
+   "content_sha": "56bac30e478dbf855d679db21317254ebde7154bebdbb12fc7202ba3c6104143",
+   "revisions": [
+    {
+     "revision": 1,
+     "content_sha": "d698c4d2783c21cd4647169f7c07697e3b4d71e59ad3b98c95e79f5e133fbefc",
+     "at": "2026-10-09T02:23:36Z"
+    },
+    {
+     "revision": 2,
+     "content_sha": "56bac30e478dbf855d679db21317254ebde7154bebdbb12fc7202ba3c6104143",
+     "at": "2026-10-09T02:23:43Z"
+    }
+   ],
+   "present": true,
+   "literature": [
+    "D-0017",
+    "D-0018",
+    "D-0019"
+   ]
+  },
+  {
+   "title": "Zebra：重球动量在固定更新预算下收敛更快",
+   "summary": "在固定数据与更新预算（相同训练轮数 1、相同 batch 32，即 38 次更新）下，带动量 β=0.9 的方法（重球动量）相比参考 SGD（lr 0.005）在探索集上准确率更高；理由：动量累积一致的梯度方向，在更新次数受限时走得更远。来源：D-0001（plan.md 原文）。",
+   "dedup_key": "zebra",
+   "origin": "user",
+   "found_by": [
+    "user"
+   ],
+   "selected": true,
+   "id": "CAND-0001",
+   "revision": 1,
+   "content_sha": "15812c0ec5a46f854519c3c7f3ae08c7a8a48b9de24448f6fd658106a37f96ce",
+   "revisions": [
+    {
+     "revision": 1,
+     "content_sha": "15812c0ec5a46f854519c3c7f3ae08c7a8a48b9de24448f6fd658106a37f96ce",
+     "at": "2026-10-09T02:15:09Z"
+    }
+   ],
+   "literature": [
+    "D-0006",
+    "D-0007",
+    "D-0008"
+   ],
+   "present": true
+  }
+ ]
+}

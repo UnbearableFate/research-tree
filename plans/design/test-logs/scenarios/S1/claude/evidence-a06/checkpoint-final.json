@@ -1,0 +1,1644 @@
+{
+ "project": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a06",
+ "db": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a06/research/rt-s1-claude-a06/research_tree.db",
+ "db_sha256_unchanged": true,
+ "phase": "confirmed",
+ "data_version": 299,
+ "counts": {
+  "project": 1,
+  "hypothesis": 1,
+  "experiment": 13,
+  "branch": 1,
+  "document": 63,
+  "decision": 0,
+  "task": 1,
+  "evaluation": 4,
+  "obligation": 1,
+  "reservation": 17,
+  "run": 18
+ },
+ "experiments": [
+  {
+   "id": "E-0001",
+   "kind": "sanity",
+   "stage": "screen",
+   "hypothesis_id": null,
+   "code_ref": "fb77755677e4434c03cd96e26949568d639ab89e",
+   "seeds": [
+    42
+   ],
+   "evaluation_id": null,
+   "owner": "root",
+   "method_spec_doc_id": "D-0032",
+   "identity_status": null
+  },
+  {
+   "id": "E-0002",
+   "kind": "sanity",
+   "stage": "screen",
+   "hypothesis_id": null,
+   "code_ref": "fb77755677e4434c03cd96e26949568d639ab89e",
+   "seeds": [
+    42
+   ],
+   "evaluation_id": null,
+   "owner": "root",
+   "method_spec_doc_id": "D-0034",
+   "identity_status": null
+  },
+  {
+   "id": "E-0003",
+   "kind": "baseline",
+   "stage": "screen",
+   "hypothesis_id": null,
+   "code_ref": "fb77755677e4434c03cd96e26949568d639ab89e",
+   "seeds": [
+    42,
+    43,
+    44
+   ],
+   "evaluation_id": "EV-0001",
+   "owner": "root",
+   "method_spec_doc_id": "D-0035",
+   "identity_status": null
+  },
+  {
+   "id": "E-0004",
+   "kind": "baseline",
+   "stage": "screen",
+   "hypothesis_id": null,
+   "code_ref": "da49ae4f389b4ccc64586c057a91a58de56b26ae",
+   "seeds": [
+    42,
+    43,
+    44
+   ],
+   "evaluation_id": "EV-0002",
+   "owner": "root",
+   "method_spec_doc_id": "D-0039",
+   "identity_status": null
+  },
+  {
+   "id": "E-0005",
+   "kind": "sanity",
+   "stage": "screen",
+   "hypothesis_id": null,
+   "code_ref": "da49ae4f389b4ccc64586c057a91a58de56b26ae",
+   "seeds": [
+    42
+   ],
+   "evaluation_id": null,
+   "owner": "root",
+   "method_spec_doc_id": "D-0043",
+   "identity_status": null
+  },
+  {
+   "id": "E-0006",
+   "kind": "method",
+   "stage": "screen",
+   "hypothesis_id": "H-0001",
+   "code_ref": "da49ae4f389b4ccc64586c057a91a58de56b26ae",
+   "seeds": [
+    42
+   ],
+   "evaluation_id": null,
+   "owner": "h0001",
+   "method_spec_doc_id": "D-0045",
+   "identity_status": null
+  },
+  {
+   "id": "E-0007",
+   "kind": "method",
+   "stage": "screen",
+   "hypothesis_id": "H-0001",
+   "code_ref": "da49ae4f389b4ccc64586c057a91a58de56b26ae",
+   "seeds": [
+    42
+   ],
+   "evaluation_id": null,
+   "owner": "h0001",
+   "method_spec_doc_id": "D-0042",
+   "identity_status": null
+  },
+  {
+   "id": "E-0008",
+   "kind": "sanity",
+   "stage": "screen",
+   "hypothesis_id": "H-0001",
+   "code_ref": "da49ae4f389b4ccc64586c057a91a58de56b26ae",
+   "seeds": [
+    42
+   ],
+   "evaluation_id": null,
+   "owner": "h0001",
+   "method_spec_doc_id": "D-0046",
+   "identity_status": null
+  },
+  {
+   "id": "E-0009",
+   "kind": "sanity",
+   "stage": "screen",
+   "hypothesis_id": "H-0001",
+   "code_ref": "da49ae4f389b4ccc64586c057a91a58de56b26ae",
+   "seeds": [
+    42
+   ],
+   "evaluation_id": null,
+   "owner": "h0001",
+   "method_spec_doc_id": "D-0043",
+   "identity_status": null
+  },
+  {
+   "id": "E-0010",
+   "kind": "method",
+   "stage": "screen",
+   "hypothesis_id": "H-0001",
+   "code_ref": "6c64092d305b428af4e15c432caf421f47740557",
+   "seeds": [
+    42,
+    43,
+    44
+   ],
+   "evaluation_id": "EV-0004",
+   "owner": "h0001",
+   "method_spec_doc_id": "D-0050",
+   "identity_status": null
+  },
+  {
+   "id": "E-0011",
+   "kind": "method",
+   "stage": "screen",
+   "hypothesis_id": "H-0001",
+   "code_ref": "6c64092d305b428af4e15c432caf421f47740557",
+   "seeds": [
+    42
+   ],
+   "evaluation_id": null,
+   "owner": "h0001",
+   "method_spec_doc_id": "D-0050",
+   "identity_status": null
+  },
+  {
+   "id": "E-0012",
+   "kind": "method",
+   "stage": "screen",
+   "hypothesis_id": "H-0001",
+   "code_ref": "6c64092d305b428af4e15c432caf421f47740557",
+   "seeds": [
+    42
+   ],
+   "evaluation_id": null,
+   "owner": "h0001",
+   "method_spec_doc_id": "D-0051",
+   "identity_status": null
+  },
+  {
+   "id": "E-0013",
+   "kind": "sanity",
+   "stage": "screen",
+   "hypothesis_id": "H-0001",
+   "code_ref": "6c64092d305b428af4e15c432caf421f47740557",
+   "seeds": [
+    42
+   ],
+   "evaluation_id": null,
+   "owner": "h0001",
+   "method_spec_doc_id": "D-0053",
+   "identity_status": null
+  }
+ ],
+ "nodes": [
+  {
+   "id": "H-0001",
+   "title": "Zebra：重球动量在固定更新预算下相对参考 SGD 有准确率收益，且超过有效步长放大",
+   "status": "pending",
+   "claim_revision": 1,
+   "claim_sha": "a852f1b407a96b26cfdab2ccb913d47d10edcdc757bc07046790441d01c38ef2",
+   "eligibility": {
+    "hypothesis_id": "H-0001",
+    "eligible": false,
+    "basis_evaluation_id": "EV-0004",
+    "experiment_id": "E-0010",
+    "evidence_state": "current",
+    "reasons": [
+     "OBLIGATION_OPEN",
+     "RECHECK_PENDING",
+     "CONFIRMATION_REQUIRED",
+     "RECHECK_UNCERTAIN",
+     "RECHECK_FAILED"
+    ],
+    "verification_level": "artifact_imported",
+    "gate_passed": true,
+    "guardrails_passed": true,
+    "stage": null,
+    "outcome": "positive_signal",
+    "confirmation_evaluation_id": null,
+    "open_obligations": [
+     "OB-0001"
+    ],
+    "rechecks": [
+     {
+      "dimension": "numbers",
+      "state": "uncertain",
+      "required": "EV-0004",
+      "review_id": "D-0056",
+      "path": "reviews/RV-0011.v1.md",
+      "basis": {
+       "evaluation_id": "EV-0004",
+       "inputs_digest": "a427f25a4e1bae92d2cf2ea38dc96a6235073eefa6b369cb2a243847a57a1a73"
+      },
+      "needs_recheck": false,
+      "result": "uncertain",
+      "reported_result": "uncertain",
+      "warnings": [],
+      "applicability": {
+       "required": true,
+       "exempt_allowed": false,
+       "exempt": false
+      },
+      "reviewer_family": "openai",
+      "backend": "pi",
+      "reviewer_model": "openai/gpt-6-luna",
+      "evaluation_id": "EV-0004",
+      "code_ref": "6c64092d305b428af4e15c432caf421f47740557"
+     },
+     {
+      "dimension": "protocol",
+      "state": "uncertain",
+      "required": "EV-0004",
+      "review_id": "D-0057",
+      "path": "reviews/RV-0012.v1.md",
+      "basis": {
+       "evaluation_id": "EV-0004",
+       "inputs_digest": "a427f25a4e1bae92d2cf2ea38dc96a6235073eefa6b369cb2a243847a57a1a73"
+      },
+      "needs_recheck": false,
+      "result": "uncertain",
+      "reported_result": "uncertain",
+      "warnings": [],
+      "applicability": {
+       "required": true,
+       "exempt_allowed": false,
+       "exempt": false
+      },
+      "reviewer_family": "openai",
+      "backend": "pi",
+      "reviewer_model": "openai/gpt-6-luna",
+      "evaluation_id": "EV-0004",
+      "code_ref": "6c64092d305b428af4e15c432caf421f47740557"
+     },
+     {
+      "dimension": "method_code",
+      "state": "pass",
+      "required": "6c64092d305b428af4e15c432caf421f47740557",
+      "review_id": "D-0058",
+      "path": "reviews/RV-0013.v1.md",
+      "basis": {
+       "claim_revision": 1,
+       "claim_sha": "a852f1b407a96b26cfdab2ccb913d47d10edcdc757bc07046790441d01c38ef2",
+       "method_spec_doc_id": "D-0050",
+       "code_ref": "6c64092d305b428af4e15c432caf421f47740557"
+      },
+      "needs_recheck": false,
+      "result": "pass",
+      "reported_result": "pass",
+      "warnings": [],
+      "applicability": {
+       "required": true,
+       "exempt_allowed": false,
+       "exempt": false
+      },
+      "reviewer_family": "openai",
+      "backend": "pi",
+      "reviewer_model": "openai/gpt-6-luna",
+      "evaluation_id": "EV-0004",
+      "code_ref": "6c64092d305b428af4e15c432caf421f47740557"
+     },
+     {
+      "dimension": "novelty",
+      "state": "uncertain",
+      "required": "6c64092d305b428af4e15c432caf421f47740557",
+      "review_id": "D-0059",
+      "path": "reviews/RV-0014.v1.md",
+      "basis": {
+       "claim_revision": 1,
+       "claim_sha": "a852f1b407a96b26cfdab2ccb913d47d10edcdc757bc07046790441d01c38ef2",
+       "method_spec_doc_id": "D-0050",
+       "code_ref": "6c64092d305b428af4e15c432caf421f47740557",
+       "literature": [
+        "D-0006",
+        "D-0007",
+        "D-0008"
+       ]
+      },
+      "needs_recheck": false,
+      "result": "uncertain",
+      "reported_result": "uncertain",
+      "warnings": [],
+      "applicability": {
+       "required": true,
+       "exempt_allowed": false,
+       "exempt": false
+      },
+      "reviewer_family": "openai",
+      "backend": "pi",
+      "reviewer_model": "openai/gpt-6-luna",
+      "evaluation_id": "EV-0004",
+      "code_ref": "6c64092d305b428af4e15c432caf421f47740557"
+     },
+     {
+      "dimension": "theory",
+      "state": "failed",
+      "required": "6c64092d305b428af4e15c432caf421f47740557",
+      "review_id": "D-0060",
+      "path": "reviews/RV-0015.v1.md",
+      "basis": {
+       "claim_revision": 1,
+       "claim_sha": "a852f1b407a96b26cfdab2ccb913d47d10edcdc757bc07046790441d01c38ef2",
+       "method_spec_doc_id": "D-0050",
+       "code_ref": "6c64092d305b428af4e15c432caf421f47740557",
+       "literature": [
+        "D-0006",
+        "D-0007",
+        "D-0008"
+       ]
+      },
+      "needs_recheck": false,
+      "result": "fail",
+      "reported_result": "fail",
+      "warnings": [],
+      "applicability": {
+       "required": true,
+       "exempt_allowed": false,
+       "exempt": false
+      },
+      "reviewer_family": "openai",
+      "backend": "pi",
+      "reviewer_model": "openai/gpt-6-luna",
+      "evaluation_id": "EV-0004",
+      "code_ref": "6c64092d305b428af4e15c432caf421f47740557"
+     }
+    ],
+    "recheck_evaluation_id": "EV-0004",
+    "rld_rechecks": {
+     "novelty": {
+      "status": "pending",
+      "bound": false
+     },
+     "theory": {
+      "status": "pending",
+      "bound": false
+     }
+    }
+   }
+  }
+ ],
+ "runs": [
+  {
+   "ref": "E-0001/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.8,
+   "imported": true,
+   "submission_key": "rt-s1-claude-a06-E0001-s42-a1",
+   "job_id": "local-rt-s1-claude-a06-E0001-s42-a1",
+   "experiment_id": "E-0001",
+   "manifest_path": "outputs/E-0001/s42/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.8,
+    "correct": 80,
+    "n": 100,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 14,
+    "manifest_steps": 14,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0671,
+     "wall_seconds": 1.1401,
+     "walltime_used_s": 2,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0002/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.67,
+   "imported": true,
+   "submission_key": "rt-s1-claude-a06-E0002-s42-a1",
+   "job_id": "local-rt-s1-claude-a06-E0002-s42-a1",
+   "experiment_id": "E-0002",
+   "manifest_path": "outputs/E-0002/s42/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.67,
+    "correct": 67,
+    "n": 100,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 14,
+    "manifest_steps": 14,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0607,
+     "wall_seconds": 0.7918,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0003/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.805,
+   "imported": true,
+   "submission_key": "rt-s1-claude-a06-E0003-s42-a1",
+   "job_id": "local-rt-s1-claude-a06-E0003-s42-a1",
+   "experiment_id": "E-0003",
+   "manifest_path": "outputs/E-0003/s42/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.805,
+    "correct": 322,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0631,
+     "wall_seconds": 0.5704,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0003/s43@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.7525,
+   "imported": true,
+   "submission_key": "rt-s1-claude-a06-E0003-s43-a1",
+   "job_id": "local-rt-s1-claude-a06-E0003-s43-a1",
+   "experiment_id": "E-0003",
+   "manifest_path": "outputs/E-0003/s43/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.7525,
+    "correct": 301,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0639,
+     "wall_seconds": 0.4404,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0003/s44@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.8175,
+   "imported": true,
+   "submission_key": "rt-s1-claude-a06-E0003-s44-a1",
+   "job_id": "local-rt-s1-claude-a06-E0003-s44-a1",
+   "experiment_id": "E-0003",
+   "manifest_path": "outputs/E-0003/s44/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.8175,
+    "correct": 327,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0632,
+     "wall_seconds": 0.359,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0004/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.805,
+   "imported": true,
+   "submission_key": "rt-s1-claude-a06-E0004-s42-a1",
+   "job_id": "local-rt-s1-claude-a06-E0004-s42-a1",
+   "experiment_id": "E-0004",
+   "manifest_path": "outputs/E-0004/s42/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.805,
+    "correct": 322,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0693,
+     "wall_seconds": 0.7801,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0004/s43@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.7525,
+   "imported": true,
+   "submission_key": "rt-s1-claude-a06-E0004-s43-a1",
+   "job_id": "local-rt-s1-claude-a06-E0004-s43-a1",
+   "experiment_id": "E-0004",
+   "manifest_path": "outputs/E-0004/s43/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.7525,
+    "correct": 301,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0645,
+     "wall_seconds": 0.6488,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0004/s44@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.8175,
+   "imported": true,
+   "submission_key": "rt-s1-claude-a06-E0004-s44-a1",
+   "job_id": "local-rt-s1-claude-a06-E0004-s44-a1",
+   "experiment_id": "E-0004",
+   "manifest_path": "outputs/E-0004/s44/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.8175,
+    "correct": 327,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0633,
+     "wall_seconds": 0.3251,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0005/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.77,
+   "imported": true,
+   "submission_key": "rt-s1-claude-a06-E0005-s42-a1",
+   "job_id": "local-rt-s1-claude-a06-E0005-s42-a1",
+   "experiment_id": "E-0005",
+   "manifest_path": "outputs/E-0005/s42/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.77,
+    "correct": 77,
+    "n": 100,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 14,
+    "manifest_steps": 14,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0599,
+     "wall_seconds": 0.3665,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0006/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.84,
+   "imported": true,
+   "submission_key": "H-0001-E-0006-s42-a1",
+   "job_id": "local-H-0001-E-0006-s42-a1",
+   "experiment_id": "E-0006",
+   "manifest_path": "outputs/E-0006/s42/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.84,
+    "correct": 336,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0654,
+     "wall_seconds": 0.3809,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0007/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.8375,
+   "imported": true,
+   "submission_key": "H-0001-E-0007-s42-a1",
+   "job_id": "local-H-0001-E-0007-s42-a1",
+   "experiment_id": "E-0007",
+   "manifest_path": "outputs/E-0007/s42/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.8375,
+    "correct": 335,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0646,
+     "wall_seconds": 0.2755,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0008/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.8,
+   "imported": true,
+   "submission_key": "H-0001-E-0008-s42-a1",
+   "job_id": "local-H-0001-E-0008-s42-a1",
+   "experiment_id": "E-0008",
+   "manifest_path": "outputs/E-0008/s42/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.8,
+    "correct": 80,
+    "n": 100,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 14,
+    "manifest_steps": 14,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0606,
+     "wall_seconds": 0.366,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0009/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.77,
+   "imported": true,
+   "submission_key": "H-0001-E-0009-s42-a1",
+   "job_id": "local-H-0001-E-0009-s42-a1",
+   "experiment_id": "E-0009",
+   "manifest_path": "outputs/E-0009/s42/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.77,
+    "correct": 77,
+    "n": 100,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 14,
+    "manifest_steps": 14,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.061,
+     "wall_seconds": 0.7161,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0010/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.84,
+   "imported": true,
+   "submission_key": "H-0001-E-0010-s42-a1",
+   "job_id": "local-H-0001-E-0010-s42-a1",
+   "experiment_id": "E-0010",
+   "manifest_path": "outputs/E-0010/s42/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.84,
+    "correct": 336,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0647,
+     "wall_seconds": 0.345,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0010/s43@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.84,
+   "imported": true,
+   "submission_key": "H-0001-E-0010-s43-a1",
+   "job_id": "local-H-0001-E-0010-s43-a1",
+   "experiment_id": "E-0010",
+   "manifest_path": "outputs/E-0010/s43/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.84,
+    "correct": 336,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.067,
+     "wall_seconds": 0.4477,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0010/s44@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.835,
+   "imported": true,
+   "submission_key": "H-0001-E-0010-s44-a1",
+   "job_id": "local-H-0001-E-0010-s44-a1",
+   "experiment_id": "E-0010",
+   "manifest_path": "outputs/E-0010/s44/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.835,
+    "correct": 334,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0649,
+     "wall_seconds": 0.552,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0012/s42@1",
+   "exec_status": "planned",
+   "valid": null,
+   "metric_value": null,
+   "imported": false,
+   "submission_key": null,
+   "job_id": null,
+   "experiment_id": "E-0012",
+   "manifest_path": null
+  },
+  {
+   "ref": "E-0013/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.8,
+   "imported": true,
+   "submission_key": "H-0001-E-0013-s42-a1",
+   "job_id": "local-H-0001-E-0013-s42-a1",
+   "experiment_id": "E-0013",
+   "manifest_path": "outputs/E-0013/s42/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.8,
+    "correct": 80,
+    "n": 100,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 14,
+    "manifest_steps": 14,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0603,
+     "wall_seconds": 0.3206,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  }
+ ],
+ "evaluations": [
+  {
+   "id": "EV-0001",
+   "experiment_id": "E-0003",
+   "outcome": null,
+   "gate_passed": null,
+   "verification_level": "artifact_imported",
+   "recorded_mean": 79.16666666666667,
+   "unit": "percentage_point",
+   "independent_mean": 79.16666666666666,
+   "mean_matches": true,
+   "run_refs": [
+    "E-0003/s42@1",
+    "E-0003/s43@1",
+    "E-0003/s44@1"
+   ]
+  },
+  {
+   "id": "EV-0002",
+   "experiment_id": "E-0004",
+   "outcome": null,
+   "gate_passed": null,
+   "verification_level": "artifact_imported",
+   "recorded_mean": 79.16666666666667,
+   "unit": "percentage_point",
+   "independent_mean": 79.16666666666666,
+   "mean_matches": true,
+   "run_refs": [
+    "E-0004/s42@1",
+    "E-0004/s43@1",
+    "E-0004/s44@1"
+   ]
+  },
+  {
+   "id": "EV-0003",
+   "experiment_id": "E-0010",
+   "outcome": "positive_signal",
+   "gate_passed": false,
+   "verification_level": "artifact_imported",
+   "recorded_mean": 84.0,
+   "unit": "percentage_point",
+   "independent_mean": 84.0,
+   "mean_matches": true,
+   "run_refs": [
+    "E-0010/s42@1"
+   ]
+  },
+  {
+   "id": "EV-0004",
+   "experiment_id": "E-0010",
+   "outcome": "positive_signal",
+   "gate_passed": true,
+   "verification_level": "artifact_imported",
+   "recorded_mean": 83.83333333333333,
+   "unit": "percentage_point",
+   "independent_mean": 83.83333333333333,
+   "mean_matches": true,
+   "run_refs": [
+    "E-0010/s42@1",
+    "E-0010/s43@1",
+    "E-0010/s44@1"
+   ]
+  }
+ ],
+ "obligations": [
+  {
+   "id": "OB-0001",
+   "about": "H-0001",
+   "status": "OPEN",
+   "severity": "MAJOR",
+   "pattern": "theory:I"
+  }
+ ],
+ "reservations": [
+  {
+   "id": "RS-0001",
+   "submission_key": "rt-s1-claude-a06-E0001-s42-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 2,
+   "job_id": "local-rt-s1-claude-a06-E0001-s42-a1"
+  },
+  {
+   "id": "RS-0002",
+   "submission_key": "rt-s1-claude-a06-E0002-s42-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s1-claude-a06-E0002-s42-a1"
+  },
+  {
+   "id": "RS-0003",
+   "submission_key": "rt-s1-claude-a06-E0003-s42-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s1-claude-a06-E0003-s42-a1"
+  },
+  {
+   "id": "RS-0004",
+   "submission_key": "rt-s1-claude-a06-E0003-s43-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s1-claude-a06-E0003-s43-a1"
+  },
+  {
+   "id": "RS-0005",
+   "submission_key": "rt-s1-claude-a06-E0003-s44-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s1-claude-a06-E0003-s44-a1"
+  },
+  {
+   "id": "RS-0006",
+   "submission_key": "rt-s1-claude-a06-E0004-s42-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s1-claude-a06-E0004-s42-a1"
+  },
+  {
+   "id": "RS-0007",
+   "submission_key": "rt-s1-claude-a06-E0004-s43-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s1-claude-a06-E0004-s43-a1"
+  },
+  {
+   "id": "RS-0008",
+   "submission_key": "rt-s1-claude-a06-E0004-s44-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s1-claude-a06-E0004-s44-a1"
+  },
+  {
+   "id": "RS-0009",
+   "submission_key": "rt-s1-claude-a06-E0005-s42-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s1-claude-a06-E0005-s42-a1"
+  },
+  {
+   "id": "RS-0010",
+   "submission_key": "H-0001-E-0008-s42-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-H-0001-E-0008-s42-a1"
+  },
+  {
+   "id": "RS-0011",
+   "submission_key": "H-0001-E-0006-s42-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-H-0001-E-0006-s42-a1"
+  },
+  {
+   "id": "RS-0012",
+   "submission_key": "H-0001-E-0009-s42-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-H-0001-E-0009-s42-a1"
+  },
+  {
+   "id": "RS-0013",
+   "submission_key": "H-0001-E-0007-s42-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-H-0001-E-0007-s42-a1"
+  },
+  {
+   "id": "RS-0014",
+   "submission_key": "H-0001-E-0013-s42-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-H-0001-E-0013-s42-a1"
+  },
+  {
+   "id": "RS-0015",
+   "submission_key": "H-0001-E-0010-s42-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-H-0001-E-0010-s42-a1"
+  },
+  {
+   "id": "RS-0016",
+   "submission_key": "H-0001-E-0010-s43-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-H-0001-E-0010-s43-a1"
+  },
+  {
+   "id": "RS-0017",
+   "submission_key": "H-0001-E-0010-s44-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-H-0001-E-0010-s44-a1"
+  }
+ ],
+ "jobs": {
+  "starts": 17,
+  "keys": 17,
+  "duplicate_jobs": 0,
+  "per_key": {
+   "rt-s1-claude-a06-E0001-s42-a1": 1,
+   "rt-s1-claude-a06-E0002-s42-a1": 1,
+   "rt-s1-claude-a06-E0003-s42-a1": 1,
+   "rt-s1-claude-a06-E0003-s43-a1": 1,
+   "rt-s1-claude-a06-E0003-s44-a1": 1,
+   "rt-s1-claude-a06-E0004-s42-a1": 1,
+   "rt-s1-claude-a06-E0004-s43-a1": 1,
+   "rt-s1-claude-a06-E0004-s44-a1": 1,
+   "rt-s1-claude-a06-E0005-s42-a1": 1,
+   "H-0001-E-0008-s42-a1": 1,
+   "H-0001-E-0006-s42-a1": 1,
+   "H-0001-E-0009-s42-a1": 1,
+   "H-0001-E-0007-s42-a1": 1,
+   "H-0001-E-0013-s42-a1": 1,
+   "H-0001-E-0010-s42-a1": 1,
+   "H-0001-E-0010-s43-a1": 1,
+   "H-0001-E-0010-s44-a1": 1
+  },
+  "cpu_seconds": 1.0835,
+  "wall_seconds": 8.826,
+  "failed_exits": []
+ },
+ "attempts": {
+  "research_attempts": 17,
+  "authorized_retries": 0,
+  "transport_retries": 0,
+  "duplicate_jobs": 0,
+  "duplicate_import_requests": null,
+  "duplicate_settlement_requests": 0,
+  "injected_failures": 0,
+  "avoidable_repeated_failures": 0,
+  "starts_per_key": {
+   "rt-s1-claude-a06-E0001-s42-a1": 1,
+   "rt-s1-claude-a06-E0002-s42-a1": 1,
+   "rt-s1-claude-a06-E0003-s42-a1": 1,
+   "rt-s1-claude-a06-E0003-s43-a1": 1,
+   "rt-s1-claude-a06-E0003-s44-a1": 1,
+   "rt-s1-claude-a06-E0004-s42-a1": 1,
+   "rt-s1-claude-a06-E0004-s43-a1": 1,
+   "rt-s1-claude-a06-E0004-s44-a1": 1,
+   "rt-s1-claude-a06-E0005-s42-a1": 1,
+   "H-0001-E-0008-s42-a1": 1,
+   "H-0001-E-0006-s42-a1": 1,
+   "H-0001-E-0009-s42-a1": 1,
+   "H-0001-E-0007-s42-a1": 1,
+   "H-0001-E-0013-s42-a1": 1,
+   "H-0001-E-0010-s42-a1": 1,
+   "H-0001-E-0010-s43-a1": 1,
+   "H-0001-E-0010-s44-a1": 1
+  }
+ },
+ "site": {
+  "exit": 0,
+  "answer": "{\"page_version\": 299, \"db_version\": 299, \"stale\": false}"
+ },
+ "agent_models": [
+  {
+   "ts": "2026-10-09T02:15:22Z",
+   "agent": "main",
+   "actor": "rld/main",
+   "event": "observed",
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "ts": "2026-10-09T02:31:05Z",
+   "agent": "main",
+   "actor": "rld/main",
+   "event": "observed",
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "ts": "2026-10-09T02:35:02Z",
+   "agent": "a6f141ef1a5fc4c24",
+   "actor": "worker/root",
+   "event": "requested",
+   "model": "claude-haiku-5-5",
+   "effort": "medium"
+  },
+  {
+   "ts": "2026-10-09T02:40:25Z",
+   "agent": "a6f141ef1a5fc4c24",
+   "actor": "worker/root",
+   "event": "observed",
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "ts": "2026-10-09T02:48:15Z",
+   "agent": "af9e7f4f1536e7a1e",
+   "actor": "worker/h0001",
+   "event": "requested",
+   "model": "claude-haiku-5-5",
+   "effort": "medium"
+  },
+  {
+   "ts": "2026-10-09T02:50:05Z",
+   "agent": "af9e7f4f1536e7a1e",
+   "actor": "worker/h0001",
+   "event": "observed",
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "ts": "2026-10-09T03:08:31Z",
+   "agent": "main",
+   "actor": "rld/main",
+   "event": "observed",
+   "model": "claude-haiku-5-5"
+  }
+ ],
+ "review_calls": [
+  {
+   "kind": "novelty_precheck",
+   "about": "CAND-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.004186,
+   "review_id": "D-0009",
+   "session": "RV-0001",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a06/research/rt-s1-claude-a06/cache/reviews/RV-0001.v1.jsonl"
+  },
+  {
+   "kind": "critical_review",
+   "about": "CAND-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.00314,
+   "review_id": "D-0010",
+   "session": "RV-0002",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a06/research/rt-s1-claude-a06/cache/reviews/RV-0002.v1.jsonl"
+  },
+  {
+   "kind": "novelty_precheck",
+   "about": "CAND-0002",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.002122,
+   "review_id": "D-0020",
+   "session": "RV-0003",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a06/research/rt-s1-claude-a06/cache/reviews/RV-0003.v1.jsonl"
+  },
+  {
+   "kind": "critical_review",
+   "about": "CAND-0002",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.002347,
+   "review_id": "D-0021",
+   "session": "RV-0004",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a06/research/rt-s1-claude-a06/cache/reviews/RV-0004.v1.jsonl"
+  },
+  {
+   "kind": "novelty_precheck",
+   "about": "CAND-0002",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.00305,
+   "review_id": "D-0024",
+   "session": "RV-0005",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a06/research/rt-s1-claude-a06/cache/reviews/RV-0005.v1.jsonl"
+  },
+  {
+   "kind": "critical_review",
+   "about": "CAND-0002",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.002842,
+   "review_id": "D-0025",
+   "session": "RV-0006",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a06/research/rt-s1-claude-a06/cache/reviews/RV-0006.v1.jsonl"
+  },
+  {
+   "kind": "code_review",
+   "about": "H-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.003304,
+   "review_id": "D-0038",
+   "session": "RV-0007",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a06/research/rt-s1-claude-a06/cache/reviews/RV-0007.v1.jsonl"
+  },
+  {
+   "kind": "code_review",
+   "about": "H-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.004662,
+   "review_id": "D-0040",
+   "session": "RV-0008",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a06/research/rt-s1-claude-a06/cache/reviews/RV-0008.v1.jsonl"
+  },
+  {
+   "kind": "code_review",
+   "about": "H-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.0052,
+   "review_id": "D-0047",
+   "session": "RV-0009",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a06/research/rt-s1-claude-a06/cache/reviews/RV-0009.v1.jsonl"
+  },
+  {
+   "kind": "code_review",
+   "about": "H-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.002967,
+   "review_id": "D-0052",
+   "session": "RV-0010",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a06/research/rt-s1-claude-a06/cache/reviews/RV-0010.v1.jsonl"
+  },
+  {
+   "kind": "candidate_recheck",
+   "about": "H-0001",
+   "dimension": "numbers",
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.005142,
+   "review_id": "D-0056",
+   "session": "RV-0011",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a06/research/rt-s1-claude-a06/cache/reviews/RV-0011.v1.jsonl"
+  },
+  {
+   "kind": "candidate_recheck",
+   "about": "H-0001",
+   "dimension": "protocol",
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.00257,
+   "review_id": "D-0057",
+   "session": "RV-0012",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a06/research/rt-s1-claude-a06/cache/reviews/RV-0012.v1.jsonl"
+  },
+  {
+   "kind": "candidate_recheck",
+   "about": "H-0001",
+   "dimension": "method_code",
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.005121,
+   "review_id": "D-0058",
+   "session": "RV-0013",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a06/research/rt-s1-claude-a06/cache/reviews/RV-0013.v1.jsonl"
+  },
+  {
+   "kind": "candidate_recheck",
+   "about": "H-0001",
+   "dimension": "novelty",
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.005285,
+   "review_id": "D-0059",
+   "session": "RV-0014",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a06/research/rt-s1-claude-a06/cache/reviews/RV-0014.v1.jsonl"
+  },
+  {
+   "kind": "candidate_recheck",
+   "about": "H-0001",
+   "dimension": "theory",
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.002969,
+   "review_id": "D-0060",
+   "session": "RV-0015",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a06/research/rt-s1-claude-a06/cache/reviews/RV-0015.v1.jsonl"
+  }
+ ]
+}

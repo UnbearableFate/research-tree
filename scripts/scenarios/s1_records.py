@@ -119,6 +119,10 @@ def make(host: str, attempt: int, status: str, notes: list[str], layout: str, bl
     hyp = zebra_node["id"] if zebra_node else None
     methods = [e for e in exps.values() if e.get("kind") == "method" and e.get("hypothesis_id") == hyp]
 
+    # the three experiments the controller asked for share one commit: the one that has the output-dir variant
+    commit = next((e["code_ref"] for e in methods if "output_dir" in (e.get("effective_config") or {})), None)
+    methods = [e for e in methods if e["code_ref"] == commit] if commit else methods
+
     def pick(pred):
         return next((e for e in methods if pred(e.get("effective_config") or {})), None)
     m1 = pick(lambda c: c.get("lr") == 0.005 and "output_dir" not in c)
