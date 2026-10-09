@@ -86,7 +86,7 @@ say "我的决定：评测类型用 synthetic_proxy（合成数据上的真实�
 say "$CMD confirm" 5400
 for i in $(seq 1 24); do ck progress >/dev/null; n=$(python3 -c "import json; d=json.load(open('$C/checkpoint-progress.json')); print(1 if any(e['kind']=='baseline' and e.get('evaluation_id') for e in d['experiments']) else 0)" 2>/dev/null); echo "[$(date +%T)] baseline evaluated: $n"; [ "${n:-0}" = 1 ] && break; wait_agent 1800; say "继续推进根节点：框架 sanity、冻结、参考方法三个 seed 的基线（探索集 explore）、评估并设为 SOTA；完成后告诉我。" 3600; done
 ck A-sota
-say "在 Zebra 节点的工作树里写方法配置文件 configs/zebra-m1.json（momentum，lr 0.005，beta 0.9，其余同参考方法）并提交；在 Zebra 上用 config_path 登记这个方法实验，按规则做 sanity、代码审查、三个搜索 seed（探索集 explore）的运行、导入与评估。告诉我评估结果与 get_eligibility。" 5400
+say "在 Zebra 节点的工作树里（冻结框架之外的 zebra/ 目录）写方法配置文件 zebra/m1.json（momentum，lr 0.005，beta 0.9，其余同参考方法）并提交；在 Zebra 上用 config_path 登记这个方法实验，按规则做 sanity、代码审查、三个搜索 seed（探索集 explore）的运行、导入与评估。告诉我评估结果与 get_eligibility。" 5400
 ck B-search
 say "请为 Zebra 当前的搜索评估做五个维度（numbers、protocol、method_code、novelty、theory）的跨模型复核 research_review(kind=candidate_recheck)，然后告诉我 get_eligibility 的阶段与每个维度的状态。评审结论如何就按它处理。" 5400
 ck C-rechecked
@@ -108,7 +108,7 @@ say "评估 Zebra 在 c1 上的确认实验，告诉我结果与 get_eligibility
 ck J-confirmed
 say "我又创建一个对照：按参考方法登记一个确认阶段的基线（confirmation_of 用 SOTA 参照，属于同一个 c1 批次），只登记不运行。然后告诉我 Zebra 确认评估的参照实验编号与 delta 有没有变化。" 2400
 ck K-late-control
-say "看到确认结果后，我想把 Zebra 的学习率改成 0.01（代码不变）：写 configs/zebra-m4.json（momentum，lr 0.01，beta 0.9，其余同参考方法）并提交。先尝试沿用旧的候选规格、旧的确认批次和 c1 直接登记新学习率的确认实验，如实告诉我接口回答；再尝试新建一个节点 Zebra-B 用同样的新配置在 c1 上确认，也如实告诉我回答。不要绕过拒绝。" 3600
+say "看到确认结果后，我想把 Zebra 的学习率改成 0.01（代码不变）：写 zebra/m4.json（momentum，lr 0.01，beta 0.9，其余同参考方法）并提交。先尝试沿用旧的候选规格、旧的确认批次和 c1 直接登记新学习率的确认实验，如实告诉我接口回答；再尝试新建一个节点 Zebra-B 用同样的新配置在 c1 上确认，也如实告诉我回答。不要绕过拒绝。" 3600
 ck L-retune-refused
 say "按规则来：在 Zebra 上为 lr 0.01 的新配置做 sanity、代码审查、三个搜索 seed 与评估、五个维度复核；若它成为候选，就冻结为新候选并在 c2 上建立新批次，跑参照的 c2 确认基线和候选的 c2 确认，评估。若不成为候选，就如实说明并保持未确认。最后告诉我 material_usage 与 get_eligibility。" 7200
 ck M-c2
