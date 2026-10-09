@@ -125,6 +125,9 @@ def problems(record: dict, base: Path | None = None) -> list[str]:
         if host in MATRIX and record.get("observed_model") and record["observed_model"] != MATRIX[host]["main"]:
             out.append(f"observed model {record['observed_model']} is not the {host} matrix model {MATRIX[host]['main']}")
         for call in record.get("review_calls") or []:
+            if call.get("backend") is None and not call.get("review_id") and not call.get("cost_usd") \
+                    and str(call.get("outcome", "")).startswith("REVIEW_"):
+                continue  # refused by the interface before any backend was chosen: a refusal, not a review
             if call.get("backend") not in REAL_BACKENDS:
                 out.append(f"review call {call.get('review_id') or call} has backend {call.get('backend')!r}, "
                            f"not a real reviewer backend {REAL_BACKENDS}")

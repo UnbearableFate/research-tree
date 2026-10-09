@@ -155,8 +155,8 @@ def observe(project: Path, tools: Path = REPO_TOOLS) -> dict:
         "review_calls": [{**{k: c.get(k) for k in ("kind", "about", "dimension", "outcome", "backend", "cost_usd",
                                                     "review_id", "session", "error")},
                           "observed_model": c.get("model"),
-                          "raw_output": (f"{root}/cache/reviews/{c['session']}.v1.jsonl"
-                                         if c.get("outcome") == "ok" and c.get("session") else None)}
+                          "raw_output": next((str(f) for f in sorted((root / "cache" / "reviews").glob(f"{c['session']}.v*.json*"))),
+                                             None) if c.get("outcome") == "ok" and c.get("session") else None}
                          for c in jsonl(root / "logs" / "review_calls.jsonl")
                          if c.get("outcome") not in ("started", "background_started")],
     }

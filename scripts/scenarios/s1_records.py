@@ -76,6 +76,14 @@ def make(host: str, attempt: int, status: str, notes: list[str], layout: str, bl
     def pool(name):
         return {c["id"]: c for c in ((cands.get(name) or {}).get("candidates") or [])}
 
+    # the reviewer's raw output: pi writes .jsonl, the Claude CLI .json (older checkpoints named only .jsonl)
+    research_root = Path((load(proj / ".research-tree.json") or {}).get("root") or "")
+    for chk in ck.values():
+        for call in (chk or {}).get("review_calls") or []:
+            if call.get("session") and call.get("outcome") == "ok" and not Path(str(call.get("raw_output"))).is_file():
+                found = sorted((research_root / "cache" / "reviews").glob(f"{call['session']}.v*.json*"))
+                call["raw_output"] = str(found[0]) if found else call.get("raw_output")
+
     # -- SC-S1-01 ------------------------------------------------------------------------------------------
     first = pool(names["zebra"])
     zebra = next((i for i, c in first.items() if str(c.get("title", "")).startswith("Zebra")), None)

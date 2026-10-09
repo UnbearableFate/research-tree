@@ -34,7 +34,7 @@
    "session": "RV-0001",
    "error": null,
    "observed_model": "anthropic/claude-haiku-5-5",
-   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0001.v1.jsonl"
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0001.v1.json"
   },
   {
    "kind": "critical_review",
@@ -47,7 +47,7 @@
    "session": "RV-0002",
    "error": null,
    "observed_model": "anthropic/claude-haiku-5-5",
-   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0002.v1.jsonl"
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0002.v1.json"
   },
   {
    "kind": "novelty_precheck",
@@ -60,7 +60,7 @@
    "session": "RV-0003",
    "error": null,
    "observed_model": "anthropic/claude-haiku-5-5",
-   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0003.v1.jsonl"
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0003.v1.json"
   },
   {
    "kind": "critical_review",
@@ -73,7 +73,7 @@
    "session": "RV-0004",
    "error": null,
    "observed_model": "anthropic/claude-haiku-5-5",
-   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0004.v1.jsonl"
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0004.v1.json"
   },
   {
    "kind": "novelty_precheck",
@@ -86,7 +86,7 @@
    "session": "RV-0005",
    "error": null,
    "observed_model": "anthropic/claude-haiku-5-5",
-   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0005.v1.jsonl"
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0005.v1.json"
   },
   {
    "kind": "critical_review",
@@ -99,7 +99,7 @@
    "session": "RV-0006",
    "error": null,
    "observed_model": "anthropic/claude-haiku-5-5",
-   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0006.v1.jsonl"
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0006.v1.json"
   },
   {
    "kind": "code_review",
@@ -112,7 +112,7 @@
    "session": "RV-0007",
    "error": null,
    "observed_model": "anthropic/claude-haiku-5-5",
-   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0007.v1.jsonl"
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0007.v1.json"
   },
   {
    "kind": "code_review",
@@ -125,7 +125,7 @@
    "session": "RV-0008",
    "error": null,
    "observed_model": "anthropic/claude-haiku-5-5",
-   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0008.v1.jsonl"
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0008.v1.json"
   },
   {
    "kind": "code_review",
@@ -138,7 +138,7 @@
    "session": "RV-0009",
    "error": null,
    "observed_model": "anthropic/claude-haiku-5-5",
-   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0009.v1.jsonl"
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0009.v1.json"
   },
   {
    "kind": "candidate_recheck",
@@ -151,7 +151,7 @@
    "session": "RV-0010",
    "error": null,
    "observed_model": "anthropic/claude-haiku-5-5",
-   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0010.v1.jsonl"
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0010.v1.json"
   },
   {
    "kind": "candidate_recheck",
@@ -164,7 +164,7 @@
    "session": "RV-0011",
    "error": null,
    "observed_model": "anthropic/claude-haiku-5-5",
-   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0011.v1.jsonl"
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0011.v1.json"
   },
   {
    "kind": "candidate_recheck",
@@ -190,7 +190,7 @@
    "session": "RV-0012",
    "error": null,
    "observed_model": "anthropic/claude-haiku-5-5",
-   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0012.v1.jsonl"
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0012.v1.json"
   },
   {
    "kind": "candidate_recheck",
@@ -203,7 +203,7 @@
    "session": "RV-0013",
    "error": null,
    "observed_model": "anthropic/claude-haiku-5-5",
-   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0013.v1.jsonl"
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0013.v1.json"
   },
   {
    "kind": "candidate_recheck",
@@ -216,7 +216,7 @@
    "session": "RV-0014",
    "error": null,
    "observed_model": "anthropic/claude-haiku-5-5",
-   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0014.v1.jsonl"
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0014.v1.json"
   },
   {
    "kind": "candidate_recheck",
@@ -229,7 +229,7 @@
    "session": "RV-0015",
    "error": null,
    "observed_model": "anthropic/claude-haiku-5-5",
-   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0015.v1.jsonl"
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0015.v1.json"
   },
   {
    "kind": "candidate_recheck",
@@ -242,7 +242,7 @@
    "session": "RV-0016",
    "error": null,
    "observed_model": "anthropic/claude-haiku-5-5",
-   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0016.v1.jsonl"
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0016.v1.json"
   },
   {
    "kind": "candidate_recheck",
@@ -255,7 +255,7 @@
    "session": "RV-0017",
    "error": null,
    "observed_model": "anthropic/claude-haiku-5-5",
-   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0017.v1.jsonl"
+   "raw_output": "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a03/research/rt-s1-codex-a03/cache/reviews/RV-0017.v1.json"
   }
  ],
  "preconditions": [],
