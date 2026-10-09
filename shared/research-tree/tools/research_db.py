@@ -58,7 +58,7 @@ SPEC_PATH = Path(__file__).resolve().parent.parent / "schema" / "research_tree.s
 CLEANUP_SCRIPT = "research-tree-cleanup.py"
 CLEANUP_TEMPLATE = Path(__file__).resolve().parent.parent / "schema" / "cleanup.template.py"
 # The database layout this interface writes (schema/create_db.py SCHEMA_VERSION; a test keeps them equal).
-SCHEMA_VERSION = 16
+SCHEMA_VERSION = 17
 OPEN_ATTEMPTS = 40
 OPEN_RETRY_DELAY_S = 0.25
 
@@ -245,7 +245,7 @@ GATE_FIELDS = ("primary_metric", "metric_direction", "metric_is_percent", "secon
                "gate_seeds", "seeds")
 RUN_MEASUREMENTS = ("metric_value", "secondary", "nodes_used", "walltime_used_s")
 # What import_run_result writes besides the measurements; kept per attempt like them.
-IMPORT_FIELDS = ("manifest_path", "manifest", "evidence_paths", "import_record")
+IMPORT_FIELDS = ("manifest_path", "manifest", "evidence_paths", "import_record", "manifest_snapshot")
 # The '## ' sections a task's request and delivery documents must have: what a delegation and its result hand over.
 TASK_SECTIONS = {
     "task_request": ("任务与节点", "问题与预测", "干预与对照", "范围与权限", "资源与预算", "验收与停止条件", "交付"),
@@ -769,6 +769,8 @@ class ResearchDB:
                                          "experiments exist: a new protocol or metric specification is the user's "
                                          "decision; pass user_instruction_doc_id, the current user_instruction "
                                          "document that records it")
+                    if changes.get("metric_spec_doc_id") and project.get("metric_spec_doc_id"):
+                        self._check_frozen_primary(tx, project["metric_spec_doc_id"], changes["metric_spec_doc_id"])
                 self._check_evidence_docs(tx, final)
             raised = [k for k in CAP_FIELDS if k in changes and changes[k] != project.get(k) and (
                 changes[k] is None or (project.get(k) is not None and changes[k] > project[k]))]
@@ -835,6 +837,20 @@ class ResearchDB:
                 self._check_comparison_setup(final)
             if final.get("metric_spec_doc_id") and set(changes) & (set(GATE_FIELDS) | set(EVIDENCE_DOC_FIELDS)):
                 self._check_evidence_docs(tx, final)
+
+    def _check_frozen_primary(self, tx: _Tx, old_id: str, new_id: str) -> None:
+        """S3 §7.1: once experiments exist the primary metric's computation contract stays: its canonical unit,
+        direction, effect mode and minimum practical gain (the GO gate) — no unit conversion opens a threshold
+        after results are seen. Its input unit may change for future runs; old runs keep the unit they were
+        imported in and are not reinterpreted."""
+        old, new = (self._json_doc(tx, d, "metric_spec") for d in (old_id, new_id))
+        a, b = metrics.spec_by_name(old)[old["primary"]], metrics.spec_by_name(new).get(old["primary"])
+        changed = [k for k in ("canonical_unit", "direction", "effect_mode", "minimum_practical_gain")
+                   if b is None or a.get(k) != b.get(k)]
+        if new["primary"] != old["primary"] or changed:
+            raise CodedError("METRIC_UNIT_MISMATCH", f"experiments exist: the primary metric {old['primary']}'s "
+                                                     f"{', '.join(changed) or 'name'} is frozen (the gate's unit and "
+                                                     "threshold); a display conversion does not change the contract")
 
     def _check_evidence_docs(self, tx: _Tx, project: dict) -> None:
         """The metric specification fits the project's metrics (same primary and direction, a spec for every
@@ -2952,11 +2968,21 @@ class ResearchDB:
                 if key != "seed" and not isinstance(manifest.get(key), (str, int, float, bool)):
                     raise MetricError("PAIRING_MISMATCH", f"{manifest_file.name} lacks {key} (a scalar), a pair "
                                                           "field of the protocol")
+            for key in (protocol or {}).get("independence_fields", []):  # S3 §7.2: never counted as a new unit
+                if manifest.get(key) is None or not isinstance(manifest.get(key), (str, int, float, bool)):
+                    raise MetricError("INDEPENDENCE_UNVERIFIED", f"{manifest_file.name} lacks {key} (a scalar), an "
+                                                                 "independence field of the protocol")
         evidence_files = [metrics_file] + [self._inside_project(e, base, "evidence_paths")
                                            for e in manifest.get("evidence_paths") or []]
         record = {"parser_version": metrics.PARSER_VERSION, "manifest_sha256": sha256_file(manifest_file),
                   "metrics_sha256": sha256_file(metrics_file), "imported_at": now_utc(),
-                  "by": f"{self.role}/{self.agent}"}
+                  "by": f"{self.role}/{self.agent}",
+                  # S3 §7.1: how these numbers are to be read, as the run stated it and as the project read it then;
+                  # a later specification never reinterprets them
+                  "units": {k: v for k, v in (units or {}).items() if isinstance(k, str) and isinstance(v, str)},
+                  "raw_values": {k: values.get(k) for k in names},
+                  "metric_spec_doc_id": project.get("metric_spec_doc_id"),
+                  "protocol_doc_id": project.get("protocol_doc_id")}
         # every scalar field of the manifest is kept, so a later protocol can be checked against it without a re-run
         kept = {k: v for k, v in manifest.items() if isinstance(v, (str, int, float, bool)) and k != "counts"}
         changes = {
@@ -2964,6 +2990,7 @@ class ResearchDB:
             "secondary": {k: values[k] for k in project["secondary_metrics"]},
             "manifest_path": self._research_rel(manifest_file), "manifest": {**kept, "counts": counts},
             "evidence_paths": [self._research_rel(f) for f in evidence_files], "import_record": record,
+            "manifest_snapshot": manifest,
         }
         for key in ("log_path", "curve_path", "output_path"):
             if manifest.get(key):
@@ -3331,6 +3358,49 @@ class ResearchDB:
             discovery.write_candidates(self.db_path.parent, pool)
         return report
 
+    def migrate_units(self, dry_run: bool = True) -> dict:
+        """S3 §7.3: imported runs from before units were recorded. When the imported manifest file is still there
+        and still the imported file (its SHA-256 equals the import record's), its units and full content are
+        recorded now (recovered, with the source named); otherwise the run stays unverified for computations that
+        need units (RAW_METADATA_UNVERIFIED) — nothing is back-filled from the current specification. Earlier
+        evaluations and spent usage are untouched; running it again changes nothing. rld only."""
+        self._require_role("rld")
+        report = {"recovered": [], "unverified": []}
+        plan = []
+        with self.reader() as tx:
+            for run in (tx.get(i) for i in tx.ids("run")):
+                attempts = [(run["attempt"], run, None)] + [(int(k), a, k) for k, a in (run.get("attempts") or {}).items()]
+                for n, a, key in attempts:
+                    record = a.get("import_record")
+                    if not record or "units" in record:
+                        continue
+                    ref = f"{run['id']}@{n}"
+                    path = self.db_path.parent / (a.get("manifest_path") or "")
+                    if a.get("manifest_path") and path.is_file() and sha256_file(path) == record.get("manifest_sha256"):
+                        manifest = _read_json(path, "manifest")
+                        plan.append((run["id"], key, manifest, a.get("manifest_path")))
+                        report["recovered"].append(ref)
+                    else:
+                        report["unverified"].append(ref)
+        if dry_run:
+            return report
+        with self._writer() as tx:
+            for run_id, key, manifest, source in plan:
+                run = tx.get(run_id)
+                target = run if key is None else dict(run["attempts"][key])
+                record = dict(target["import_record"])
+                if "units" in record:
+                    continue
+                record.update(units={k: v for k, v in (manifest.get("units") or {}).items() if isinstance(v, str)},
+                              units_recovered_from=source, units_recovered_at=now_utc())
+                if key is None:
+                    tx.set(run_id, {"import_record": record, "manifest_snapshot": manifest})
+                else:
+                    attempts = dict(run["attempts"])
+                    attempts[key] = {**target, "import_record": record, "manifest_snapshot": manifest}
+                    tx.set(run_id, {"attempts": attempts})
+        return report
+
     def _evaluations_of(self, tx: _Tx, experiment_id: str) -> list[dict]:
         rows = tx.query("MATCH (v:Evaluation)-[:EVALUATES]->(e:Experiment {id: $id}) RETURN v.id AS id", id=experiment_id)
         return sorted((tx.get(r["id"]) for r in rows), key=lambda v: v["result_revision"])
@@ -3425,15 +3495,22 @@ class ResearchDB:
         legacy = bool(specs.get("legacy"))
         runs = [tx.get(f"{exp['id']}/s{s}") for s in exp["seeds"]]
         by_name = metrics.spec_by_name(specs)
+        if not legacy:  # S3: every run is read in the unit it was imported in, never reinterpreted
+            refs_runs = [r for role in ("sota", "parent") if role in refs
+                         for r in (tx.get(f"{refs[role]}/s{s}") for s in tx.get(refs[role])["seeds"])
+                         if r is not None and r.get("valid") is True]
+            self._check_raw_units(by_name, runs + refs_runs, names)
+        limitations = []
         per_metric = {}
         for name in names:
             if name not in by_name:
                 continue
             values = [metrics.run_values(specs, r, [name])[name] for r in runs]
-            metrics.check_unit_mix(by_name[name], values, exp["id"])
+            hint = metrics.check_unit_mix(by_name[name], values, exp["id"])
+            if hint:
+                limitations.append(hint)
             per_metric[name] = {**metrics.summary(values), "unit": by_name[name]["canonical_unit"],
                                 "seeds": [r["seed"] for r in runs]}
-        limitations = []
         if legacy:
             limitations.append("legacy metric specification: secondary metrics have no recorded direction and "
                                "their deltas are the caller's, not recomputed")
@@ -3464,6 +3541,7 @@ class ResearchDB:
             if effect.get("undefined"):
                 raise MetricError(effect["undefined"], f"{primary} against {target['id']}: {effect['reason']}; "
                                                        "the protocol must say how to compare it")
+            limitations += cmp.get("hints", [])
             for name, e in cmp["metrics"].items():
                 if e.get("undefined"):
                     limitations.append(f"{name} against {target['id']}: {e['undefined']} ({e['reason']})")
@@ -3519,6 +3597,30 @@ class ResearchDB:
                 "verification_level": level,
                 "artifact_refs": sorted({p for r in participating for p in (r.get("evidence_paths") or [])}),
                 "public": public}
+
+    @staticmethod
+    def _check_raw_units(by_name: dict, runs: list[dict], names: list[str]) -> None:
+        """S3 §7.1: an imported run's values are read in the units its manifest stated at import. A current
+        specification whose input_unit differs refuses to reinterpret them (METRIC_UNIT_MISMATCH); an imported
+        run whose units were never recorded (an older plugin) cannot enter a computation that needs them
+        (RAW_METADATA_UNVERIFIED; migrate_units recovers them from the original manifest when it still matches).
+        Runs reported without an import keep the old reading."""
+        for run in runs:
+            record = run.get("import_record")
+            if not record:
+                continue
+            if "units" not in record:
+                raise MetricError("RAW_METADATA_UNVERIFIED", f"{run['id']} was imported without its units recorded; "
+                                                             "migrate_units restores them from the original manifest "
+                                                             "when it is still the imported file")
+            for name in names:
+                spec = by_name.get(name)
+                raw = record["units"].get(name)
+                if spec is not None and raw is not None and raw != spec["input_unit"]:
+                    raise MetricError("METRIC_UNIT_MISMATCH", f"{run['id']} reported {name} in {raw}; the current "
+                                                              f"specification reads {spec['input_unit']}: old values are "
+                                                              "not reinterpreted (restore the input unit, or change only "
+                                                              "an auxiliary metric's canonical unit)")
 
     def _check_protocol_runs(self, protocol: dict | None, runs: list[dict]) -> None:
         """Every run in a comparison meets the current protocol: its imported manifest has the settings the protocol

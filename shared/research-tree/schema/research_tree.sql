@@ -301,6 +301,7 @@ CREATE TABLE run (
     -- 产物导入（import_run_result）：冻结解析器从 manifest 读出的指标与身份
     manifest_path       TEXT,                  -- 运行 manifest（JSON），相对研究根目录
     manifest            JSON,                  -- manifest 中配对与协议核对用的字段（seed、数据版本、计数等）
+    manifest_snapshot   JSON,                  -- 导入时完整 manifest 快照（含嵌套 config、env、units，S3）；之后文件变化不改写它
     evidence_paths      TEXT_LIST,             -- 重算所需的最小证据（指标文件、原始评分材料）；清理不得删除
     import_record       JSON                   -- 解析器版本、文件哈希、导入时间与执行者；同一 attempt 重复导入幂等
 );

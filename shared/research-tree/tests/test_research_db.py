@@ -1463,9 +1463,8 @@ class UnitMixTest(Fixture):
         h = self.hypothesis()
         self.start(h)
         exp = self.method(h, n_seeds=1)
-        self.finish_runs(self.worker, exp, metric_value=0.703)  # inside [0, 100], but a fraction
-        with self.assertRaisesRegex(ResearchDBError, "METRIC_UNIT_MISMATCH: the compared runs: acc values range from 0.703"):
-            self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_parent")
+        self.finish_runs(self.worker, exp, metric_value=0.703)  # inside [0, 100]: a legal percentage (S3 §7.1)
+        self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "no_gain")  # scale alone is no unit error
         other = self.method(h, n_seeds=1)
         self.worker.create_run(other, 42)
         self.worker.update_run(f"{other}/s42", exec_status="submitted")
@@ -1486,8 +1485,9 @@ class ReviewSixTest(Fixture):
             self.worker.update_run(f"{mixed}/s{seed}", exec_status="succeeded", valid=True, metric_value=value,
                                    secondary={"final_loss": 1.0, "peak_mem_gb": 40.0}, nodes_used=1,
                                    walltime_used_s=60, log_path="x.log")
-        with self.assertRaisesRegex(ResearchDBError, "METRIC_UNIT_MISMATCH: E-0002: acc values range from 0.699 to 69.9"):
-            self.worker.evaluate_experiment(mixed, self.result_doc(exp=mixed))
+        self.worker.evaluate_experiment(mixed, self.result_doc(exp=mixed))  # S3 §7.1: a review hint, not a refusal
+        ev = self.rld.evaluations(experiment_id=mixed)[-1]
+        self.assertTrue(any("E-0002: acc values range from 0.699 to 69.9" in x for x in ev["limitations"]))
 
     def test_eval_type_limit_is_carried(self):
         protocol = self.doc(self.rld, "project/protocol.v9.json", "protocol",
