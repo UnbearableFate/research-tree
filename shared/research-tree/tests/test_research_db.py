@@ -1579,18 +1579,45 @@ class UncertaintyTest(Fixture):
 
 
 class ConfirmationTest(Fixture):
-    """U04, U05: a search winner is candidate_ready; GO needs an unseen confirmation of the same code."""
+    """U04, U05 with S2 bindings: a search winner is candidate_ready; GO needs a confirmation of the frozen candidate
+    against its batch's baseline on unused material."""
 
     protocol_content = {**PROTOCOL, "profile": "stage1_confirmed", "confirmation_seeds": [1042, 1043, 1044],
-                        "max_confirmation_candidates": 1}
+                        "max_confirmation_candidates": 2,
+                        "confirmation_materials": [{"name": "c1", "seeds": [1042, 1043, 1044]},
+                                                   {"name": "c2", "seeds": [2042, 2043, 2044]}]}
 
-    def confirm_baseline(self) -> str:
-        design = self.doc(self.worker, "exp/cb.v1.md", "experiment_design")
-        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, stage="confirm", method_config={"lr": 0.05, "design": design}, estimated_node_h=1.0)
-        self.assertEqual(self.rld.get(base)["seeds"], [1042, 1043, 1044])
+    def batch(self, *pairs, material: str = "c1") -> str:
+        """Freeze each (node, its current basis evaluation) and put them in one batch on material."""
+        cands = [self.rld.freeze_candidate(h, self.rld.get_eligibility(h)["basis_evaluation_id"]) for h in pairs]
+        return self.rld.create_confirmation_batch(cands, material)
+
+    def confirm_baseline(self, batch: str | None = None, walltime_s: int = 1800) -> str:
+        batch = batch or self.batch_id
+        design = self.doc(self.worker, f"exp/cb{self.n}.v1.md", "experiment_design")
+        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, walltime_s, stage="confirm",
+                                             method_config=self.rld.get(self.sota)["effective_config"],
+                                             confirmation_batch_id=batch, confirmation_of=self.sota,
+                                             estimated_node_h=1.0)
+        self.assertEqual(self.rld.get(base)["seeds"], self.rld.get(base)["seeds"][:3])
         self.finish_runs(self.worker, base)
         self.worker.evaluate_experiment(base, self.result_doc(exp=base))
         return base
+
+    def confirm(self, h: str, exp: str, batch: str | None = None, code: str | None = None, **kw) -> str:
+        batch = batch or self.batch_id
+        cand = next(c for c in self._batch(batch)["candidates"]
+                    if self._cand(c)["hypothesis_id"] == h)
+        design = self.doc(self.worker, f"exp/c{self.n}.v1.md", "experiment_design")
+        return self.worker.create_experiment("method", "m", design, code or self.rld.get(exp)["code_ref"], 1, 60,
+                                             hypothesis_id=h, stage="confirm", method_config=METHOD_CONFIG,
+                                             candidate_spec_id=cand, confirmation_batch_id=batch,
+                                             estimated_node_h=1.0, **kw)
+
+    def _batch(self, doc):
+        return json.loads((self.root / "docs" / self.rld.get(doc)["path"]).read_text())
+
+    _cand = _batch
 
     def test_u04_u05(self):
         h, exp = self.candidate_ready()
@@ -1599,31 +1626,39 @@ class ConfirmationTest(Fixture):
         with self.assertRaisesRegex(ResearchDBError, "CONFIRMATION_REQUIRED: GO needs"):
             self.rld.decide("P-test", {"status": "go"}, "GO", doc_id=self.report_doc("go"))
         design = self.doc(self.worker, "exp/c1.v1.md", "experiment_design")
-        with self.assertRaisesRegex(ResearchDBError, "no confirmation baseline"):
+        with self.assertRaisesRegex(ResearchDBError, "CONFIRMATION_IDENTITY_UNVERIFIED: a confirmation names"):
             self.worker.create_experiment("method", "m", design, self.rld.get(exp)["code_ref"], 1, 60,
-                                          hypothesis_id=h, stage="confirm", method_config=METHOD_CONFIG, estimated_node_h=1.0)
+                                          hypothesis_id=h, stage="confirm", method_config=METHOD_CONFIG,
+                                          estimated_node_h=1.0)
+        self.batch_id = self.batch(h)
+        with self.assertRaisesRegex(ResearchDBError, "CONFIRMATION_BASELINE_MISMATCH: .*none yet"):
+            self.confirm(h, exp)
         self.confirm_baseline()
-        with self.assertRaisesRegex(ResearchDBError, "runs the frozen candidate"):
-            self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h,
-                                          stage="confirm", method_config=METHOD_CONFIG, estimated_node_h=1.0)
-        conf = self.worker.create_experiment("method", "m", design, self.rld.get(exp)["code_ref"], 1, 60,
-                                             hypothesis_id=h, stage="confirm", method_config=METHOD_CONFIG, estimated_node_h=1.0)
+        with self.assertRaisesRegex(ResearchDBError, "CANDIDATE_IDENTITY_MISMATCH"):
+            self.confirm(h, exp, code=self.commit())
+        conf = self.confirm(h, exp)
+        self.assertEqual(self.rld.get(conf)["seeds"], [1042, 1043, 1044])
         self.evaluate(conf, None, sota=(0.3, 0.1, 0.1))
         result = self.rld.get_eligibility(h)
         self.assertEqual((result["eligible"], result["stage"]), (True, "confirmed"), result)
-        # U05: the confirmation's feedback changes the code: the same seeds are no longer unseen
+        # U05: the confirmation's feedback changes the code: a new candidate cannot reuse c1
         newer = self.method(h)
         self.evaluate(newer, "beats_sota", sota=(0.4, 0.1, 0.1))
         self.recheck_pass(h, newer)
-        conf2 = self.worker.create_experiment("method", "m", design, self.rld.get(newer)["code_ref"], 1, 60,
-                                              hypothesis_id=h, stage="confirm", method_config=METHOD_CONFIG, estimated_node_h=1.0)
+        cand = self.rld.freeze_candidate(h, self.rld.get_eligibility(h)["basis_evaluation_id"])
+        with self.assertRaisesRegex(ResearchDBError, "CONFIRMATION_MATERIAL_REUSED"):
+            self.rld.create_confirmation_batch([cand], "c1")
+        self.batch_id = self.rld.create_confirmation_batch([cand], "c2")
+        self.confirm_baseline()
+        conf2 = self.confirm(h, newer)
+        self.assertEqual(self.rld.get(conf2)["seeds"], [2042, 2043, 2044])
         self.evaluate(conf2, None, sota=(0.4, 0.1, 0.1))
-        self.assertEqual(self.rld.get_eligibility(h)["reasons"], ["CONFIRMATION_REUSED"])
-        # a second node cannot also enter confirmation (max_confirmation_candidates 1)
+        self.assertEqual(self.rld.get_eligibility(h)["stage"], "confirmed")
+        # a third distinct method exceeds max_confirmation_candidates (2), whatever node it is on
         h2, exp2 = self.candidate_ready()
+        cand2 = self.rld.freeze_candidate(h2, self.rld.get_eligibility(h2)["basis_evaluation_id"])
         with self.assertRaisesRegex(ResearchDBError, "BUDGET_EXCEEDED: max_confirmation_candidates"):
-            self.worker.create_experiment("method", "m", design, self.rld.get(exp2)["code_ref"], 1, 60,
-                                          hypothesis_id=h2, stage="confirm", method_config=METHOD_CONFIG, estimated_node_h=1.0)
+            self.rld.create_confirmation_batch([cand2], "c2")
 
     def test_rechecks_bind_to_the_confirmation_the_go_rests_on(self):
         h, exp = self.candidate_ready()
@@ -1640,10 +1675,9 @@ class ConfirmationTest(Fixture):
                                      basis=reviewer.review_basis(h, "candidate_recheck", dimension, ev))
         for n, dimension in enumerate(rdb.RECHECK_DIMENSIONS, 1):
             review(n, dimension, search_ev)
+        self.batch_id = self.batch(h)
         self.confirm_baseline()
-        design = self.doc(self.worker, "exp/cr.v1.md", "experiment_design")
-        conf = self.worker.create_experiment("method", "m", design, self.rld.get(exp)["code_ref"], 1, 60,
-                                             hypothesis_id=h, stage="confirm", method_config=METHOD_CONFIG, estimated_node_h=1.0)
+        conf = self.confirm(h, exp)
         self.evaluate(conf, None, sota=(0.3, 0.1, 0.1))
         result = self.rld.get_eligibility(h)
         self.assertEqual(result["recheck_evaluation_id"], result["confirmation_evaluation_id"])
@@ -1829,10 +1863,8 @@ class M2ReviewTest(Fixture):
         self.worker.evaluate_experiment(self.sota, self.result_doc(exp=self.sota))
         h, exp = self.candidate()
         self.rld.add_obligation(h, "code_review:RV-0001", "seed_config", "seeds differ from the protocol", "MAJOR")
-        design = self.doc(self.worker, "exp/c.v1.md", "experiment_design")
-        with self.assertRaisesRegex(ResearchDBError, "OBLIGATION_OPEN: .* not candidate_ready"):
-            self.worker.create_experiment("method", "m", design, self.rld.get(exp)["code_ref"], 1, 60,
-                                          hypothesis_id=h, stage="confirm", method_config=METHOD_CONFIG, estimated_node_h=1.0)
+        with self.assertRaisesRegex(ResearchDBError, "OBLIGATION_OPEN: .* not ready to freeze"):  # S2: before confirmation
+            self.rld.freeze_candidate(h, self.rld.get_eligibility(h)["basis_evaluation_id"])
         user = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-2000.v1.md", "user_instruction")
         self.rld.waive_obligation(self.rld.obligations(about=h)[0]["id"], user)
         self.rld.add_obligation("P-test", "audit:A1", "scope", "the harness reads the wrong split", "CRITICAL")

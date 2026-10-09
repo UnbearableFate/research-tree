@@ -436,7 +436,7 @@ def check_protocol(root: Path, project: dict, config: dict) -> None:
     doc = ResearchDB(root / "research_tree.db", "ui/ui").get(project["protocol_doc_id"])
     protocol = json.loads((root / "docs" / doc["path"]).read_text(encoding="utf-8"))
     defaults = {"profile": "stage1_confirmed", "confirmation_seeds": [], "min_confirmation_pairs": 3,
-                "max_confirmation_candidates": None, "require_artifact_import": False}
+                "max_confirmation_candidates": None, "require_artifact_import": False, "confirmation_materials": []}
     wrong = {k: (protocol.get(k, defaults[k]), v) for k, v in project_config.protocol_requirements(config).items()
              if protocol.get(k, defaults[k]) != v}
     if wrong:

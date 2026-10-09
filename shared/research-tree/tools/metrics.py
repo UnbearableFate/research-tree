@@ -14,6 +14,7 @@ Effects are oriented so that positive is better: d_i = s * (x_i - y_i) with s = 
 from __future__ import annotations
 
 import math
+import re
 import statistics
 from decimal import Decimal
 from typing import Any
@@ -58,7 +59,7 @@ REQUIRED_SPEC_FIELDS = ("name", "direction", "input_unit", "canonical_unit", "ef
 PROTOCOL_FIELDS = {"version", "eval_type", "pair_fields", "match", "required_counts", "gate_comparison",
                    "min_pairs", "require_artifact_import", "inference_mode", "description", "profile",
                    "confirmation_seeds", "min_confirmation_pairs", "max_confirmation_candidates",
-                   "independence_fields"}
+                   "independence_fields", "confirmation_materials", "execution_fields", "sanity_overrides_allowed"}
 # 06 §2.4: screening ends at candidate_ready; stage1_confirmed needs an independent confirmation for GO.
 PROFILES = ("screening", "stage1_confirmed")
 OUTCOMES = ("positive_signal", "negative_signal", "inconclusive", "invalid")
@@ -164,6 +165,28 @@ def check_protocol(doc: Any) -> dict:
         if len(seeds) < need:
             raise MetricError("PROTOCOL_CHANGE_REQUIRED", f"profile stage1_confirmed declares at least {need} "
                                                           "confirmation_seeds, unused during the search")
+    materials = doc.get("confirmation_materials", [])
+    if not isinstance(materials, list):
+        raise MetricError("PROTOCOL_CHANGE_REQUIRED", "confirmation_materials is a list")
+    names = set()
+    for m in materials:
+        ok = (isinstance(m, dict) and isinstance(m.get("name"), str) and m["name"] and m["name"] not in names
+              and set(m) <= {"name", "seeds", "split_sha256", "manifest_field", "description"}
+              and isinstance(m.get("seeds"), list) and m["seeds"]
+              and all(isinstance(x, int) and not isinstance(x, bool) for x in m["seeds"])
+              and len(set(m["seeds"])) == len(m["seeds"])
+              and len(m["seeds"]) >= doc.get("min_confirmation_pairs", 3)
+              and (m.get("split_sha256") is None or (isinstance(m["split_sha256"], str)
+                                                     and re.fullmatch(r"[0-9a-f]{64}", m["split_sha256"]))))
+        if not ok:
+            raise MetricError("PROTOCOL_CHANGE_REQUIRED", "a confirmation material is {name, seeds (distinct "
+                                                          "integers, at least min_confirmation_pairs), split_sha256? "
+                                                          "(the evaluation split's content hash), manifest_field?}; "
+                                                          f"names are unique; got {m!r}")
+        names.add(m["name"])
+    for key in ("execution_fields", "sanity_overrides_allowed"):
+        if not (isinstance(doc.get(key, []), list) and all(isinstance(f, str) and f for f in doc.get(key, []))):
+            raise MetricError("PROTOCOL_CHANGE_REQUIRED", f"{key} is a list of configuration field names")
     fields = doc.get("independence_fields", [])
     if not (isinstance(fields, list) and all(isinstance(f, str) and f for f in fields)):
         raise MetricError("PROTOCOL_CHANGE_REQUIRED", "independence_fields is a list of manifest fields")

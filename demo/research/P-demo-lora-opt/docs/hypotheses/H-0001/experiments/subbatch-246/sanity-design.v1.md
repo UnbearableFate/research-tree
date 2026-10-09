@@ -7,11 +7,11 @@ summary: "sanity"
 about: []
 author_role: "worker"
 author_id: "h0001"
-created_at: "2026-10-08T19:20:19Z"
+created_at: "2026-10-08T19:47:37Z"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
 
-最小规模 sanity：代码 373d9c59c7。
+最小规模 sanity：代码 1c2a0fd6d0。
 
 ## 检验的 claim
 

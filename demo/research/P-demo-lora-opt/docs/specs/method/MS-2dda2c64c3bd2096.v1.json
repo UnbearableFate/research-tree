@@ -1,0 +1,1 @@
+{"code_ref":"48aa0e59b411a36493cdec789cd9c4ce7dfe3fb4","config":{"lr":0.0002,"optimizer":"kron-diag"},"data":{"train_steps":1000},"harness_ref":"59bf87c44c3890fd95ee8ac97c2911ef41c67cba","protocol_doc_id":"D-0006","version":1}

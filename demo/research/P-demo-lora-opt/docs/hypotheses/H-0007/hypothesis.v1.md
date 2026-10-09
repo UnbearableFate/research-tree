@@ -1,5 +1,5 @@
 ---
-id: "D-0073"
+id: "D-0075"
 doc_type: "hypothesis"
 version: 1
 title: "8-bit优化器状态"
@@ -7,7 +7,7 @@ summary: "以8-bit存储优化器状态，在精度不变时显著降低显存�
 about: []
 author_role: "rld"
 author_id: "main"
-created_at: "2026-10-08T19:22:09Z"
+created_at: "2026-10-08T19:49:04Z"
 parent: "P-demo-lora-opt"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。

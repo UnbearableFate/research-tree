@@ -1,5 +1,5 @@
 ---
-id: "D-0056"
+id: "D-0058"
 doc_type: "experiment_design"
 version: 1
 title: "H-0004 实验设计"
@@ -7,11 +7,11 @@ summary: "momentum-rescale"
 about: []
 author_role: "worker"
 author_id: "h0004"
-created_at: "2026-10-08T19:21:39Z"
+created_at: "2026-10-08T19:48:34Z"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
 
-代码 ec767ad229：momentum-rescale。
+代码 c15d7f614b：momentum-rescale。
 
 ## 检验的 claim
 

@@ -1,5 +1,5 @@
 ---
-id: "D-0047"
+id: "D-0049"
 doc_type: "experiment_design"
 version: 1
 title: "H-0003 独立确认"
@@ -7,11 +7,11 @@ summary: "独立确认"
 about: []
 author_role: "worker"
 author_id: "h0003"
-created_at: "2026-10-08T19:21:22Z"
+created_at: "2026-10-08T19:48:22Z"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
 
-冻结代码 19c019dc2e，确认 seed 1042–1044。
+冻结代码 adae32fae9，确认 seed 1042–1044。
 
 ## 检验的 claim
 

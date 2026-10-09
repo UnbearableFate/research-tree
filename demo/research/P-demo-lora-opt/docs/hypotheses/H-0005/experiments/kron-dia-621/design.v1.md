@@ -1,5 +1,5 @@
 ---
-id: "D-0065"
+id: "D-0067"
 doc_type: "experiment_design"
 version: 1
 title: "H-0005 实验设计"
@@ -7,11 +7,11 @@ summary: "kron-diag"
 about: []
 author_role: "worker"
 author_id: "h0005"
-created_at: "2026-10-08T19:21:58Z"
+created_at: "2026-10-08T19:48:53Z"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
 
-代码 1ef7daad09：kron-diag。
+代码 48aa0e59b4：kron-diag。
 
 ## 检验的 claim
 
