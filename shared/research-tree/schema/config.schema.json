@@ -264,6 +264,14 @@
               }
             }
           }
+        },
+        "independence_fields": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "S3: manifest fields naming a run's independent repeat unit; a missing value is never a new unit"
         }
       }
     },
