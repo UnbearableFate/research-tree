@@ -134,7 +134,7 @@ say "我已把被改动的配置文件恢复原样。请把实验①按规则走
 ck I-zebra-evaluated
 say "请为 Zebra 当前的评估做 GO 候选所需的跨模型复核：numbers、protocol、method_code、novelty、theory 五个维度各一次 research_review(kind=candidate_recheck)，然后告诉我 get_eligibility 中每个维度的状态。若评估未过门槛，就如实告诉我，并仍为当前评估做这五个维度的复核。" 5400
 ck J-rechecked
-say "把 Zebra 的主张扩大为：重球动量在所有数据分布上都有收敛保证。请写新版本的假说文档（主张、Claim map 与适用范围都改）并登记为 Zebra 的新主张版本，然后告诉我主张版本号、哪些复核还有效、哪些失效，以及数字有没有变。" 2400
+say "这是我的决定（我想看看复核会如何反应，之后会收回）：把 Zebra 的主张扩大为“重球动量在所有数据分布上都有收敛保证”。请照此写新版本的假说文档（主张、Claim map 与适用范围都改）并登记为 Zebra 的新主张版本；你认为证据不足就在文档里写明，但仍然登记。然后告诉我主张版本号、哪些复核还有效、哪些失效，以及数字有没有变。" 2400
 ck K-claim-broadened
 say "那个扩大的主张没有证据，请恢复为原来的范围（只限本合成任务、固定更新预算）作为新的主张版本，并只为受影响的维度重新做复核；告诉我结果。" 5400
 ck L-claim-narrowed
