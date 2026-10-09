@@ -1,0 +1,93 @@
+{
+ "mode": "precheck",
+ "executor_model": null,
+ "created": "2026-10-09T01:10:39Z",
+ "gate": {
+  "verdict": "PASS",
+  "reasons": [],
+  "at": "2026-10-09T01:24:51Z",
+  "report": "docs/project/reports/discovery.v2.md"
+ },
+ "stages": [
+  {
+   "stage": "brief",
+   "status": "done",
+   "artifact": null,
+   "evidence": null,
+   "updated": "2026-10-09T01:10:39Z"
+  },
+  {
+   "stage": "literature",
+   "status": "accepted",
+   "artifact": "docs/project/discovery/literature.md",
+   "evidence": [
+    "D-0006 verified crossref 10.24963/ijcai.2018/410",
+    "D-0007 verified arxiv 1605.09774",
+    "D-0008 verified arxiv 1810.06801",
+    "D-0015 verified arxiv 1706.02677",
+    "D-0016 verified arxiv 1810.13243",
+    "D-0017 verified arxiv 2406.09405"
+   ],
+   "updated": "2026-10-09T01:24:50Z",
+   "verifier": "literature.py"
+  },
+  {
+   "stage": "candidates",
+   "status": "skipped",
+   "artifact": null,
+   "evidence": null,
+   "updated": "2026-10-09T01:10:39Z"
+  },
+  {
+   "stage": "feasibility",
+   "status": "skipped",
+   "artifact": null,
+   "evidence": null,
+   "updated": "2026-10-09T01:10:39Z"
+  },
+  {
+   "stage": "triage",
+   "status": "skipped",
+   "artifact": null,
+   "evidence": null,
+   "updated": "2026-10-09T01:10:39Z"
+  },
+  {
+   "stage": "novelty",
+   "status": "accepted",
+   "artifact": "docs/project/discovery/novelty-reviews.md",
+   "evidence": [
+    "D-0009",
+    "D-0018"
+   ],
+   "updated": "2026-10-09T01:24:50Z",
+   "verifier": null
+  },
+  {
+   "stage": "critique",
+   "status": "accepted",
+   "artifact": "docs/project/discovery/critical-reviews.md",
+   "evidence": [
+    "D-0010",
+    "D-0019"
+   ],
+   "updated": "2026-10-09T01:24:51Z",
+   "verifier": null
+  },
+  {
+   "stage": "refine",
+   "status": "done",
+   "artifact": "docs/project/discovery/refined-hypotheses.md",
+   "evidence": null,
+   "updated": "2026-10-09T01:24:51Z"
+  },
+  {
+   "stage": "gate",
+   "status": "done",
+   "artifact": "docs/project/reports/discovery.v2.md",
+   "evidence": null,
+   "updated": "2026-10-09T01:24:51Z"
+  }
+ ],
+ "updated": "2026-10-09T01:24:51Z"
+}

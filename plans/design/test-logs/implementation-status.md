@@ -125,3 +125,8 @@ Fable 5.1 补充 usage credits。期间继续不依赖评审的实现、REG 与�
   门因旧 revision 回执阻塞、重启并重新 merge 后仍阻塞；Alpha 当前 revision 的真实评审（pi，openai/gpt-6-luna）后门通过）。
   SC-S1-02/03 FAIL：控制器要求把方法配置写在 configs/，而 agent 冻结框架时把 configs/ 列入 harness_paths，它正确地拒绝了
   （会破坏框架核对），于是实验①–③没有登记、配置漂移故障无文件可改。控制器已改为 zebra/（框架之外）；a05 重测 S1-02/03。
+- Claude a05：SC-COMMON-01、SC-S1-01 PASS；SC-S1-03 的 I1（学习率→新身份、仅输出目录→同身份）、I2（漂移注入生效）、I3（漂移的
+  run 被拒导入）、I5（lr 0.01 的提交因 SANITY_REQUIRED 被拒）PASS，I4 FAIL：方法①的代码审查两轮都因 reviewer 看不到 zebra/ 文件
+  而 blocking（S1 构建只把 code/ 给 reviewer，节点提交在 worktree 里）——这是 S4 已实现的“所审提交的只读代码快照”所补的缺口。
+  因此没有评估，SC-S1-02 无可绑定的复核；另外 agent 拒绝登记无证据的扩大主张（合理），控制器提示改为明确这是用户的决定。
+  后续 S1 在合并 S2–S7 后的构建上重测。

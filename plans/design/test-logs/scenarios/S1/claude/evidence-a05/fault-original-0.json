@@ -1,0 +1,8 @@
+{
+ "method": "momentum",
+ "lr": 0.005,
+ "beta": 0.9,
+ "epochs": 1,
+ "batch": 32,
+ "accum": 1
+}
