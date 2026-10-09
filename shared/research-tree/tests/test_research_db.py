@@ -1792,6 +1792,15 @@ class LedgerTest(Fixture):
 class StallTest(Fixture):
     """06 §5 (T01, T02)."""
 
+    def fact(self) -> str:
+        """A current finding with checked evidence (S7: a stall is reset by named findings, not by a count)."""
+        ev = self.rld.get(self.sota)["evaluation_id"]
+        body = (f"---\nkind: finding\nclaim: \"fact {self.n}\"\nevidence_ids: [{ev}]\ninterpretation: \"x\"\n"
+                "limitations: \"y\"\nstatus: observed\n---\n")
+        doc = self.doc(self.rld, f"findings/fact-{self.n}.v1.md", "finding", current=False, body=body)
+        self.rld.set_document_current(doc)
+        return doc
+
     def test_repeated_decision_batch_does_not_advance_or_reset_stall(self):
         root = self.hypothesis()
         first_doc, second_doc = self.decision_doc(), self.decision_doc()
@@ -1801,13 +1810,14 @@ class StallTest(Fixture):
         self.assertEqual(self.rld.history(root), before)
         second = self.rld.note_findings(root, 0, doc_id=second_doc)
         self.assertEqual(second["streak"], 2)
-        self.assertEqual(self.rld.note_findings(root, 1, doc_id=first_doc), second)
+        fact = self.fact()
+        self.assertEqual(self.rld.note_findings(root, 1, doc_id=first_doc, finding_ids=[fact]), second)
         self.assertEqual(self.rld.get(root)["new_findings_streak"], 2)
 
     def test_t01_t02(self):
         root = self.hypothesis()
         self.rld.update_hypothesis(root, title="root of the subtree")
-        self.rld.note_findings(root, 1, doc_id=self.decision_doc(), direction="optimizer-state")
+        self.rld.note_findings(root, 1, doc_id=self.decision_doc(), direction="optimizer-state", finding_ids=[self.fact()])
         first = self.rld.note_findings(root, 0, doc_id=self.decision_doc())
         self.assertEqual((first["streak"], first["stall_state"]), (1, "none"))
         second = self.rld.note_findings(root, 0, doc_id=self.decision_doc())
@@ -1825,7 +1835,8 @@ class StallTest(Fixture):
         self.rld.note_findings(root, 0, doc_id=self.decision_doc())
         human = self.rld.note_findings(root, 0, doc_id=self.decision_doc())
         self.assertEqual((human["stall_state"], human["report_to_user"]), ("human", True))
-        self.assertEqual(self.rld.note_findings(root, 2, doc_id=self.decision_doc())["stall_state"], "none")
+        self.assertEqual(self.rld.note_findings(root, 2, doc_id=self.decision_doc(),
+                                                finding_ids=[self.fact(), self.fact()])["stall_state"], "none")
 
     def test_stall_batch_requires_a_current_unchanged_decision(self):
         root = self.hypothesis()

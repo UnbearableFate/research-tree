@@ -60,7 +60,7 @@ PROTOCOL_FIELDS = {"version", "eval_type", "pair_fields", "match", "required_cou
                    "min_pairs", "require_artifact_import", "inference_mode", "description", "profile",
                    "confirmation_seeds", "min_confirmation_pairs", "max_confirmation_candidates",
                    "independence_fields", "confirmation_materials", "execution_fields", "sanity_overrides_allowed",
-                   "review_applicability"}
+                   "review_applicability", "repetition"}
 # 06 §2.4: screening ends at candidate_ready; stage1_confirmed needs an independent confirmation for GO.
 PROFILES = ("screening", "stage1_confirmed")
 OUTCOMES = ("positive_signal", "negative_signal", "inconclusive", "invalid")
@@ -200,7 +200,73 @@ def check_protocol(doc: Any) -> dict:
         raise MetricError("PROTOCOL_CHANGE_REQUIRED", 'review_applicability is {"novelty"|"theory": {"exemptible": '
                                                       'true|false, "reason": ...}}; numbers, protocol and '
                                                       "method_code are never exempt")
+    rep = doc.get("repetition")
+    if rep is not None:
+        ok = (isinstance(rep, dict) and set(rep) <= {"enabled", "se_multiple", "batch", "seed_pool", "auto"}
+              and isinstance(rep.get("enabled"), bool) and _number(rep.get("se_multiple", 2.0))
+              and rep.get("se_multiple", 2.0) > 0 and isinstance(rep.get("batch", 2), int) and rep.get("batch", 2) >= 1
+              and isinstance(rep.get("seed_pool", []), list)
+              and all(isinstance(s, int) and not isinstance(s, bool) for s in rep.get("seed_pool", []))
+              and not set(rep.get("seed_pool", [])) & set(doc.get("confirmation_seeds", []))
+              and not any(set(rep.get("seed_pool", [])) & set(m.get("seeds", [])) for m in materials if isinstance(m, dict)))
+        if not ok:
+            raise MetricError("PROTOCOL_CHANGE_REQUIRED", "repetition is {enabled, se_multiple > 0, batch >= 1, "
+                                                          "seed_pool: search/replicate seeds (never confirmation seeds), "
+                                                          "auto?}, fixed before the experiments")
     return doc
+
+
+def repetition_advice(spec: dict, pairs: list[dict], gain: float, policy: dict | None, used_seeds: list[int],
+                      seed_cost: int | None, available: int | None) -> dict:
+    """S7 §11.1: whether more repeats would help decide the comparison, by a rule fixed in the protocol. pairs:
+    [{"diff": oriented paired difference in the canonical unit, "unit": the protocol's independence key}]. Only
+    absolute effects over complete, distinct independence units get numbers: n < 2 states no variance; otherwise
+    SD of the differences, SE = SD / sqrt(n), and the comparison is unclear when |mean - gain| <= se_multiple x SE.
+    A descriptive allocation heuristic, never a significance claim. More seeds come only from the protocol's
+    search/replicate seed_pool, within the available budget; nothing is run here."""
+    policy = policy or {}
+    base = {"effect_mode": spec.get("effect_mode"), "unit": spec.get("canonical_unit"), "gain": gain,
+            "policy": {k: policy.get(k) for k in ("enabled", "se_multiple", "batch")}}
+    if not policy.get("enabled"):
+        return {**base, "advice": "disabled", "reason": "the protocol does not enable repetition advice"}
+    if spec.get("effect_mode") != "absolute":
+        return {**base, "advice": "unsupported_effect_mode",
+                "reason": f"{spec.get('effect_mode')}: only absolute effects get a numeric advice"}
+    keys = [p.get("unit") for p in pairs]
+    if not pairs or any(k is None for k in keys) or len(set(map(str, keys))) != len(keys):
+        return {**base, "advice": "independence_unverified",
+                "reason": "every pair needs its own declared independence unit (missing or shared keys)"}
+    diffs = [float(p["diff"]) for p in pairs]
+    n = len(diffs)
+    mean = statistics.fmean(diffs)
+    out = {**base, "n_independent": n, "mean": mean}
+    k = float(policy.get("se_multiple", 2.0))
+    if n < 2:
+        unclear, why = True, "n < 2: the variance is not known"
+    else:
+        sd = statistics.stdev(diffs)
+        se = sd / math.sqrt(n)
+        out.update(sd=sd, se=se)
+        unclear = abs(mean - gain) <= k * se
+        why = (f"|mean - gain| = {abs(mean - gain):.6g} {'<=' if unclear else '>'} {k:g} x SE {se:.6g}")
+        signs = {d > 0 for d in diffs if d}
+        if len(signs) > 1:
+            why += "; the differences change sign"
+    if not unclear:
+        return {**out, "advice": "enough", "reason": why}
+    pool = [s for s in policy.get("seed_pool", []) if s not in set(used_seeds)]
+    batch = int(policy.get("batch", 2))
+    proposed = pool[:batch]
+    if not proposed:
+        return {**out, "advice": "hold_inconclusive", "reason": why + "; the declared seed pool is used up"}
+    if seed_cost is not None and available is not None and seed_cost * len(proposed) > available:
+        fit = max(0, available // seed_cost) if seed_cost else len(proposed)
+        proposed = proposed[:fit]
+        if not proposed:
+            return {**out, "advice": "hold_inconclusive", "reason": why + "; the available budget does not fit one more seed"}
+    return {**out, "advice": "add_repeats", "seeds": proposed, "reason": why,
+            "cost": None if seed_cost is None else seed_cost * len(proposed), "available": available,
+            "auto": bool(policy.get("auto"))}
 
 
 def legacy_specs(project: dict) -> dict:
