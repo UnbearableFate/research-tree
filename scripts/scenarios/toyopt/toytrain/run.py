@@ -31,7 +31,7 @@ from toytrain import data, train
 REPO = Path(__file__).resolve().parents[1]
 # settings that say where or how long a run goes, not how it trains: recorded as given
 EXECUTION = ("output_dir", "walltime_s", "notes")
-UNITS = {"accuracy": "fraction", "eval_loss": "nats", "final_loss": "nats", "train_time_s": "seconds"}
+UNITS = {"accuracy": "fraction", "eval_loss": "nats", "final_loss": "nats", "train_time_s": "seconds", "model_bytes": "bytes"}
 
 
 def git(*args: str) -> str:
@@ -78,7 +78,7 @@ def main(argv=None) -> int:
         "command": [sys.executable, "-m", "toytrain.train", *argv_train],
         "env": {"python": platform.python_version(), "platform": platform.platform(), "host": platform.node(),
                 "pid": os.getpid()},
-        "units": {"accuracy": UNITS["accuracy"]}, "metric_units": UNITS, "data_version": data.GENERATOR_VERSION,
+        "units": dict(UNITS), "metric_units": UNITS, "data_version": data.GENERATOR_VERSION,
         "nodes_used": 1, "output_path": str(out), "log_path": "train.log",
     }
     start = time.time()
