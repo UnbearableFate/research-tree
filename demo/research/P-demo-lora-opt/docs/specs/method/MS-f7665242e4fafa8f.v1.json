@@ -1,0 +1,1 @@
+{"code_ref":"c15d7f614bbe0b601ae28c413b5922dc3e0f58f3","config":{"lr":0.0002,"optimizer":"momentum-rescale"},"data":{"train_steps":1000},"harness_ref":"59bf87c44c3890fd95ee8ac97c2911ef41c67cba","protocol_doc_id":"D-0006","version":1}

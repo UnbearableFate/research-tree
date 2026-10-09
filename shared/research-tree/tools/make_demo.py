@@ -494,11 +494,14 @@ class Demo:
         rld.decide(h3, {"status": "expandable"}, "优于SOTA且复核通过，可拓展", doc_id=dd3)
         # Independent confirmation of the frozen candidate on unseen seeds (stage1_confirmed).
         w_root = ResearchDB(db_path := self.root / "research_tree.db", "worker/root")
+        # S2: the candidate is frozen from its search evidence and put in a batch on declared material first
+        cand = rld.freeze_candidate(h3, rld.get_eligibility(h3)["basis_evaluation_id"])
+        batch = rld.create_confirmation_batch([cand], "default")
         cb_design = self.doc(w_root, "baselines/confirm/design.v1.md", "experiment_design", "确认基线",
                              "在确认 seed 1042–1044 上运行 BaseOpt-A，作为确认的参照。\n", "确认基线设计")
         cbase = w_root.create_experiment("baseline", "BaseOpt-A（确认基线）", cb_design, self.harness, 4, 3600,
-                                         stage="confirm", method_config={"optimizer": "BaseOpt-A", "lr": 2e-4},
-                                         estimated_node_h=12.0)
+                                         stage="confirm", method_config=rld.get(self.sota)["effective_config"],
+                                         confirmation_batch_id=batch, confirmation_of=self.sota, estimated_node_h=12.0)
         self.values[cbase] = self.finish_experiment(w_root, cbase, {}, nodes=4)
         cb_result = self.doc(w_root, "baselines/confirm/result.v1.md", "experiment_result", "确认基线结果",
                              "确认 seed 上的基线结果。\n" + self.evidence(cbase), "确认基线")
@@ -507,8 +510,8 @@ class Demo:
                             f"{h3} 独立确认", design_body(f"冻结代码 {rld.get(e3)['code_ref'][:10]}，确认 seed 1042–1044。"),
                             "独立确认")
         conf = wk3.create_experiment("method", "moment-balance（确认）", c_design, rld.get(e3)["code_ref"], 4, 3600,
-                                     hypothesis_id=h3, stage="confirm",
-                                     method_config={"optimizer": "moment-balance", "lr": 2e-4}, estimated_node_h=12.0)
+                                     hypothesis_id=h3, stage="confirm", method_config=rld.get(e3)["effective_config"],
+                                     candidate_spec_id=cand, confirmation_batch_id=batch, estimated_node_h=12.0)
         self.values[conf] = self.finish_experiment(wk3, conf, {"acc": 0.24, "peak_mem_gb": 1.0, "loss_auc": -0.02}, nodes=4)
         cmps = [self.paired(self.values[conf], self.values[cbase], "sota", cbase)]
         c_result = self.doc(wk3, f"hypotheses/{h3}/experiments/{conf}/result.v3.md", "experiment_result",

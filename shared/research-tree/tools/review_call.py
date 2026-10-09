@@ -24,6 +24,7 @@ cost reached budget.review_usd_alert). Nothing here calls a model except the bac
 from __future__ import annotations
 
 import argparse
+import hashlib
 import fcntl
 import json
 import time
@@ -41,6 +42,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 from jsonschema import Draft202012Validator  # noqa: E402
 
 import discovery  # noqa: E402
+import review_rules  # noqa: E402
 import research_tree as tree  # noqa: E402
 from research_db import (CANDIDATE_ID_RE, RECHECK_DIMENSIONS, REVIEW_KINDS, ResearchDB,  # noqa: E402
                          ResearchDBError)
@@ -302,14 +304,10 @@ def problems(kind: str, data: dict | None, schema: dict, dimension: str | None) 
     if kind == "candidate_recheck":
         if data["dimension"] != dimension:
             found.append(f"dimension is {data['dimension']!r}, the brief asked for {dimension!r}")
-        if data["result"] == "pass" and not data["evidence_paths"]:
-            found.append("a pass lists the files it relied on (evidence_paths)")
-        if dimension == "method_code" and data["result"] == "pass" and not any(
-                Path(p).suffix.lower() in CODE_SUFFIXES for p in data["evidence_paths"]):
-            found.append("method_code pass without reading code: cite the code files checked (K06; reading the "
-                         "report alone does not verify method-code alignment)")
-        if data["result"] == "not_applicable" and not data["reason"].strip():
-            found.append("not_applicable needs the reason the dimension is not part of the claim")
+        # S4 §8.1: only structure is corrected here (missing, duplicated or foreign checklist items); a legal fail
+        # or uncertain is the review's answer and is never sent back to be rewritten. A pass whose cited files
+        # cannot be resolved is made uncertain when it is registered (research_db.register_review).
+        found += review_rules.structure_problems(dimension, data)
     return found
 
 
@@ -375,7 +373,8 @@ def _front_matter(fields: dict) -> str:
 
 def review(cwd: Path, kind: str, brief: str, about: str, dimension: str | None = None,
            evaluation: str | None = None, session: str | None = None, add_dirs: list[str] | None = None,
-           actor: str = "rld/main", code_ref: str | None = None, deadline_s: int | None = None) -> dict:
+           actor: str = "rld/main", code_ref: str | None = None, deadline_s: int | None = None,
+           evidence_set: str | None = None) -> dict:
     if not actor.startswith("rld/"):
         raise ReviewError("REVIEW_UNAVAILABLE", "the Leader (rld) organizes reviews; other roles ask the Leader")
     if kind not in REVIEW_KINDS:
@@ -405,6 +404,9 @@ def review(cwd: Path, kind: str, brief: str, about: str, dimension: str | None =
         if family(leader) is None:
             raise ReviewError("REVIEW_UNAVAILABLE", f"the Leader's observed model ({leader or 'none recorded'}) "
                                                     "cannot be placed in a model family; require_cross_family")
+        if family(reviewer["model"]) is None:
+            raise ReviewError("REVIEW_UNAVAILABLE", f"the reviewer {reviewer['model']} cannot be placed in a model "
+                                                    "family; require_cross_family cannot be met")
         if family(leader) == family(reviewer["model"]):
             raise ReviewError("REVIEW_UNAVAILABLE", f"reviewer {reviewer['model']} is the Leader's family "
                                                     f"({leader}); require_cross_family refuses the call")
@@ -433,8 +435,69 @@ def review(cwd: Path, kind: str, brief: str, about: str, dimension: str | None =
     backend.deadline = deadline
     backend.code_ref = code_ref
     backend.basis = basis
+    backend.evidence = followup_evidence(root, Path(marker["db"]), evidence_set, kind, about, basis) \
+        if evidence_set else None
+    reviewed = code_ref if kind == "code_review" else basis.get("code_ref") if dimension == "method_code" else None
+    if reviewed:  # S4 §8.2: the reviewer reads the commit the receipt is bound to, not a working tree
+        with ResearchDB(Path(marker["db"]), "rld/main").reader() as tx:
+            repo = (tx.get(tx.ids("project")[0]) or {}).get("repo_path")
+        snapshot = code_snapshot(root, repo, basis.get("code_ref") or code_ref)
+        if snapshot:
+            add_dirs = [*(add_dirs or []), str(snapshot)]
+            backend.snapshot = snapshot
     return _review(root, backend, reviewer, kind, brief_path, about, dimension, evaluation, add_dirs, schema,
                    system_file, db, alert, so_far, rv, uid, version, first, state)
+
+
+def followup_evidence(root: Path, db_path: Path, manifest: str, kind: str, about: str, basis: dict) -> dict:
+    """S4 §8.4: the follow-up manifest literature_followup wrote for an earlier receipt of the same subject. The
+    subject must not have changed since that receipt (otherwise a new review starts from the new subject)."""
+    path = (root / manifest).resolve() if not Path(manifest).is_absolute() else Path(manifest).resolve()
+    base = (root / "cache" / "literature" / "followup").resolve()
+    if path.name != "manifest.json" or not path.is_file() or path.parent.parent != base:
+        raise ReviewError("REVIEW_INVALID", f"evidence_set is a cache/literature/followup/<review>/manifest.json "
+                                            f"under {root}")
+    parent_id = path.parent.name
+    rld = ResearchDB(db_path, "rld/main")
+    parent = next((d for d in rld.reviews() if d["id"] == parent_id), None)
+    if parent is None or parent.get("review_kind") != kind or (
+            parent.get("review_about") or about) != about:
+        raise ReviewError("REVIEW_INVALID", f"{parent_id} is not a {kind} review of {about}")
+    recorded = (parent.get("followup") or {}).get("sha256")
+    digest = hashlib.sha256(path.read_bytes()).hexdigest()
+    if recorded != digest:
+        raise ReviewError("REVIEW_INVALID", f"{path.name} is not the manifest recorded on {parent_id}")
+    if parent.get("review_basis") != basis:
+        raise ReviewError("REVIEW_INVALID", f"the subject changed since {parent_id} (its basis differs): its "
+                                            "follow-up does not carry over; review the current subject anew")
+    return {"path": str(path.relative_to(root.resolve())), "sha256": digest, "parent_review_id": parent_id,
+            "parent_path": parent["path"]}
+
+
+def code_snapshot(root: Path, repo: str | None, ref: str | None) -> Path | None:
+    """cache/reviews/code/<commit>/: the files of one commit, extracted once and made read-only."""
+    if not repo or not ref:
+        return None
+    sha = subprocess.run(["git", "-C", repo, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
+                         capture_output=True, text=True).stdout.strip()
+    if not sha:
+        return None
+    target = root / "cache" / "reviews" / "code" / sha
+    if not (target / ".complete").is_file():
+        tmp = target.with_name(sha + ".tmp")
+        shutil.rmtree(tmp, ignore_errors=True)
+        tmp.mkdir(parents=True)
+        archive = subprocess.run(["git", "-C", repo, "archive", sha], capture_output=True)
+        if archive.returncode != 0:
+            return None
+        subprocess.run(["tar", "-x", "-C", str(tmp)], input=archive.stdout, check=True)
+        (tmp / ".complete").write_text(sha + "\n")
+        shutil.rmtree(target, ignore_errors=True)
+        tmp.rename(target)
+        for path in target.rglob("*"):
+            if path.is_file():
+                path.chmod(0o444)
+    return target
 
 
 def _allocate(root: Path, session: str | None, kind: str, about: str, backend: str) -> tuple:
@@ -475,15 +538,30 @@ def _run_review(root, backend, reviewer, kind, brief_path, about, dimension, eva
     raw_dir.mkdir(parents=True, exist_ok=True)
     budget = None if alert is None else alert - so_far
     prompt = PROMPT.format(brief=brief_path.resolve())
+    evidence = getattr(backend, "evidence", None)
+    if evidence:
+        prompt += (f" This is a follow-up round: your earlier receipt is {root / 'docs' / evidence['parent_path']}; the "
+                   f"searches it requested were run and their raw results are listed in {root / evidence['path']}. "
+                   "Judge again from them; record what they settle and what they do not.")
+    if getattr(backend, "snapshot", None):
+        prompt += (f" The reviewed code is the read-only snapshot of commit {backend.snapshot.name} at "
+                   f"{backend.snapshot}; read and cite the code files there (absolute paths), not a working tree.")
     rec, raw = backend.call(prompt, uid, system_file, first, add_dirs or [], schema, budget)
     suffix = "jsonl" if backend.name == "pi" else "json"
     (raw_dir / f"{rv}.v{version}.{suffix}").write_text(raw, encoding="utf-8")
     cost = rec["cost_usd"]
     if not rec["ok"]:
         raise ReviewError("REVIEW_UNAVAILABLE", f"{backend.name}: {rec['error']}", cost)
-    if rec["model_observed"] != reviewer["model"]:
+    if not review_rules.same_model(rec["model_observed"], reviewer["model"]):
         raise ReviewError("REVIEW_INVALID", f"the review ran on {rec.get('observed_models') or rec['model_observed']}, "
                                             f"not the requested {reviewer['model']}", cost)
+    if reviewer.get("require_cross_family", True):  # S4 §8.3: the family the backend observed, not the channel
+        leader = leader_model(root)
+        if review_rules.family(rec["model_observed"]) is None or \
+                review_rules.family(rec["model_observed"]) == review_rules.family(leader):
+            raise ReviewError("REVIEW_INVALID", f"the review ran on {rec['model_observed']} (family "
+                                                f"{review_rules.family(rec['model_observed']) or 'unknown'}), not "
+                                                f"another family than the Leader's {leader}", cost)
     data = extract(rec)
     found = problems(kind, data, schema, dimension)
     if found:  # one follow-up in the same session, then invalid
@@ -493,7 +571,7 @@ def _run_review(root, backend, reviewer, kind, brief_path, about, dimension, eva
         cost += retry["cost_usd"]
         if not retry["ok"]:
             raise ReviewError("REVIEW_UNAVAILABLE", f"{backend.name}: {retry['error']}", cost)
-        if retry["model_observed"] != reviewer["model"]:
+        if not review_rules.same_model(retry["model_observed"], reviewer["model"]):
             raise ReviewError("REVIEW_INVALID", f"the follow-up ran on {retry['model_observed']}", cost)
         data = extract(retry)
         found = problems(kind, data, schema, dimension)
@@ -525,14 +603,22 @@ def _run_review(root, backend, reviewer, kind, brief_path, about, dimension, eva
                                     evaluation_id=evaluation, supersedes=state.get("doc_id"),
                                     code_ref=getattr(backend, "code_ref", None),
                                     summary=f"{backend.name} {rec['model_observed']}: {result}",
-                                    basis=getattr(backend, "basis", None))
+                                    basis=getattr(backend, "basis", None), payload=data,
+                                    model_requested=reviewer["model"],
+                                    parent_review_id=(evidence or {}).get("parent_review_id"),
+                                    evidence_set={k: evidence[k] for k in ("path", "sha256")} if evidence else None)
     except ResearchDBError as exc:
         raise ReviewError("REVIEW_INVALID", f"not registered: {exc}", cost) from None
     with _Lock(root):
         sessions = _sessions(root)
         sessions[rv] = {**state, "version": version, "doc_id": doc_id, "busy": False}
         _save_sessions(root, sessions)
-    return {"review_id": doc_id, "path": rel, "session": rv, "kind": kind, "result": result, "backend": backend.name,
+    registered = db.reviews(kind=kind)
+    doc = next((d for d in registered if d["id"] == doc_id), {})
+    result = doc.get("review_result", result)
+    extra = {k: doc[k] for k in ("reported_result", "effective_result", "normalization_warnings") if doc.get(k) is not None}
+    return {"review_id": doc_id, "path": rel, "session": rv, "kind": kind, "result": result, **extra,
+            "backend": backend.name,
             "model_observed": rec["model_observed"], "cost_usd": round(cost, 6),
             "permission_denials": rec["permission_denials"], "structured": data}
 
@@ -618,6 +704,8 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--evaluation")
     p.add_argument("--code-ref", help="code_review: the commit the reviewer reads")
     p.add_argument("--session", help="continue this review session (RV-xxxx): a new version of its review")
+    p.add_argument("--evidence-set", help="a follow-up round: the manifest literature_followup wrote for the earlier "
+                                          "receipt (cache/literature/followup/<review>/manifest.json)")
     p.add_argument("--add-dir", action="append", default=[], help="Claude Code backend: another readable directory")
     p.add_argument("--actor", default="rld/main")
     p.add_argument("--deadline-s", type=int, help="the host's limit on this process (seconds); the call ends before it")
@@ -635,7 +723,7 @@ def _call(cwd: Path, root: Path, args) -> tuple[dict, int]:
     entry = {"kind": args.kind, "about": args.about, "dimension": args.dimension, "session": args.session}
     try:
         result = review(cwd, args.kind, args.brief, args.about, args.dimension, args.evaluation, args.session,
-                        args.add_dir, args.actor, args.code_ref, args.deadline_s)
+                        args.add_dir, args.actor, args.code_ref, args.deadline_s, args.evidence_set)
     except ReviewError as exc:
         record_failure(root, entry, exc)
         return {"ok": False, "error": str(exc)}, 2

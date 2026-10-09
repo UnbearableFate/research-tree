@@ -7,7 +7,7 @@ summary: "用未裁剪的微批次梯度平方替代全批次二阶矩，可改�
 about: []
 author_role: "rld"
 author_id: "main"
-created_at: "2026-10-08T19:20:13Z"
+created_at: "2026-10-08T19:47:32Z"
 parent: "P-demo-lora-opt"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。

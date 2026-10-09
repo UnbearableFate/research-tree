@@ -89,8 +89,10 @@ same code), never from cached labels. Each evaluation carries a deterministic ou
 negative_signal, inconclusive); a seed limit does not force a conclusion. Investment is a separate decision
 (`decide_disposition`: active, paused, retired, with reason, evidence and reopening condition); NOT GO needs no
 active node and a report covering unexplored, failed, uncertain, repeated, refuted and value judgements. Record
-new findings per decision batch with `note_findings(doc_id=<current decision document>)`; reuse of the same
-node/document does not count again. Close review findings only through `resolve_obligation`
+new findings per decision batch with `note_findings(node_id, finding_ids=[<new current finding documents>],
+doc_id=<current decision document>, rationale=<why they are new>)`; a bare count resets nothing, a finding already
+counted (or the same claim and evidence repackaged) is not new, and reuse of the same node/document does not count
+again. `repetition_advice(experiment_id)` says whether the protocol's repetition rule asks for more search seeds. Close review findings only through `resolve_obligation`
 (with evidence) or a user waiver. Accept tasks with `evidence_ids`.
 
 GO candidates (candidate_ready or confirmed) in a project whose configuration requires cross-model rechecks
@@ -102,13 +104,29 @@ example `brief="docs/reviews/briefs/H-0001-numbers.v1.md"`. If the argument omit
 outside the research root (Claude Code backend). Report `REVIEW_UNAVAILABLE`, `REVIEW_INVALID` or
 `REVIEW_BUDGET` as they are; never replace a review with your own judgement, and never run `pi` or `claude -p`
 directly. `get_eligibility` lists in `rechecks` which review checked which evaluation or code, with backend and
-model.
+model. The receipt's checklist decides the result
+(a failed item fails the dimension even under a top-level pass); never ask a reviewer to turn a legal fail into a
+pass. A failed item becomes an OPEN obligation; close it with `resolve_obligation(id, fix_type, evidence=<a later
+current recheck of that dimension that passes the item>)` — a new overall pass closes nothing by itself. When a
+reviewer answers NEEDS_EVIDENCE (or an uncertain novelty recheck) with `requested_queries`, run
+`literature_followup(review_id)` once and continue the same review session with `evidence_set` set to its manifest.
 
 Every experiment states its configuration (`method_config` or `config_path`); the interface registers its method
 identity (`method_spec`, execution fields such as output paths, walltime, seeds and the evaluation split excluded)
 and refuses an import whose reported configuration differs (`METHOD_SPEC_MISMATCH`). A changed claim
 (`update_hypothesis` statement or document) is a new claim revision: reviews, waivers and your recheck decisions
 of the old revision stop applying and are redone; `review_basis` shows what a review would be bound to.
+Independent confirmation (profile stage1_confirmed) is bound end to end: `freeze_candidate(hypothesis_id,
+search_evaluation_id)` freezes the selected method from the node's current search basis; `create_confirmation_batch(
+[candidate_spec ids], material)` freezes the list, the reference they were selected against and one of the
+protocol's named confirmation materials (evaluation split and seed block). The worker then registers the batch's
+confirmation baseline (`kind="baseline", stage="confirm", confirmation_batch_id, confirmation_of=<frozen reference>,
+method_config=<reference's configuration>`) and the candidate's confirmation (`stage="confirm", candidate_spec_id,
+confirmation_batch_id`, the candidate's configuration). A material in use is never declared again for a later
+candidate (`CONFIRMATION_MATERIAL_REUSED`): a method changed after confirmation feedback is a new candidate on
+another declared material, or stays unconfirmed. Execution failures may be retried as new attempts; an imported
+valid result is never marked invalid or retracted to run again. `material_usage` shows the record.
+
 Before a method or ablation experiment is submitted (design.sanity_first / design.code_review), the node needs a
 valid `kind="sanity"` run that projects onto this method identity (`method_config` of the method plus the
 protocol's allowed `sanity_overrides`) and a cross-model code review made after the method experiment was

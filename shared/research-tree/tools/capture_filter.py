@@ -111,7 +111,16 @@ def reason_detail(reason: str) -> str:
     }.get(reason, reason)
 
 
-__all__ = ["screen", "reason_detail"]
+_PERMANENT = re.compile(r"\b(?:never|don'?t ever|do not ever)\s+(?:again\s+)?use\b|"
+                        r"永远不要(?:再)?(?:使用|用)|再也不要(?:使用|用)|以后都不要(?:使用|用)|禁止使用", re.I)
+
+
+def permanent_avoidance(text: str) -> bool:
+    """S5 §9.2: a one-off failure must not harden into 'never use X' — a rule about a tool, not a fix."""
+    return bool(text and _PERMANENT.search(text))
+
+
+__all__ = ["screen", "reason_detail", "permanent_avoidance"]
 
 
 def main() -> int:

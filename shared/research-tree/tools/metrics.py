@@ -14,6 +14,7 @@ Effects are oriented so that positive is better: d_i = s * (x_i - y_i) with s = 
 from __future__ import annotations
 
 import math
+import re
 import statistics
 from decimal import Decimal
 from typing import Any
@@ -58,7 +59,8 @@ REQUIRED_SPEC_FIELDS = ("name", "direction", "input_unit", "canonical_unit", "ef
 PROTOCOL_FIELDS = {"version", "eval_type", "pair_fields", "match", "required_counts", "gate_comparison",
                    "min_pairs", "require_artifact_import", "inference_mode", "description", "profile",
                    "confirmation_seeds", "min_confirmation_pairs", "max_confirmation_candidates",
-                   "independence_fields"}
+                   "independence_fields", "confirmation_materials", "execution_fields", "sanity_overrides_allowed",
+                   "review_applicability", "repetition"}
 # 06 §2.4: screening ends at candidate_ready; stage1_confirmed needs an independent confirmation for GO.
 PROFILES = ("screening", "stage1_confirmed")
 OUTCOMES = ("positive_signal", "negative_signal", "inconclusive", "invalid")
@@ -164,10 +166,107 @@ def check_protocol(doc: Any) -> dict:
         if len(seeds) < need:
             raise MetricError("PROTOCOL_CHANGE_REQUIRED", f"profile stage1_confirmed declares at least {need} "
                                                           "confirmation_seeds, unused during the search")
+    materials = doc.get("confirmation_materials", [])
+    if not isinstance(materials, list):
+        raise MetricError("PROTOCOL_CHANGE_REQUIRED", "confirmation_materials is a list")
+    names = set()
+    for m in materials:
+        ok = (isinstance(m, dict) and isinstance(m.get("name"), str) and m["name"] and m["name"] not in names
+              and set(m) <= {"name", "seeds", "split_sha256", "manifest_field", "description"}
+              and isinstance(m.get("seeds"), list) and m["seeds"]
+              and all(isinstance(x, int) and not isinstance(x, bool) for x in m["seeds"])
+              and len(set(m["seeds"])) == len(m["seeds"])
+              and len(m["seeds"]) >= doc.get("min_confirmation_pairs", 3)
+              and (m.get("split_sha256") is None or (isinstance(m["split_sha256"], str)
+                                                     and re.fullmatch(r"[0-9a-f]{64}", m["split_sha256"]))))
+        if not ok:
+            raise MetricError("PROTOCOL_CHANGE_REQUIRED", "a confirmation material is {name, seeds (distinct "
+                                                          "integers, at least min_confirmation_pairs), split_sha256? "
+                                                          "(the evaluation split's content hash), manifest_field?}; "
+                                                          f"names are unique; got {m!r}")
+        names.add(m["name"])
+    for key in ("execution_fields", "sanity_overrides_allowed"):
+        if not (isinstance(doc.get(key, []), list) and all(isinstance(f, str) and f for f in doc.get(key, []))):
+            raise MetricError("PROTOCOL_CHANGE_REQUIRED", f"{key} is a list of configuration field names")
     fields = doc.get("independence_fields", [])
     if not (isinstance(fields, list) and all(isinstance(f, str) and f for f in fields)):
         raise MetricError("PROTOCOL_CHANGE_REQUIRED", "independence_fields is a list of manifest fields")
+    # S4 §8.1: which recheck dimensions a claim may exempt as a whole (only novelty and theory; an empirical
+    # result's numbers, protocol and method-code are always reviewed)
+    allowed = doc.get("review_applicability", {})
+    if not (isinstance(allowed, dict) and set(allowed) <= {"novelty", "theory"} and all(
+            isinstance(v, dict) and set(v) <= {"exemptible", "reason"} and isinstance(v.get("exemptible"), bool)
+            for v in allowed.values())):
+        raise MetricError("PROTOCOL_CHANGE_REQUIRED", 'review_applicability is {"novelty"|"theory": {"exemptible": '
+                                                      'true|false, "reason": ...}}; numbers, protocol and '
+                                                      "method_code are never exempt")
+    rep = doc.get("repetition")
+    if rep is not None:
+        ok = (isinstance(rep, dict) and set(rep) <= {"enabled", "se_multiple", "batch", "seed_pool", "auto"}
+              and isinstance(rep.get("enabled"), bool) and _number(rep.get("se_multiple", 2.0))
+              and rep.get("se_multiple", 2.0) > 0 and isinstance(rep.get("batch", 2), int) and rep.get("batch", 2) >= 1
+              and isinstance(rep.get("seed_pool", []), list)
+              and all(isinstance(s, int) and not isinstance(s, bool) for s in rep.get("seed_pool", []))
+              and not set(rep.get("seed_pool", [])) & set(doc.get("confirmation_seeds", []))
+              and not any(set(rep.get("seed_pool", [])) & set(m.get("seeds", [])) for m in materials if isinstance(m, dict)))
+        if not ok:
+            raise MetricError("PROTOCOL_CHANGE_REQUIRED", "repetition is {enabled, se_multiple > 0, batch >= 1, "
+                                                          "seed_pool: search/replicate seeds (never confirmation seeds), "
+                                                          "auto?}, fixed before the experiments")
     return doc
+
+
+def repetition_advice(spec: dict, pairs: list[dict], gain: float, policy: dict | None, used_seeds: list[int],
+                      seed_cost: int | None, available: int | None) -> dict:
+    """S7 §11.1: whether more repeats would help decide the comparison, by a rule fixed in the protocol. pairs:
+    [{"diff": oriented paired difference in the canonical unit, "unit": the protocol's independence key}]. Only
+    absolute effects over complete, distinct independence units get numbers: n < 2 states no variance; otherwise
+    SD of the differences, SE = SD / sqrt(n), and the comparison is unclear when |mean - gain| <= se_multiple x SE.
+    A descriptive allocation heuristic, never a significance claim. More seeds come only from the protocol's
+    search/replicate seed_pool, within the available budget; nothing is run here."""
+    policy = policy or {}
+    base = {"effect_mode": spec.get("effect_mode"), "unit": spec.get("canonical_unit"), "gain": gain,
+            "policy": {k: policy.get(k) for k in ("enabled", "se_multiple", "batch")}}
+    if not policy.get("enabled"):
+        return {**base, "advice": "disabled", "reason": "the protocol does not enable repetition advice"}
+    if spec.get("effect_mode") != "absolute":
+        return {**base, "advice": "unsupported_effect_mode",
+                "reason": f"{spec.get('effect_mode')}: only absolute effects get a numeric advice"}
+    keys = [p.get("unit") for p in pairs]
+    if not pairs or any(k is None for k in keys) or len(set(map(str, keys))) != len(keys):
+        return {**base, "advice": "independence_unverified",
+                "reason": "every pair needs its own declared independence unit (missing or shared keys)"}
+    diffs = [float(p["diff"]) for p in pairs]
+    n = len(diffs)
+    mean = statistics.fmean(diffs)
+    out = {**base, "n_independent": n, "mean": mean}
+    k = float(policy.get("se_multiple", 2.0))
+    if n < 2:
+        unclear, why = True, "n < 2: the variance is not known"
+    else:
+        sd = statistics.stdev(diffs)
+        se = sd / math.sqrt(n)
+        out.update(sd=sd, se=se)
+        unclear = abs(mean - gain) <= k * se
+        why = (f"|mean - gain| = {abs(mean - gain):.6g} {'<=' if unclear else '>'} {k:g} x SE {se:.6g}")
+        signs = {d > 0 for d in diffs if d}
+        if len(signs) > 1:
+            why += "; the differences change sign"
+    if not unclear:
+        return {**out, "advice": "enough", "reason": why}
+    pool = [s for s in policy.get("seed_pool", []) if s not in set(used_seeds)]
+    batch = int(policy.get("batch", 2))
+    proposed = pool[:batch]
+    if not proposed:
+        return {**out, "advice": "hold_inconclusive", "reason": why + "; the declared seed pool is used up"}
+    if seed_cost is not None and available is not None and seed_cost * len(proposed) > available:
+        fit = max(0, available // seed_cost) if seed_cost else len(proposed)
+        proposed = proposed[:fit]
+        if not proposed:
+            return {**out, "advice": "hold_inconclusive", "reason": why + "; the available budget does not fit one more seed"}
+    return {**out, "advice": "add_repeats", "seeds": proposed, "reason": why,
+            "cost": None if seed_cost is None else seed_cost * len(proposed), "available": available,
+            "auto": bool(policy.get("auto"))}
 
 
 def legacy_specs(project: dict) -> dict:
@@ -226,16 +325,18 @@ def run_values(specs: dict, run: dict, metrics: list[str]) -> dict[str, float]:
     return out
 
 
-def check_unit_mix(spec: dict, values: list[float], where: str) -> None:
+def check_unit_mix(spec: dict, values: list[float], where: str) -> str | None:
     """Bounded units (fraction, percentage): values of one comparison differing by the unit factor (>= 50 times)
-    mean one of them is in another unit (0.699 among 69.9). Checked value by value, not on means."""
+    may mean one of them is in another unit (0.699 among 69.9). S3 §7.1: legal values in the declared range are
+    never refused for their scale (0.001 and 0.1 are both fractions); the range and the unit recorded at import
+    are the hard checks, this returns a review hint (or None)."""
     if spec["input_unit"] not in IMPLIED_RANGES:
-        return
+        return None
     nonzero = [abs(v) for v in values if v]
     if len(nonzero) >= 2 and max(nonzero) / min(nonzero) >= 50:
-        raise MetricError("METRIC_UNIT_MISMATCH", f"{where}: {spec['name']} values range from {min(nonzero):g} to "
-                                                  f"{max(nonzero):g}; one of them is in another unit than "
-                                                  f"{spec['input_unit']}")
+        return (f"{where}: {spec['name']} values range from {min(nonzero):g} to {max(nonzero):g} "
+                f"({spec['input_unit']}); check that every run reports the same unit")
+    return None
 
 
 def pair_key(protocol: dict | None, run: dict) -> tuple:
@@ -333,6 +434,17 @@ def compare(specs: dict, protocol: dict | None, mine: list[dict], theirs: list[d
     mismatched = sorted(r["seed"] for r in theirs if r["seed"] in seeds_a and pair_key(protocol, r) not in a)
     independence = (protocol or {}).get("independence_fields") or []
     if independence:  # runs that share these (e.g. the same data order) are one independent repeat, not several
+        # S3 §7.2: on both sides every declared field is present and a scalar; a missing value is never counted
+        # as one more independent unit
+        for side in (a, b):
+            for k in keys:
+                manifest = side[k].get("manifest") or {}
+                bad = [f for f in independence if not isinstance(manifest.get(f), (str, int, float, bool))
+                       or manifest.get(f) is None]
+                if bad:
+                    raise MetricError("INDEPENDENCE_UNVERIFIED", f"{side[k]['id']} lacks the independence fields {bad} "
+                                                                 "the protocol declares (a missing value is not a new "
+                                                                 "independent unit)")
         distinct = {tuple((a[k].get("manifest") or {}).get(f) for f in independence) for k in keys}
         n_independent = len(distinct)
     else:
@@ -348,8 +460,10 @@ def compare(specs: dict, protocol: dict | None, mine: list[dict], theirs: list[d
             continue  # legacy secondary metrics: no direction known
         xs = [run_values(specs, a[k], [name])[name] for k in keys]
         ys = [run_values(specs, b[k], [name])[name] for k in keys]
-        check_unit_mix(by_name[name], xs + ys, "the compared runs")
+        hint = check_unit_mix(by_name[name], xs + ys, "the compared runs")
         result["metrics"][name] = effect(by_name[name], xs, ys, legacy_pct)
+        if hint:
+            result.setdefault("hints", []).append(hint)
     return result
 
 

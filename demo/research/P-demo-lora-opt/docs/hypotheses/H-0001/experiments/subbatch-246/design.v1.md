@@ -7,11 +7,11 @@ summary: "subbatch-moment"
 about: []
 author_role: "worker"
 author_id: "h0001"
-created_at: "2026-10-08T19:20:18Z"
+created_at: "2026-10-08T19:47:36Z"
 ---
 > 本文档属于虚构示例项目，方法、文献与数字均为演示而编造，不代表真实研究结果。
 
-代码 373d9c59c7：subbatch-moment。
+代码 1c2a0fd6d0：subbatch-moment。
 
 ## 检验的 claim
 

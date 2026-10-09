@@ -43,7 +43,7 @@ TOOLS = [
                             "brief": {"type": "string", "description": "Brief file relative to the research root, e.g. docs/reviews/briefs/H-0001-numbers.v1.md; include docs/ when the file is under docs/."}, "about": STRING,
                             "dimension": {"enum": ["numbers", "protocol", "method_code", "novelty", "theory"]},
                             "evaluation": STRING, "code_ref": STRING,
-                            "session": STRING, "add_dirs": {"type": "array", "items": STRING},
+                            "session": STRING, "evidence_set": STRING, "add_dirs": {"type": "array", "items": STRING},
                             "ticket": {"type": "string", "description": "Collect a review that answered {pending, ticket} (RJ-…); give nothing else"}},
                            [])},
     {"name": "requirement_draft", "description": "UI only: save a requirement draft with source user-message IDs; this does not submit it to RLD. fields uses goal, scope, constraints, acceptance, priority, open (authorization and questions), changes. Use a submit action in the UI's final response to submit.",

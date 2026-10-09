@@ -99,7 +99,8 @@ CREATE TABLE project (
     worker_session_at   TEXT,                  -- 当前会话绑定的时间
     resume_doc_ids      TEXT_LIST,             -- 恢复 worker 所需的文档：节点文档、任务请求与交付等（自动维护，可追加）
     created_at          TEXT NOT NULL,
-    updated_at          TEXT NOT NULL
+    updated_at          TEXT NOT NULL,
+    material_usage      JSON                   -- 确认材料使用史（S2）：{"events": [{material_key, batch, candidate_spec, run, event, at}]}，只追加，不随撤回、改名或恢复删除
 );
 
 -- 假说树节点
@@ -141,6 +142,7 @@ CREATE TABLE hypothesis (
     -- 停滞计数（06 §5）
     direction           TEXT,                  -- 节点代表的研究方向（机制标签）；停滞的子树拒绝同方向的新子节点
     new_findings_streak INTEGER,               -- 连续几批没有新发现
+    counted_findings    JSON,                  -- note_findings 已计入的发现（S7）：{"ids": [...], "keys": [主张+证据摘要]}；同一发现或同一主张与证据不重复计数
     stall_state         TEXT CHECK (stall_state IN ('none', 'structural', 'human')),
     status_reason       TEXT,                  -- 当前状态的一句话理由；详细见最近 decision
     owner               TEXT NOT NULL,
@@ -189,6 +191,7 @@ CREATE TABLE experiment (
     estimated_node_h    REAL,                  -- 登记时的成本预估（全部 seed 的 node·h）；新实验必填
     milestone           TEXT CHECK (milestone IN ('M0', 'M1', 'M2', 'M3', 'M4')),  -- 03 §6 里程碑
     budget_pool         TEXT CHECK (budget_pool IN ('search', 'confirmation', 'repair')),  -- 预留计入的分项
+    repair_basis        TEXT,                  -- repair 池的依据（S6）：RLD 分配时引用的 OPEN obligation 或失败的 run attempt
     selection_rationale TEXT,                  -- 为什么现在做、结果怎样改变下一步（同一 claim 多轮不确定后必填）
     result_doc_id       TEXT,                  -- 统计结果文档（冻结统计代码的输出与解读）
     code_ref            TEXT NOT NULL,         -- 运行的 git commit；打标签 exp/<实验ID>，分支删除后仍可追溯
@@ -206,7 +209,11 @@ CREATE TABLE experiment (
     method_spec_sha     TEXT,                  -- 方法身份指纹（只作索引，内容见文档）
     effective_config    JSON,                  -- 登记时解析的有效配置（全部字段，含纯执行字段）
     sanity_target_spec_doc_id TEXT,            -- sanity：它投影的目标方法身份（允许的覆盖项见 sanity_overrides）
-    sanity_overrides    JSON,                  -- sanity：相对目标方法声明的覆盖项（协议允许的小样本/短训练）                  -- (kind, stage, method, request, config_path 内容) 的哈希；与 code_ref、seeds 一起去重
+    sanity_overrides    JSON,                  -- sanity：相对目标方法声明的覆盖项（协议允许的小样本/短训练）
+    candidate_spec_doc_id TEXT,                -- 确认（S2）：冻结的候选（candidate_spec 文档）
+    confirmation_batch_doc_id TEXT,            -- 确认（S2）：所属确认批次（confirmation_batch 文档：名单、参照与材料）
+    confirmation_of     TEXT,                  -- 确认基线（S2）：它确认的搜索参照实验（批次冻结的 SOTA）
+    material_key        TEXT,                  -- 确认（S2）：确认材料的身份（评测切分内容），换文档 ID 或训练 seed 不变                  -- (kind, stage, method, request, config_path 内容) 的哈希；与 code_ref、seeds 一起去重
     keep                TEXT_LIST,             -- 判定后仍保留的产物类别（例：final_weights），登记实验时声明
     keep_reason         TEXT,                  -- 声明保留的理由（哪个后续实验要用这些产物）
     cleanup             JSON,                  -- 清理账本：键为第几次清理，值为时间、执行者、保留类别、逐项结果与释放字节数
@@ -296,6 +303,7 @@ CREATE TABLE run (
     -- 产物导入（import_run_result）：冻结解析器从 manifest 读出的指标与身份
     manifest_path       TEXT,                  -- 运行 manifest（JSON），相对研究根目录
     manifest            JSON,                  -- manifest 中配对与协议核对用的字段（seed、数据版本、计数等）
+    manifest_snapshot   JSON,                  -- 导入时完整 manifest 快照（含嵌套 config、env、units，S3）；之后文件变化不改写它
     evidence_paths      TEXT_LIST,             -- 重算所需的最小证据（指标文件、原始评分材料）；清理不得删除
     import_record       JSON                   -- 解析器版本、文件哈希、导入时间与执行者；同一 attempt 重复导入幂等
 );
@@ -362,6 +370,9 @@ CREATE TABLE reservation (
     claim_generation    INTEGER NOT NULL DEFAULT 0,  -- 领取次数；只有最新一次领取的执行者能写回作业
     job_id              TEXT,
     platform_profile    TEXT,
+    request_nodes       INTEGER,               -- 申请的节点数（S6：请求身份的一部分；1×60 与 2×30 不是同一请求）
+    request_walltime_s  INTEGER,               -- 申请的 walltime 上限
+    pool_correction     JSON,                  -- 迁移发现的分池更正 {from, to, reason, at}；原账保留，视图按更正后的池
     accounting_ref      TEXT,                  -- 结算依据（调度器用量文件），相对研究根目录
     accounting_sha256   TEXT,
     overrun             BOOLEAN,               -- 实际用量超过预留或剩余预算
@@ -386,6 +397,8 @@ CREATE TABLE obligation (
     resolution          JSON,                  -- RESOLVED：修复类型、证据文件与哈希、核验者
     waiver              JSON,                  -- WAIVED：用户指令文档
     disappearance       JSON,                  -- 从后续报告中消失（UNRESOLVED_DISAPPEARANCE），仍为 OPEN
+    review_issue        JSON,                  -- 来自复核回执：{subject, dimension, item, basis, claim_revision}（S4 §8.1）
+    findings            JSON,                  -- {"items": [{review_id, note, at}]}：同一检查项的有来源发现
     created_at          TEXT NOT NULL,
     updated_at          TEXT NOT NULL
 );
@@ -404,6 +417,8 @@ CREATE TABLE document (
                             'workflow', 'report', 'config',
                             'protocol', 'metric_spec',
                             'method_spec',     -- 方法身份（S1）：代码版本、方法、科学配置、数据与比较协议的不可变快照（系统登记）
+                            'candidate_spec',  -- 冻结候选（S2）：方法身份、据以选择的搜索评估、主张版本与参照（系统登记）
+                            'confirmation_batch', -- 确认批次（S2）：候选名单、冻结参照、确认材料与配对要求（系统登记）
                             'review',          -- 跨模型非交互评审（review_call.py，作者只能是 reviewer）
                             'finding',         -- 研究发现（08 §1.1：事实与解释分开，带证据与局限）
                             'lesson',          -- 运行经验（08 §1.2：症状、根因与状态、已验证的修复、适用范围、反例）
@@ -432,6 +447,22 @@ CREATE TABLE document (
     review_about        TEXT,                  -- 评审对象不是数据库实体时（发现阶段的候选 CAND-编号）
     review_basis        JSON,                  -- review：调用时由系统捕获的依据（方法身份、主张版本、evaluation、候选 revision 等，S1）
     review_basis_changed BOOLEAN,              -- review：模型作答期间依据已变（回执只作历史，不能取得当前资格）
+    reported_result     TEXT,                  -- review：评审者自报的顶层结论（S4；原样保存）
+    effective_result    TEXT,                  -- review：系统按统一规则从清单得出的结论（S4；review_result 与之相同）
+    normalization_warnings TEXT_LIST,          -- review：SUMMARY_CHECKLIST_MISMATCH、EVIDENCE_UNVERIFIED 等
+    evidence_manifest   JSON,                  -- review：{"paths": [引用路径的解析位置、类型、代码版本、哈希与核验状态]}
+    review_payload      JSON,                  -- review：结构化回执原文（S4）
+    review_applicability JSON,                 -- review：登记时该维度的适用性（必需/豁免、scope_ref、理由）
+    review_findings     JSON,                  -- review：{"items": [失败或不确定的清单项]}
+    receipt_key         TEXT,                  -- review：会话与回执内容的摘要；同一回执重复交付幂等
+    model_requested     TEXT,                  -- review：配置请求的模型
+    reviewer_provider   TEXT,                  -- review：观测模型的接入渠道（S4 §8.3）
+    reviewer_model_id   TEXT,                  -- review：规范化的模型 ID
+    reviewer_family     TEXT,                  -- review：模型家族；无法确定时为空（不能满足跨族要求）
+    memory_basis        JSON,                  -- finding/lesson：系统在设为 current 时派生的依据（修复验证的检查结果、来源与适用范围，S5）；只读
+    parent_review_id    TEXT,                  -- review：补查后续评审所接续的前轮回执（S4 §8.4）
+    evidence_set        JSON,                  -- review：本次实际使用的补查资料集 {path, sha256}
+    followup            JSON,                  -- review：为本回执的 requested_queries 执行的补查 {manifest, sha256, queries, at}
     literature_check    TEXT,                  -- literature：verify_literature 的结果（verified / unverified）；只有 verified 计入文献下限
     literature_check_detail TEXT,              -- 核验方法与说明（arxiv / crossref / semantic_scholar_title …）
     created_at          TEXT NOT NULL

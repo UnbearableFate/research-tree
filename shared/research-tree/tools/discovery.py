@@ -25,6 +25,8 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
+import review_rules
+
 STAGES = ("brief", "literature", "candidates", "feasibility", "triage", "novelty", "critique", "refine", "gate")
 SKIPPED_BY_MODE = {"full": (), "precheck": ("candidates", "feasibility", "triage")}
 REVIEW_STAGES = {"triage": "triage", "novelty": "novelty_precheck", "critique": "critical_review"}
@@ -180,19 +182,8 @@ def resume_point(root: Path) -> dict | None:
 
 def family(model: str | None) -> str | None:
     """The model family of a provider/model or a bare model id; None when it cannot be told. The one table both
-    review_call (who may review) and accept (whose review counts) use."""
-    if not model:
-        return None
-    m = model.lower()
-    if "/" in m:
-        provider = m.split("/", 1)[0]
-        return {"gemini": "google", "google": "google"}.get(provider, provider)
-    for prefix, fam in (("claude", "anthropic"), ("gpt", "openai"), ("o1", "openai"), ("o3", "openai"),
-                        ("o4", "openai"), ("codex", "openai"), ("chatgpt", "openai"), ("gemini", "google"),
-                        ("deepseek", "deepseek")):
-        if m.startswith(prefix):
-            return fam
-    return None
+    review_call (who may review) and accept (whose review counts) use (review_rules.parse_model, S4 §8.3)."""
+    return review_rules.family(model)
 
 
 # -- candidates ----------------------------------------------------------------------------------------------------
@@ -415,6 +406,10 @@ def evaluate(root: Path, reviews: list[dict], literature: dict[str, bool], min_r
                 stale = any(r["review_kind"] == kind for r in mine)
                 reasons.append(f"{c['id']} ({c['title'][:40]}): no {kind} receipt"
                                + (f" for its current revision {c.get('revision')}" if stale else ""))
+        novelty = [r for r in mine if r["review_kind"] == "novelty_precheck" and receipt_applies(r, c)]
+        if novelty and max(novelty, key=lambda r: int(r["id"].split("-")[1])).get("review_result") == "NEEDS_EVIDENCE":
+            reasons.append(f"{c['id']}: its novelty receipt needs evidence (NEEDS_EVIDENCE): run the requested "
+                           "searches (literature_followup) and review again with them")
         cited = c.get("literature") or []
         verified = [d for d in cited if literature.get(d)]
         if len(verified) < min_related_work:

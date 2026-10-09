@@ -12,7 +12,7 @@ TOOLS = Path(__file__).resolve().parents[1] / "tools"
 sys.path.insert(0, str(TOOLS))
 
 import discovery  # noqa: E402
-from test_research_db import METHOD_CONFIG, Fixture, rdb  # noqa: E402
+from test_research_db import METHOD_CONFIG, Fixture, rdb, recheck_payload  # noqa: E402
 
 ResearchDB, ResearchDBError = rdb.ResearchDB, rdb.ResearchDBError
 
@@ -46,7 +46,7 @@ class IdentityFixture(Fixture):
     def recheck(self, h: str, dimension: str, ev: str, result: str = "pass") -> str:
         return self.register(h, "candidate_recheck", result,
                              self.reviewer.review_basis(h, "candidate_recheck", dimension, ev),
-                             dimension=dimension, evaluation_id=ev)
+                             dimension=dimension, evaluation_id=ev, payload=recheck_payload(self, dimension, result, ev))
 
     def submit(self, exp: str) -> None:
         run = f"{exp}/s{self.rld.get(exp)['seeds'][0]}"
@@ -143,12 +143,14 @@ class ClaimAndBasisTest(IdentityFixture):
         basis = self.reviewer.review_basis(h, "candidate_recheck", "novelty", ev)
         self.rld.update_hypothesis(h, statement="更宽的主张")  # changes during the call
         self.rld.update_hypothesis(h, statement="s")  # and back to the same words: still another revision
-        doc = self.register(h, "candidate_recheck", "pass", basis, dimension="novelty", evaluation_id=ev)
+        doc = self.register(h, "candidate_recheck", "pass", basis, dimension="novelty", evaluation_id=ev,
+                            payload=recheck_payload(self, "novelty", "pass", ev))
         self.assertTrue(self.rld.get(doc)["review_basis_changed"])
         states, _ = self.states(h)
         self.assertEqual(states["novelty"], "stale")
         # a review registered without a basis (before S1) never binds the current state
-        self.register(h, "candidate_recheck", "pass", None, dimension="numbers", evaluation_id=ev)
+        self.register(h, "candidate_recheck", "pass", None, dimension="numbers", evaluation_id=ev,
+                      payload=recheck_payload(self, "numbers", "pass", ev))
         states, e = self.states(h)
         self.assertEqual(states["numbers"], "stale")
         self.assertTrue(next(r for r in e["rechecks"] if r["dimension"] == "numbers")["needs_recheck"])
@@ -232,7 +234,8 @@ class MigrationTest(IdentityFixture):
         h, exp = self.concluded("beats_sota")
         self.rld.update_project(recheck_required=True)
         ev = self.rld.get(exp)["evaluation_id"]
-        old_review = self.register(h, "candidate_recheck", "pass", None, dimension="numbers", evaluation_id=ev)
+        old_review = self.register(h, "candidate_recheck", "pass", None, dimension="numbers", evaluation_id=ev,
+                                   payload=recheck_payload(self, "numbers", "pass", ev))
         # records as an older plugin left them
         self.raw(h, claim_sha=None, claim_revision=None, claim_history=None)
         self.raw(exp, method_spec_doc_id=None, method_spec_sha=None)

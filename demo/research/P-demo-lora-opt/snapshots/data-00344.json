@@ -1,8 +1,8 @@
 {
  "meta": {
-  "schema_version": 15,
-  "data_version": 342,
-  "updated_at": "2026-10-08T19:22:25Z"
+  "schema_version": 16,
+  "data_version": 344,
+  "updated_at": "2026-10-08T19:49:21Z"
  },
  "tables": {
   "project": [
@@ -65,13 +65,125 @@
      "D-0011"
     ],
     "review_cost_usd": 0.43,
-    "created_at": "2026-10-08T19:19:54Z",
-    "updated_at": "2026-10-08T19:22:18Z",
+    "created_at": "2026-10-08T19:47:17Z",
+    "updated_at": "2026-10-08T19:49:13Z",
     "worker_id": "root",
-    "harness_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
+    "harness_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
     "harness_paths": [
      "harness"
     ],
+    "material_usage": {
+     "events": [
+      {
+       "material_key": "seeds:1042,1043,1044",
+       "batch": "D-0046",
+       "candidate_spec": null,
+       "experiment": "E-0008",
+       "run": "E-0008/s1042@1",
+       "event": "submitted",
+       "at": "2026-10-08T19:48:17Z"
+      },
+      {
+       "material_key": "seeds:1042,1043,1044",
+       "batch": "D-0046",
+       "candidate_spec": null,
+       "experiment": "E-0008",
+       "run": "E-0008/s1042@1",
+       "event": "imported",
+       "at": "2026-10-08T19:48:17Z"
+      },
+      {
+       "material_key": "seeds:1042,1043,1044",
+       "batch": "D-0046",
+       "candidate_spec": null,
+       "experiment": "E-0008",
+       "run": "E-0008/s1043@1",
+       "event": "submitted",
+       "at": "2026-10-08T19:48:18Z"
+      },
+      {
+       "material_key": "seeds:1042,1043,1044",
+       "batch": "D-0046",
+       "candidate_spec": null,
+       "experiment": "E-0008",
+       "run": "E-0008/s1043@1",
+       "event": "imported",
+       "at": "2026-10-08T19:48:19Z"
+      },
+      {
+       "material_key": "seeds:1042,1043,1044",
+       "batch": "D-0046",
+       "candidate_spec": null,
+       "experiment": "E-0008",
+       "run": "E-0008/s1044@1",
+       "event": "submitted",
+       "at": "2026-10-08T19:48:20Z"
+      },
+      {
+       "material_key": "seeds:1042,1043,1044",
+       "batch": "D-0046",
+       "candidate_spec": null,
+       "experiment": "E-0008",
+       "run": "E-0008/s1044@1",
+       "event": "imported",
+       "at": "2026-10-08T19:48:20Z"
+      },
+      {
+       "material_key": "seeds:1042,1043,1044",
+       "batch": "D-0046",
+       "candidate_spec": "D-0045",
+       "experiment": "E-0009",
+       "run": "E-0009/s1042@1",
+       "event": "submitted",
+       "at": "2026-10-08T19:48:23Z"
+      },
+      {
+       "material_key": "seeds:1042,1043,1044",
+       "batch": "D-0046",
+       "candidate_spec": "D-0045",
+       "experiment": "E-0009",
+       "run": "E-0009/s1042@1",
+       "event": "imported",
+       "at": "2026-10-08T19:48:24Z"
+      },
+      {
+       "material_key": "seeds:1042,1043,1044",
+       "batch": "D-0046",
+       "candidate_spec": "D-0045",
+       "experiment": "E-0009",
+       "run": "E-0009/s1043@1",
+       "event": "submitted",
+       "at": "2026-10-08T19:48:25Z"
+      },
+      {
+       "material_key": "seeds:1042,1043,1044",
+       "batch": "D-0046",
+       "candidate_spec": "D-0045",
+       "experiment": "E-0009",
+       "run": "E-0009/s1043@1",
+       "event": "imported",
+       "at": "2026-10-08T19:48:25Z"
+      },
+      {
+       "material_key": "seeds:1042,1043,1044",
+       "batch": "D-0046",
+       "candidate_spec": "D-0045",
+       "experiment": "E-0009",
+       "run": "E-0009/s1044@1",
+       "event": "submitted",
+       "at": "2026-10-08T19:48:26Z"
+      },
+      {
+       "material_key": "seeds:1042,1043,1044",
+       "batch": "D-0046",
+       "candidate_spec": "D-0045",
+       "experiment": "E-0009",
+       "run": "E-0009/s1044@1",
+       "event": "imported",
+       "at": "2026-10-08T19:48:27Z"
+      }
+     ]
+    },
     "sota_experiment_id": "E-0001"
    }
   ],
@@ -105,18 +217,18 @@
        "sha": "ecfef7ab7314ad403106d58bb648bb23f2f491e652919b1d2c75cdff95e1a302",
        "statement": "用未裁剪的微批次梯度平方替代全批次二阶矩，可改善LoRA更新方向。",
        "doc_id": "D-0017",
-       "at": "2026-10-08T19:20:13Z"
+       "at": "2026-10-08T19:47:32Z"
       }
      ]
     },
-    "created_at": "2026-10-08T19:20:13Z",
-    "updated_at": "2026-10-08T19:22:25Z",
+    "created_at": "2026-10-08T19:47:32Z",
+    "updated_at": "2026-10-08T19:49:21Z",
     "worker_id": "h0001",
-    "concluded_at": "2026-10-08T19:20:31Z",
-    "started_at": "2026-10-08T19:20:16Z",
+    "concluded_at": "2026-10-08T19:47:43Z",
+    "started_at": "2026-10-08T19:47:35Z",
     "status_reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
-    "first_experiment_at": "2026-10-08T19:20:22Z",
-    "first_result_at": "2026-10-08T19:20:30Z",
+    "first_experiment_at": "2026-10-08T19:47:38Z",
+    "first_result_at": "2026-10-08T19:47:42Z",
     "parent_id": "P-demo-lora-opt"
    },
    {
@@ -148,18 +260,18 @@
        "sha": "a49e5c387f853046bd250f484855ddd280e6c843984dcae175598b09ad26acf4",
        "statement": "对LoRA因子更新做正交化可改善条件数，提高精度。",
        "doc_id": "D-0025",
-       "at": "2026-10-08T19:20:32Z"
+       "at": "2026-10-08T19:47:43Z"
       }
      ]
     },
-    "created_at": "2026-10-08T19:20:32Z",
-    "updated_at": "2026-10-08T19:20:48Z",
+    "created_at": "2026-10-08T19:47:43Z",
+    "updated_at": "2026-10-08T19:47:54Z",
     "worker_id": "h0002",
-    "concluded_at": "2026-10-08T19:20:48Z",
-    "started_at": "2026-10-08T19:20:35Z",
+    "concluded_at": "2026-10-08T19:47:54Z",
+    "started_at": "2026-10-08T19:47:46Z",
     "status_reason": "所有指标都不优于SOTA，按规则消灭。",
-    "first_experiment_at": "2026-10-08T19:20:41Z",
-    "first_result_at": "2026-10-08T19:20:46Z",
+    "first_experiment_at": "2026-10-08T19:47:49Z",
+    "first_result_at": "2026-10-08T19:47:53Z",
     "disposition_reason": "所有指标都不优于SOTA，按规则消灭。",
     "reconsider_when": "出现能修复该缺陷的新机制依据",
     "parent_id": "P-demo-lora-opt"
@@ -193,19 +305,19 @@
        "sha": "2e2e0a810a91cdd959805b1cd8da32c2e5ad86bf9542301ed0145ea29acee2ae",
        "statement": "在子批次二阶矩基础上平衡A、B因子尺度，可进一步提升精度。",
        "doc_id": "D-0034",
-       "at": "2026-10-08T19:20:52Z"
+       "at": "2026-10-08T19:47:57Z"
       }
      ]
     },
-    "created_at": "2026-10-08T19:20:52Z",
-    "updated_at": "2026-10-08T19:21:14Z",
+    "created_at": "2026-10-08T19:47:57Z",
+    "updated_at": "2026-10-08T19:48:14Z",
     "worker_id": "h0003",
-    "concluded_at": "2026-10-08T19:21:14Z",
-    "started_at": "2026-10-08T19:20:56Z",
+    "concluded_at": "2026-10-08T19:48:14Z",
+    "started_at": "2026-10-08T19:48:00Z",
     "status_reason": "优于SOTA且复核通过，可拓展",
-    "first_experiment_at": "2026-10-08T19:21:00Z",
-    "first_result_at": "2026-10-08T19:21:04Z",
-    "beats_sota_at": "2026-10-08T19:21:12Z",
+    "first_experiment_at": "2026-10-08T19:48:03Z",
+    "first_result_at": "2026-10-08T19:48:07Z",
+    "beats_sota_at": "2026-10-08T19:48:12Z",
     "parent_id": "H-0001"
    },
    {
@@ -213,7 +325,7 @@
     "project_id": "P-demo-lora-opt",
     "title": "子批次二阶矩 + 动量重标度",
     "statement": "按子批次方差重标度动量可减少噪声。",
-    "doc_id": "D-0054",
+    "doc_id": "D-0056",
     "status": "prunable",
     "experiment_status": "no_gain",
     "novelty_recheck": "pending",
@@ -221,7 +333,7 @@
     "priority": 0,
     "owner": "main",
     "resume_doc_ids": [
-     "D-0054"
+     "D-0056"
     ],
     "disposition": "retired",
     "direction": "子批次二阶矩 + 动量重标度",
@@ -236,19 +348,19 @@
        "revision": 1,
        "sha": "e158a9e2ba5ecea1cd2e0d2a7d94be5096a78b60b3d6e3a93a47af1b13d63fe7",
        "statement": "按子批次方差重标度动量可减少噪声。",
-       "doc_id": "D-0054",
-       "at": "2026-10-08T19:21:33Z"
+       "doc_id": "D-0056",
+       "at": "2026-10-08T19:48:31Z"
       }
      ]
     },
-    "created_at": "2026-10-08T19:21:33Z",
-    "updated_at": "2026-10-08T19:21:48Z",
+    "created_at": "2026-10-08T19:48:31Z",
+    "updated_at": "2026-10-08T19:48:45Z",
     "worker_id": "h0004",
-    "concluded_at": "2026-10-08T19:21:48Z",
-    "started_at": "2026-10-08T19:21:36Z",
+    "concluded_at": "2026-10-08T19:48:45Z",
+    "started_at": "2026-10-08T19:48:33Z",
     "status_reason": "相对父节点各项指标都不更好，按规则消灭。",
-    "first_experiment_at": "2026-10-08T19:21:42Z",
-    "first_result_at": "2026-10-08T19:21:47Z",
+    "first_experiment_at": "2026-10-08T19:48:37Z",
+    "first_result_at": "2026-10-08T19:48:43Z",
     "disposition_reason": "相对父节点各项指标都不更好，按规则消灭。",
     "reconsider_when": "出现能修复该缺陷的新机制依据",
     "parent_id": "H-0001"
@@ -258,7 +370,7 @@
     "project_id": "P-demo-lora-opt",
     "title": "Kronecker因子对角近似",
     "statement": "对Kronecker预条件取对角近似，在低秩上以低成本获得二阶信息。",
-    "doc_id": "D-0063",
+    "doc_id": "D-0065",
     "status": "verifying",
     "experiment_status": "running",
     "novelty_recheck": "pending",
@@ -266,8 +378,8 @@
     "priority": 0,
     "owner": "main",
     "resume_doc_ids": [
-     "D-0063",
-     "D-0081"
+     "D-0065",
+     "D-0083"
     ],
     "disposition": "active",
     "direction": "Kronecker因子对角近似",
@@ -282,18 +394,18 @@
        "revision": 1,
        "sha": "2ff4e2dfb47494d33b8468ce825adcf0c722274227cc5d387554937265a011f8",
        "statement": "对Kronecker预条件取对角近似，在低秩上以低成本获得二阶信息。",
-       "doc_id": "D-0063",
-       "at": "2026-10-08T19:21:53Z"
+       "doc_id": "D-0065",
+       "at": "2026-10-08T19:48:48Z"
       }
      ]
     },
-    "created_at": "2026-10-08T19:21:53Z",
-    "updated_at": "2026-10-08T19:21:56Z",
+    "created_at": "2026-10-08T19:48:48Z",
+    "updated_at": "2026-10-08T19:48:50Z",
     "worker_id": "h0005",
-    "started_at": "2026-10-08T19:21:56Z",
+    "started_at": "2026-10-08T19:48:50Z",
     "status_reason": "开始代码改进与实验",
-    "first_experiment_at": "2026-10-08T19:22:00Z",
-    "first_result_at": "2026-10-08T19:22:06Z",
+    "first_experiment_at": "2026-10-08T19:48:55Z",
+    "first_result_at": "2026-10-08T19:49:01Z",
     "parent_id": "P-demo-lora-opt"
    },
    {
@@ -301,7 +413,7 @@
     "project_id": "P-demo-lora-opt",
     "title": "完整Kronecker二阶预条件",
     "statement": "对每层使用完整Kronecker因子预条件。",
-    "doc_id": "D-0070",
+    "doc_id": "D-0072",
     "status": "prunable",
     "experiment_status": "todo",
     "novelty_recheck": "pending",
@@ -309,7 +421,7 @@
     "priority": 0,
     "owner": "main",
     "resume_doc_ids": [
-     "D-0070"
+     "D-0072"
     ],
     "disposition": "retired",
     "direction": "完整Kronecker二阶预条件",
@@ -324,14 +436,14 @@
        "revision": 1,
        "sha": "753e0eac1d6dd27e88d36fca219bd3550ded27380ad3e08cb7e18fd23981e0eb",
        "statement": "对每层使用完整Kronecker因子预条件。",
-       "doc_id": "D-0070",
-       "at": "2026-10-08T19:22:07Z"
+       "doc_id": "D-0072",
+       "at": "2026-10-08T19:49:03Z"
       }
      ]
     },
-    "created_at": "2026-10-08T19:22:07Z",
-    "updated_at": "2026-10-08T19:22:09Z",
-    "concluded_at": "2026-10-08T19:22:09Z",
+    "created_at": "2026-10-08T19:49:03Z",
+    "updated_at": "2026-10-08T19:49:04Z",
+    "concluded_at": "2026-10-08T19:49:04Z",
     "status_reason": "用户决定放弃（超出单次运行上限）",
     "disposition_reason": "用户决定放弃（超出单次运行上限）",
     "reconsider_when": "用户提供新的预算或资源",
@@ -342,7 +454,7 @@
     "project_id": "P-demo-lora-opt",
     "title": "8-bit优化器状态",
     "statement": "以8-bit存储优化器状态，在精度不变时显著降低显存。",
-    "doc_id": "D-0073",
+    "doc_id": "D-0075",
     "status": "verifying",
     "experiment_status": "running",
     "novelty_recheck": "pending",
@@ -350,7 +462,7 @@
     "priority": 0,
     "owner": "main",
     "resume_doc_ids": [
-     "D-0073"
+     "D-0075"
     ],
     "disposition": "paused",
     "direction": "8-bit优化器状态",
@@ -365,18 +477,18 @@
        "revision": 1,
        "sha": "f3a074668b0e38ee4dd79817014ffc0ecf17d3172753e8d6cdec0ac1da8bfe2d",
        "statement": "以8-bit存储优化器状态，在精度不变时显著降低显存。",
-       "doc_id": "D-0073",
-       "at": "2026-10-08T19:22:10Z"
+       "doc_id": "D-0075",
+       "at": "2026-10-08T19:49:05Z"
       }
      ]
     },
-    "created_at": "2026-10-08T19:22:10Z",
-    "updated_at": "2026-10-08T19:22:23Z",
+    "created_at": "2026-10-08T19:49:05Z",
+    "updated_at": "2026-10-08T19:49:19Z",
     "worker_id": "h0007",
-    "started_at": "2026-10-08T19:22:13Z",
+    "started_at": "2026-10-08T19:49:08Z",
     "status_reason": "开始代码改进与实验",
-    "first_experiment_at": "2026-10-08T19:22:16Z",
-    "first_result_at": "2026-10-08T19:22:21Z",
+    "first_experiment_at": "2026-10-08T19:49:11Z",
+    "first_result_at": "2026-10-08T19:49:16Z",
     "disposition_reason": "精度持平、只省显存；阶段1目标是精度，暂不投入",
     "reconsider_when": "用户把显存列为阶段目标，或出现精度改进的组合依据",
     "parent_id": "P-demo-lora-opt"
@@ -386,7 +498,7 @@
     "project_id": "P-demo-lora-opt",
     "title": "自适应秩分配",
     "statement": "按层的子批次方差分配LoRA秩，可在同等参数量下提升精度。",
-    "doc_id": "D-0080",
+    "doc_id": "D-0082",
     "status": "pending",
     "experiment_status": "todo",
     "novelty_recheck": "pending",
@@ -394,7 +506,7 @@
     "priority": 0,
     "owner": "main",
     "resume_doc_ids": [
-     "D-0080"
+     "D-0082"
     ],
     "disposition": "active",
     "direction": "自适应秩分配",
@@ -409,13 +521,13 @@
        "revision": 1,
        "sha": "d65abf4aea35ee646c8520ae4e8c05fac9f6b6af51bcb2fb757fab398cf9dfe5",
        "statement": "按层的子批次方差分配LoRA秩，可在同等参数量下提升精度。",
-       "doc_id": "D-0080",
-       "at": "2026-10-08T19:22:22Z"
+       "doc_id": "D-0082",
+       "at": "2026-10-08T19:49:17Z"
       }
      ]
     },
-    "created_at": "2026-10-08T19:22:22Z",
-    "updated_at": "2026-10-08T19:22:22Z",
+    "created_at": "2026-10-08T19:49:17Z",
+    "updated_at": "2026-10-08T19:49:17Z",
     "parent_id": "H-0003"
    }
   ],
@@ -426,7 +538,7 @@
     "kind": "baseline",
     "method_name": "BaseOpt-A（虚构SOTA）",
     "design_doc_id": "D-0008",
-    "code_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
+    "code_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
     "seeds": [
      42,
      43,
@@ -444,17 +556,17 @@
      "lr": 0.0002
     },
     "method_spec_doc_id": "D-0009",
-    "method_spec_sha": "8c9e33244a7b88803a611406ddf1788b6c608fd3b15a8a04e338aaa80c225e07",
-    "created_at": "2026-10-08T19:20:01Z",
+    "method_spec_sha": "4d1188001fe5b224bbe8bf2cbf9e19ab164b853b70b535ff846a141fc0d3031c",
+    "created_at": "2026-10-08T19:47:23Z",
     "metric_mean": 71.40016666666666,
     "metric_sd": 0.0415175063477257,
     "result_doc_id": "D-0010",
-    "harness_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
-    "evaluated_at": "2026-10-08T19:20:07Z",
+    "harness_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
+    "evaluated_at": "2026-10-08T19:47:27Z",
     "evaluation_id": "EV-0001",
     "cleanup": {
      "1": {
-      "at": "2026-10-08T19:20:08Z",
+      "at": "2026-10-08T19:47:28Z",
       "by": "worker/root",
       "reason": "statistics recorded",
       "kept": [],
@@ -476,7 +588,7 @@
     "kind": "sanity",
     "method_name": "subbatch-moment（sanity）",
     "design_doc_id": "D-0020",
-    "code_ref": "373d9c59c7c5414f95c8982b21f13d481407f2dd",
+    "code_ref": "1c2a0fd6d0113dcf675bc4696dc782db23261572",
     "seeds": [
      42
     ],
@@ -492,8 +604,8 @@
      "lr": 0.0002
     },
     "method_spec_doc_id": "D-0021",
-    "method_spec_sha": "32e93c505111b5acfa4a113756fc684c0880207db1536455b3ae54a2c71aba6a",
-    "created_at": "2026-10-08T19:20:20Z",
+    "method_spec_sha": "2a6ea7fc9c6845ab4704635ba2561ff8dd253f6afb1d607885ccf00c191832b4",
+    "created_at": "2026-10-08T19:47:37Z",
     "hypothesis_id": "H-0001"
    },
    {
@@ -502,7 +614,7 @@
     "kind": "method",
     "method_name": "subbatch-moment",
     "design_doc_id": "D-0019",
-    "code_ref": "373d9c59c7c5414f95c8982b21f13d481407f2dd",
+    "code_ref": "1c2a0fd6d0113dcf675bc4696dc782db23261572",
     "seeds": [
      42
     ],
@@ -520,17 +632,17 @@
      "lr": 0.0002
     },
     "method_spec_doc_id": "D-0021",
-    "method_spec_sha": "32e93c505111b5acfa4a113756fc684c0880207db1536455b3ae54a2c71aba6a",
-    "created_at": "2026-10-08T19:20:27Z",
+    "method_spec_sha": "2a6ea7fc9c6845ab4704635ba2561ff8dd253f6afb1d607885ccf00c191832b4",
+    "created_at": "2026-10-08T19:47:39Z",
     "verdict": "beats_parent",
     "metric_mean": 71.5654,
     "result_doc_id": "D-0023",
-    "harness_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
-    "evaluated_at": "2026-10-08T19:20:30Z",
+    "harness_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
+    "evaluated_at": "2026-10-08T19:47:42Z",
     "evaluation_id": "EV-0002",
     "cleanup": {
      "1": {
-      "at": "2026-10-08T19:20:30Z",
+      "at": "2026-10-08T19:47:42Z",
       "by": "worker/h0001",
       "reason": "statistics recorded",
       "kept": [],
@@ -551,7 +663,7 @@
     "kind": "sanity",
     "method_name": "orthogonal-update（sanity）",
     "design_doc_id": "D-0028",
-    "code_ref": "badc579a640b977a9ededf5bded3fa6ef5189c24",
+    "code_ref": "94b67d55163cce5121bd6afc9b5742c0aca92755",
     "seeds": [
      42
     ],
@@ -567,8 +679,8 @@
      "lr": 0.0002
     },
     "method_spec_doc_id": "D-0029",
-    "method_spec_sha": "0f70d9ed1d0a7733aba84c585a799d4b085ba98ff03164dd97fb8bef26c3e762",
-    "created_at": "2026-10-08T19:20:40Z",
+    "method_spec_sha": "eaee03d7118c99b931afbd5493d010fe62e3e9474f451cfa52ab80d1fed7c62b",
+    "created_at": "2026-10-08T19:47:48Z",
     "hypothesis_id": "H-0002"
    },
    {
@@ -577,7 +689,7 @@
     "kind": "method",
     "method_name": "orthogonal-update",
     "design_doc_id": "D-0027",
-    "code_ref": "badc579a640b977a9ededf5bded3fa6ef5189c24",
+    "code_ref": "94b67d55163cce5121bd6afc9b5742c0aca92755",
     "seeds": [
      42
     ],
@@ -595,17 +707,17 @@
      "lr": 0.0002
     },
     "method_spec_doc_id": "D-0029",
-    "method_spec_sha": "0f70d9ed1d0a7733aba84c585a799d4b085ba98ff03164dd97fb8bef26c3e762",
-    "created_at": "2026-10-08T19:20:43Z",
+    "method_spec_sha": "eaee03d7118c99b931afbd5493d010fe62e3e9474f451cfa52ab80d1fed7c62b",
+    "created_at": "2026-10-08T19:47:51Z",
     "verdict": "no_gain",
     "metric_mean": 71.1512,
     "result_doc_id": "D-0031",
-    "harness_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
-    "evaluated_at": "2026-10-08T19:20:46Z",
+    "harness_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
+    "evaluated_at": "2026-10-08T19:47:53Z",
     "evaluation_id": "EV-0003",
     "cleanup": {
      "1": {
-      "at": "2026-10-08T19:20:47Z",
+      "at": "2026-10-08T19:47:53Z",
       "by": "worker/h0002",
       "reason": "statistics recorded",
       "kept": [],
@@ -626,7 +738,7 @@
     "kind": "sanity",
     "method_name": "moment-balance（sanity）",
     "design_doc_id": "D-0037",
-    "code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
+    "code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
     "seeds": [
      42
     ],
@@ -642,8 +754,8 @@
      "lr": 0.0002
     },
     "method_spec_doc_id": "D-0038",
-    "method_spec_sha": "ea7f0f0d8c7f24176581d988cee06dc447bceac69fb4112a8ba72f07a64cc603",
-    "created_at": "2026-10-08T19:20:59Z",
+    "method_spec_sha": "4a1f6e352cacdb1c3dce7463f3770a6d21160cd6d5cd2b7c67d2793a65ba8df8",
+    "created_at": "2026-10-08T19:48:03Z",
     "hypothesis_id": "H-0003"
    },
    {
@@ -652,7 +764,7 @@
     "kind": "method",
     "method_name": "moment-balance",
     "design_doc_id": "D-0036",
-    "code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
+    "code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
     "seeds": [
      42,
      43,
@@ -673,18 +785,18 @@
      "lr": 0.0002
     },
     "method_spec_doc_id": "D-0038",
-    "method_spec_sha": "ea7f0f0d8c7f24176581d988cee06dc447bceac69fb4112a8ba72f07a64cc603",
-    "created_at": "2026-10-08T19:21:02Z",
+    "method_spec_sha": "4a1f6e352cacdb1c3dce7463f3770a6d21160cd6d5cd2b7c67d2793a65ba8df8",
+    "created_at": "2026-10-08T19:48:04Z",
     "verdict": "beats_sota",
     "metric_mean": 71.64136666666667,
     "metric_sd": 0.03925892679803191,
     "result_doc_id": "D-0041",
-    "harness_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
-    "evaluated_at": "2026-10-08T19:21:11Z",
+    "harness_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
+    "evaluated_at": "2026-10-08T19:48:11Z",
     "evaluation_id": "EV-0005",
     "cleanup": {
      "1": {
-      "at": "2026-10-08T19:21:05Z",
+      "at": "2026-10-08T19:48:07Z",
       "by": "worker/h0003",
       "reason": "statistics recorded",
       "kept": [],
@@ -697,7 +809,7 @@
       "failed": 0
      },
      "2": {
-      "at": "2026-10-08T19:21:12Z",
+      "at": "2026-10-08T19:48:12Z",
       "by": "worker/h0003",
       "reason": "statistics recorded",
       "kept": [],
@@ -719,8 +831,8 @@
     "project_id": "P-demo-lora-opt",
     "kind": "baseline",
     "method_name": "BaseOpt-A（确认基线）",
-    "design_doc_id": "D-0045",
-    "code_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
+    "design_doc_id": "D-0047",
+    "code_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
     "seeds": [
      1042,
      1043,
@@ -731,6 +843,9 @@
     "stage": "confirm",
     "config_hash": "ffc924351bb2f8609732aa0e97429489",
     "owner": "root",
+    "confirmation_batch_doc_id": "D-0046",
+    "material_key": "seeds:1042,1043,1044",
+    "confirmation_of": "E-0001",
     "estimated_node_h": 12.0,
     "milestone": "M1",
     "effective_config": {
@@ -738,13 +853,13 @@
      "lr": 0.0002
     },
     "method_spec_doc_id": "D-0009",
-    "method_spec_sha": "8c9e33244a7b88803a611406ddf1788b6c608fd3b15a8a04e338aaa80c225e07",
-    "created_at": "2026-10-08T19:21:15Z",
+    "method_spec_sha": "4d1188001fe5b224bbe8bf2cbf9e19ab164b853b70b535ff846a141fc0d3031c",
+    "created_at": "2026-10-08T19:48:16Z",
     "metric_mean": 71.39286666666668,
     "metric_sd": 0.03691941675234285,
-    "result_doc_id": "D-0046",
-    "harness_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
-    "evaluated_at": "2026-10-08T19:21:21Z",
+    "result_doc_id": "D-0048",
+    "harness_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
+    "evaluated_at": "2026-10-08T19:48:21Z",
     "evaluation_id": "EV-0006"
    },
    {
@@ -752,8 +867,8 @@
     "project_id": "P-demo-lora-opt",
     "kind": "method",
     "method_name": "moment-balance（确认）",
-    "design_doc_id": "D-0047",
-    "code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
+    "design_doc_id": "D-0049",
+    "code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
     "seeds": [
      1042,
      1043,
@@ -764,6 +879,9 @@
     "stage": "confirm",
     "config_hash": "6dfe2534a3f738f5372f1a62688bf225",
     "owner": "h0003",
+    "confirmation_batch_doc_id": "D-0046",
+    "material_key": "seeds:1042,1043,1044",
+    "candidate_spec_doc_id": "D-0045",
     "baseline_experiment_id": "E-0008",
     "estimated_node_h": 12.0,
     "milestone": "M2",
@@ -772,13 +890,13 @@
      "lr": 0.0002
     },
     "method_spec_doc_id": "D-0038",
-    "method_spec_sha": "ea7f0f0d8c7f24176581d988cee06dc447bceac69fb4112a8ba72f07a64cc603",
-    "created_at": "2026-10-08T19:21:22Z",
+    "method_spec_sha": "4a1f6e352cacdb1c3dce7463f3770a6d21160cd6d5cd2b7c67d2793a65ba8df8",
+    "created_at": "2026-10-08T19:48:22Z",
     "metric_mean": 71.6318,
     "metric_sd": 0.026685389260785654,
-    "result_doc_id": "D-0048",
-    "harness_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
-    "evaluated_at": "2026-10-08T19:21:29Z",
+    "result_doc_id": "D-0050",
+    "harness_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
+    "evaluated_at": "2026-10-08T19:48:28Z",
     "evaluation_id": "EV-0007",
     "hypothesis_id": "H-0003"
    },
@@ -787,8 +905,8 @@
     "project_id": "P-demo-lora-opt",
     "kind": "sanity",
     "method_name": "momentum-rescale（sanity）",
-    "design_doc_id": "D-0057",
-    "code_ref": "ec767ad229d32c5634bf8199a84733325d939cdd",
+    "design_doc_id": "D-0059",
+    "code_ref": "c15d7f614bbe0b601ae28c413b5922dc3e0f58f3",
     "seeds": [
      42
     ],
@@ -803,9 +921,9 @@
      "optimizer": "momentum-rescale",
      "lr": 0.0002
     },
-    "method_spec_doc_id": "D-0058",
-    "method_spec_sha": "1a89e01a2f602b93837f4c63bb552348169be24d8d0ce09a47b70da3d1b2242b",
-    "created_at": "2026-10-08T19:21:41Z",
+    "method_spec_doc_id": "D-0060",
+    "method_spec_sha": "f7665242e4fafa8f7cfe8dd7f73d3ccd7c5d2349eea859ba216899789bd1197b",
+    "created_at": "2026-10-08T19:48:36Z",
     "hypothesis_id": "H-0004"
    },
    {
@@ -813,8 +931,8 @@
     "project_id": "P-demo-lora-opt",
     "kind": "method",
     "method_name": "momentum-rescale",
-    "design_doc_id": "D-0056",
-    "code_ref": "ec767ad229d32c5634bf8199a84733325d939cdd",
+    "design_doc_id": "D-0058",
+    "code_ref": "c15d7f614bbe0b601ae28c413b5922dc3e0f58f3",
     "seeds": [
      42
     ],
@@ -832,18 +950,18 @@
      "optimizer": "momentum-rescale",
      "lr": 0.0002
     },
-    "method_spec_doc_id": "D-0058",
-    "method_spec_sha": "1a89e01a2f602b93837f4c63bb552348169be24d8d0ce09a47b70da3d1b2242b",
-    "created_at": "2026-10-08T19:21:43Z",
+    "method_spec_doc_id": "D-0060",
+    "method_spec_sha": "f7665242e4fafa8f7cfe8dd7f73d3ccd7c5d2349eea859ba216899789bd1197b",
+    "created_at": "2026-10-08T19:48:39Z",
     "verdict": "no_gain",
     "metric_mean": 71.4047,
-    "result_doc_id": "D-0060",
-    "harness_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
-    "evaluated_at": "2026-10-08T19:21:47Z",
+    "result_doc_id": "D-0062",
+    "harness_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
+    "evaluated_at": "2026-10-08T19:48:43Z",
     "evaluation_id": "EV-0008",
     "cleanup": {
      "1": {
-      "at": "2026-10-08T19:21:47Z",
+      "at": "2026-10-08T19:48:44Z",
       "by": "worker/h0004",
       "reason": "statistics recorded",
       "kept": [],
@@ -863,8 +981,8 @@
     "project_id": "P-demo-lora-opt",
     "kind": "sanity",
     "method_name": "kron-diag（sanity）",
-    "design_doc_id": "D-0066",
-    "code_ref": "1ef7daad09406476fcee4f2e84534f3f0952eae0",
+    "design_doc_id": "D-0068",
+    "code_ref": "48aa0e59b411a36493cdec789cd9c4ce7dfe3fb4",
     "seeds": [
      42
     ],
@@ -879,9 +997,9 @@
      "optimizer": "kron-diag",
      "lr": 0.0002
     },
-    "method_spec_doc_id": "D-0067",
-    "method_spec_sha": "3216e25cdbf88b8ac42790a4cefaeb39e1f7a3b46bf9780aaaad1fbbc727e675",
-    "created_at": "2026-10-08T19:21:59Z",
+    "method_spec_doc_id": "D-0069",
+    "method_spec_sha": "2dda2c64c3bd209622ba6f4899c5336cc0a3b4c7be5b80da261d59b32b101a58",
+    "created_at": "2026-10-08T19:48:54Z",
     "hypothesis_id": "H-0005"
    },
    {
@@ -889,8 +1007,8 @@
     "project_id": "P-demo-lora-opt",
     "kind": "method",
     "method_name": "kron-diag",
-    "design_doc_id": "D-0065",
-    "code_ref": "1ef7daad09406476fcee4f2e84534f3f0952eae0",
+    "design_doc_id": "D-0067",
+    "code_ref": "48aa0e59b411a36493cdec789cd9c4ce7dfe3fb4",
     "seeds": [
      42
     ],
@@ -907,18 +1025,18 @@
      "optimizer": "kron-diag",
      "lr": 0.0002
     },
-    "method_spec_doc_id": "D-0067",
-    "method_spec_sha": "3216e25cdbf88b8ac42790a4cefaeb39e1f7a3b46bf9780aaaad1fbbc727e675",
-    "created_at": "2026-10-08T19:22:02Z",
+    "method_spec_doc_id": "D-0069",
+    "method_spec_sha": "2dda2c64c3bd209622ba6f4899c5336cc0a3b4c7be5b80da261d59b32b101a58",
+    "created_at": "2026-10-08T19:48:58Z",
     "verdict": "close",
     "metric_mean": 71.4655,
-    "result_doc_id": "D-0069",
-    "harness_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
-    "evaluated_at": "2026-10-08T19:22:06Z",
+    "result_doc_id": "D-0071",
+    "harness_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
+    "evaluated_at": "2026-10-08T19:49:01Z",
     "evaluation_id": "EV-0009",
     "cleanup": {
      "1": {
-      "at": "2026-10-08T19:22:06Z",
+      "at": "2026-10-08T19:49:01Z",
       "by": "worker/h0005",
       "reason": "statistics recorded",
       "kept": [],
@@ -938,8 +1056,8 @@
     "project_id": "P-demo-lora-opt",
     "kind": "sanity",
     "method_name": "state-8bit（sanity）",
-    "design_doc_id": "D-0076",
-    "code_ref": "446f24467b1e95e49f44dacdc469e4d14e4c6ed7",
+    "design_doc_id": "D-0078",
+    "code_ref": "77584273e15dede08fc379a063ef1f0bb3b4bf6a",
     "seeds": [
      42
     ],
@@ -954,9 +1072,9 @@
      "optimizer": "state-8bit",
      "lr": 0.0002
     },
-    "method_spec_doc_id": "D-0077",
-    "method_spec_sha": "ec2245f885af7170f4ab1c117ffb95d0a60f86bd5938c0d4da8c6e0f907f8e98",
-    "created_at": "2026-10-08T19:22:15Z",
+    "method_spec_doc_id": "D-0079",
+    "method_spec_sha": "70a66da5b6ef6f9fa835765fec6c8eab856800ee806dbbaa3e2809b8239224b5",
+    "created_at": "2026-10-08T19:49:10Z",
     "hypothesis_id": "H-0007"
    },
    {
@@ -964,8 +1082,8 @@
     "project_id": "P-demo-lora-opt",
     "kind": "method",
     "method_name": "state-8bit",
-    "design_doc_id": "D-0075",
-    "code_ref": "446f24467b1e95e49f44dacdc469e4d14e4c6ed7",
+    "design_doc_id": "D-0077",
+    "code_ref": "77584273e15dede08fc379a063ef1f0bb3b4bf6a",
     "seeds": [
      42
     ],
@@ -982,18 +1100,18 @@
      "optimizer": "state-8bit",
      "lr": 0.0002
     },
-    "method_spec_doc_id": "D-0077",
-    "method_spec_sha": "ec2245f885af7170f4ab1c117ffb95d0a60f86bd5938c0d4da8c6e0f907f8e98",
-    "created_at": "2026-10-08T19:22:18Z",
+    "method_spec_doc_id": "D-0079",
+    "method_spec_sha": "70a66da5b6ef6f9fa835765fec6c8eab856800ee806dbbaa3e2809b8239224b5",
+    "created_at": "2026-10-08T19:49:13Z",
     "verdict": "close",
     "metric_mean": 71.4136,
-    "result_doc_id": "D-0079",
-    "harness_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
-    "evaluated_at": "2026-10-08T19:22:21Z",
+    "result_doc_id": "D-0081",
+    "harness_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
+    "evaluated_at": "2026-10-08T19:49:16Z",
     "evaluation_id": "EV-0010",
     "cleanup": {
      "1": {
-      "at": "2026-10-08T19:22:21Z",
+      "at": "2026-10-08T19:49:16Z",
       "by": "worker/h0007",
       "reason": "statistics recorded",
       "kept": [],
@@ -1015,11 +1133,11 @@
     "repo_path": "code",
     "name": "node/H-0001",
     "base_ref": "main",
-    "base_commit": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
+    "base_commit": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
     "worktree_path": "worktrees/H-0001",
     "owner": "h0001",
     "status": "active",
-    "created_at": "2026-10-08T19:20:15Z",
+    "created_at": "2026-10-08T19:47:34Z",
     "hypothesis_id": "H-0001"
    },
    {
@@ -1027,13 +1145,13 @@
     "repo_path": "code",
     "name": "node/H-0002",
     "base_ref": "main",
-    "base_commit": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
+    "base_commit": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
     "owner": "main",
     "status": "deleted",
-    "created_at": "2026-10-08T19:20:34Z",
-    "head_commit": "badc579a640b977a9ededf5bded3fa6ef5189c24",
-    "returned_at": "2026-10-08T19:20:49Z",
-    "closed_at": "2026-10-08T19:20:50Z",
+    "created_at": "2026-10-08T19:47:45Z",
+    "head_commit": "94b67d55163cce5121bd6afc9b5742c0aca92755",
+    "returned_at": "2026-10-08T19:47:55Z",
+    "closed_at": "2026-10-08T19:47:56Z",
     "hypothesis_id": "H-0002"
    },
    {
@@ -1041,11 +1159,11 @@
     "repo_path": "code",
     "name": "node/H-0003",
     "base_ref": "node/H-0001",
-    "base_commit": "373d9c59c7c5414f95c8982b21f13d481407f2dd",
+    "base_commit": "1c2a0fd6d0113dcf675bc4696dc782db23261572",
     "worktree_path": "worktrees/H-0003",
     "owner": "h0003",
     "status": "active",
-    "created_at": "2026-10-08T19:20:55Z",
+    "created_at": "2026-10-08T19:48:00Z",
     "hypothesis_id": "H-0003"
    },
    {
@@ -1053,13 +1171,13 @@
     "repo_path": "code",
     "name": "node/H-0004",
     "base_ref": "node/H-0001",
-    "base_commit": "373d9c59c7c5414f95c8982b21f13d481407f2dd",
+    "base_commit": "1c2a0fd6d0113dcf675bc4696dc782db23261572",
     "owner": "main",
     "status": "deleted",
-    "created_at": "2026-10-08T19:21:35Z",
-    "head_commit": "ec767ad229d32c5634bf8199a84733325d939cdd",
-    "returned_at": "2026-10-08T19:21:49Z",
-    "closed_at": "2026-10-08T19:21:51Z",
+    "created_at": "2026-10-08T19:48:33Z",
+    "head_commit": "c15d7f614bbe0b601ae28c413b5922dc3e0f58f3",
+    "returned_at": "2026-10-08T19:48:45Z",
+    "closed_at": "2026-10-08T19:48:46Z",
     "hypothesis_id": "H-0004"
    },
    {
@@ -1067,11 +1185,11 @@
     "repo_path": "code",
     "name": "node/H-0005",
     "base_ref": "main",
-    "base_commit": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
+    "base_commit": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
     "worktree_path": "worktrees/H-0005",
     "owner": "h0005",
     "status": "active",
-    "created_at": "2026-10-08T19:21:55Z",
+    "created_at": "2026-10-08T19:48:49Z",
     "hypothesis_id": "H-0005"
    },
    {
@@ -1079,11 +1197,11 @@
     "repo_path": "code",
     "name": "node/H-0007",
     "base_ref": "main",
-    "base_commit": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
+    "base_commit": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
     "worktree_path": "worktrees/H-0007",
     "owner": "h0007",
     "status": "active",
-    "created_at": "2026-10-08T19:22:12Z",
+    "created_at": "2026-10-08T19:49:06Z",
     "hypothesis_id": "H-0007"
    }
   ],
@@ -1098,8 +1216,8 @@
     "status": "current",
     "author_role": "ui",
     "author_id": "ui",
-    "created_at": "2026-10-08T19:19:48Z",
-    "sha256": "9e035a9cdeed464df885a28bfedeb0dc5fb36d933c3e2700a80f44398400102e"
+    "created_at": "2026-10-08T19:47:13Z",
+    "sha256": "8a2dc5d1b66236d9c3166efbc8ae82c31c21413aff74bf877c700567302c0706"
    },
    {
     "id": "D-0002",
@@ -1111,8 +1229,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:19:49Z",
-    "sha256": "0e3e515c7e2ce65847a7af7c1cb9feb71a80ac1820ea7a9f236be8d951a113d7"
+    "created_at": "2026-10-08T19:47:13Z",
+    "sha256": "b4ceeba3099ab0f1f78e7f1b1e6f9dfa02dfd5894fc34327508256102d9f59d1"
    },
    {
     "id": "D-0003",
@@ -1124,8 +1242,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:19:49Z",
-    "sha256": "6eac87d1b193cc5253447921822e3b34c9fb3c90c010ce25066478ec4d3c8665"
+    "created_at": "2026-10-08T19:47:14Z",
+    "sha256": "50cb151aba82226957eadfbe9f16dfc95a8377631d0fe7f562b764fe38f5ba2b"
    },
    {
     "id": "D-0004",
@@ -1137,8 +1255,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:19:50Z",
-    "sha256": "91c0cca8665faea0f0b8b5a5258da18d78edca13fefd1182130371b799130f81"
+    "created_at": "2026-10-08T19:47:14Z",
+    "sha256": "516d9411009559ab8e1dbcf5745c36cbc74972c05cf4deaa68f5211b9cd3b7ca"
    },
    {
     "id": "D-0005",
@@ -1150,7 +1268,7 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:19:52Z",
+    "created_at": "2026-10-08T19:47:15Z",
     "sha256": "45cb4bf064c2622c7e6623d14d33f1d0f1a94e9db3ba46ae5c9da59a44584237"
    },
    {
@@ -1163,7 +1281,7 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:19:53Z",
+    "created_at": "2026-10-08T19:47:15Z",
     "sha256": "ffedfdbb2dd88224f6e7c26cf4bf3cf99e41e8915da1fdf1bdbbd7b9bd80967d"
    },
    {
@@ -1176,8 +1294,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:19:59Z",
-    "sha256": "935f58d631d921fce0352f150dc424e880ea2abeb4056000fa639ee9578e0155"
+    "created_at": "2026-10-08T19:47:21Z",
+    "sha256": "52eabef33829df86dc2bd776ac8b90ba24c65308bce432f0a27e1f79d9b8b44f"
    },
    {
     "id": "D-0008",
@@ -1189,21 +1307,21 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-08T19:20:01Z",
-    "sha256": "9bdcc96e2e44451ef7a14c5ebe3d78abc31daeba8ad5de6f573acd63321b403e"
+    "created_at": "2026-10-08T19:47:22Z",
+    "sha256": "df8a8ec65c2e2744d8e66dbfd6406106d3d3fa32fa2cf7bb81e5614e1ab3f67e"
    },
    {
     "id": "D-0009",
-    "path": "specs/method/MS-8c9e33244a7b8880.v1.json",
+    "path": "specs/method/MS-4d1188001fe5b224.v1.json",
     "version": 1,
     "doc_type": "method_spec",
-    "title": "method spec 8c9e33244a7b",
-    "summary": "code a1b62ca4c6; lr=0.0002, optimizer=BaseOpt-A",
+    "title": "method spec 4d1188001fe5",
+    "summary": "code 59bf87c44c; lr=0.0002, optimizer=BaseOpt-A",
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "sha256": "8c9e33244a7b88803a611406ddf1788b6c608fd3b15a8a04e338aaa80c225e07",
-    "created_at": "2026-10-08T19:20:01Z"
+    "sha256": "4d1188001fe5b224bbe8bf2cbf9e19ab164b853b70b535ff846a141fc0d3031c",
+    "created_at": "2026-10-08T19:47:23Z"
    },
    {
     "id": "D-0010",
@@ -1215,8 +1333,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-08T19:20:07Z",
-    "sha256": "3275f60472e5ff175d5cd2283df4ca240d88315dfb39675a2bc69cfffb812a64"
+    "created_at": "2026-10-08T19:47:27Z",
+    "sha256": "8a52d5f300901fcec36e2dec3992643a4781cb187545fe7aee2ba10c7cd084a1"
    },
    {
     "id": "D-0011",
@@ -1228,8 +1346,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-08T19:20:08Z",
-    "sha256": "26d5e0234d1f3a44c10f0824f06fa9dd0f24c57837f0b03e7867508d6871a205"
+    "created_at": "2026-10-08T19:47:28Z",
+    "sha256": "b9f3eb6d7948e71d8b56f97489b544ade5a9222fcf5c5377c8b715cdfcae39a2"
    },
    {
     "id": "D-0012",
@@ -1241,8 +1359,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-08T19:20:09Z",
-    "sha256": "d90806529b97f676fb99314cd6c1c387b33634d6b258f0dcecc56470bbd0e3a0"
+    "created_at": "2026-10-08T19:47:29Z",
+    "sha256": "3b0cfd6b0afcf874eda405a030b7faa4f38ed77eddec5b1c9c600f9a60970976"
    },
    {
     "id": "D-0013",
@@ -1254,8 +1372,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-08T19:20:10Z",
-    "sha256": "867032d0e1fc1c75d010eff57399614237cacb22a8a78b5fde5fbc2d39ad916e"
+    "created_at": "2026-10-08T19:47:29Z",
+    "sha256": "d9d837d661fdd2bcaa2dac9687c3b6ce4c39bfb3f0736880e18c7e79041c447c"
    },
    {
     "id": "D-0014",
@@ -1267,8 +1385,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-08T19:20:10Z",
-    "sha256": "7342bf7d395220636a27bd84ec59165501ea6a84b0d1210c5fab92ba8746ced2"
+    "created_at": "2026-10-08T19:47:30Z",
+    "sha256": "8f95a3576c1c2872fa25b2607daec8b99e813c8af2963d8caecd7e4bbdbaa4ab"
    },
    {
     "id": "D-0015",
@@ -1280,8 +1398,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-08T19:20:11Z",
-    "sha256": "824273730d6076c7a8c7789ee9bcb509e0559f40e3114cf1049787b0fb519d9a"
+    "created_at": "2026-10-08T19:47:31Z",
+    "sha256": "6f2be264c68055f341a5185c45719804bc3cb85c53d8cfc3ffdf119a4d5fafc7"
    },
    {
     "id": "D-0016",
@@ -1293,8 +1411,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "lit",
-    "created_at": "2026-10-08T19:20:12Z",
-    "sha256": "f7f6a6183a024af000cefa778110cef48998494497483d072611446d9624288c"
+    "created_at": "2026-10-08T19:47:31Z",
+    "sha256": "4d360a949a3c5b0b8ec2f363799337797e905ef3aefc3adbf7317e473409a420"
    },
    {
     "id": "D-0017",
@@ -1306,8 +1424,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:20:13Z",
-    "sha256": "05d5cee4445a0d20bc71681694497d9b74da01af22413214340f78d733509e37"
+    "created_at": "2026-10-08T19:47:32Z",
+    "sha256": "6f1aabe45415280f60ee295b65042c11a8dd2ec32bf3ef444b44323e843c938d"
    },
    {
     "id": "D-0018",
@@ -1319,8 +1437,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:20:16Z",
-    "sha256": "b313929935a5c775784a18d867818d1e7b27a9b28593859b243ad6c38a17d9f3"
+    "created_at": "2026-10-08T19:47:34Z",
+    "sha256": "ef9ce6d1448d8d3f13e27ecd8eec5104395ebb7a4cf50124ee40dfe05307d93b"
    },
    {
     "id": "D-0019",
@@ -1332,8 +1450,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0001",
-    "created_at": "2026-10-08T19:20:18Z",
-    "sha256": "32d8eddcb11d89c21a1ef1928aca98945450f8eb9c0f3c6512e8396e94667e0d"
+    "created_at": "2026-10-08T19:47:36Z",
+    "sha256": "10938589f4a9e2918f617364cb44f8f0bb31f5f50f02715700dc65629acb9272"
    },
    {
     "id": "D-0020",
@@ -1345,21 +1463,21 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0001",
-    "created_at": "2026-10-08T19:20:19Z",
-    "sha256": "7d4ab4f60f3b5f1090003d077298af9d81fd4a8677d4b047f6501d7348df4765"
+    "created_at": "2026-10-08T19:47:37Z",
+    "sha256": "655e467950f7d2c6a41dfb8679b59f34cdcbf69741fed3eb390e0e2c88e8de4a"
    },
    {
     "id": "D-0021",
-    "path": "specs/method/MS-32e93c505111b5ac.v1.json",
+    "path": "specs/method/MS-2a6ea7fc9c6845ab.v1.json",
     "version": 1,
     "doc_type": "method_spec",
-    "title": "method spec 32e93c505111",
-    "summary": "code 373d9c59c7; lr=0.0002, optimizer=subbatch-moment",
+    "title": "method spec 2a6ea7fc9c68",
+    "summary": "code 1c2a0fd6d0; lr=0.0002, optimizer=subbatch-moment",
     "status": "current",
     "author_role": "worker",
     "author_id": "h0001",
-    "sha256": "32e93c505111b5acfa4a113756fc684c0880207db1536455b3ae54a2c71aba6a",
-    "created_at": "2026-10-08T19:20:20Z"
+    "sha256": "2a6ea7fc9c6845ab4704635ba2561ff8dd253f6afb1d607885ccf00c191832b4",
+    "created_at": "2026-10-08T19:47:37Z"
    },
    {
     "id": "D-0022",
@@ -1371,23 +1489,23 @@
     "status": "current",
     "author_role": "reviewer",
     "author_id": "pi",
-    "sha256": "6414f16a76741d33c887b4e744a9fcb57fa85a5c6a6bc8cbe98b1773efb303eb",
+    "sha256": "4d2f863c4aaa5d8b7df4935f4ff8f4c4b925816f14b1d58139d38ac2b4364f72",
     "review_kind": "code_review",
     "review_result": "clear",
     "review_backend": "pi",
     "reviewer_model": "openai/gpt-6-astra",
     "review_session": "RV-0001",
-    "basis_code_ref": "373d9c59c7c5414f95c8982b21f13d481407f2dd",
+    "basis_code_ref": "1c2a0fd6d0113dcf675bc4696dc782db23261572",
     "review_basis": {
      "claim_revision": 1,
      "claim_sha": "ecfef7ab7314ad403106d58bb648bb23f2f491e652919b1d2c75cdff95e1a302",
-     "code_ref": "373d9c59c7c5414f95c8982b21f13d481407f2dd",
+     "code_ref": "1c2a0fd6d0113dcf675bc4696dc782db23261572",
      "method_spec_doc_ids": [
       "D-0021"
      ]
     },
     "review_basis_changed": false,
-    "created_at": "2026-10-08T19:20:26Z"
+    "created_at": "2026-10-08T19:47:39Z"
    },
    {
     "id": "D-0023",
@@ -1399,8 +1517,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0001",
-    "created_at": "2026-10-08T19:20:29Z",
-    "sha256": "9c766fee6a86b32be93619281e1c0c0e254f9c915b0707d89f02084aff42ffe5"
+    "created_at": "2026-10-08T19:47:41Z",
+    "sha256": "67e1d529ac0186461d38419dde77217fc113830700daa145ec489870988b8341"
    },
    {
     "id": "D-0024",
@@ -1412,8 +1530,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:20:30Z",
-    "sha256": "06d3d19098f43b1fd374fa443ee6645befe66bcaced8b1954d666931808b663b"
+    "created_at": "2026-10-08T19:47:42Z",
+    "sha256": "7203828a9ffd60fc56ce35c17fad6f25e47aeaba947095a4086d7c7a7de7a166"
    },
    {
     "id": "D-0025",
@@ -1425,8 +1543,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:20:31Z",
-    "sha256": "3a8e976223d3c8d0e7af112812df12ee7c5e8741c638595db8e0637336c2fa1c"
+    "created_at": "2026-10-08T19:47:43Z",
+    "sha256": "eefcb9c1c2c8783337cd663d3a84b0f8b8e56e31e501635f7448bbfed55537d6"
    },
    {
     "id": "D-0026",
@@ -1438,8 +1556,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:20:35Z",
-    "sha256": "87760f0bb649839772a5afd890dbff8ed23e97b1317e4adec2a44a6f83b2515e"
+    "created_at": "2026-10-08T19:47:45Z",
+    "sha256": "a50d59a2f80d1b57fdb21a1a42c540cf1dc339fabc66ba3aea202af64ac77f82"
    },
    {
     "id": "D-0027",
@@ -1451,8 +1569,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0002",
-    "created_at": "2026-10-08T19:20:38Z",
-    "sha256": "addf8900735025875dbb22344624f697945351fcd29f3f5469556a32e220aa4f"
+    "created_at": "2026-10-08T19:47:47Z",
+    "sha256": "9efc0758c360e1f0cc3f065bac9241f40f57c144a0c9bf81e6ab36e2adf68c63"
    },
    {
     "id": "D-0028",
@@ -1464,21 +1582,21 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0002",
-    "created_at": "2026-10-08T19:20:39Z",
-    "sha256": "47b29efacfa2c78f4da676df6f86f90e725fac8ee5b5805f092bcd07af7f4bbb"
+    "created_at": "2026-10-08T19:47:48Z",
+    "sha256": "0d492a6456fbf18bed4baef5af06029b970a42ce84bf94916a9c382f96b69c31"
    },
    {
     "id": "D-0029",
-    "path": "specs/method/MS-0f70d9ed1d0a7733.v1.json",
+    "path": "specs/method/MS-eaee03d7118c99b9.v1.json",
     "version": 1,
     "doc_type": "method_spec",
-    "title": "method spec 0f70d9ed1d0a",
-    "summary": "code badc579a64; lr=0.0002, optimizer=orthogonal-update",
+    "title": "method spec eaee03d7118c",
+    "summary": "code 94b67d5516; lr=0.0002, optimizer=orthogonal-update",
     "status": "current",
     "author_role": "worker",
     "author_id": "h0002",
-    "sha256": "0f70d9ed1d0a7733aba84c585a799d4b085ba98ff03164dd97fb8bef26c3e762",
-    "created_at": "2026-10-08T19:20:40Z"
+    "sha256": "eaee03d7118c99b931afbd5493d010fe62e3e9474f451cfa52ab80d1fed7c62b",
+    "created_at": "2026-10-08T19:47:48Z"
    },
    {
     "id": "D-0030",
@@ -1490,23 +1608,23 @@
     "status": "current",
     "author_role": "reviewer",
     "author_id": "pi",
-    "sha256": "519b1fd3a2269a1843b32e4926e7f9642ca95b3a5461d84f62c5a1ee16c4dcf6",
+    "sha256": "6acdd16f9eecf8d77bfad0fe32ee587094e89bf25c26b2571745327f1d25c26f",
     "review_kind": "code_review",
     "review_result": "clear",
     "review_backend": "pi",
     "reviewer_model": "openai/gpt-6-astra",
     "review_session": "RV-0002",
-    "basis_code_ref": "badc579a640b977a9ededf5bded3fa6ef5189c24",
+    "basis_code_ref": "94b67d55163cce5121bd6afc9b5742c0aca92755",
     "review_basis": {
      "claim_revision": 1,
      "claim_sha": "a49e5c387f853046bd250f484855ddd280e6c843984dcae175598b09ad26acf4",
-     "code_ref": "badc579a640b977a9ededf5bded3fa6ef5189c24",
+     "code_ref": "94b67d55163cce5121bd6afc9b5742c0aca92755",
      "method_spec_doc_ids": [
       "D-0029"
      ]
     },
     "review_basis_changed": false,
-    "created_at": "2026-10-08T19:20:43Z"
+    "created_at": "2026-10-08T19:47:51Z"
    },
    {
     "id": "D-0031",
@@ -1518,8 +1636,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0002",
-    "created_at": "2026-10-08T19:20:45Z",
-    "sha256": "99ec24ce915b557632eb8a9d846565de45ae11388470ec790050a90134cd4f19"
+    "created_at": "2026-10-08T19:47:52Z",
+    "sha256": "13b8707a8ad7be8d5ea9347eab8eae7e2debd934e031546208b95290b160b81f"
    },
    {
     "id": "D-0032",
@@ -1531,8 +1649,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:20:47Z",
-    "sha256": "ef30b67da2a70a4723d7ce6708791526b19726ea483e0186d6502a24fb3c44fa"
+    "created_at": "2026-10-08T19:47:54Z",
+    "sha256": "d6c7d16faca8a764ed68b6de4340724008740d37805a8d973c1076d7dd73632f"
    },
    {
     "id": "D-0033",
@@ -1544,8 +1662,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:20:50Z",
-    "sha256": "778e98520af43241fe2c95e87a6888fd47c98ab3e14bd6ef9c7c8756562f62b6"
+    "created_at": "2026-10-08T19:47:55Z",
+    "sha256": "d5366a9547f947a3b8e76121211e8a0474603dd643fae8636b728fed25c26369"
    },
    {
     "id": "D-0034",
@@ -1557,8 +1675,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:20:51Z",
-    "sha256": "b597893dc73d7375f07d23f13ed8e80d97b5797fac1afce250161d92b65f1726"
+    "created_at": "2026-10-08T19:47:56Z",
+    "sha256": "220fb6a80c175dcc49481e677f60e934091e7ccbd702ed43701f022dedc841e0"
    },
    {
     "id": "D-0035",
@@ -1570,8 +1688,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:20:55Z",
-    "sha256": "062cc777eb1e7b55f6a1b5f8200a5d69a60e91b56025189d846fea9a1a1de75a"
+    "created_at": "2026-10-08T19:48:00Z",
+    "sha256": "3414099a3380d5cf810fe9f527651e7aed4a4d9e0c211523e46e5cd70d4a43d5"
    },
    {
     "id": "D-0036",
@@ -1583,8 +1701,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-08T19:20:58Z",
-    "sha256": "319b32d8f67b068f050ec456b517e16b56a387ff5cd803fe21775c019e9ba064"
+    "created_at": "2026-10-08T19:48:01Z",
+    "sha256": "56311306010948d26916926f63ea078b8153325ceb42f537af9b4c7f11535bf7"
    },
    {
     "id": "D-0037",
@@ -1596,21 +1714,21 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-08T19:20:59Z",
-    "sha256": "63090ee8c1d70b02ccf65fada52d75f0c262245c8456c8b909366eb7c0963b56"
+    "created_at": "2026-10-08T19:48:02Z",
+    "sha256": "805d8af116d852c6e5d9ae27bcfe770f87b71484814a2b48328421d8a50aef7e"
    },
    {
     "id": "D-0038",
-    "path": "specs/method/MS-ea7f0f0d8c7f2417.v1.json",
+    "path": "specs/method/MS-4a1f6e352cacdb1c.v1.json",
     "version": 1,
     "doc_type": "method_spec",
-    "title": "method spec ea7f0f0d8c7f",
-    "summary": "code 19c019dc2e; lr=0.0002, optimizer=moment-balance",
+    "title": "method spec 4a1f6e352cac",
+    "summary": "code adae32fae9; lr=0.0002, optimizer=moment-balance",
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "sha256": "ea7f0f0d8c7f24176581d988cee06dc447bceac69fb4112a8ba72f07a64cc603",
-    "created_at": "2026-10-08T19:20:59Z"
+    "sha256": "4a1f6e352cacdb1c3dce7463f3770a6d21160cd6d5cd2b7c67d2793a65ba8df8",
+    "created_at": "2026-10-08T19:48:02Z"
    },
    {
     "id": "D-0039",
@@ -1622,23 +1740,23 @@
     "status": "current",
     "author_role": "reviewer",
     "author_id": "pi",
-    "sha256": "0ee24f6f72ad95ad910c3de9c715d55bddd1865fe2d19ffeb890aac195aa66fd",
+    "sha256": "33e8e27664628fdde3e77d624d54a94710ce44c3cc04824f4491afbf0be464cc",
     "review_kind": "code_review",
     "review_result": "clear",
     "review_backend": "pi",
     "reviewer_model": "openai/gpt-6-astra",
     "review_session": "RV-0003",
-    "basis_code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
+    "basis_code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
     "review_basis": {
      "claim_revision": 1,
      "claim_sha": "2e2e0a810a91cdd959805b1cd8da32c2e5ad86bf9542301ed0145ea29acee2ae",
-     "code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
+     "code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
      "method_spec_doc_ids": [
       "D-0038"
      ]
     },
     "review_basis_changed": false,
-    "created_at": "2026-10-08T19:21:01Z"
+    "created_at": "2026-10-08T19:48:04Z"
    },
    {
     "id": "D-0040",
@@ -1650,8 +1768,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-08T19:21:04Z",
-    "sha256": "75878de109f44c81e272fdb9076a2a7cc615bf0359eb8a396b4b8af2cbee8eba"
+    "created_at": "2026-10-08T19:48:06Z",
+    "sha256": "b7d68e48b130b609baccccae3f5b1d6f519bc59e674434ba2383dc65f1b4b43e"
    },
    {
     "id": "D-0041",
@@ -1663,8 +1781,8 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-08T19:21:10Z",
-    "sha256": "04b2ba90670fb044999a58c570a507288e1eadb54ede51998233dba11b829073"
+    "created_at": "2026-10-08T19:48:11Z",
+    "sha256": "57fda82dccf7f82ff7aee5f9604f0d91c5a84efe8c00c144d001d1120e89bed1"
    },
    {
     "id": "D-0042",
@@ -1676,8 +1794,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:21:12Z",
-    "sha256": "39a57ace20a0d233a8111ad0903ad8b5bfae6fce64439d4b76609d5540704bed"
+    "created_at": "2026-10-08T19:48:13Z",
+    "sha256": "4a2fe784ad013acf63943dc87eb8e4c54e08598584aa6b86fd5cec902757723b"
    },
    {
     "id": "D-0043",
@@ -1689,8 +1807,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:21:13Z",
-    "sha256": "1760c541baa0d5b387d01f2bb2a86e0b9a98714027c02365f2012d84f7639ab8"
+    "created_at": "2026-10-08T19:48:13Z",
+    "sha256": "ead4be042f07e8a934eea137c517d529f8662d6a22f5a343ea1575f1d7bec010"
    },
    {
     "id": "D-0044",
@@ -1702,11 +1820,35 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:21:14Z",
-    "sha256": "160056d765b60243ddf8860af81762e7b51a39970b2664f65673d721e3cb588b"
+    "created_at": "2026-10-08T19:48:14Z",
+    "sha256": "0015a1b75ab780da6308491f6fef79dfcdb88a3bcd11de166359fe3ccf93e36b"
    },
    {
     "id": "D-0045",
+    "path": "specs/candidate/CS-3d63f8ac15011ac3.v1.json",
+    "version": 1,
+    "doc_type": "candidate_spec",
+    "title": "candidate H-0003 D-0038",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "sha256": "3d63f8ac15011ac31ba02e1abf2ae3991ebb737bd0480ae11f463f1c64efc5c9",
+    "created_at": "2026-10-08T19:48:15Z"
+   },
+   {
+    "id": "D-0046",
+    "path": "specs/confirmation/CB-cbfc9365fcc1aef5.v1.json",
+    "version": 1,
+    "doc_type": "confirmation_batch",
+    "title": "confirmation batch default (1 candidates)",
+    "status": "current",
+    "author_role": "rld",
+    "author_id": "main",
+    "sha256": "cbfc9365fcc1aef5040bda97cfe19ab3961d1410ad86150c43941fa03d265a56",
+    "created_at": "2026-10-08T19:48:15Z"
+   },
+   {
+    "id": "D-0047",
     "path": "baselines/confirm/design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
@@ -1715,11 +1857,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-08T19:21:15Z",
-    "sha256": "8cc148ca180ce1f48fd612775978ca5abbf0cb1b36d2c1431953577744a597d0"
+    "created_at": "2026-10-08T19:48:15Z",
+    "sha256": "5750e8395dde704f373a68509dc1c58ff800b2c196224474dcf85091822f2d2e"
    },
    {
-    "id": "D-0046",
+    "id": "D-0048",
     "path": "baselines/confirm/result.v1.md",
     "version": 1,
     "doc_type": "experiment_result",
@@ -1728,11 +1870,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "root",
-    "created_at": "2026-10-08T19:21:20Z",
-    "sha256": "f702f1e538d6bdb1ce865c913e7b1a44562d97b1e6806bea31dbd864c4cee17e"
+    "created_at": "2026-10-08T19:48:21Z",
+    "sha256": "ead90b716cc25e40220fcc2ec3e46480def3c8efedaf8cb72633fabf51cb0fa7"
    },
    {
-    "id": "D-0047",
+    "id": "D-0049",
     "path": "hypotheses/H-0003/experiments/confirm/design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
@@ -1741,11 +1883,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-08T19:21:22Z",
-    "sha256": "671134734c58ba81a64d79d5ae1e371ca36011751eeae622ef484a7f22d26a88"
+    "created_at": "2026-10-08T19:48:22Z",
+    "sha256": "f79b4167a09811a6c6ac5e0cf52b3da689d1240cf45f4902c3c1299f0836f52b"
    },
    {
-    "id": "D-0048",
+    "id": "D-0050",
     "path": "hypotheses/H-0003/experiments/E-0009/result.v3.md",
     "version": 3,
     "doc_type": "experiment_result",
@@ -1754,11 +1896,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0003",
-    "created_at": "2026-10-08T19:21:28Z",
-    "sha256": "2f3b614968571cf4aa0a9e8c6564307faffcafd19b69ddabde70352620d3f8d7"
+    "created_at": "2026-10-08T19:48:27Z",
+    "sha256": "1959bd703a3c1e6ea2e3506220a1bc8f259d06c895f2b85692c3b7f19aa61cb0"
    },
    {
-    "id": "D-0049",
+    "id": "D-0051",
     "path": "reviews/RV-0004.v1.md",
     "version": 1,
     "doc_type": "review",
@@ -1775,16 +1917,16 @@
     "review_session": "RV-0004",
     "review_dimension": "numbers",
     "basis_evaluation_id": "EV-0007",
-    "basis_code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
+    "basis_code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
     "review_basis": {
      "evaluation_id": "EV-0007",
-     "inputs_digest": "3a585fb84bea76958d3be6223da9624e5066b5e8f9f134073e7d0849b0d28c46"
+     "inputs_digest": "b5c58b7ace535a3b41abfa1e082326942ac01eeb4b8767a81235411983d096ca"
     },
     "review_basis_changed": false,
-    "created_at": "2026-10-08T19:21:29Z"
+    "created_at": "2026-10-08T19:48:29Z"
    },
    {
-    "id": "D-0050",
+    "id": "D-0052",
     "path": "reviews/RV-0005.v1.md",
     "version": 1,
     "doc_type": "review",
@@ -1801,16 +1943,16 @@
     "review_session": "RV-0005",
     "review_dimension": "protocol",
     "basis_evaluation_id": "EV-0007",
-    "basis_code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
+    "basis_code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
     "review_basis": {
      "evaluation_id": "EV-0007",
-     "inputs_digest": "3a585fb84bea76958d3be6223da9624e5066b5e8f9f134073e7d0849b0d28c46"
+     "inputs_digest": "b5c58b7ace535a3b41abfa1e082326942ac01eeb4b8767a81235411983d096ca"
     },
     "review_basis_changed": false,
-    "created_at": "2026-10-08T19:21:30Z"
+    "created_at": "2026-10-08T19:48:29Z"
    },
    {
-    "id": "D-0051",
+    "id": "D-0053",
     "path": "reviews/RV-0006.v1.md",
     "version": 1,
     "doc_type": "review",
@@ -1827,18 +1969,18 @@
     "review_session": "RV-0006",
     "review_dimension": "method_code",
     "basis_evaluation_id": "EV-0007",
-    "basis_code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
+    "basis_code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
     "review_basis": {
      "claim_revision": 1,
      "claim_sha": "2e2e0a810a91cdd959805b1cd8da32c2e5ad86bf9542301ed0145ea29acee2ae",
      "method_spec_doc_id": "D-0038",
-     "code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978"
+     "code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f"
     },
     "review_basis_changed": false,
-    "created_at": "2026-10-08T19:21:30Z"
+    "created_at": "2026-10-08T19:48:30Z"
    },
    {
-    "id": "D-0052",
+    "id": "D-0054",
     "path": "reviews/RV-0007.v1.md",
     "version": 1,
     "doc_type": "review",
@@ -1855,12 +1997,12 @@
     "review_session": "RV-0007",
     "review_dimension": "novelty",
     "basis_evaluation_id": "EV-0007",
-    "basis_code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
+    "basis_code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
     "review_basis": {
      "claim_revision": 1,
      "claim_sha": "2e2e0a810a91cdd959805b1cd8da32c2e5ad86bf9542301ed0145ea29acee2ae",
      "method_spec_doc_id": "D-0038",
-     "code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
+     "code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
      "literature": [
       "D-0012",
       "D-0013",
@@ -1868,10 +2010,10 @@
      ]
     },
     "review_basis_changed": false,
-    "created_at": "2026-10-08T19:21:31Z"
+    "created_at": "2026-10-08T19:48:30Z"
    },
    {
-    "id": "D-0053",
+    "id": "D-0055",
     "path": "reviews/RV-0008.v1.md",
     "version": 1,
     "doc_type": "review",
@@ -1888,12 +2030,12 @@
     "review_session": "RV-0008",
     "review_dimension": "theory",
     "basis_evaluation_id": "EV-0007",
-    "basis_code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
+    "basis_code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
     "review_basis": {
      "claim_revision": 1,
      "claim_sha": "2e2e0a810a91cdd959805b1cd8da32c2e5ad86bf9542301ed0145ea29acee2ae",
      "method_spec_doc_id": "D-0038",
-     "code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
+     "code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
      "literature": [
       "D-0012",
       "D-0013",
@@ -1901,10 +2043,10 @@
      ]
     },
     "review_basis_changed": false,
-    "created_at": "2026-10-08T19:21:32Z"
+    "created_at": "2026-10-08T19:48:31Z"
    },
    {
-    "id": "D-0054",
+    "id": "D-0056",
     "path": "hypotheses/H-0004/hypothesis.v1.md",
     "version": 1,
     "doc_type": "hypothesis",
@@ -1913,11 +2055,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:21:32Z",
-    "sha256": "c0f71ced49dd5736026072ddf7f482980b61246b832ac27e9f398b0e52011833"
+    "created_at": "2026-10-08T19:48:31Z",
+    "sha256": "7476883ea6fa3947d6c1e2a9f0e5769e7d53b34450a88dcd6098c564981e87c4"
    },
    {
-    "id": "D-0055",
+    "id": "D-0057",
     "path": "hypotheses/H-0004/decisions/start.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -1926,11 +2068,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:21:35Z",
-    "sha256": "03e2eae118a02f4e5f61705a41038ab301d913fa898c75f207c6f50c416cb0ea"
+    "created_at": "2026-10-08T19:48:33Z",
+    "sha256": "fc904fe552a88a9735be69fe66fc6ed1d701e94f69aa0a2e98e959261e1dcb76"
    },
    {
-    "id": "D-0056",
+    "id": "D-0058",
     "path": "hypotheses/H-0004/experiments/momentum-448/design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
@@ -1939,11 +2081,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0004",
-    "created_at": "2026-10-08T19:21:39Z",
-    "sha256": "0cf06429b77b40d5280980fa736502d723a0cef9996d891cdcd6278c388690f1"
+    "created_at": "2026-10-08T19:48:34Z",
+    "sha256": "daeeb3cf783e2b4f239a80355c3372d81c4d20857dba55afb41f504b7a69d2b0"
    },
    {
-    "id": "D-0057",
+    "id": "D-0059",
     "path": "hypotheses/H-0004/experiments/momentum-448/sanity-design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
@@ -1952,24 +2094,24 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0004",
-    "created_at": "2026-10-08T19:21:39Z",
-    "sha256": "94e01d4e482fe0c13d548b95a3fa8b8303eef9c32dd47a5221f858196140d5d0"
+    "created_at": "2026-10-08T19:48:35Z",
+    "sha256": "9eb175f28f5b6180b62707516a6554c4295820d345ff0d5e21d5b5b9fb76d165"
    },
    {
-    "id": "D-0058",
-    "path": "specs/method/MS-1a89e01a2f602b93.v1.json",
+    "id": "D-0060",
+    "path": "specs/method/MS-f7665242e4fafa8f.v1.json",
     "version": 1,
     "doc_type": "method_spec",
-    "title": "method spec 1a89e01a2f60",
-    "summary": "code ec767ad229; lr=0.0002, optimizer=momentum-rescale",
+    "title": "method spec f7665242e4fa",
+    "summary": "code c15d7f614b; lr=0.0002, optimizer=momentum-rescale",
     "status": "current",
     "author_role": "worker",
     "author_id": "h0004",
-    "sha256": "1a89e01a2f602b93837f4c63bb552348169be24d8d0ce09a47b70da3d1b2242b",
-    "created_at": "2026-10-08T19:21:41Z"
+    "sha256": "f7665242e4fafa8f7cfe8dd7f73d3ccd7c5d2349eea859ba216899789bd1197b",
+    "created_at": "2026-10-08T19:48:36Z"
    },
    {
-    "id": "D-0059",
+    "id": "D-0061",
     "path": "reviews/RV-0009.v1.md",
     "version": 1,
     "doc_type": "review",
@@ -1978,26 +2120,26 @@
     "status": "current",
     "author_role": "reviewer",
     "author_id": "pi",
-    "sha256": "b0b0b065a8c4aedd26c7f64e6606b02b64e8053c87dce25b6b975e6af2d298f0",
+    "sha256": "55e48e9e02862ea087d7f15113a1daf4c3b37525bc70125dca82fd83c895d5cf",
     "review_kind": "code_review",
     "review_result": "clear",
     "review_backend": "pi",
     "reviewer_model": "openai/gpt-6-astra",
     "review_session": "RV-0009",
-    "basis_code_ref": "ec767ad229d32c5634bf8199a84733325d939cdd",
+    "basis_code_ref": "c15d7f614bbe0b601ae28c413b5922dc3e0f58f3",
     "review_basis": {
      "claim_revision": 1,
      "claim_sha": "e158a9e2ba5ecea1cd2e0d2a7d94be5096a78b60b3d6e3a93a47af1b13d63fe7",
-     "code_ref": "ec767ad229d32c5634bf8199a84733325d939cdd",
+     "code_ref": "c15d7f614bbe0b601ae28c413b5922dc3e0f58f3",
      "method_spec_doc_ids": [
-      "D-0058"
+      "D-0060"
      ]
     },
     "review_basis_changed": false,
-    "created_at": "2026-10-08T19:21:43Z"
+    "created_at": "2026-10-08T19:48:38Z"
    },
    {
-    "id": "D-0060",
+    "id": "D-0062",
     "path": "hypotheses/H-0004/experiments/E-0011/result.v1.md",
     "version": 1,
     "doc_type": "experiment_result",
@@ -2006,11 +2148,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0004",
-    "created_at": "2026-10-08T19:21:46Z",
-    "sha256": "da948cb87d1c1673be04462a7ea1d583a9f5eeef67b204ea6232fa025972847d"
+    "created_at": "2026-10-08T19:48:42Z",
+    "sha256": "43e17546983f796fc45b1e9d9b1bef88723fd2ee3df98d0ad2faf9c7bc4a994d"
    },
    {
-    "id": "D-0061",
+    "id": "D-0063",
     "path": "hypotheses/H-0004/decisions/prunable.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -2019,11 +2161,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:21:48Z",
-    "sha256": "b1f4abecd5d2c75ac094cc2b876e92236f732a0be0cb604fa04b57de24d72962"
+    "created_at": "2026-10-08T19:48:44Z",
+    "sha256": "447a92ef03969a9ffeba1b6df9a1525c558d2500542e775cb98c700537b8256a"
    },
    {
-    "id": "D-0062",
+    "id": "D-0064",
     "path": "hypotheses/H-0004/decisions/branch-deleted.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -2032,11 +2174,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:21:50Z",
-    "sha256": "ffeb661ea9ad5929687a127e17f44672daf850b2051e7db1ba184c343f882e50"
+    "created_at": "2026-10-08T19:48:46Z",
+    "sha256": "48d17d2c2bcbd1254f416871f1125b02f7b190c2c50b6e3043944158841e5383"
    },
    {
-    "id": "D-0063",
+    "id": "D-0065",
     "path": "hypotheses/H-0005/hypothesis.v1.md",
     "version": 1,
     "doc_type": "hypothesis",
@@ -2045,11 +2187,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:21:52Z",
-    "sha256": "0dd824419e1da5e5bf93f261f9b5cd593e2422eb62d4404eab9ad4b1723cb928"
+    "created_at": "2026-10-08T19:48:47Z",
+    "sha256": "ff412cdf793cca3e9a69198159b6c93946bd5e96dbac51cd99b13e9455373f2d"
    },
    {
-    "id": "D-0064",
+    "id": "D-0066",
     "path": "hypotheses/H-0005/decisions/start.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -2058,11 +2200,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:21:55Z",
-    "sha256": "80f69b8425cad4633600894ebc2e1df5e22460dab6ce9df88b8f5b50cac712c1"
+    "created_at": "2026-10-08T19:48:49Z",
+    "sha256": "0b7a1c5e90ff1a5a1bc766685088000200e9b47c11ede0124f0af4663c31e427"
    },
    {
-    "id": "D-0065",
+    "id": "D-0067",
     "path": "hypotheses/H-0005/experiments/kron-dia-621/design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
@@ -2071,11 +2213,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0005",
-    "created_at": "2026-10-08T19:21:58Z",
-    "sha256": "b2fa444c04263d63df6cf5993be6d5d8c2497a8d88b9822f2f0896788ae24a9c"
+    "created_at": "2026-10-08T19:48:53Z",
+    "sha256": "bbfd1add023b9e5c6f6d55c8c805d5958db793be0c477e0efbde59ba7644f990"
    },
    {
-    "id": "D-0066",
+    "id": "D-0068",
     "path": "hypotheses/H-0005/experiments/kron-dia-621/sanity-design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
@@ -2084,24 +2226,24 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0005",
-    "created_at": "2026-10-08T19:21:59Z",
-    "sha256": "b3cac6604359cae9501355be91260bcab505f1b991228fc24bb1af0e48d95c19"
+    "created_at": "2026-10-08T19:48:54Z",
+    "sha256": "f48c88833265d8d0e4c812c0d2e689e883cc3e037d708d958b69b67cabf0cf68"
    },
    {
-    "id": "D-0067",
-    "path": "specs/method/MS-3216e25cdbf88b8a.v1.json",
+    "id": "D-0069",
+    "path": "specs/method/MS-2dda2c64c3bd2096.v1.json",
     "version": 1,
     "doc_type": "method_spec",
-    "title": "method spec 3216e25cdbf8",
-    "summary": "code 1ef7daad09; lr=0.0002, optimizer=kron-diag",
+    "title": "method spec 2dda2c64c3bd",
+    "summary": "code 48aa0e59b4; lr=0.0002, optimizer=kron-diag",
     "status": "current",
     "author_role": "worker",
     "author_id": "h0005",
-    "sha256": "3216e25cdbf88b8ac42790a4cefaeb39e1f7a3b46bf9780aaaad1fbbc727e675",
-    "created_at": "2026-10-08T19:21:59Z"
+    "sha256": "2dda2c64c3bd209622ba6f4899c5336cc0a3b4c7be5b80da261d59b32b101a58",
+    "created_at": "2026-10-08T19:48:54Z"
    },
    {
-    "id": "D-0068",
+    "id": "D-0070",
     "path": "reviews/RV-0010.v1.md",
     "version": 1,
     "doc_type": "review",
@@ -2110,26 +2252,26 @@
     "status": "current",
     "author_role": "reviewer",
     "author_id": "pi",
-    "sha256": "08c7b8714e3d114eefc18b7d0152be843564b8adf4da3a423967b0173a85c7b9",
+    "sha256": "3269f3bb36da04a1698058145eab8c8cc721ebfd1c269a53f081947c39bcbd1f",
     "review_kind": "code_review",
     "review_result": "clear",
     "review_backend": "pi",
     "reviewer_model": "openai/gpt-6-astra",
     "review_session": "RV-0010",
-    "basis_code_ref": "1ef7daad09406476fcee4f2e84534f3f0952eae0",
+    "basis_code_ref": "48aa0e59b411a36493cdec789cd9c4ce7dfe3fb4",
     "review_basis": {
      "claim_revision": 1,
      "claim_sha": "2ff4e2dfb47494d33b8468ce825adcf0c722274227cc5d387554937265a011f8",
-     "code_ref": "1ef7daad09406476fcee4f2e84534f3f0952eae0",
+     "code_ref": "48aa0e59b411a36493cdec789cd9c4ce7dfe3fb4",
      "method_spec_doc_ids": [
-      "D-0067"
+      "D-0069"
      ]
     },
     "review_basis_changed": false,
-    "created_at": "2026-10-08T19:22:02Z"
+    "created_at": "2026-10-08T19:48:57Z"
    },
    {
-    "id": "D-0069",
+    "id": "D-0071",
     "path": "hypotheses/H-0005/experiments/E-0013/result.v1.md",
     "version": 1,
     "doc_type": "experiment_result",
@@ -2138,11 +2280,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0005",
-    "created_at": "2026-10-08T19:22:05Z",
-    "sha256": "ebeade3d4f60fc3b6f7c5a9b680af2c26256f33495e25e03f294fd2ff1a5c56a"
+    "created_at": "2026-10-08T19:49:00Z",
+    "sha256": "f6f907ef758e61335085a0239a5418e1082c26bdd93044b6111f85da99b2cbf3"
    },
    {
-    "id": "D-0070",
+    "id": "D-0072",
     "path": "hypotheses/H-0006/hypothesis.v1.md",
     "version": 1,
     "doc_type": "hypothesis",
@@ -2151,11 +2293,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:22:07Z",
-    "sha256": "7f0c34c4d89d0df53efdc4eac14c6527f21401b1a4aa50f1ed5abb432480a0e4"
+    "created_at": "2026-10-08T19:49:02Z",
+    "sha256": "85f3e1da82cde64e4cd58223ed2ace39b1e126433c3a026fffc5bb5c8a50679f"
    },
    {
-    "id": "D-0071",
+    "id": "D-0073",
     "path": "instructions/UI-0002.v1.md",
     "version": 1,
     "doc_type": "user_instruction",
@@ -2164,11 +2306,11 @@
     "status": "current",
     "author_role": "ui",
     "author_id": "ui",
-    "created_at": "2026-10-08T19:22:08Z",
-    "sha256": "9104d28407b9f7c4f8b80dfa7e7c5cd8f3fec0f365781ea41a373f527fbd1128"
+    "created_at": "2026-10-08T19:49:03Z",
+    "sha256": "9dcc024194d22f7af6cb0f07b5e2a182b6732a82cab5a3331ad9fc8d30847c4b"
    },
    {
-    "id": "D-0072",
+    "id": "D-0074",
     "path": "hypotheses/H-0006/decisions/infeasible.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -2177,11 +2319,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:22:08Z",
-    "sha256": "72e43edce370e4fa88cc0f453c6dd8075a413ee4165c544bf7cfba519d10a8a2"
+    "created_at": "2026-10-08T19:49:04Z",
+    "sha256": "64d14f5d540be6059f7282d1556c78dbd370f5511924668e3fa228be1ef2593b"
    },
    {
-    "id": "D-0073",
+    "id": "D-0075",
     "path": "hypotheses/H-0007/hypothesis.v1.md",
     "version": 1,
     "doc_type": "hypothesis",
@@ -2190,11 +2332,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:22:09Z",
-    "sha256": "e8f31dd57681e7a4c9791e1e3ca1e9de64c511ed99fe3b13e237fb64a52263f5"
+    "created_at": "2026-10-08T19:49:04Z",
+    "sha256": "b904429e09dcd7c66785f620dd52e92d743321e4047342c15b76aea91282f1f5"
    },
    {
-    "id": "D-0074",
+    "id": "D-0076",
     "path": "hypotheses/H-0007/decisions/start.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -2203,11 +2345,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:22:13Z",
-    "sha256": "a6b86485bd07e4615becd43c44ab9dbec77a7751ee5d64887c085ecc14fbe917"
+    "created_at": "2026-10-08T19:49:07Z",
+    "sha256": "6227c68aaeb9e49618e8e337d6f3f52789b987916f3a5e864b411eab809925e3"
    },
    {
-    "id": "D-0075",
+    "id": "D-0077",
     "path": "hypotheses/H-0007/experiments/state-8b-132/design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
@@ -2216,11 +2358,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0007",
-    "created_at": "2026-10-08T19:22:14Z",
-    "sha256": "a22c5fa5ed483f03ee4ba12df33daafb1e274058e971ec80d28783ce5f2b310a"
+    "created_at": "2026-10-08T19:49:09Z",
+    "sha256": "780091860c1bb452a2bb11902c10590d8891c12e11560a3a82f64e018114a170"
    },
    {
-    "id": "D-0076",
+    "id": "D-0078",
     "path": "hypotheses/H-0007/experiments/state-8b-132/sanity-design.v1.md",
     "version": 1,
     "doc_type": "experiment_design",
@@ -2229,24 +2371,24 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0007",
-    "created_at": "2026-10-08T19:22:14Z",
-    "sha256": "9d36659e264db1ef5e80a854e8ffa1b3424f8902c29f7827034e2d2310a5a86f"
+    "created_at": "2026-10-08T19:49:10Z",
+    "sha256": "dfdb3465e8dc12123cedea8981587718c3b02dc92d48340560df27b4291ef37e"
    },
    {
-    "id": "D-0077",
-    "path": "specs/method/MS-ec2245f885af7170.v1.json",
+    "id": "D-0079",
+    "path": "specs/method/MS-70a66da5b6ef6f9f.v1.json",
     "version": 1,
     "doc_type": "method_spec",
-    "title": "method spec ec2245f885af",
-    "summary": "code 446f24467b; lr=0.0002, optimizer=state-8bit",
+    "title": "method spec 70a66da5b6ef",
+    "summary": "code 77584273e1; lr=0.0002, optimizer=state-8bit",
     "status": "current",
     "author_role": "worker",
     "author_id": "h0007",
-    "sha256": "ec2245f885af7170f4ab1c117ffb95d0a60f86bd5938c0d4da8c6e0f907f8e98",
-    "created_at": "2026-10-08T19:22:15Z"
+    "sha256": "70a66da5b6ef6f9fa835765fec6c8eab856800ee806dbbaa3e2809b8239224b5",
+    "created_at": "2026-10-08T19:49:10Z"
    },
    {
-    "id": "D-0078",
+    "id": "D-0080",
     "path": "reviews/RV-0011.v1.md",
     "version": 1,
     "doc_type": "review",
@@ -2255,26 +2397,26 @@
     "status": "current",
     "author_role": "reviewer",
     "author_id": "pi",
-    "sha256": "8c87cd160eeb13be0ef06d9edeac83173cd0b68ab7f44ca77ccd4493beb2938c",
+    "sha256": "477168fe747308e8c20ab596c55af4833a4cdbc0751dced86d9504e9229a2d35",
     "review_kind": "code_review",
     "review_result": "clear",
     "review_backend": "pi",
     "reviewer_model": "openai/gpt-6-astra",
     "review_session": "RV-0011",
-    "basis_code_ref": "446f24467b1e95e49f44dacdc469e4d14e4c6ed7",
+    "basis_code_ref": "77584273e15dede08fc379a063ef1f0bb3b4bf6a",
     "review_basis": {
      "claim_revision": 1,
      "claim_sha": "f3a074668b0e38ee4dd79817014ffc0ecf17d3172753e8d6cdec0ac1da8bfe2d",
-     "code_ref": "446f24467b1e95e49f44dacdc469e4d14e4c6ed7",
+     "code_ref": "77584273e15dede08fc379a063ef1f0bb3b4bf6a",
      "method_spec_doc_ids": [
-      "D-0077"
+      "D-0079"
      ]
     },
     "review_basis_changed": false,
-    "created_at": "2026-10-08T19:22:18Z"
+    "created_at": "2026-10-08T19:49:13Z"
    },
    {
-    "id": "D-0079",
+    "id": "D-0081",
     "path": "hypotheses/H-0007/experiments/E-0015/result.v1.md",
     "version": 1,
     "doc_type": "experiment_result",
@@ -2283,11 +2425,11 @@
     "status": "current",
     "author_role": "worker",
     "author_id": "h0007",
-    "created_at": "2026-10-08T19:22:19Z",
-    "sha256": "0a72d0b71dadf0563d26f2fc06ff5271519736495462bb069ddfac7d1b8dd1dd"
+    "created_at": "2026-10-08T19:49:15Z",
+    "sha256": "5c2d04d6f8cce327f20bd29a003e949b92cd7ed245fbb831ebdc0387c814f80e"
    },
    {
-    "id": "D-0080",
+    "id": "D-0082",
     "path": "hypotheses/H-0008/hypothesis.v1.md",
     "version": 1,
     "doc_type": "hypothesis",
@@ -2296,11 +2438,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:22:21Z",
-    "sha256": "a819b29d5668dd8e08e8f14f62c20503e8075a53b327b21fe48b4e09a3a066c2"
+    "created_at": "2026-10-08T19:49:16Z",
+    "sha256": "74bc8c402def670d490b2be21acbed447b21222a743e9b004faa53ac00e854a7"
    },
    {
-    "id": "D-0081",
+    "id": "D-0083",
     "path": "tasks/T-0002/request.v1.md",
     "version": 1,
     "doc_type": "task_request",
@@ -2309,11 +2451,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:22:22Z",
-    "sha256": "a4d550fca30e6d5aa71c5c7fd09f4f7d2aaa9731f039774156707486f1d056d1"
+    "created_at": "2026-10-08T19:49:17Z",
+    "sha256": "38dba0306313db27f723f9f17e56f9b0e74dafbc8f24221f11dac830b0902849"
    },
    {
-    "id": "D-0082",
+    "id": "D-0084",
     "path": "hypotheses/H-0001/decisions/batch-1.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -2322,11 +2464,11 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:22:24Z",
-    "sha256": "536576fb172d0bd329eee44ce4f43ddeced0c16fcb6db3e87fce9133fe5001cf"
+    "created_at": "2026-10-08T19:49:19Z",
+    "sha256": "2bbbb9f3621d4045cc81f4c990279cb08871e945ad34ad6b79ad2241216450f1"
    },
    {
-    "id": "D-0083",
+    "id": "D-0085",
     "path": "hypotheses/H-0001/decisions/batch-2.v1.md",
     "version": 1,
     "doc_type": "decision",
@@ -2335,8 +2477,8 @@
     "status": "current",
     "author_role": "rld",
     "author_id": "main",
-    "created_at": "2026-10-08T19:22:24Z",
-    "sha256": "3bd489cca12e9c54614e5f72d2293c839ebf88cb583d89e0107bed8e8c8a457b"
+    "created_at": "2026-10-08T19:49:20Z",
+    "sha256": "8a955bcaee3a50b78824a8d405a7ced5a81e78b35d976c138ad0e99d72a7e1ab"
    }
   ],
   "decision": [
@@ -2348,7 +2490,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0018",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:20:16Z",
+    "decided_at": "2026-10-08T19:47:35Z",
     "target_id": "H-0001"
    },
    {
@@ -2359,7 +2501,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0018",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:20:16Z",
+    "decided_at": "2026-10-08T19:47:35Z",
     "target_id": "H-0001"
    },
    {
@@ -2370,7 +2512,7 @@
     "reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
     "doc_id": "D-0024",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:20:31Z",
+    "decided_at": "2026-10-08T19:47:43Z",
     "target_id": "H-0001"
    },
    {
@@ -2381,7 +2523,7 @@
     "reason": "优于SOTA父节点但2个seed不足以判定优于SOTA；领先较大，拓展子节点。",
     "doc_id": "D-0024",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:20:31Z",
+    "decided_at": "2026-10-08T19:47:43Z",
     "target_id": "H-0001"
    },
    {
@@ -2392,7 +2534,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0026",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:20:35Z",
+    "decided_at": "2026-10-08T19:47:46Z",
     "target_id": "H-0002"
    },
    {
@@ -2403,7 +2545,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0026",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:20:35Z",
+    "decided_at": "2026-10-08T19:47:46Z",
     "target_id": "H-0002"
    },
    {
@@ -2414,7 +2556,7 @@
     "reason": "所有指标都不优于SOTA，按规则消灭。",
     "doc_id": "D-0032",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:20:48Z",
+    "decided_at": "2026-10-08T19:47:54Z",
     "target_id": "H-0002"
    },
    {
@@ -2425,7 +2567,7 @@
     "reason": "所有指标都不优于SOTA，按规则消灭。",
     "doc_id": "D-0032",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:20:48Z",
+    "decided_at": "2026-10-08T19:47:54Z",
     "target_id": "H-0002"
    },
    {
@@ -2436,7 +2578,7 @@
     "reason": "所有指标都不优于SOTA，按规则消灭。",
     "doc_id": "D-0032",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:20:48Z",
+    "decided_at": "2026-10-08T19:47:54Z",
     "target_id": "H-0002"
    },
    {
@@ -2447,7 +2589,7 @@
     "reason": "无提升，删除分支（实验提交已打标签）。",
     "doc_id": "D-0033",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:20:50Z",
+    "decided_at": "2026-10-08T19:47:56Z",
     "target_id": "BR-0002"
    },
    {
@@ -2458,7 +2600,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0035",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:20:56Z",
+    "decided_at": "2026-10-08T19:48:00Z",
     "target_id": "H-0003"
    },
    {
@@ -2469,7 +2611,7 @@
     "reason": "开始代码改进与实验",
     "doc_id": "D-0035",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:20:56Z",
+    "decided_at": "2026-10-08T19:48:00Z",
     "target_id": "H-0003"
    },
    {
@@ -2479,7 +2621,7 @@
     "to_value": "beats_sota",
     "reason": "3个seed判定",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:21:12Z",
+    "decided_at": "2026-10-08T19:48:12Z",
     "target_id": "H-0003"
    },
    {
@@ -2489,10 +2631,10 @@
     "to_value": "pass",
     "reason": "复核通过",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:21:13Z",
+    "decided_at": "2026-10-08T19:48:13Z",
     "basis": {
      "method_spec_doc_id": "D-0038",
-     "code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
+     "code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
      "claim_sha": "2e2e0a810a91cdd959805b1cd8da32c2e5ad86bf9542301ed0145ea29acee2ae"
     },
     "target_id": "H-0003"
@@ -2504,10 +2646,10 @@
     "to_value": "pass",
     "reason": "复核通过",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:21:13Z",
+    "decided_at": "2026-10-08T19:48:13Z",
     "basis": {
      "method_spec_doc_id": "D-0038",
-     "code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
+     "code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
      "claim_sha": "2e2e0a810a91cdd959805b1cd8da32c2e5ad86bf9542301ed0145ea29acee2ae"
     },
     "target_id": "H-0003"
@@ -2520,7 +2662,7 @@
     "reason": "优于SOTA且复核通过，可拓展",
     "doc_id": "D-0044",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:21:14Z",
+    "decided_at": "2026-10-08T19:48:14Z",
     "target_id": "H-0003"
    },
    {
@@ -2529,9 +2671,9 @@
     "from_value": "todo",
     "to_value": "running",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0055",
+    "doc_id": "D-0057",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:21:36Z",
+    "decided_at": "2026-10-08T19:48:33Z",
     "target_id": "H-0004"
    },
    {
@@ -2540,9 +2682,9 @@
     "from_value": "pending",
     "to_value": "verifying",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0055",
+    "doc_id": "D-0057",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:21:36Z",
+    "decided_at": "2026-10-08T19:48:33Z",
     "target_id": "H-0004"
    },
    {
@@ -2551,9 +2693,9 @@
     "from_value": "running",
     "to_value": "no_gain",
     "reason": "相对父节点各项指标都不更好，按规则消灭。",
-    "doc_id": "D-0061",
+    "doc_id": "D-0063",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:21:48Z",
+    "decided_at": "2026-10-08T19:48:45Z",
     "target_id": "H-0004"
    },
    {
@@ -2562,9 +2704,9 @@
     "from_value": "verifying",
     "to_value": "prunable",
     "reason": "相对父节点各项指标都不更好，按规则消灭。",
-    "doc_id": "D-0061",
+    "doc_id": "D-0063",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:21:48Z",
+    "decided_at": "2026-10-08T19:48:45Z",
     "target_id": "H-0004"
    },
    {
@@ -2573,9 +2715,9 @@
     "from_value": "active",
     "to_value": "retired",
     "reason": "相对父节点各项指标都不更好，按规则消灭。",
-    "doc_id": "D-0061",
+    "doc_id": "D-0063",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:21:48Z",
+    "decided_at": "2026-10-08T19:48:45Z",
     "target_id": "H-0004"
    },
    {
@@ -2584,9 +2726,9 @@
     "from_value": "returned",
     "to_value": "deleted",
     "reason": "无提升，删除分支。",
-    "doc_id": "D-0062",
+    "doc_id": "D-0064",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:21:51Z",
+    "decided_at": "2026-10-08T19:48:46Z",
     "target_id": "BR-0004"
    },
    {
@@ -2595,9 +2737,9 @@
     "from_value": "todo",
     "to_value": "running",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0064",
+    "doc_id": "D-0066",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:21:56Z",
+    "decided_at": "2026-10-08T19:48:50Z",
     "target_id": "H-0005"
    },
    {
@@ -2606,9 +2748,9 @@
     "from_value": "pending",
     "to_value": "verifying",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0064",
+    "doc_id": "D-0066",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:21:56Z",
+    "decided_at": "2026-10-08T19:48:50Z",
     "target_id": "H-0005"
    },
    {
@@ -2617,9 +2759,9 @@
     "from_value": "pending",
     "to_value": "prunable",
     "reason": "用户决定放弃（超出单次运行上限）",
-    "doc_id": "D-0072",
+    "doc_id": "D-0074",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:22:09Z",
+    "decided_at": "2026-10-08T19:49:04Z",
     "target_id": "H-0006"
    },
    {
@@ -2628,9 +2770,9 @@
     "from_value": "active",
     "to_value": "retired",
     "reason": "用户决定放弃（超出单次运行上限）",
-    "doc_id": "D-0072",
+    "doc_id": "D-0074",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:22:09Z",
+    "decided_at": "2026-10-08T19:49:04Z",
     "target_id": "H-0006"
    },
    {
@@ -2639,9 +2781,9 @@
     "from_value": "todo",
     "to_value": "running",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0074",
+    "doc_id": "D-0076",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:22:13Z",
+    "decided_at": "2026-10-08T19:49:08Z",
     "target_id": "H-0007"
    },
    {
@@ -2650,9 +2792,9 @@
     "from_value": "pending",
     "to_value": "verifying",
     "reason": "开始代码改进与实验",
-    "doc_id": "D-0074",
+    "doc_id": "D-0076",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:22:13Z",
+    "decided_at": "2026-10-08T19:49:08Z",
     "target_id": "H-0007"
    },
    {
@@ -2662,7 +2804,7 @@
     "to_value": "paused",
     "reason": "精度持平、只省显存；阶段1目标是精度，暂不投入",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:22:23Z",
+    "decided_at": "2026-10-08T19:49:19Z",
     "target_id": "H-0007"
    },
    {
@@ -2671,9 +2813,9 @@
     "from_value": "0",
     "to_value": "0",
     "reason": "1 new finding(s) this batch; stall none",
-    "doc_id": "D-0082",
+    "doc_id": "D-0084",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:22:25Z",
+    "decided_at": "2026-10-08T19:49:21Z",
     "target_id": "H-0001"
    },
    {
@@ -2682,9 +2824,9 @@
     "from_value": "0",
     "to_value": "1",
     "reason": "0 new finding(s) this batch; stall none",
-    "doc_id": "D-0083",
+    "doc_id": "D-0085",
     "decided_by": "main",
-    "decided_at": "2026-10-08T19:22:25Z",
+    "decided_at": "2026-10-08T19:49:21Z",
     "target_id": "H-0001"
    }
   ],
@@ -2696,8 +2838,8 @@
     "assignee_role": "worker",
     "assignee_id": "root",
     "request_doc_id": "D-0007",
-    "created_at": "2026-10-08T19:20:00Z",
-    "updated_at": "2026-10-08T19:20:09Z",
+    "created_at": "2026-10-08T19:47:21Z",
+    "updated_at": "2026-10-08T19:47:28Z",
     "delivery_doc_id": "D-0011",
     "accepted_by": "rld/main",
     "accepted_evidence": [
@@ -2712,9 +2854,9 @@
     "status": "in_progress",
     "assignee_role": "worker",
     "assignee_id": "h0005",
-    "request_doc_id": "D-0081",
-    "created_at": "2026-10-08T19:22:23Z",
-    "updated_at": "2026-10-08T19:22:23Z",
+    "request_doc_id": "D-0083",
+    "created_at": "2026-10-08T19:49:18Z",
+    "updated_at": "2026-10-08T19:49:18Z",
     "target_id": "H-0005"
    }
   ],
@@ -2769,8 +2911,8 @@
      }
     },
     "pair_keys": {},
-    "method_code_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
-    "harness_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
+    "method_code_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
+    "harness_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
     "harness_paths": [
      "harness"
     ],
@@ -2871,10 +3013,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "e355f6a04693ec7c9a538bdea20fa368482346b1e714752c86be457bd3dcd18b",
-    "inputs_digest": "2cc0b0e89633417f98f6400120aaca7840ea0308642995ca4fb189ed1d096c53",
+    "fingerprint": "c80b7d47cbc1969cd85cdd7f78cddcf846054f557ca7ba8c70d7e5bb6267011e",
+    "inputs_digest": "423ac58481a2afdf0d3518c318ff725265e69e1b0880a84d0475b245830085fe",
     "created_by": "worker/root",
-    "created_at": "2026-10-08T19:20:07Z",
+    "created_at": "2026-10-08T19:47:27Z",
     "experiment_id": "E-0001"
    },
    {
@@ -2945,8 +3087,8 @@
       "seed=42/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "373d9c59c7c5414f95c8982b21f13d481407f2dd",
-    "harness_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
+    "method_code_ref": "1c2a0fd6d0113dcf675bc4696dc782db23261572",
+    "harness_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
     "harness_paths": [
      "harness"
     ],
@@ -3123,10 +3265,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "b0774cb700c23e3f85c7daf475c66310448c0aec7cb0b9147e84c04df5c4bcc3",
-    "inputs_digest": "b9029b05617d8852fbf0fb04188116d6d2d5bb73d9e6e275a5f532361dbd49a3",
+    "fingerprint": "bb26c7c6034435fb0dc9942ec4f058708fab5eb6eca52016b445b63d4d55a21c",
+    "inputs_digest": "0546ae3534e2947ffb2c1242bdd96dd1110a2a5be260a7e4405fe8f7bce7447f",
     "created_by": "worker/h0001",
-    "created_at": "2026-10-08T19:20:30Z",
+    "created_at": "2026-10-08T19:47:42Z",
     "experiment_id": "E-0003"
    },
    {
@@ -3197,8 +3339,8 @@
       "seed=42/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "badc579a640b977a9ededf5bded3fa6ef5189c24",
-    "harness_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
+    "method_code_ref": "94b67d55163cce5121bd6afc9b5742c0aca92755",
+    "harness_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
     "harness_paths": [
      "harness"
     ],
@@ -3375,10 +3517,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "6bb2044f3e07643946ddbdf3a2837de19f056573ddfccabd31e49346539dfe6b",
-    "inputs_digest": "c6e9e8e07e1c84638fd67e59087a4ebce92d081ce04033c190b2bb2e0a8f2624",
+    "fingerprint": "45af4354d0d9c7eb6a0f0866541fc3100f6f263a6f80c68967f7a0d104e51c04",
+    "inputs_digest": "a9e0a272bc9fa4e49bd109ec874cd05f9502cfd62138a275ec34b99b37c3fe0b",
     "created_by": "worker/h0002",
-    "created_at": "2026-10-08T19:20:46Z",
+    "created_at": "2026-10-08T19:47:53Z",
     "experiment_id": "E-0005"
    },
    {
@@ -3466,8 +3608,8 @@
       "seed=42/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
-    "harness_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
+    "method_code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
+    "harness_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
     "harness_paths": [
      "harness"
     ],
@@ -3726,10 +3868,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "8aa6264003c1ec518524e6dcdc53e0cddd370bc0fb07512f5c1c36716b0b8174",
-    "inputs_digest": "0981323aa87a7aeb410f3b1e5a58aeac3d3026aaa02111413504e55069b4f011",
+    "fingerprint": "aaf51bb4064cb931f7626e5b849dd8ab692955bb85493570c1955349dc293ed5",
+    "inputs_digest": "92ff6b0fda496163b287e9b5c3d04694d1bea62044e15dd47cdb04c898ced7ef",
     "created_by": "worker/h0003",
-    "created_at": "2026-10-08T19:21:04Z",
+    "created_at": "2026-10-08T19:48:07Z",
     "experiment_id": "E-0007"
    },
    {
@@ -3847,8 +3989,8 @@
       "seed=42/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
-    "harness_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
+    "method_code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
+    "harness_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
     "harness_paths": [
      "harness"
     ],
@@ -4126,11 +4268,11 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "aef0f83ed930bcfcc11c6d8ffe5f7ef832c48b7e17f57376bc5afed630aa3c6a",
-    "inputs_digest": "3fddcd0aebbb1a0937cb65c8b5103f3a271c01e306582147eda282bfd09c64a8",
+    "fingerprint": "e536ccb045579bf88c205a8e5e2e7d0e49646e56146aff594a1f52993e62e361",
+    "inputs_digest": "2de833493545c2cf024130d47e5d107aa276f47f62001335898010fcf73c13a5",
     "supersedes_evaluation_id": "EV-0004",
     "created_by": "worker/h0003",
-    "created_at": "2026-10-08T19:21:11Z",
+    "created_at": "2026-10-08T19:48:11Z",
     "experiment_id": "E-0007"
    },
    {
@@ -4183,14 +4325,14 @@
      }
     },
     "pair_keys": {},
-    "method_code_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
-    "harness_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
+    "method_code_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
+    "harness_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
     "harness_paths": [
      "harness"
     ],
     "protocol_doc_id": "D-0006",
     "metric_spec_doc_id": "D-0005",
-    "result_doc_id": "D-0046",
+    "result_doc_id": "D-0048",
     "metrics": {
      "acc": {
       "n": 3,
@@ -4285,10 +4427,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "4a14b36cb4a660b902a1c1adbd8cf16b5948cb3c604aeb9941ea8702e5fbe04c",
-    "inputs_digest": "8e9c045ff1cf909de596dcb92e8e16e38218dcd0b87cb5669cb392466f4292c4",
+    "fingerprint": "dfd621151a8749b193f32ad5a0f1b05306dadd0c8eb3748a22081830cd74d554",
+    "inputs_digest": "bf377f1a33bd8d39cd7512d9dcf88618733c75e25d5bdadaa84d8c14e5348a49",
     "created_by": "worker/root",
-    "created_at": "2026-10-08T19:21:21Z",
+    "created_at": "2026-10-08T19:48:21Z",
     "experiment_id": "E-0008"
    },
    {
@@ -4389,8 +4531,8 @@
       "seed=1044/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
-    "harness_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
+    "method_code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
+    "harness_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
     "harness_paths": [
      "harness"
     ],
@@ -4398,7 +4540,7 @@
     "metric_spec_doc_id": "D-0005",
     "baseline_experiment_id": "E-0008",
     "baseline_evaluation_id": "EV-0006",
-    "result_doc_id": "D-0048",
+    "result_doc_id": "D-0050",
     "metrics": {
      "acc": {
       "n": 3,
@@ -4585,10 +4727,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "39dc15fa4aac05d34e5f54ef14f670e80261aa9560482069ba0fce3b399b959a",
-    "inputs_digest": "3a585fb84bea76958d3be6223da9624e5066b5e8f9f134073e7d0849b0d28c46",
+    "fingerprint": "9428ad70f4ad9fd749101faf785b3654bf83155233299e64cbefe43ee66ce2ec",
+    "inputs_digest": "b5c58b7ace535a3b41abfa1e082326942ac01eeb4b8767a81235411983d096ca",
     "created_by": "worker/h0003",
-    "created_at": "2026-10-08T19:21:29Z",
+    "created_at": "2026-10-08T19:48:28Z",
     "experiment_id": "E-0009"
    },
    {
@@ -4676,8 +4818,8 @@
       "seed=42/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "ec767ad229d32c5634bf8199a84733325d939cdd",
-    "harness_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
+    "method_code_ref": "c15d7f614bbe0b601ae28c413b5922dc3e0f58f3",
+    "harness_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
     "harness_paths": [
      "harness"
     ],
@@ -4687,7 +4829,7 @@
     "baseline_evaluation_id": "EV-0001",
     "parent_experiment_id": "E-0003",
     "parent_evaluation_id": "EV-0002",
-    "result_doc_id": "D-0060",
+    "result_doc_id": "D-0062",
     "metrics": {
      "acc": {
       "n": 1,
@@ -4936,10 +5078,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "0577ece8cb5e7c7654f63d4a560839fdd695ffe4fc076b882c15eb7051583f9f",
-    "inputs_digest": "879b60caa9cc81f676dfbf2680294b35c9a8a418abeab0d90a6d4538ec7e65f8",
+    "fingerprint": "d7f4c6dcd9de1296413c7d89a844f920741bfbaa4f0a6d9fffdccf19edfba332",
+    "inputs_digest": "fa7ebbe92d1210106afe07a01c29f454a104c0814e3ca28217c4187829f88add",
     "created_by": "worker/h0004",
-    "created_at": "2026-10-08T19:21:47Z",
+    "created_at": "2026-10-08T19:48:43Z",
     "experiment_id": "E-0011"
    },
    {
@@ -5010,8 +5152,8 @@
       "seed=42/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "1ef7daad09406476fcee4f2e84534f3f0952eae0",
-    "harness_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
+    "method_code_ref": "48aa0e59b411a36493cdec789cd9c4ce7dfe3fb4",
+    "harness_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
     "harness_paths": [
      "harness"
     ],
@@ -5019,7 +5161,7 @@
     "metric_spec_doc_id": "D-0005",
     "baseline_experiment_id": "E-0001",
     "baseline_evaluation_id": "EV-0001",
-    "result_doc_id": "D-0069",
+    "result_doc_id": "D-0071",
     "metrics": {
      "acc": {
       "n": 1,
@@ -5188,10 +5330,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "c1bb1acd48aefd275e895b841d15bcfc74190548fba664d39ed271a4f655f289",
-    "inputs_digest": "1e6987016843f2203683a5f138fe2d22471f6d88726687ed130e4de51704bf97",
+    "fingerprint": "141d0c317100000b287015c15bb58a6b945b21d67e3ae71e20b7c19d82adfb4e",
+    "inputs_digest": "086a21495ceab754557497b265a3a987fb86c1520f230add426e6c8a2e8c9d6b",
     "created_by": "worker/h0005",
-    "created_at": "2026-10-08T19:22:06Z",
+    "created_at": "2026-10-08T19:49:01Z",
     "experiment_id": "E-0013"
    },
    {
@@ -5262,8 +5404,8 @@
       "seed=42/data_version=commonsense-mix-v1（虚构）"
      ]
     },
-    "method_code_ref": "446f24467b1e95e49f44dacdc469e4d14e4c6ed7",
-    "harness_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
+    "method_code_ref": "77584273e15dede08fc379a063ef1f0bb3b4bf6a",
+    "harness_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
     "harness_paths": [
      "harness"
     ],
@@ -5271,7 +5413,7 @@
     "metric_spec_doc_id": "D-0005",
     "baseline_experiment_id": "E-0001",
     "baseline_evaluation_id": "EV-0001",
-    "result_doc_id": "D-0079",
+    "result_doc_id": "D-0081",
     "metrics": {
      "acc": {
       "n": 1,
@@ -5440,10 +5582,10 @@
     ],
     "statistics_version": "rt-stats-1",
     "parser_version": "rt-manifest-1",
-    "fingerprint": "33413aeb87a9c122e7063c28b34997b4e1bd84c22fe4ca575fd4949721d5a26c",
-    "inputs_digest": "adfe8eb6d6bd492494c0cac19635d95427770acfddc55db946e20dce0c169711",
+    "fingerprint": "74d3f63b61504a13a99c1575f86fd39936381080b058d525b52c12c489ddd4a3",
+    "inputs_digest": "1ce08064ab28da63a75d70d3a8a81f89395a810dfa235226da6a4e0b291bde27",
     "created_by": "worker/h0007",
-    "created_at": "2026-10-08T19:22:21Z",
+    "created_at": "2026-10-08T19:49:16Z",
     "experiment_id": "E-0015"
    }
   ],
@@ -5458,12 +5600,12 @@
     "status": "RESOLVED",
     "claim": "（虚构）复核指出配置中 seed 列表与协议不一致",
     "evidence_excerpt": "config.yaml seeds",
-    "created_at": "2026-10-08T19:22:23Z",
-    "updated_at": "2026-10-08T19:22:24Z",
+    "created_at": "2026-10-08T19:49:19Z",
+    "updated_at": "2026-10-08T19:49:19Z",
     "resolution": {
      "fix_type": "code_fixed",
      "verified_by": "rld/main",
-     "resolved_at": "2026-10-08T19:22:24Z",
+     "resolved_at": "2026-10-08T19:49:19Z",
      "evidence_path": "outputs/fixes/seed-config-check.txt",
      "evidence_sha256": "a7839e214bf78b3ed8710724d4d77eb84e13e4d20ecdd9cf13e5dc547f190692"
     }
@@ -5491,7 +5633,7 @@
      "experiment_id": "E-0001",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
+     "code_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5511,9 +5653,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "acc781f73fa6a073e23a6bd9ab69b115b606e3a2d5288a1e23e9cca7e04410dc",
+     "manifest_sha256": "7ff25c7c1d30c0d3d59467944d58ddd20a4f0b9fee2e653ac95e882dfc7dc897",
      "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
-     "imported_at": "2026-10-08T19:20:03Z",
+     "imported_at": "2026-10-08T19:47:24Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0001/s42/train.log",
@@ -5544,7 +5686,7 @@
      "experiment_id": "E-0001",
      "seed": 43,
      "attempt": 1,
-     "code_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
+     "code_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5564,9 +5706,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "42a5cffb54e41c10e9034d135447b5a55ae2def795bd8a0e4cb91b302d7ff9ff",
+     "manifest_sha256": "538489371aa63a917c81da90e974c504a3c04edfc43e3a8d4a822f32b64123a0",
      "metrics_sha256": "e0386148c42cd8ea61da0ad1f7042b2a8c6d507bd344ae53b0883aec634c6708",
-     "imported_at": "2026-10-08T19:20:04Z",
+     "imported_at": "2026-10-08T19:47:25Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0001/s43/train.log",
@@ -5597,7 +5739,7 @@
      "experiment_id": "E-0001",
      "seed": 44,
      "attempt": 1,
-     "code_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
+     "code_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5617,9 +5759,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "b4a6bf51ff1fcf2b6a58acf2b58adcbe593e43a86f304ac4840d15c3b359bcaa",
+     "manifest_sha256": "fe33c18ec009a732e50de42dfbc73983008c3ece3a29c3c74ac5df311947db88",
      "metrics_sha256": "82a37fc2e7493d2ccaf8c64f8226df791347a939461908f55cf910abdecba6c9",
-     "imported_at": "2026-10-08T19:20:05Z",
+     "imported_at": "2026-10-08T19:47:26Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0001/s44/train.log",
@@ -5650,7 +5792,7 @@
      "experiment_id": "E-0002",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "373d9c59c7c5414f95c8982b21f13d481407f2dd",
+     "code_ref": "1c2a0fd6d0113dcf675bc4696dc782db23261572",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5670,9 +5812,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "f9666a9d33708f93a8ab33b665d14934d1cbe31418285e7175314cb850d662b4",
+     "manifest_sha256": "4a2b9fb9fceb4fb9aed35a15d570148e646febbfae04b092126519063eecf2f5",
      "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
-     "imported_at": "2026-10-08T19:20:24Z",
+     "imported_at": "2026-10-08T19:47:38Z",
      "by": "worker/h0001"
     },
     "log_path": "outputs/E-0002/s42/train.log",
@@ -5703,7 +5845,7 @@
      "experiment_id": "E-0003",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "373d9c59c7c5414f95c8982b21f13d481407f2dd",
+     "code_ref": "1c2a0fd6d0113dcf675bc4696dc782db23261572",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5723,9 +5865,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "14a0dcba3da55c3910057cfa5844073890afedcde06566d80888ec57fc09e39d",
+     "manifest_sha256": "78e682eadf3933d3d4a2b16275e35ebc76794560720c5c98d80020c3c2328563",
      "metrics_sha256": "c1ddce2e7874bc5212c02641714c12dc46094fb9b2cd61cff8ec3242c80ad6d4",
-     "imported_at": "2026-10-08T19:20:28Z",
+     "imported_at": "2026-10-08T19:47:40Z",
      "by": "worker/h0001"
     },
     "log_path": "outputs/E-0003/s42/train.log",
@@ -5756,7 +5898,7 @@
      "experiment_id": "E-0004",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "badc579a640b977a9ededf5bded3fa6ef5189c24",
+     "code_ref": "94b67d55163cce5121bd6afc9b5742c0aca92755",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5776,9 +5918,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "2c44b683405a6a86b9bcaa2d1ced0a9aa23b6e8e124b67923839c3399df21f6e",
+     "manifest_sha256": "3c587a129202b747b50f66d3124479a3dd116dcbbfe1d54d9481add9f16c1c07",
      "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
-     "imported_at": "2026-10-08T19:20:42Z",
+     "imported_at": "2026-10-08T19:47:50Z",
      "by": "worker/h0002"
     },
     "log_path": "outputs/E-0004/s42/train.log",
@@ -5809,7 +5951,7 @@
      "experiment_id": "E-0005",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "badc579a640b977a9ededf5bded3fa6ef5189c24",
+     "code_ref": "94b67d55163cce5121bd6afc9b5742c0aca92755",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5829,9 +5971,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "42b60191721f8280225d59b12e8f763e72ce91cb5d8c707998c1c3f978576581",
+     "manifest_sha256": "b40e93f16c4b5859de59d37f231592698f9e00505f971375cdd65cf24b1b9d42",
      "metrics_sha256": "86701fb69bdedba6fa5fb18ffb8a22c7b22e6021cf97589c24bde87cdac3cb4c",
-     "imported_at": "2026-10-08T19:20:45Z",
+     "imported_at": "2026-10-08T19:47:52Z",
      "by": "worker/h0002"
     },
     "log_path": "outputs/E-0005/s42/train.log",
@@ -5862,7 +6004,7 @@
      "experiment_id": "E-0006",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
+     "code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5882,9 +6024,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "b3b2c9b1bb75e7b89831b3232d58d81a1b360d84b5738e5a28e40a80e85dead6",
+     "manifest_sha256": "e420b10cf4dd54a6636a702287c4b4887a7e615aff62e4e27a289f4c05e22601",
      "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
-     "imported_at": "2026-10-08T19:21:00Z",
+     "imported_at": "2026-10-08T19:48:03Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0006/s42/train.log",
@@ -5915,7 +6057,7 @@
      "experiment_id": "E-0007",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
+     "code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5935,9 +6077,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "5e8a9ba04c5e2a1ffa0eb4735148524d3cbe0a05c61b10a08ba52fa0d57bd5da",
+     "manifest_sha256": "516f34d0dc3cf22565af3b454f2dbf253f0727d51cb24da85467e7647f49bfec",
      "metrics_sha256": "2f1dd44520747b568904c41d1a600bac1160afd8d8ff5fa31e4000a3c503ff1d",
-     "imported_at": "2026-10-08T19:21:03Z",
+     "imported_at": "2026-10-08T19:48:06Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0007/s42/train.log",
@@ -5968,7 +6110,7 @@
      "experiment_id": "E-0007",
      "seed": 43,
      "attempt": 1,
-     "code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
+     "code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -5988,9 +6130,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "d29c5c7868032c3b05e41e924d9570165c4b3af442be432423fff4955789b71c",
+     "manifest_sha256": "e2b68149333efc48399e7a65fd582d3142a07d5b55fc08a8fd4be94cd4ac7056",
      "metrics_sha256": "2154ee6a1906915114788f0396aa5d9c8a5ff2b6526a6a25282badb63f34bbff",
-     "imported_at": "2026-10-08T19:21:06Z",
+     "imported_at": "2026-10-08T19:48:09Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0007/s43/train.log",
@@ -6021,7 +6163,7 @@
      "experiment_id": "E-0007",
      "seed": 44,
      "attempt": 1,
-     "code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
+     "code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -6041,9 +6183,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "526f34082db32db6324dde66865971a7130b04d37874cb2b666a45a65c18a652",
+     "manifest_sha256": "56e149f96b56b21550fa9ee0856675f5f470c341d2450926baf4f18a4d50f156",
      "metrics_sha256": "09f3d05dc52133573e1378ee97cbf61f472e6848ec211ba1207aaf574fb8e3f5",
-     "imported_at": "2026-10-08T19:21:09Z",
+     "imported_at": "2026-10-08T19:48:10Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0007/s44/train.log",
@@ -6074,7 +6216,7 @@
      "experiment_id": "E-0008",
      "seed": 1042,
      "attempt": 1,
-     "code_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
+     "code_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -6094,9 +6236,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "216dc6c108b84659668ef65fc60c08c750ec713f61cdfac2ef8727cc8e9b8488",
+     "manifest_sha256": "8e875fba5501e53a1046c8efd9aeb093faae1b7758ffde94804deb501ac6b9f5",
      "metrics_sha256": "1e261d4529fc7745d4fc2126954bd56b60b320134a07bfbf5d82480c3c8c0f94",
-     "imported_at": "2026-10-08T19:21:17Z",
+     "imported_at": "2026-10-08T19:48:17Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0008/s1042/train.log",
@@ -6127,7 +6269,7 @@
      "experiment_id": "E-0008",
      "seed": 1043,
      "attempt": 1,
-     "code_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
+     "code_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -6147,9 +6289,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "5827048deae30c2fe8d430985fa122897c02608ed5b907b80d66c302ce9e519f",
+     "manifest_sha256": "7913a4bbfa69877267cc03f139da1aedad5f5380b2c646ebf79fb2f22066a70a",
      "metrics_sha256": "c3d1faf3800fda5048b375f5187d136d731f1b9ef58e499f9f8d19ca2ebf9fb5",
-     "imported_at": "2026-10-08T19:21:18Z",
+     "imported_at": "2026-10-08T19:48:19Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0008/s1043/train.log",
@@ -6180,7 +6322,7 @@
      "experiment_id": "E-0008",
      "seed": 1044,
      "attempt": 1,
-     "code_ref": "a1b62ca4c6b69dc36dc9b698c39a27ef850102df",
+     "code_ref": "59bf87c44c3890fd95ee8ac97c2911ef41c67cba",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -6200,9 +6342,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "97b42fc2aa88f31580345c6633db82328c8837a285afc2936726815a391e096b",
+     "manifest_sha256": "3dd52ca6e9fb6410298ea1b983ec3552165ce9e0fd25e4c836bba047bd80553e",
      "metrics_sha256": "cb7f3994a4d43a18d80eaafabdecb61fd81798d3ed8b4470ed6a9e679cc8a0b6",
-     "imported_at": "2026-10-08T19:21:20Z",
+     "imported_at": "2026-10-08T19:48:20Z",
      "by": "worker/root"
     },
     "log_path": "outputs/E-0008/s1044/train.log",
@@ -6233,7 +6375,7 @@
      "experiment_id": "E-0009",
      "seed": 1042,
      "attempt": 1,
-     "code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
+     "code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -6253,9 +6395,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "80c32a83529f0f07f0ce01ba0d80c9e52be3f607ce5bae5744bfd802354427a2",
+     "manifest_sha256": "9fd1eaad5712822cba86d6a59c33849aea7ad5fde446ceb992e7bb566a69b288",
      "metrics_sha256": "2e7fe6047968177c1de3908fabbc39008a5d2fb2e339545e3a927a6d41a87953",
-     "imported_at": "2026-10-08T19:21:24Z",
+     "imported_at": "2026-10-08T19:48:24Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0009/s1042/train.log",
@@ -6286,7 +6428,7 @@
      "experiment_id": "E-0009",
      "seed": 1043,
      "attempt": 1,
-     "code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
+     "code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -6306,9 +6448,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "1bb80a8efddf1e721675e7af22301455ba4d49cffe82fc52f85dcff6c1297fcb",
+     "manifest_sha256": "0fbc9a470a358d9985d1ddf50449665e89c6f30e3b43a337c68a1009228e32f2",
      "metrics_sha256": "7e32f6b1cd7a20d7dd21f11abba82e46d1ab87a858dc2c89146f1a462aa86ddf",
-     "imported_at": "2026-10-08T19:21:26Z",
+     "imported_at": "2026-10-08T19:48:25Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0009/s1043/train.log",
@@ -6339,7 +6481,7 @@
      "experiment_id": "E-0009",
      "seed": 1044,
      "attempt": 1,
-     "code_ref": "19c019dc2e2b401b0e6bb36dddc6c9d4d32b5978",
+     "code_ref": "adae32fae9811fb24993aa33baf43ecddd95209f",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -6359,9 +6501,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "f5b34b6ba7d76f11040f723f8627cca236398865cce2f2b60fa10041eaae2aa7",
+     "manifest_sha256": "739d2326ac929bd2d19a1fb5c2575685b16544af3b1b42e17fe5df78b21d3a4e",
      "metrics_sha256": "23fe44261874eca8f9c07c02eacc89750110c5339960757724f5e70401f12109",
-     "imported_at": "2026-10-08T19:21:28Z",
+     "imported_at": "2026-10-08T19:48:26Z",
      "by": "worker/h0003"
     },
     "log_path": "outputs/E-0009/s1044/train.log",
@@ -6392,7 +6534,7 @@
      "experiment_id": "E-0010",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "ec767ad229d32c5634bf8199a84733325d939cdd",
+     "code_ref": "c15d7f614bbe0b601ae28c413b5922dc3e0f58f3",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -6412,9 +6554,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "8a720e3542eefdd3bfc3e0c61b3d7b9356d4b9fdb62cc2d2118f8aec641a788d",
+     "manifest_sha256": "d965cd3c7df15dc5e72daf0eee63c2ff3768807b084e4d6314aec6b0a133417a",
      "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
-     "imported_at": "2026-10-08T19:21:42Z",
+     "imported_at": "2026-10-08T19:48:37Z",
      "by": "worker/h0004"
     },
     "log_path": "outputs/E-0010/s42/train.log",
@@ -6445,7 +6587,7 @@
      "experiment_id": "E-0011",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "ec767ad229d32c5634bf8199a84733325d939cdd",
+     "code_ref": "c15d7f614bbe0b601ae28c413b5922dc3e0f58f3",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -6465,9 +6607,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "d9cd5804cc22ff40466abb8799e9358a4511d84a9865f20b85062395b994cf46",
+     "manifest_sha256": "e74418723b095c2a33070b0dae11790233a319ad2203f4468fb6722acb8d64df",
      "metrics_sha256": "c6a9898028e1864128f1a481b10f0834e00e0799cd39ad6167d908322c235266",
-     "imported_at": "2026-10-08T19:21:45Z",
+     "imported_at": "2026-10-08T19:48:40Z",
      "by": "worker/h0004"
     },
     "log_path": "outputs/E-0011/s42/train.log",
@@ -6498,7 +6640,7 @@
      "experiment_id": "E-0012",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "1ef7daad09406476fcee4f2e84534f3f0952eae0",
+     "code_ref": "48aa0e59b411a36493cdec789cd9c4ce7dfe3fb4",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -6518,9 +6660,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "85f6e304194dc110a302a81dd086843d90f9ce9124da3bcbdcfa2480cdd52efb",
+     "manifest_sha256": "c5908b04f85e46b41265de0b87b6311d725ef43a6ea02962628773a37757302f",
      "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
-     "imported_at": "2026-10-08T19:22:01Z",
+     "imported_at": "2026-10-08T19:48:56Z",
      "by": "worker/h0005"
     },
     "log_path": "outputs/E-0012/s42/train.log",
@@ -6551,7 +6693,7 @@
      "experiment_id": "E-0013",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "1ef7daad09406476fcee4f2e84534f3f0952eae0",
+     "code_ref": "48aa0e59b411a36493cdec789cd9c4ce7dfe3fb4",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -6571,9 +6713,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "ff385a1d2c8ea9e063a9a81d03acd215e820f1ef7c070c230c3e031861237636",
+     "manifest_sha256": "0d8658a872656407d4f91e4131614e610cc8e76360b4c045ec242fa262c62e33",
      "metrics_sha256": "1c67221c2e2014751bba0423e91fb81a4ef1ed2dc413f8b5ee2f66d3b797ee87",
-     "imported_at": "2026-10-08T19:22:04Z",
+     "imported_at": "2026-10-08T19:48:59Z",
      "by": "worker/h0005"
     },
     "log_path": "outputs/E-0013/s42/train.log",
@@ -6604,7 +6746,7 @@
      "experiment_id": "E-0014",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "446f24467b1e95e49f44dacdc469e4d14e4c6ed7",
+     "code_ref": "77584273e15dede08fc379a063ef1f0bb3b4bf6a",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -6624,9 +6766,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "33bd2e4082205fdccab0540a5270c881264df4d688a8de88573afc1f62ee7f63",
+     "manifest_sha256": "741dac29785c0f95d91e48598237ace263f066ee12f21900440ae237d0809a1d",
      "metrics_sha256": "2dea5986cce1356b19ef444edbea1d699a8908ac293059941269d84340e77cf0",
-     "imported_at": "2026-10-08T19:22:16Z",
+     "imported_at": "2026-10-08T19:49:12Z",
      "by": "worker/h0007"
     },
     "log_path": "outputs/E-0014/s42/train.log",
@@ -6657,7 +6799,7 @@
      "experiment_id": "E-0015",
      "seed": 42,
      "attempt": 1,
-     "code_ref": "446f24467b1e95e49f44dacdc469e4d14e4c6ed7",
+     "code_ref": "77584273e15dede08fc379a063ef1f0bb3b4bf6a",
      "exit_status": 0,
      "metrics_path": "metrics.json",
      "data_version": "commonsense-mix-v1（虚构）",
@@ -6677,9 +6819,9 @@
     ],
     "import_record": {
      "parser_version": "rt-manifest-1",
-     "manifest_sha256": "e5446a438c3704fdacc339cbd463358d2fd27e1cad5f263b34e0778dee39dbd0",
+     "manifest_sha256": "5b23ce74a7b09c5a7075b963854837efaf9d7a2d5679f4ff329755032b711b60",
      "metrics_sha256": "08f8b3bb8e8e6b6fa0422b1a1b1747b1765950d03e1081e8a77188e8e633fcc3",
-     "imported_at": "2026-10-08T19:22:19Z",
+     "imported_at": "2026-10-08T19:49:14Z",
      "by": "worker/h0007"
     },
     "log_path": "outputs/E-0015/s42/train.log",
@@ -6971,14 +7113,6 @@
     "target_id": "H-0003"
    },
    {
-    "source_id": "D-0049",
-    "target_id": "H-0003"
-   },
-   {
-    "source_id": "D-0050",
-    "target_id": "H-0003"
-   },
-   {
     "source_id": "D-0051",
     "target_id": "H-0003"
    },
@@ -6991,11 +7125,15 @@
     "target_id": "H-0003"
    },
    {
-    "source_id": "D-0055",
-    "target_id": "H-0004"
+    "source_id": "D-0054",
+    "target_id": "H-0003"
    },
    {
-    "source_id": "D-0059",
+    "source_id": "D-0055",
+    "target_id": "H-0003"
+   },
+   {
+    "source_id": "D-0057",
     "target_id": "H-0004"
    },
    {
@@ -7003,39 +7141,43 @@
     "target_id": "H-0004"
    },
    {
-    "source_id": "D-0062",
+    "source_id": "D-0063",
     "target_id": "H-0004"
    },
    {
     "source_id": "D-0064",
+    "target_id": "H-0004"
+   },
+   {
+    "source_id": "D-0066",
     "target_id": "H-0005"
    },
    {
-    "source_id": "D-0068",
+    "source_id": "D-0070",
     "target_id": "H-0005"
    },
    {
-    "source_id": "D-0071",
-    "target_id": "H-0006"
-   },
-   {
-    "source_id": "D-0072",
+    "source_id": "D-0073",
     "target_id": "H-0006"
    },
    {
     "source_id": "D-0074",
+    "target_id": "H-0006"
+   },
+   {
+    "source_id": "D-0076",
     "target_id": "H-0007"
    },
    {
-    "source_id": "D-0078",
+    "source_id": "D-0080",
     "target_id": "H-0007"
    },
    {
-    "source_id": "D-0082",
+    "source_id": "D-0084",
     "target_id": "H-0001"
    },
    {
-    "source_id": "D-0083",
+    "source_id": "D-0085",
     "target_id": "H-0001"
    }
   ],
@@ -7103,11 +7245,11 @@
    },
    {
     "source_id": "DEC-0025",
-    "target_id": "D-0071"
+    "target_id": "D-0073"
    },
    {
     "source_id": "DEC-0026",
-    "target_id": "D-0071"
+    "target_id": "D-0073"
    },
    {
     "source_id": "DEC-0029",
