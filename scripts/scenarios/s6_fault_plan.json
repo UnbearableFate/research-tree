@@ -1,0 +1,5 @@
+{"faults": [
+ {"id": "F-S6-01", "target": "budget.total_limit", "trigger": "the fictional user lowers it so that one more search run fits, then asks both workers to reserve at once", "times": 1, "invariants": ["one reservation and one real job; the other is refused", "the refused worker cannot move it into another pool", "the settled usage is the measured one"]},
+ {"id": "F-S6-02", "target": "the adapter's answer to one submission (lose_submit_response)", "trigger": "armed for the Zebra seed 43 submission; the session ends while its state is unknown", "times": 1, "invariants": ["the resumed session finds the same job by its key and attaches it", "no second process start", "one import, one settlement"]},
+ {"id": "F-S6-03a", "target": "the first attempt of Zebra seed 44", "trigger": "the fictional user asks for --data-dir data-v0", "times": 1, "invariants": ["one authorized retry", "a repeated settlement and a repeated import count once"]},
+ {"id": "F-S6-03b", "target": "the adapter (extra_launch)", "trigger": "armed for the next submission: one real extra process start", "times": 1, "invariants": ["the independent observer reports duplicate_jobs = 1"]}]}
