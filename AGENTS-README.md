@@ -1,53 +1,54 @@
 # 交接文档：research-tree 证据一致性改进轮（S0–S7）
 
-交接时间：2026-10-08。分支 `bug-fix-1008`（起点 `253d50d`）。任务定义：
+更新：2026-10-09。主分支 `bug-fix-1008`（起点 `253d50d`）。任务定义：
 [`plans/research-tree-implementation-and-real-scenarios.md`](plans/research-tree-implementation-and-real-scenarios.md)（下称实施文档）。
-状态总表与缺陷映射：[`plans/design/test-logs/implementation-status.md`](plans/design/test-logs/implementation-status.md)。
+状态总表、各次场景的结论与修复：[`plans/design/test-logs/implementation-status.md`](plans/design/test-logs/implementation-status.md)。
 
-**结论先行：S0 尚未完成终审，S1 有未提交的半成品（git stash），S2–S7 未开始。** 不要把任何阶段报告为 PASS。
+**结论先行：没有任何阶段是 PASS。** Fable 5.1 不可用（账户缺 usage credits），所有阶段评审/终审 BLOCKED；
+S1 的两端真实场景仍在重测；S2–S7 已实现并有 REG，真实场景未跑。
 
-## 1. 当前状态
+## 1. 代码在哪里（按阶段叠加的分支，每个都有独立 worktree）
 
-| 阶段 | 状态 | 说明 |
-| --- | --- | --- |
-| S0 | IN_PROGRESS | 实现、REG、两端真实场景（a02）已完成；Fable 终审 `S0-r3` 给出 3 MAJOR，修复已提交（`249870a`），但**需要在新构建上重跑两端场景（a03）并再做一次终审** |
-| S1 | IN_PROGRESS（未提交） | 代码在 `git stash@{0}`（"S1 WIP: identity, claim revisions, review basis"），既有测试已调通，S1 的 REG 与场景尚未写 |
-| S2–S7 | NOT_STARTED | — |
+| 阶段 | 分支 / worktree | 内容 | 测试 |
+| --- | --- | --- | --- |
+| S0 | 已在 `bug-fix-1008` | 场景底座、REG-S0、real-run-error #1–#19 | `tests/test_scenarios.py` |
+| S1 | 已并入 `bug-fix-1008`（`s1-dev` 合并） | 方法身份、主张版本、稳定候选 revision、评审依据 | `test_identity.py` |
+| S2 | `s2-dev` / `/home/yu/workspace/rt-s2-wt` | 冻结候选、确认批次、材料使用账 | `test_confirmation.py` |
+| S3 | `s3-dev` / `rt-s3-wt` | 原始单位与 manifest 快照、独立性字段、`migrate_units` | `test_units.py` |
+| S4 | `s4-dev` / `rt-s4-wt` | 回执清单规则 `review_rules.py`、证据路径核验、findings→obligation 闭环、模型家族、补查 `literature_followup`、ABANDON 证据 | `test_reviews_s4.py`、`test_review_call.py` |
+| S5 | `s5-dev` / `rt-s5-wt` | `fix_verification` 固定检查器、`memory_status`、过滤规则、`migrate_memory` | `test_memory_s5.py` |
+| S6 | `s6-dev` / `rt-s6-wt` | 分池由实验决定、请求身份、`migrate_budget`、`attempt_metrics.py` | `test_budget_s6.py`、`tests/test_attempt_metrics.py` |
+| S7 | `s7-dev` / `rt-s7-wt` | `repetition_advice`、`note_findings(finding_ids)`、评分器重写、私有评测器与 bwrap 沙箱 | `test_s7.py`、`tests/test_benchmark.py`、`tests/test_private_eval.py` |
 
-## 2. S0 已完成的内容（已提交）
+分支是线性叠加的（s2←s1，s3←s2 … s7←s6）。S1 之后在 `bug-fix-1008` 上做的修复（ToyOpt runner 的优化器选项、
+`review_basis` 报错、发现命令注入、控制器改进）**尚未合入 s2–s7**；按阶段顺序把 sN-dev 合入 bug-fix-1008 时一并解决冲突
+（register.tsx、codex_runtime.py、research_db.py 可能有小冲突）。每个分支的 schema 版本依次是 v16…v21。
 
-- 场景底座（`scripts/scenarios/`，说明见其 README）：ToyOpt Lab 生成器（`scripts/make_rt_test_project.py`，固定切分 train/explore/c1/c2 及内容身份、真实 CPU 训练、写 manifest 的 runner、冻结参考方法）；本地执行适配器 `local_exec.py`（按 key 幂等、实测用量、故障窗口、**调度服务模式 `serve`**——Codex 沙箱会杀死命令的子进程，必须由控制器在沙箱外运行 `python3 tools/local_exec.py serve`）；独立 scorer；只读 observer；`record.py`（记录校验：观测模型/effort、会话原文、恢复前后 observer、真实 reviewer 等）。
-- REG-S0-01..05 与适配器测试：`tests/test_scenarios.py`。
-- `plans/real-run-error.md` #1–#19 全部修复并有测试，映射表在 implementation-status.md。
-- 场景中发现并修复的产品缺陷：冻结前可单独更正 `repo_path`；Codex 立项提示补上生效的 `db_fields`；`update_task` 重述自己的指派不再被拒；Codex 新主会话 SessionStart 时告知如何 `research_control attach` 接管。
-- 证据：`plans/design/test-logs/S0-claude.md`、`S0-codex.md`、`scenarios/S0/**/record.json`；评审 `plans/design/reviews/S0-r1..r3.md`；预检原始输出 `test-logs/S0-precheck/`。
+## 2. 真实场景（`scripts/scenarios/run_s1.sh`、`run_s2.sh`）
 
-## 3. S0 剩余工作（按顺序）
+- 用法：`bash scripts/scenarios/run_sN.sh <claude|codex> <attempt两位> <agent-pane> <scheduler-pane>`，先 `herdr tab create`
+  并 `herdr pane split` 出两个 pane。控制器只以虚构用户身份输入；每步后写只读检查点；遇到宿主用量上限立即停止（BLOCKED）；
+  agent 提问时记录并关闭对话框；结束时关闭 pane、删除 Codex 登录副本、把本次构建打包到 `rt-scenarios/archive/`。
+- **用户要求：herdr 测试结束后及时关闭 pane。**
+- 记录：`python3 scripts/scenarios/s1_records.py <host> <n> [--blocked "原因" --blocked-scenario SC-…]`，证据归档进
+  `plans/design/test-logs/scenarios/S1/<host>/evidence-aNN/`。
+- 注意：测试宿主（Claude Code）与实施会话共用账户额度；Codex 周额度约剩 25%（10-14 重置），Codex 场景只在 Claude 先跑通后再跑。
+- S1 历史：a01 夹具缺陷 FAIL；a02 发现命令缺失 FAIL + 用量上限 BLOCKED；a03 因旧构建污染中止；a04 运行中（见状态表）。
 
-1. **处理 S0-r3 未修完的项**（见 `plans/design/reviews/S0-r3.md` 的发现列表，“修复对照”一节尚未填写）：
-   - MAJOR 1：原始证据必须进仓库（或带校验和的持久位置 + 已提交索引）。`scripts/scenarios/s0_records.py` 目前只复制 4 个小文件；需要把 observer-final / observer-before-resume / observer-after-resume / db-snapshot / launches.jsonl / 会话原文（可 gzip）放进每个 attempt 目录，记录里用仓库相对路径。
-   - MAJOR 2：observed_effort 要从会话原文读取（Claude 会话 jsonl 里有 `"effort":"medium"`；Codex 会话里有 `reasoning_effort`）；恢复证据要用恢复前后两份 observer 计算（`record.py` 已强制要求 `observer_before/observer_after`）。C1 断言改为只由 commands.jsonl 计算；R1 的“产品拒绝”要从会话原文里取 STAT_MISMATCH 文本作证据。
-   - MAJOR 3：Codex 恢复必须经插件的接管入口（`research_control attach`）。hook 已修（`249870a`），需在新项目重测。
-   - MINOR：已修 scorer 计数、effort 依据、文档；尚未处理的：s0_records 的 C1/R1、Codex a02 中途替换 `tools/local_exec.py` 的说明（sha 与原因）、S0-claude.md a01 的源码行、构建日志（命令、退出码、BUILD.json、测试数）进 test-logs。
-2. **重跑两端 a03**：`scripts/scenarios/run_s0.sh <claude|codex> 03 <agent-pane> <scheduler-pane>`（需在 Herdr 内运行；它生成新项目、复制构建快照、启动调度服务与宿主、按固定用户输入走完 SC-COMMON-01 + SC-S0-01/02，恢复前后各存一份 observer）。本次交接前**尚未运行过该脚本**，首次运行请盯着看。辅助脚本 `say.sh`、`waitidle.sh`、`drive_codex.sh` 同目录（路径写死为 `/home/yu/workspace/rt-scenarios/`，用前检查）。Codex 运行需要批准插件 MCP 工具与插件自带脚本的沙箱外执行，`drive_codex.sh` 只自动批准这两类并记入 commands.jsonl。
-3. 改 `s0_records.py` 生成 a03 记录 → `python3 scripts/scenarios/record.py summary` 全部 valid。
-4. 终审：`python3 scripts/stage_review.py S0 --round 4 --final --design plans/research-tree-implementation-and-real-scenarios.md plans/real-run-error.md --base 253d50d --tests … --evidence …`（Fable 5.1，约 6 USD/次，30 分钟内）。无 CRITICAL/MAJOR 后把状态表 S0 改为 PASS 并提交。
-   - 注意：reviewer 以只读工具在仓库 cwd 运行，**读不到仓库外的 `/home/yu/workspace/rt-scenarios`**，所以证据必须在仓库里。
+## 3. 剩余工作（按顺序）
 
-## 4. S1 半成品（stash@{0}）
+1. S1：Claude a04 → 记录；然后 Codex S1（新 tab）。两端 PASS 后等待 Fable 终审。
+2. 把 s2-dev…s7-dev 依次合入 bug-fix-1008（每次合并后跑全部测试、重建），再跑该阶段两端场景：S2 有 `run_s2.sh`；
+   S3–S7 的控制器尚未写（参照 run_s2.sh 与实施文档 §7.5、§8.7、§9.6、§10.6、§11.7）。
+3. S7 pilot（12 个 episode）需要冻结 B=`616d646` 与 C 的构建、在 bwrap 沙箱中运行宿主与调度服务、私有评测器在沙箱外
+   （`scripts/private_eval/`）；预算很可能不足，届时按实施文档 §11.5 标注“S7-pilot 未完成”。
+4. Fable 恢复后：按顺序补 S0 终审（第 4 轮）与 S1–S7 的评审/终审（`scripts/stage_review.py`）。
 
-恢复：`git stash pop`（S0 收尾后再做，避免 S0 场景构建混入 S1 代码）。内容：
+## 4. 环境与约定
 
-- schema v15（`research_tree.sql`、两处 `SCHEMA_VERSION`）：experiment 的 `method_spec_doc_id/method_spec_sha/effective_config/sanity_target_spec_doc_id/sanity_overrides/code_review_waiver_basis`；hypothesis 的 `claim_revision/claim_sha/claim_history`；document 的 `review_basis/review_basis_changed`；decision 的 `basis`；新 doc_type `method_spec`。
-- `research_db.py`：`create_experiment(method_config=, sanity_overrides=)` 解析有效配置并登记内容寻址的 method_spec（缺配置 → `METHOD_SPEC_INCOMPLETE`；执行字段见 `EXECUTION_FIELDS`）；导入时 manifest 配置与 spec 不符 → `METHOD_SPEC_MISMATCH`；`update_hypothesis` 产生 claim revision；`review_basis()`（只读）与 `_review_bound()`；`_candidate_rechecks`、`_latest_code_review(exp)`、`_waiver_bound`、sanity 投影、RLD 复核决定的 basis 都改为按当前依据比较；`register_review(basis=)` 比较调用前后依据。
-- `discovery.py`：候选 ID 稳定（显式 id → 同 origin+dedup_key → 新号，永不按排序重编号），内容 revision/`content_sha`，缺席候选保留为 `present: false`；`receipt_applies` 只认当前 revision 的回执（门与 `create_hypothesis` 都用）。`review_call.py` 在调用前捕获 basis 并传给登记。
-- 测试夹具已改（`METHOD_CONFIG`、评审辅助函数传 `basis`），共享测试全部通过（未加 S1 新测试时）。
-- **还没做**：REG-S1-01..06；迁移方法（实施文档 §5.3：旧评审 → needs_recheck、旧实验 legacy_unbound、幂等）；`create_db.upgrade_db` 已会把版本升到 15 但没有数据迁移；两端提示词（先建实验登记 spec 再做 code_review；method_config/sanity_overrides 用法）与工具 schema/只读白名单（`review_basis` 已加入 `READ_METHODS`，适配器侧未查）；resume_package/页面展示失效依据；`make_demo.py` 的 create_experiment 调用需要补配置；规则与 README 同步；然后 S1 的 Fable 评审与两端 SC-S1-01..03。
-
-## 5. 环境与约定
-
-- 测试命令：共享 `.venv/bin/python -m unittest discover -s shared/research-tree/tests`（约 5 分钟，326 项）；`tests/`；`python3 scripts/build_plugins.py --target all`；`claude plugin test dist/claude/plugins/research-tree`；`.venv/bin/python -m unittest discover -s dist/codex/plugins/research-tree/tests -p test_codex_adapter.py`；`scripts/check_codex_install.py dist/codex`。
-- 模型矩阵（以实施文档 §2.2 的最后修订为准，effort 均为 medium）：Claude 宿主 `claude-haiku-5-5`、reviewer `openai/gpt-6-luna`（pi）；Codex 宿主 `gpt-6-luna`、reviewer `anthropic/claude-haiku-5-5`（Claude CLI）；阶段评审 `claude-fable-5-1` high。
-- 场景项目与原始证据在 `/home/yu/workspace/rt-scenarios/S0/`（每个项目旁有 `.ctl/` 控制器目录、构建快照 `dist-*`、隔离 `codex-home-*`，后者含登录副本，用完应删除）。
-- 资源边界、预算与 effort 依据见 implementation-status.md。旧设计包已被用户移出工作树，需要时从 `616d646` 读取。
-- 每阶段末按 AGENTS.md：两端真实场景 + Fable 终审后才提交为完成；`codegraph sync` 保持索引更新。
+- 测试：`.venv/bin/python -m unittest discover -s shared/research-tree/tests`（约 7 分钟）；`-s tests`；
+  `python3 scripts/build_plugins.py`；Codex 适配器测试在构建目录 `dist/codex/plugins/research-tree` 内运行。
+- 模型矩阵（§2.2 最后修订，effort 均为 medium）：Claude 宿主 `claude-haiku-5-5`、reviewer `openai/gpt-6-luna`（pi）；
+  Codex 宿主 `gpt-6-luna`、reviewer `anthropic/claude-haiku-5-5`；阶段评审 `claude-fable-5-1` high（BLOCKED）。
+- 场景数据：`/home/yu/workspace/rt-scenarios/`；助手脚本 `say.sh`、`waitidle.sh`、`drive_codex.sh`（副本在 `scripts/scenarios/`）。
+- 不要在驱动运行时修改它正在执行的 bash 脚本；pkill 时不要用会匹配自身命令行的模式。
