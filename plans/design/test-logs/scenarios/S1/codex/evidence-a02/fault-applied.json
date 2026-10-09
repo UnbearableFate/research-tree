@@ -1,0 +1,14 @@
+{
+ "changed": [
+  "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a02/worktrees/H-0001-zebra-method-configs/zebra/m1.json",
+  "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a02/worktrees/H-0001-zebra-method-configs/zebra/m2.json"
+ ],
+ "searched": [
+  "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a02/worktrees/H-0001-zebra-method-configs",
+  "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a02/code"
+ ],
+ "restored": [
+  "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a02/worktrees/H-0001-zebra-method-configs/zebra/m1.json",
+  "/home/yu/workspace/rt-scenarios/S1/rt-S1-codex-a02/worktrees/H-0001-zebra-method-configs/zebra/m2.json"
+ ]
+}

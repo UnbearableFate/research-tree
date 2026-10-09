@@ -1,0 +1,16 @@
+{"ts": "2026-10-09T04:43:39Z", "kind": "novelty_precheck", "about": "CAND-0001", "dimension": null, "session": "RV-0001", "outcome": "started", "backend": "claude_code"}
+{"ts": "2026-10-09T04:44:03Z", "kind": "novelty_precheck", "about": "CAND-0001", "dimension": null, "session": "RV-0001", "outcome": "ok", "review_id": "D-0009", "backend": "claude_code", "model": "anthropic/claude-haiku-5-5", "cost_usd": 0.006093}
+{"ts": "2026-10-09T04:44:33Z", "kind": "critical_review", "about": "CAND-0001", "dimension": null, "session": "RV-0002", "outcome": "started", "backend": "claude_code"}
+{"ts": "2026-10-09T04:45:01Z", "kind": "critical_review", "about": "CAND-0001", "dimension": null, "session": "RV-0002", "outcome": "ok", "review_id": "D-0010", "backend": "claude_code", "model": "anthropic/claude-haiku-5-5", "cost_usd": 0.006995}
+{"ts": "2026-10-09T04:55:11Z", "kind": "novelty_precheck", "about": "CAND-0002", "dimension": null, "session": "RV-0003", "outcome": "started", "backend": "claude_code"}
+{"ts": "2026-10-09T04:55:36Z", "kind": "novelty_precheck", "about": "CAND-0002", "dimension": null, "session": "RV-0003", "outcome": "ok", "review_id": "D-0019", "backend": "claude_code", "model": "anthropic/claude-haiku-5-5", "cost_usd": 0.005946}
+{"ts": "2026-10-09T04:55:40Z", "kind": "critical_review", "about": "CAND-0002", "dimension": null, "session": "RV-0004", "outcome": "started", "backend": "claude_code"}
+{"ts": "2026-10-09T04:56:07Z", "kind": "critical_review", "about": "CAND-0002", "dimension": null, "session": "RV-0004", "outcome": "ok", "review_id": "D-0020", "backend": "claude_code", "model": "anthropic/claude-haiku-5-5", "cost_usd": 0.005626}
+{"ts": "2026-10-09T04:57:12Z", "kind": "novelty_precheck", "about": "CAND-0003", "dimension": null, "session": "RV-0005", "outcome": "started", "backend": "claude_code"}
+{"ts": "2026-10-09T04:57:36Z", "kind": "novelty_precheck", "about": "CAND-0003", "dimension": null, "session": "RV-0005", "outcome": "ok", "review_id": "D-0021", "backend": "claude_code", "model": "anthropic/claude-haiku-5-5", "cost_usd": 0.005037}
+{"ts": "2026-10-09T04:57:39Z", "kind": "critical_review", "about": "CAND-0003", "dimension": null, "session": "RV-0006", "outcome": "started", "backend": "claude_code"}
+{"ts": "2026-10-09T04:58:13Z", "kind": "critical_review", "about": "CAND-0003", "dimension": null, "session": "RV-0006", "outcome": "ok", "review_id": "D-0022", "backend": "claude_code", "model": "anthropic/claude-haiku-5-5", "cost_usd": 0.006793}
+{"ts": "2026-10-09T05:03:08Z", "kind": "novelty_precheck", "about": "CAND-0003", "dimension": null, "session": "RV-0007", "outcome": "started", "backend": "claude_code"}
+{"ts": "2026-10-09T05:03:32Z", "kind": "novelty_precheck", "about": "CAND-0003", "dimension": null, "session": "RV-0007", "outcome": "ok", "review_id": "D-0026", "backend": "claude_code", "model": "anthropic/claude-haiku-5-5", "cost_usd": 0.005887}
+{"ts": "2026-10-09T05:03:46Z", "kind": "critical_review", "about": "CAND-0003", "dimension": null, "session": "RV-0008", "outcome": "started", "backend": "claude_code"}
+{"ts": "2026-10-09T05:04:16Z", "kind": "critical_review", "about": "CAND-0003", "dimension": null, "session": "RV-0008", "outcome": "ok", "review_id": "D-0027", "backend": "claude_code", "model": "anthropic/claude-haiku-5-5", "cost_usd": 0.006223}

@@ -1,0 +1,11 @@
+{"ts": "2026-10-09T04:28:35Z", "agent": "01a11ee9-a4a3-71e0-bee1-466a9fb0073c", "actor": "rld/main", "event": "observed", "model": "gpt-6-luna"}
+{"ts": "2026-10-09T05:01:18Z", "agent": "01a11f09-60e2-7c10-a2c9-d3e9e13858e7", "actor": "rld/main", "event": "observed", "model": "gpt-6-luna"}
+{"ts": "2026-10-09T05:09:29Z", "agent": "01a11f10-f9e1-73c1-a006-1104b65d5988", "actor": "worker/root", "event": "requested", "model": "gpt-6-luna", "effort": "medium"}
+{"ts": "2026-10-09T05:09:30Z", "agent": "01a11f10-f9e1-73c1-a006-1104b65d5988", "actor": "worker/root", "event": "observed", "model": "gpt-6-luna"}
+{"ts": "2026-10-09T05:14:08Z", "agent": "01a11f10-f9e1-73c1-a006-1104b65d5988", "actor": "worker/root", "event": "requested", "model": "gpt-6-luna", "effort": "medium"}
+{"ts": "2026-10-09T05:17:23Z", "agent": "01a11f10-f9e1-73c1-a006-1104b65d5988", "actor": "worker/root", "event": "requested", "model": "gpt-6-luna", "effort": "medium"}
+{"ts": "2026-10-09T05:23:10Z", "agent": "01a11f1d-7a63-7391-98a8-5111a7d58188", "actor": "worker/root", "event": "requested", "model": "gpt-6-luna", "effort": "medium"}
+{"ts": "2026-10-09T05:23:12Z", "agent": "01a11f1d-7a63-7391-98a8-5111a7d58188", "actor": "worker/root", "event": "observed", "model": "gpt-6-luna"}
+{"ts": "2026-10-09T05:29:32Z", "agent": "01a11f23-547e-7a62-9def-0b7daa72db29", "actor": "worker/h0001", "event": "requested", "model": "gpt-6-luna", "effort": "medium"}
+{"ts": "2026-10-09T05:29:33Z", "agent": "01a11f23-547e-7a62-9def-0b7daa72db29", "actor": "worker/h0001", "event": "observed", "model": "gpt-6-luna"}
+{"ts": "2026-10-09T05:38:42Z", "agent": "01a11f2b-a353-7202-ade6-712bfa1adb45", "actor": "rld/main", "event": "observed", "model": "gpt-6-luna"}

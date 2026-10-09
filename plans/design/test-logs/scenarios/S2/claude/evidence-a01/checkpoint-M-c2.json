@@ -1,0 +1,1946 @@
+{
+ "project": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01",
+ "db": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01/research/rt-s2-claude-a01/research_tree.db",
+ "db_sha256_unchanged": true,
+ "phase": "confirmed",
+ "data_version": 314,
+ "counts": {
+  "project": 1,
+  "hypothesis": 1,
+  "experiment": 11,
+  "branch": 1,
+  "document": 66,
+  "decision": 0,
+  "task": 1,
+  "evaluation": 5,
+  "obligation": 1,
+  "reservation": 18,
+  "run": 23
+ },
+ "experiments": [
+  {
+   "id": "E-0001",
+   "kind": "sanity",
+   "stage": "screen",
+   "hypothesis_id": null,
+   "code_ref": "b9c2b7eb2b35e60e2b4599e006a77b2ec4e08908",
+   "seeds": [
+    42
+   ],
+   "evaluation_id": null,
+   "owner": "root",
+   "method_spec_doc_id": "D-0016",
+   "identity_status": null
+  },
+  {
+   "id": "E-0002",
+   "kind": "baseline",
+   "stage": "screen",
+   "hypothesis_id": null,
+   "code_ref": "860bec144fed66619f5c28d09c65369d202d891d",
+   "seeds": [
+    42,
+    43,
+    44
+   ],
+   "evaluation_id": "EV-0001",
+   "owner": "root",
+   "method_spec_doc_id": "D-0020",
+   "identity_status": null
+  },
+  {
+   "id": "E-0003",
+   "kind": "sanity",
+   "stage": "screen",
+   "hypothesis_id": "H-0001",
+   "code_ref": "78508beea1b85c99821c2fc8f27e8a30480271fc",
+   "seeds": [
+    42
+   ],
+   "evaluation_id": null,
+   "owner": "h0001",
+   "method_spec_doc_id": "D-0026",
+   "identity_status": null
+  },
+  {
+   "id": "E-0004",
+   "kind": "method",
+   "stage": "screen",
+   "hypothesis_id": "H-0001",
+   "code_ref": "78508beea1b85c99821c2fc8f27e8a30480271fc",
+   "seeds": [
+    42
+   ],
+   "evaluation_id": null,
+   "owner": "h0001",
+   "method_spec_doc_id": "D-0025",
+   "identity_status": null
+  },
+  {
+   "id": "E-0005",
+   "kind": "sanity",
+   "stage": "screen",
+   "hypothesis_id": "H-0001",
+   "code_ref": "7017a6d82bae1d4a7842951af433a66fb59e4895",
+   "seeds": [
+    42
+   ],
+   "evaluation_id": null,
+   "owner": "h0001",
+   "method_spec_doc_id": "D-0033",
+   "identity_status": null
+  },
+  {
+   "id": "E-0006",
+   "kind": "method",
+   "stage": "screen",
+   "hypothesis_id": "H-0001",
+   "code_ref": "7017a6d82bae1d4a7842951af433a66fb59e4895",
+   "seeds": [
+    42,
+    43,
+    44
+   ],
+   "evaluation_id": "EV-0002",
+   "owner": "h0001",
+   "method_spec_doc_id": "D-0032",
+   "identity_status": null
+  },
+  {
+   "id": "E-0007",
+   "kind": "baseline",
+   "stage": "screen",
+   "hypothesis_id": null,
+   "code_ref": "860bec144fed66619f5c28d09c65369d202d891d",
+   "seeds": [
+    42,
+    43,
+    44
+   ],
+   "evaluation_id": "EV-0003",
+   "owner": "root",
+   "method_spec_doc_id": "D-0045",
+   "identity_status": null
+  },
+  {
+   "id": "E-0008",
+   "kind": "baseline",
+   "stage": "confirm",
+   "hypothesis_id": null,
+   "code_ref": "860bec144fed66619f5c28d09c65369d202d891d",
+   "seeds": [
+    1042,
+    1043,
+    1044
+   ],
+   "evaluation_id": "EV-0004",
+   "owner": "root",
+   "method_spec_doc_id": "D-0020",
+   "identity_status": null
+  },
+  {
+   "id": "E-0009",
+   "kind": "method",
+   "stage": "confirm",
+   "hypothesis_id": "H-0001",
+   "code_ref": "7017a6d82bae1d4a7842951af433a66fb59e4895",
+   "seeds": [
+    1042,
+    1043,
+    1044
+   ],
+   "evaluation_id": null,
+   "owner": "h0001",
+   "method_spec_doc_id": "D-0032",
+   "identity_status": null
+  },
+  {
+   "id": "E-0010",
+   "kind": "sanity",
+   "stage": "screen",
+   "hypothesis_id": "H-0001",
+   "code_ref": "c88f84149b037ea01e02319e6880ad443a033f8c",
+   "seeds": [
+    42
+   ],
+   "evaluation_id": null,
+   "owner": "main",
+   "method_spec_doc_id": "D-0055",
+   "identity_status": null
+  },
+  {
+   "id": "E-0011",
+   "kind": "method",
+   "stage": "screen",
+   "hypothesis_id": "H-0001",
+   "code_ref": "c88f84149b037ea01e02319e6880ad443a033f8c",
+   "seeds": [
+    42,
+    43,
+    44
+   ],
+   "evaluation_id": "EV-0005",
+   "owner": "main",
+   "method_spec_doc_id": "D-0054",
+   "identity_status": null
+  }
+ ],
+ "nodes": [
+  {
+   "id": "H-0001",
+   "title": "重球动量在固定更新预算下收敛更快",
+   "status": "pending",
+   "claim_revision": 1,
+   "claim_sha": "149ea9bcc98a15882f22e58906d621a12e10d20c0a80709438cff9113948c447",
+   "eligibility": {
+    "hypothesis_id": "H-0001",
+    "eligible": false,
+    "basis_evaluation_id": "EV-0005",
+    "experiment_id": "E-0011",
+    "evidence_state": "current",
+    "reasons": [
+     "OBLIGATION_OPEN",
+     "RECHECK_PENDING",
+     "CONFIRMATION_REQUIRED",
+     "RECHECK_UNCERTAIN",
+     "RECHECK_FAILED"
+    ],
+    "verification_level": "artifact_imported",
+    "gate_passed": true,
+    "guardrails_passed": true,
+    "stage": null,
+    "outcome": "positive_signal",
+    "confirmation_evaluation_id": null,
+    "open_obligations": [
+     "OB-0001"
+    ],
+    "rechecks": [
+     {
+      "dimension": "numbers",
+      "state": "uncertain",
+      "required": "EV-0005",
+      "review_id": "D-0062",
+      "path": "reviews/RV-0018.v1.md",
+      "basis": {
+       "evaluation_id": "EV-0005",
+       "inputs_digest": "ff78f6b2abe37485b2a065867a58dabda69878ed2d0188ae78444365cb08ed41"
+      },
+      "needs_recheck": false,
+      "result": "uncertain",
+      "reported_result": "uncertain",
+      "warnings": [],
+      "applicability": {
+       "required": true,
+       "exempt_allowed": false,
+       "exempt": false
+      },
+      "reviewer_family": "openai",
+      "backend": "pi",
+      "reviewer_model": "openai/gpt-6-luna",
+      "evaluation_id": "EV-0005",
+      "code_ref": "c88f84149b037ea01e02319e6880ad443a033f8c"
+     },
+     {
+      "dimension": "protocol",
+      "state": "pass",
+      "required": "EV-0005",
+      "review_id": "D-0063",
+      "path": "reviews/RV-0019.v1.md",
+      "basis": {
+       "evaluation_id": "EV-0005",
+       "inputs_digest": "ff78f6b2abe37485b2a065867a58dabda69878ed2d0188ae78444365cb08ed41"
+      },
+      "needs_recheck": false,
+      "result": "pass",
+      "reported_result": "pass",
+      "warnings": [],
+      "applicability": {
+       "required": true,
+       "exempt_allowed": false,
+       "exempt": false
+      },
+      "reviewer_family": "openai",
+      "backend": "pi",
+      "reviewer_model": "openai/gpt-6-luna",
+      "evaluation_id": "EV-0005",
+      "code_ref": "c88f84149b037ea01e02319e6880ad443a033f8c"
+     },
+     {
+      "dimension": "method_code",
+      "state": "failed",
+      "required": "c88f84149b037ea01e02319e6880ad443a033f8c",
+      "review_id": "D-0064",
+      "path": "reviews/RV-0020.v1.md",
+      "basis": {
+       "claim_revision": 1,
+       "claim_sha": "149ea9bcc98a15882f22e58906d621a12e10d20c0a80709438cff9113948c447",
+       "method_spec_doc_id": "D-0054",
+       "code_ref": "c88f84149b037ea01e02319e6880ad443a033f8c"
+      },
+      "needs_recheck": false,
+      "result": "fail",
+      "reported_result": "fail",
+      "warnings": [],
+      "applicability": {
+       "required": true,
+       "exempt_allowed": false,
+       "exempt": false
+      },
+      "reviewer_family": "openai",
+      "backend": "pi",
+      "reviewer_model": "openai/gpt-6-luna",
+      "evaluation_id": "EV-0005",
+      "code_ref": "c88f84149b037ea01e02319e6880ad443a033f8c"
+     },
+     {
+      "dimension": "novelty",
+      "state": "uncertain",
+      "required": "c88f84149b037ea01e02319e6880ad443a033f8c",
+      "review_id": "D-0065",
+      "path": "reviews/RV-0021.v1.md",
+      "basis": {
+       "claim_revision": 1,
+       "claim_sha": "149ea9bcc98a15882f22e58906d621a12e10d20c0a80709438cff9113948c447",
+       "method_spec_doc_id": "D-0054",
+       "code_ref": "c88f84149b037ea01e02319e6880ad443a033f8c",
+       "literature": [
+        "D-0006",
+        "D-0007"
+       ]
+      },
+      "needs_recheck": false,
+      "result": "uncertain",
+      "reported_result": "uncertain",
+      "warnings": [],
+      "applicability": {
+       "required": true,
+       "exempt_allowed": false,
+       "exempt": false
+      },
+      "reviewer_family": "openai",
+      "backend": "pi",
+      "reviewer_model": "openai/gpt-6-luna",
+      "evaluation_id": "EV-0005",
+      "code_ref": "c88f84149b037ea01e02319e6880ad443a033f8c"
+     },
+     {
+      "dimension": "theory",
+      "state": "uncertain",
+      "required": "c88f84149b037ea01e02319e6880ad443a033f8c",
+      "review_id": "D-0066",
+      "path": "reviews/RV-0022.v1.md",
+      "basis": {
+       "claim_revision": 1,
+       "claim_sha": "149ea9bcc98a15882f22e58906d621a12e10d20c0a80709438cff9113948c447",
+       "method_spec_doc_id": "D-0054",
+       "code_ref": "c88f84149b037ea01e02319e6880ad443a033f8c",
+       "literature": [
+        "D-0006",
+        "D-0007"
+       ]
+      },
+      "needs_recheck": false,
+      "result": "uncertain",
+      "reported_result": "uncertain",
+      "warnings": [],
+      "applicability": {
+       "required": true,
+       "exempt_allowed": false,
+       "exempt": false
+      },
+      "reviewer_family": "openai",
+      "backend": "pi",
+      "reviewer_model": "openai/gpt-6-luna",
+      "evaluation_id": "EV-0005",
+      "code_ref": "c88f84149b037ea01e02319e6880ad443a033f8c"
+     }
+    ],
+    "recheck_evaluation_id": "EV-0005",
+    "rld_rechecks": {
+     "novelty": {
+      "status": "pending",
+      "bound": false
+     },
+     "theory": {
+      "status": "pending",
+      "bound": false
+     }
+    }
+   }
+  }
+ ],
+ "runs": [
+  {
+   "ref": "E-0001/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.67,
+   "imported": true,
+   "submission_key": "rt-s2-claude-a01:E-0001:s42:a1",
+   "job_id": "local-rt-s2-claude-a01:E-0001:s42:a1",
+   "experiment_id": "E-0001",
+   "manifest_path": "outputs/E-0001/s42-sanity-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.67,
+    "correct": 67,
+    "n": 100,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 14,
+    "manifest_steps": 14,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0661,
+     "wall_seconds": 0.6517,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0002/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.805,
+   "imported": true,
+   "submission_key": "rt-s2-claude-a01:E-0002:s42:a1",
+   "job_id": "local-rt-s2-claude-a01:E-0002:s42:a1",
+   "experiment_id": "E-0002",
+   "manifest_path": "outputs/E-0002/s42-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.805,
+    "correct": 322,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0657,
+     "wall_seconds": 0.4385,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0002/s43@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.7525,
+   "imported": true,
+   "submission_key": "rt-s2-claude-a01:E-0002:s43:a1",
+   "job_id": "local-rt-s2-claude-a01:E-0002:s43:a1",
+   "experiment_id": "E-0002",
+   "manifest_path": "outputs/E-0002/s43-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.7525,
+    "correct": 301,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0654,
+     "wall_seconds": 0.5421,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0002/s44@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.8175,
+   "imported": true,
+   "submission_key": "rt-s2-claude-a01:E-0002:s44:a1",
+   "job_id": "local-rt-s2-claude-a01:E-0002:s44:a1",
+   "experiment_id": "E-0002",
+   "manifest_path": "outputs/E-0002/s44-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.8175,
+    "correct": 327,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0651,
+     "wall_seconds": 0.3797,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0003/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.8,
+   "imported": true,
+   "submission_key": "H0001-E0003-sanity-s42-a1",
+   "job_id": "local-H0001-E0003-sanity-s42-a1",
+   "experiment_id": "E-0003",
+   "manifest_path": "outputs/E-0003/sanity-s42-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.8,
+    "correct": 80,
+    "n": 100,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 14,
+    "manifest_steps": 14,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0699,
+     "wall_seconds": 1.2688,
+     "walltime_used_s": 2,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0004/s42@1",
+   "exec_status": "planned",
+   "valid": null,
+   "metric_value": null,
+   "imported": false,
+   "submission_key": null,
+   "job_id": null,
+   "experiment_id": "E-0004",
+   "manifest_path": null
+  },
+  {
+   "ref": "E-0005/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.8,
+   "imported": true,
+   "submission_key": "H0001-E0005-sanity-s42-a1",
+   "job_id": "local-H0001-E0005-sanity-s42-a1",
+   "experiment_id": "E-0005",
+   "manifest_path": "outputs/E-0005/sanity-s42-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.8,
+    "correct": 80,
+    "n": 100,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 14,
+    "manifest_steps": 14,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0614,
+     "wall_seconds": 0.8681,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0006/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.84,
+   "imported": true,
+   "submission_key": "H0001-E0006-s42-a1",
+   "job_id": "local-H0001-E0006-s42-a1",
+   "experiment_id": "E-0006",
+   "manifest_path": "outputs/E-0006/s42-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.84,
+    "correct": 336,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0663,
+     "wall_seconds": 0.7518,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0006/s43@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.84,
+   "imported": true,
+   "submission_key": "H0001-E0006-s43-a1",
+   "job_id": "local-H0001-E0006-s43-a1",
+   "experiment_id": "E-0006",
+   "manifest_path": "outputs/E-0006/s43-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.84,
+    "correct": 336,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0656,
+     "wall_seconds": 0.9542,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0006/s44@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.835,
+   "imported": true,
+   "submission_key": "H0001-E0006-s44-a1",
+   "job_id": "local-H0001-E0006-s44-a1",
+   "experiment_id": "E-0006",
+   "manifest_path": "outputs/E-0006/s44-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.835,
+    "correct": 334,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0645,
+     "wall_seconds": 0.4405,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0007/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.4575,
+   "imported": true,
+   "submission_key": "rt-s2-claude-a01:E-0007:s42:a1",
+   "job_id": "local-rt-s2-claude-a01:E-0007:s42:a1",
+   "experiment_id": "E-0007",
+   "manifest_path": "outputs/E-0007/s42-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.4575,
+    "correct": 183,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0644,
+     "wall_seconds": 0.5037,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0007/s43@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.4375,
+   "imported": true,
+   "submission_key": "rt-s2-claude-a01:E-0007:s43:a1",
+   "job_id": "local-rt-s2-claude-a01:E-0007:s43:a1",
+   "experiment_id": "E-0007",
+   "manifest_path": "outputs/E-0007/s43-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.4375,
+    "correct": 175,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0644,
+     "wall_seconds": 0.4475,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0007/s44@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.635,
+   "imported": true,
+   "submission_key": "rt-s2-claude-a01:E-0007:s44:a1",
+   "job_id": "local-rt-s2-claude-a01:E-0007:s44:a1",
+   "experiment_id": "E-0007",
+   "manifest_path": "outputs/E-0007/s44-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.635,
+    "correct": 254,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0635,
+     "wall_seconds": 0.4049,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0008/s1042@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.7425,
+   "imported": true,
+   "submission_key": "rt-s2-claude-a01:E-0008:s1042:a1",
+   "job_id": "local-rt-s2-claude-a01:E-0008:s1042:a1",
+   "experiment_id": "E-0008",
+   "manifest_path": "outputs/E-0008/s1042-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.7425,
+    "correct": 297,
+    "n": 400,
+    "split": "c1",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.065,
+     "wall_seconds": 0.6074,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0008/s1043@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.8475,
+   "imported": true,
+   "submission_key": "rt-s2-claude-a01:E-0008:s1043:a1",
+   "job_id": "local-rt-s2-claude-a01:E-0008:s1043:a1",
+   "experiment_id": "E-0008",
+   "manifest_path": "outputs/E-0008/s1043-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.8475,
+    "correct": 339,
+    "n": 400,
+    "split": "c1",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0639,
+     "wall_seconds": 0.6877,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0008/s1044@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.8175,
+   "imported": true,
+   "submission_key": "rt-s2-claude-a01:E-0008:s1044:a1",
+   "job_id": "local-rt-s2-claude-a01:E-0008:s1044:a1",
+   "experiment_id": "E-0008",
+   "manifest_path": "outputs/E-0008/s1044-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.8175,
+    "correct": 327,
+    "n": 400,
+    "split": "c1",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0643,
+     "wall_seconds": 0.8127,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0009/s1042@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.855,
+   "imported": true,
+   "submission_key": "H0001-E0009-c1-s1042-a1",
+   "job_id": "local-H0001-E0009-c1-s1042-a1",
+   "experiment_id": "E-0009",
+   "manifest_path": "outputs/E-0009/s1042-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.855,
+    "correct": 342,
+    "n": 400,
+    "split": "c1",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0657,
+     "wall_seconds": 0.5826,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0009/s1043@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.8575,
+   "imported": true,
+   "submission_key": "H0001-E0009-c1-s1043-a1",
+   "job_id": "local-H0001-E0009-c1-s1043-a1",
+   "experiment_id": "E-0009",
+   "manifest_path": "outputs/E-0009/s1043-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.8575,
+    "correct": 343,
+    "n": 400,
+    "split": "c1",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0655,
+     "wall_seconds": 0.8007,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0009/s1044@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.87,
+   "imported": true,
+   "submission_key": "H0001-E0009-c1-s1044-a1",
+   "job_id": "local-H0001-E0009-c1-s1044-a1",
+   "experiment_id": "E-0009",
+   "manifest_path": "outputs/E-0009/s1044-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.87,
+    "correct": 348,
+    "n": 400,
+    "split": "c1",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0656,
+     "wall_seconds": 0.667,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0010/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.79,
+   "imported": true,
+   "submission_key": null,
+   "job_id": "local-H0001-E0010-sanity-s42-a1",
+   "experiment_id": "E-0010",
+   "manifest_path": "outputs/E-0010/sanity-s42-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.79,
+    "correct": 79,
+    "n": 100,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 14,
+    "manifest_steps": 14,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0615,
+     "wall_seconds": 0.7471,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0011/s42@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.8375,
+   "imported": true,
+   "submission_key": null,
+   "job_id": "local-H0001-E0011-s42-a1",
+   "experiment_id": "E-0011",
+   "manifest_path": "outputs/E-0011/s42-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.8375,
+    "correct": 335,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0666,
+     "wall_seconds": 0.6178,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0011/s43@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.835,
+   "imported": true,
+   "submission_key": null,
+   "job_id": "local-H0001-E0011-s43-a1",
+   "experiment_id": "E-0011",
+   "manifest_path": "outputs/E-0011/s43-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.835,
+    "correct": 334,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0666,
+     "wall_seconds": 0.8157,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  },
+  {
+   "ref": "E-0011/s44@1",
+   "exec_status": "succeeded",
+   "valid": true,
+   "metric_value": 0.8375,
+   "imported": true,
+   "submission_key": null,
+   "job_id": "local-H0001-E0011-s44-a1",
+   "experiment_id": "E-0011",
+   "manifest_path": "outputs/E-0011/s44-a1/run_manifest.json",
+   "scorer": {
+    "accuracy": 0.8375,
+    "correct": 335,
+    "n": 400,
+    "split": "explore",
+    "accuracy_matches": true,
+    "prediction_mismatches": []
+   },
+   "db_matches_scorer": true,
+   "artifacts": {
+    "files": {
+     "model.json": true,
+     "predictions.jsonl": true,
+     "metrics.json": true,
+     "train.log": true,
+     "curve.json": true,
+     "usage.json": true
+    },
+    "curve_steps": 38,
+    "manifest_steps": 38,
+    "curve_matches_steps": true,
+    "loss_finite": true,
+    "usage_measured": true,
+    "usage": {
+     "cpu_seconds": 0.0657,
+     "wall_seconds": 0.6813,
+     "walltime_used_s": 1,
+     "exit_code": 0
+    }
+   }
+  }
+ ],
+ "evaluations": [
+  {
+   "id": "EV-0001",
+   "experiment_id": "E-0002",
+   "outcome": null,
+   "gate_passed": null,
+   "verification_level": "artifact_imported",
+   "recorded_mean": 79.16666666666667,
+   "unit": "percentage_point",
+   "independent_mean": 79.16666666666666,
+   "mean_matches": true,
+   "run_refs": [
+    "E-0002/s42@1",
+    "E-0002/s43@1",
+    "E-0002/s44@1"
+   ]
+  },
+  {
+   "id": "EV-0002",
+   "experiment_id": "E-0006",
+   "outcome": "positive_signal",
+   "gate_passed": true,
+   "verification_level": "artifact_imported",
+   "recorded_mean": 83.83333333333333,
+   "unit": "percentage_point",
+   "independent_mean": 83.83333333333333,
+   "mean_matches": true,
+   "run_refs": [
+    "E-0006/s42@1",
+    "E-0006/s43@1",
+    "E-0006/s44@1"
+   ]
+  },
+  {
+   "id": "EV-0003",
+   "experiment_id": "E-0007",
+   "outcome": null,
+   "gate_passed": null,
+   "verification_level": "artifact_imported",
+   "recorded_mean": 51.0,
+   "unit": "percentage_point",
+   "independent_mean": 51.0,
+   "mean_matches": true,
+   "run_refs": [
+    "E-0007/s42@1",
+    "E-0007/s43@1",
+    "E-0007/s44@1"
+   ]
+  },
+  {
+   "id": "EV-0004",
+   "experiment_id": "E-0008",
+   "outcome": null,
+   "gate_passed": null,
+   "verification_level": "artifact_imported",
+   "recorded_mean": 80.25,
+   "unit": "percentage_point",
+   "independent_mean": 80.25000000000001,
+   "mean_matches": true,
+   "run_refs": [
+    "E-0008/s1042@1",
+    "E-0008/s1043@1",
+    "E-0008/s1044@1"
+   ]
+  },
+  {
+   "id": "EV-0005",
+   "experiment_id": "E-0011",
+   "outcome": "positive_signal",
+   "gate_passed": true,
+   "verification_level": "artifact_imported",
+   "recorded_mean": 83.66666666666667,
+   "unit": "percentage_point",
+   "independent_mean": 83.66666666666666,
+   "mean_matches": true,
+   "run_refs": [
+    "E-0011/s42@1",
+    "E-0011/s43@1",
+    "E-0011/s44@1"
+   ]
+  }
+ ],
+ "obligations": [
+  {
+   "id": "OB-0001",
+   "about": "H-0001",
+   "status": "OPEN",
+   "severity": "MAJOR",
+   "pattern": "method_code:M"
+  }
+ ],
+ "reservations": [
+  {
+   "id": "RS-0001",
+   "submission_key": "rt-s2-claude-a01:E-0001:s42:a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s2-claude-a01:E-0001:s42:a1"
+  },
+  {
+   "id": "RS-0002",
+   "submission_key": "rt-s2-claude-a01:E-0002:s42:a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s2-claude-a01:E-0002:s42:a1"
+  },
+  {
+   "id": "RS-0003",
+   "submission_key": "rt-s2-claude-a01:E-0002:s43:a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s2-claude-a01:E-0002:s43:a1"
+  },
+  {
+   "id": "RS-0004",
+   "submission_key": "rt-s2-claude-a01:E-0002:s44:a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s2-claude-a01:E-0002:s44:a1"
+  },
+  {
+   "id": "RS-0005",
+   "submission_key": "H0001-E0003-sanity-s42-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 2,
+   "job_id": "local-H0001-E0003-sanity-s42-a1"
+  },
+  {
+   "id": "RS-0006",
+   "submission_key": "H0001-E0005-sanity-s42-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-H0001-E0005-sanity-s42-a1"
+  },
+  {
+   "id": "RS-0007",
+   "submission_key": "H0001-E0006-s42-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-H0001-E0006-s42-a1"
+  },
+  {
+   "id": "RS-0008",
+   "submission_key": "H0001-E0006-s43-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-H0001-E0006-s43-a1"
+  },
+  {
+   "id": "RS-0009",
+   "submission_key": "H0001-E0006-s44-a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-H0001-E0006-s44-a1"
+  },
+  {
+   "id": "RS-0010",
+   "submission_key": "rt-s2-claude-a01:E-0007:s42:a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s2-claude-a01:E-0007:s42:a1"
+  },
+  {
+   "id": "RS-0011",
+   "submission_key": "rt-s2-claude-a01:E-0007:s43:a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s2-claude-a01:E-0007:s43:a1"
+  },
+  {
+   "id": "RS-0012",
+   "submission_key": "rt-s2-claude-a01:E-0007:s44:a1",
+   "budget_pool": "search",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s2-claude-a01:E-0007:s44:a1"
+  },
+  {
+   "id": "RS-0013",
+   "submission_key": "rt-s2-claude-a01:E-0008:s1042:a1",
+   "budget_pool": "confirmation",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s2-claude-a01:E-0008:s1042:a1"
+  },
+  {
+   "id": "RS-0014",
+   "submission_key": "rt-s2-claude-a01:E-0008:s1043:a1",
+   "budget_pool": "confirmation",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s2-claude-a01:E-0008:s1043:a1"
+  },
+  {
+   "id": "RS-0015",
+   "submission_key": "rt-s2-claude-a01:E-0008:s1044:a1",
+   "budget_pool": "confirmation",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-rt-s2-claude-a01:E-0008:s1044:a1"
+  },
+  {
+   "id": "RS-0016",
+   "submission_key": "H0001-E0009-c1-s1042-a1",
+   "budget_pool": "confirmation",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-H0001-E0009-c1-s1042-a1"
+  },
+  {
+   "id": "RS-0017",
+   "submission_key": "H0001-E0009-c1-s1043-a1",
+   "budget_pool": "confirmation",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-H0001-E0009-c1-s1043-a1"
+  },
+  {
+   "id": "RS-0018",
+   "submission_key": "H0001-E0009-c1-s1044-a1",
+   "budget_pool": "confirmation",
+   "accounting_status": "settled",
+   "reserved_units": 600,
+   "actual_units": 1,
+   "job_id": "local-H0001-E0009-c1-s1044-a1"
+  }
+ ],
+ "jobs": {
+  "starts": 22,
+  "keys": 22,
+  "duplicate_jobs": 0,
+  "per_key": {
+   "rt-s2-claude-a01:E-0001:s42:a1": 1,
+   "rt-s2-claude-a01:E-0002:s42:a1": 1,
+   "rt-s2-claude-a01:E-0002:s43:a1": 1,
+   "rt-s2-claude-a01:E-0002:s44:a1": 1,
+   "H0001-E0003-sanity-s42-a1": 1,
+   "H0001-E0005-sanity-s42-a1": 1,
+   "H0001-E0006-s42-a1": 1,
+   "H0001-E0006-s43-a1": 1,
+   "H0001-E0006-s44-a1": 1,
+   "rt-s2-claude-a01:E-0007:s42:a1": 1,
+   "rt-s2-claude-a01:E-0007:s43:a1": 1,
+   "rt-s2-claude-a01:E-0007:s44:a1": 1,
+   "rt-s2-claude-a01:E-0008:s1042:a1": 1,
+   "rt-s2-claude-a01:E-0008:s1043:a1": 1,
+   "rt-s2-claude-a01:E-0008:s1044:a1": 1,
+   "H0001-E0009-c1-s1042-a1": 1,
+   "H0001-E0009-c1-s1043-a1": 1,
+   "H0001-E0009-c1-s1044-a1": 1,
+   "H0001-E0010-sanity-s42-a1": 1,
+   "H0001-E0011-s42-a1": 1,
+   "H0001-E0011-s43-a1": 1,
+   "H0001-E0011-s44-a1": 1
+  },
+  "cpu_seconds": 1.4327,
+  "wall_seconds": 14.6715,
+  "failed_exits": []
+ },
+ "attempts": {
+  "research_attempts": 22,
+  "authorized_retries": 0,
+  "transport_retries": 0,
+  "duplicate_jobs": 4,
+  "duplicate_import_requests": null,
+  "duplicate_settlement_requests": 0,
+  "injected_failures": 0,
+  "avoidable_repeated_failures": 0,
+  "starts_per_key": {
+   "rt-s2-claude-a01:E-0001:s42:a1": 1,
+   "rt-s2-claude-a01:E-0002:s42:a1": 1,
+   "rt-s2-claude-a01:E-0002:s43:a1": 1,
+   "rt-s2-claude-a01:E-0002:s44:a1": 1,
+   "H0001-E0003-sanity-s42-a1": 1,
+   "H0001-E0005-sanity-s42-a1": 1,
+   "H0001-E0006-s42-a1": 1,
+   "H0001-E0006-s43-a1": 1,
+   "H0001-E0006-s44-a1": 1,
+   "rt-s2-claude-a01:E-0007:s42:a1": 1,
+   "rt-s2-claude-a01:E-0007:s43:a1": 1,
+   "rt-s2-claude-a01:E-0007:s44:a1": 1,
+   "rt-s2-claude-a01:E-0008:s1042:a1": 1,
+   "rt-s2-claude-a01:E-0008:s1043:a1": 1,
+   "rt-s2-claude-a01:E-0008:s1044:a1": 1,
+   "H0001-E0009-c1-s1042-a1": 1,
+   "H0001-E0009-c1-s1043-a1": 1,
+   "H0001-E0009-c1-s1044-a1": 1,
+   "H0001-E0010-sanity-s42-a1": 1,
+   "H0001-E0011-s42-a1": 1,
+   "H0001-E0011-s43-a1": 1,
+   "H0001-E0011-s44-a1": 1
+  }
+ },
+ "site": {
+  "exit": 1,
+  "answer": "{\"page_version\": null, \"db_version\": 314, \"stale\": true}"
+ },
+ "agent_models": [
+  {
+   "ts": "2026-10-09T04:37:08Z",
+   "agent": "main",
+   "actor": "rld/main",
+   "event": "observed",
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "ts": "2026-10-09T04:38:21Z",
+   "agent": "af276d73214bfd4b7",
+   "actor": "worker/root",
+   "event": "requested",
+   "model": "claude-haiku-5-5",
+   "effort": "medium"
+  },
+  {
+   "ts": "2026-10-09T04:40:13Z",
+   "agent": "af276d73214bfd4b7",
+   "actor": "worker/root",
+   "event": "observed",
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "ts": "2026-10-09T04:46:04Z",
+   "agent": "a66a286aeccf98000",
+   "actor": "worker/h0001",
+   "event": "requested",
+   "model": "claude-haiku-5-5",
+   "effort": "medium"
+  },
+  {
+   "ts": "2026-10-09T04:47:41Z",
+   "agent": "a66a286aeccf98000",
+   "actor": "worker/h0001",
+   "event": "observed",
+   "model": "claude-haiku-5-5"
+  },
+  {
+   "ts": "2026-10-09T05:19:46Z",
+   "agent": "main",
+   "actor": "rld/main",
+   "event": "observed",
+   "model": "claude-haiku-5-5"
+  }
+ ],
+ "review_calls": [
+  {
+   "kind": "code_review",
+   "about": "rt-s2-claude-a01",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.004301,
+   "review_id": "D-0017",
+   "session": "RV-0001",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01/research/rt-s2-claude-a01/cache/reviews/RV-0001.v1.jsonl"
+  },
+  {
+   "kind": "code_review",
+   "about": "rt-s2-claude-a01",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.003143,
+   "review_id": "D-0018",
+   "session": "RV-0002",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01/research/rt-s2-claude-a01/cache/reviews/RV-0002.v1.jsonl"
+  },
+  {
+   "kind": "code_review",
+   "about": "H-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.003182,
+   "review_id": "D-0027",
+   "session": "RV-0003",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01/research/rt-s2-claude-a01/cache/reviews/RV-0003.v1.jsonl"
+  },
+  {
+   "kind": "code_review",
+   "about": "E-0004",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.004264,
+   "review_id": "D-0028",
+   "session": "RV-0004",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01/research/rt-s2-claude-a01/cache/reviews/RV-0004.v1.jsonl"
+  },
+  {
+   "kind": "code_review",
+   "about": "H-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.001349,
+   "review_id": "D-0029",
+   "session": "RV-0005",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01/research/rt-s2-claude-a01/cache/reviews/RV-0005.v1.jsonl"
+  },
+  {
+   "kind": "code_review",
+   "about": "H-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.000602,
+   "review_id": "D-0030",
+   "session": "RV-0006",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01/research/rt-s2-claude-a01/cache/reviews/RV-0006.v1.jsonl"
+  },
+  {
+   "kind": "code_review",
+   "about": "H-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.003066,
+   "review_id": "D-0034",
+   "session": "RV-0007",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01/research/rt-s2-claude-a01/cache/reviews/RV-0007.v1.jsonl"
+  },
+  {
+   "kind": "code_review",
+   "about": "H-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.002817,
+   "review_id": "D-0036",
+   "session": "RV-0008",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01/research/rt-s2-claude-a01/cache/reviews/RV-0008.v1.jsonl"
+  },
+  {
+   "kind": "candidate_recheck",
+   "about": "H-0001",
+   "dimension": "numbers",
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.002116,
+   "review_id": "D-0039",
+   "session": "RV-0009",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01/research/rt-s2-claude-a01/cache/reviews/RV-0009.v1.jsonl"
+  },
+  {
+   "kind": "candidate_recheck",
+   "about": "H-0001",
+   "dimension": "protocol",
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.002274,
+   "review_id": "D-0040",
+   "session": "RV-0010",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01/research/rt-s2-claude-a01/cache/reviews/RV-0010.v1.jsonl"
+  },
+  {
+   "kind": "candidate_recheck",
+   "about": "H-0001",
+   "dimension": "method_code",
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.002044,
+   "review_id": "D-0041",
+   "session": "RV-0011",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01/research/rt-s2-claude-a01/cache/reviews/RV-0011.v1.jsonl"
+  },
+  {
+   "kind": "candidate_recheck",
+   "about": "H-0001",
+   "dimension": "novelty",
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.00344,
+   "review_id": "D-0042",
+   "session": "RV-0012",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01/research/rt-s2-claude-a01/cache/reviews/RV-0012.v1.jsonl"
+  },
+  {
+   "kind": "candidate_recheck",
+   "about": "H-0001",
+   "dimension": "theory",
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.001907,
+   "review_id": "D-0043",
+   "session": "RV-0013",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01/research/rt-s2-claude-a01/cache/reviews/RV-0013.v1.jsonl"
+  },
+  {
+   "kind": "code_review",
+   "about": "H-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.003764,
+   "review_id": "D-0056",
+   "session": "RV-0014",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01/research/rt-s2-claude-a01/cache/reviews/RV-0014.v1.jsonl"
+  },
+  {
+   "kind": "code_review",
+   "about": "E-0011",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.003549,
+   "review_id": "D-0058",
+   "session": "RV-0015",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01/research/rt-s2-claude-a01/cache/reviews/RV-0015.v1.jsonl"
+  },
+  {
+   "kind": "code_review",
+   "about": "H-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.001119,
+   "review_id": "D-0059",
+   "session": "RV-0016",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01/research/rt-s2-claude-a01/cache/reviews/RV-0016.v1.jsonl"
+  },
+  {
+   "kind": "code_review",
+   "about": "H-0001",
+   "dimension": null,
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.003925,
+   "review_id": "D-0060",
+   "session": "RV-0017",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01/research/rt-s2-claude-a01/cache/reviews/RV-0017.v1.jsonl"
+  },
+  {
+   "kind": "candidate_recheck",
+   "about": "H-0001",
+   "dimension": "numbers",
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.002254,
+   "review_id": "D-0062",
+   "session": "RV-0018",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01/research/rt-s2-claude-a01/cache/reviews/RV-0018.v1.jsonl"
+  },
+  {
+   "kind": "candidate_recheck",
+   "about": "H-0001",
+   "dimension": "protocol",
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.001794,
+   "review_id": "D-0063",
+   "session": "RV-0019",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01/research/rt-s2-claude-a01/cache/reviews/RV-0019.v1.jsonl"
+  },
+  {
+   "kind": "candidate_recheck",
+   "about": "H-0001",
+   "dimension": "method_code",
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.003507,
+   "review_id": "D-0064",
+   "session": "RV-0020",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01/research/rt-s2-claude-a01/cache/reviews/RV-0020.v1.jsonl"
+  },
+  {
+   "kind": "candidate_recheck",
+   "about": "H-0001",
+   "dimension": "novelty",
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.006396,
+   "review_id": "D-0065",
+   "session": "RV-0021",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01/research/rt-s2-claude-a01/cache/reviews/RV-0021.v1.jsonl"
+  },
+  {
+   "kind": "candidate_recheck",
+   "about": "H-0001",
+   "dimension": "theory",
+   "outcome": "ok",
+   "backend": "pi",
+   "cost_usd": 0.001656,
+   "review_id": "D-0066",
+   "session": "RV-0022",
+   "error": null,
+   "observed_model": "openai/gpt-6-luna",
+   "raw_output": "/home/yu/workspace/rt-scenarios/S2/rt-S2-claude-a01/research/rt-s2-claude-a01/cache/reviews/RV-0022.v1.jsonl"
+  }
+ ]
+}

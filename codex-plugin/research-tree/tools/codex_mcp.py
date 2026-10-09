@@ -28,7 +28,7 @@ OBJECT = {"type": "object"}
 TOOLS = [
     {"name": "research_db", "description": "Call the research database as this session's fixed role. Use help to discover methods and parameters. All shared scientific and ownership gates apply.",
      "inputSchema": schema({"method": STRING, "kwargs": OBJECT}, ["method"])},
-    {"name": "research_control", "description": "Project control: help, init, status, refresh, build, pane, check, config, confirm, instruction, worker, lens, agents, inbox, acknowledge, chat, ui_path, attach. lens starts a read-only candidate generator during full-discovery planning. Parameters depend on action; use help. Only RLD can control execution. User confirmations require their verbatim words.",
+    {"name": "research_control", "description": "Project control: help, init, status, refresh, build, pane, check, config, confirm, instruction, worker, lens, agents, inbox, acknowledge, chat, ui_path, attach, commit. commit: a worker commits files of its own node worktree (the sandbox keeps .git read-only). lens starts a read-only candidate generator during full-discovery planning. Parameters depend on action; use help. Only RLD can control execution. User confirmations require their verbatim words.",
      "inputSchema": schema({"action": STRING, "params": OBJECT}, ["action"])},
     {"name": "post_to_ui", "description": "RLD posts a notice, reply (requires re), or confirm_request (requires registered docs) to the independent research UI. A request is not approval.",
      "inputSchema": schema({"type": {"enum": ["notice", "reply", "confirm_request"]}, "text": {"type": "string", "minLength": 1, "maxLength": 200},

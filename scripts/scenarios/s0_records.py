@@ -53,27 +53,28 @@ def archive(ctl: Path, dest: Path) -> dict[str, str]:
         if src.is_file():
             shutil.copy(src, dest / f"local-exec-{name}")
             out[f"local-exec-{name}"] = str((dest / f"local-exec-{name}").relative_to(REPO))
-    for session in sorted((ctl / "sessions").glob("*.jsonl")):
-        target = dest / "sessions" / (session.name + ".gz")
-        target.parent.mkdir(exist_ok=True)
+    for session in sorted((ctl / "sessions").rglob("*.jsonl")):  # worker subagents' transcripts too
+        rel = session.relative_to(ctl / "sessions")
+        target = dest / "sessions" / rel.parent / (session.name + ".gz")
+        target.parent.mkdir(parents=True, exist_ok=True)
         with session.open("rb") as src, open(target, "wb") as raw, \
                 gzip.GzipFile(fileobj=raw, mode="wb", compresslevel=9, mtime=0) as gz:
             shutil.copyfileobj(src, gz)
-        out[f"session:{session.name}"] = str(target.relative_to(REPO))
+        out[f"session:{rel}"] = str(target.relative_to(REPO))
     sums = {rel: hashlib.sha256((REPO / rel).read_bytes()).hexdigest() for rel in out.values()}
     (dest / "SHA256SUMS.json").write_text(json.dumps(sums, indent=1, sort_keys=True) + "\n", encoding="utf-8")
     return out
 
 
 def transcript_text(ctl: Path) -> str:
-    return "\n".join(p.read_text(encoding="utf-8", errors="replace") for p in sorted((ctl / "sessions").glob("*.jsonl")))
+    return "\n".join(p.read_text(encoding="utf-8", errors="replace") for p in sorted((ctl / "sessions").rglob("*.jsonl")))
 
 
 def observed(host: str, ctl: Path) -> tuple[str | list, str | None]:
     """The main session's model and effort, from the host's structured session records only (Claude: each
     assistant message's model and the line's effort; Codex: turn_context model and effort) — never from text."""
     models, efforts = set(), set()
-    for session in sorted((ctl / "sessions").glob("*.jsonl")):
+    for session in sorted((ctl / "sessions").glob("*.jsonl")):  # the main sessions only (subagents run other models)
         for entry in jsonl(session):
             if host == "claude" and entry.get("type") == "assistant" and not entry.get("isSidechain"):
                 models.add((entry.get("message") or {}).get("model"))

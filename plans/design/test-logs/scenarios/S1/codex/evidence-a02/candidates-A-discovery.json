@@ -1,0 +1,30 @@
+{
+ "updated": "2026-10-09T04:43:13Z",
+ "candidates": [
+  {
+   "title": "Zebra: Heavy-ball momentum improves convergence under a fixed update budget",
+   "summary": "With the same training data, one epoch, batch size, and update count as reference SGD, a momentum method may achieve higher explore accuracy because accumulated consistent gradient directions make better use of the limited updates.",
+   "dedup_key": "zebra-heavy-ball-momentum-improves-convergence-under-a-fixed-update-budget",
+   "origin": "user",
+   "found_by": [
+    "user"
+   ],
+   "selected": true,
+   "id": "CAND-0001",
+   "revision": 1,
+   "content_sha": "42bdb09921699c8f8a82a2dfb3099e5a58f0495fc5ca986a32d858bf9bdbcdc2",
+   "revisions": [
+    {
+     "revision": 1,
+     "content_sha": "42bdb09921699c8f8a82a2dfb3099e5a58f0495fc5ca986a32d858bf9bdbcdc2",
+     "at": "2026-10-09T04:41:58Z"
+    }
+   ],
+   "present": true,
+   "literature": [
+    "D-0007",
+    "D-0008"
+   ]
+  }
+ ]
+}

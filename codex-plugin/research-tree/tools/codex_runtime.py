@@ -39,6 +39,8 @@ HELP = {
     "lens": {"lens": "configured discovery lens or variant/combination/competing/repair",
              "task": "candidate-generation task with read-only source paths; full discovery, planning only"},
     "agents": {}, "inbox": {}, "acknowledge": {"ids": ["event-id"]},
+    "commit": {"paths": ["files inside your node's worktree, relative to it"], "message": "commit message",
+               "node_id": "optional when you have one branch"},
     "chat": {}, "ui_path": {}, "attach": {"session_id": "main Codex session UUID",
                                           "model": "optional; must equal the model the hook observed for the session"},
 }
@@ -375,9 +377,40 @@ class Runtime:
                            else "interrupted"})
         return result
 
+    def commit(self, params):
+        """A worker's commit in its own node worktree. Codex's workspace-write sandbox keeps a repository's .git
+        directory read-only, and a worktree's index lives in the main checkout's .git/worktrees/, so the worker cannot
+        commit itself; this server (outside the sandbox) does it for exactly that worktree and those files."""
+        import subprocess as sp
+        paths, message = params.get("paths"), params.get("message")
+        if not (isinstance(paths, list) and paths and all(isinstance(x, str) and x for x in paths)) \
+                or not isinstance(message, str) or not message.strip():
+            raise ValueError("commit needs paths (files in your node's worktree) and a message")
+        agent = self.actor.split("/", 1)[1] if "/" in self.actor else self.actor
+        branches = [b for b in self.db().find("branch") if b.get("worktree_path")
+                    and (self.actor == "rld/main" or b.get("owner") == agent)
+                    and (not params.get("node_id") or b.get("hypothesis_id") == params["node_id"])]
+        if len(branches) != 1:
+            raise ValueError(f"commit names one node worktree of yours (node_id); found {len(branches)}")
+        tree_dir = Path(branches[0]["worktree_path"]).resolve()
+        for rel in paths:
+            target = (tree_dir / rel).resolve()
+            if Path(rel).is_absolute() or not target.is_relative_to(tree_dir) or ".git" in Path(rel).parts:
+                raise ValueError(f"{rel} is not a file inside {tree_dir}")
+        added = sp.run(["git", "-C", str(tree_dir), "add", "--", *paths], capture_output=True, text=True)
+        if added.returncode != 0:
+            raise ValueError(f"git add: {added.stderr.strip()[:300]}")
+        done = sp.run(["git", "-C", str(tree_dir), "commit", "-m", message, "--", *paths], capture_output=True, text=True)
+        if done.returncode != 0:
+            raise ValueError(f"git commit: {(done.stdout + done.stderr).strip()[:300]}")
+        sha = sp.run(["git", "-C", str(tree_dir), "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+        return {"commit": sha, "worktree": str(tree_dir), "paths": paths}
+
     def control(self, action, params):
         if action == "help":
             return HELP
+        if action == "commit":
+            return self.commit(params)
         if action == "init":
             self.require_rld()
             marker = tree.init(self.cwd, self.cwd / (params.get("plan") or "plan.md"), params.get("project_id"),

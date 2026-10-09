@@ -663,3 +663,42 @@ class PrepareEntryTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class WorkerCommitTest(unittest.TestCase):
+    """S1 real scenario (Codex a02): the sandbox keeps .git read-only, so a worker commits through the server, only
+    in its own node worktree and only the files it names."""
+
+    def test_commit_in_own_worktree_only(self):
+        with tempfile.TemporaryDirectory() as d:
+            repo = Path(d) / "code"
+            repo.mkdir()
+            git = lambda *a: subprocess.run(["git", "-C", str(repo), "-c", "user.email=t@t", "-c", "user.name=t", *a],  # noqa: E731
+                                             check=True, capture_output=True)
+            git("init", "-q", "-b", "main")
+            (repo / "a.txt").write_text("a")
+            git("add", ".")
+            git("commit", "-qm", "init")
+            wt = Path(d) / "wt"
+            git("worktree", "add", "-q", "-b", "node", str(wt))
+            (wt / "zebra").mkdir()
+            (wt / "zebra" / "m1.json").write_text("{}")
+
+            class Fake:
+                actor = "worker/h1"
+
+                def db(self):
+                    class DB:
+                        def find(self, table):
+                            return [{"worktree_path": str(wt), "owner": "h1", "hypothesis_id": "H-0001"},
+                                    {"worktree_path": str(Path(d) / "other"), "owner": "h2", "hypothesis_id": "H-0002"}]
+                    return DB()
+            env = {"GIT_AUTHOR_NAME": "t", "GIT_AUTHOR_EMAIL": "t@t", "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"}
+            with patch.dict(os.environ, env):
+                out = Runtime.commit(Fake(), {"paths": ["zebra/m1.json"], "message": "zebra config"})
+                self.assertEqual(out["worktree"], str(wt.resolve()))
+                for bad in (["../code/a.txt"], ["/etc/passwd"], [".git/config"]):
+                    with self.subTest(bad=bad), self.assertRaisesRegex(ValueError, "not a file inside"):
+                        Runtime.commit(Fake(), {"paths": bad, "message": "x"})
+            log = subprocess.run(["git", "-C", str(wt), "log", "--oneline", "-1"], capture_output=True, text=True).stdout
+            self.assertIn("zebra config", log)

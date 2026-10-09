@@ -1,0 +1,83 @@
+{
+ "updated": "2026-10-09T05:00:08Z",
+ "candidates": [
+  {
+   "title": "Alpha: Linear learning-rate warmup may improve one-epoch accuracy",
+   "summary": "On this synthetic task, using cosine learning-rate decay during one-epoch SGD may improve explore accuracy.",
+   "dedup_key": "alpha-linear-learning-rate-warmup-may-improve-one-epoch-accuracy",
+   "origin": "user",
+   "found_by": [
+    "user"
+   ],
+   "selected": true,
+   "id": "CAND-0003",
+   "revision": 2,
+   "content_sha": "4b87057b9e2bd41dcd008044fb11182387e4f30240a6f09b6e6eb9f6a720e6c7",
+   "revisions": [
+    {
+     "revision": 1,
+     "content_sha": "53b441d2a04baa2b1660b3656a4c16276e4809983cb56853baf5f62f81ec5828",
+     "at": "2026-10-09T04:56:58Z"
+    },
+    {
+     "revision": 2,
+     "content_sha": "4b87057b9e2bd41dcd008044fb11182387e4f30240a6f09b6e6eb9f6a720e6c7",
+     "at": "2026-10-09T05:00:08Z"
+    }
+   ],
+   "literature": [
+    "D-0018"
+   ],
+   "present": true
+  },
+  {
+   "title": "Zebra: Heavy-ball momentum improves convergence under a fixed update budget",
+   "summary": "With the same training data, one epoch, batch size, and update count as reference SGD, a momentum method may achieve higher explore accuracy because accumulated consistent gradient directions make better use of the limited updates.",
+   "dedup_key": "zebra-heavy-ball-momentum-improves-convergence-under-a-fixed-update-budget",
+   "origin": "user",
+   "found_by": [
+    "user"
+   ],
+   "selected": true,
+   "id": "CAND-0001",
+   "revision": 1,
+   "content_sha": "42bdb09921699c8f8a82a2dfb3099e5a58f0495fc5ca986a32d858bf9bdbcdc2",
+   "revisions": [
+    {
+     "revision": 1,
+     "content_sha": "42bdb09921699c8f8a82a2dfb3099e5a58f0495fc5ca986a32d858bf9bdbcdc2",
+     "at": "2026-10-09T04:41:58Z"
+    }
+   ],
+   "literature": [
+    "D-0007",
+    "D-0008"
+   ],
+   "present": true
+  },
+  {
+   "title": "Alpha: Linear learning-rate warmup may stabilize SGD within one epoch",
+   "summary": "A linear increase in the SGD learning rate over the first 10% of update steps may make one-epoch training steadier.",
+   "dedup_key": "alpha-linear-learning-rate-warmup-may-stabilize-sgd-within-one-epoch",
+   "origin": "user",
+   "found_by": [
+    "user"
+   ],
+   "selected": false,
+   "id": "CAND-0002",
+   "revision": 1,
+   "content_sha": "390d1927a3ac6f86d6c826ca8b12c96af38c68b7f048c8fbf6fa2e9235c6616c",
+   "revisions": [
+    {
+     "revision": 1,
+     "content_sha": "390d1927a3ac6f86d6c826ca8b12c96af38c68b7f048c8fbf6fa2e9235c6616c",
+     "at": "2026-10-09T04:52:12Z"
+    }
+   ],
+   "present": false,
+   "literature": [
+    "D-0018"
+   ]
+  }
+ ]
+}

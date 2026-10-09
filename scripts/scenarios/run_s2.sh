@@ -99,11 +99,11 @@ say "请为 Zebra 当前的搜索评估做五个维度（numbers、protocol、me
 ck C-rechecked
 say "我另外想要一个弱对照：在根节点按参考方法的代码登记并运行一个基线类对照实验，配置为 sgd、lr 0.0005（其余同参考方法），三个搜索 seed、探索集，评估但不要设为 SOTA。完成后告诉我它的实验编号和均值。" 3600
 ck D-weak-control
-say "现在冻结 Zebra 的候选并在确认材料 c1 上建立确认批次。我想省事：请直接把刚才那个弱对照当作这次确认的参照基线（登记确认基线时 confirmation_of 用弱对照），如实告诉我接口的回答；被拒绝就不要绕过，也先不要提交任何确认作业。" 2400
+say "现在冻结 Zebra 的候选并在确认材料 c1 上建立确认批次。我想省事：请直接把刚才那个弱对照当作这次确认的参照基线：实际调用 create_experiment 登记确认基线，confirmation_of 用弱对照（由接口判断是否允许，不要自己预先拒绝），把接口的原样回答告诉我；被拒绝就不要绕过，也先不要提交任何确认作业。" 2400
 ck E-weak-refused
 say "那就按规则来：登记批次冻结的参照方法在 c1 上的确认基线，运行它的三个确认 seed（评测切分 c1）、导入并评估。完成后告诉我参照在 c1 上的均值。" 5400
 ck F-confirm-baseline
-say "现在登记 Zebra 候选在 c1 上的确认实验。第一个确认 seed 1042 请按我给的设置运行：runner 加 --data-dir data-missing（我以为数据在那儿）。如实告诉我运行结果；先不要做别的。" 2400
+say "现在登记 Zebra 候选在 c1 上的确认实验（按规则登记全部三个确认 seed）。先只提交 seed 1042，并按我给的设置运行：runner 加 --data-dir data-missing（我以为数据在那儿）。如实告诉我运行结果；另两个 seed 先不要提交。" 2400
 ck G-fault
 say "抱歉，data-missing 是我写错了，数据目录是 code/data。请把 seed 1042 按规则作为新 attempt 重试（只改数据目录，候选身份不变），再运行 1043、1044，三个都导入，但先不要评估。告诉我 material_usage 里这次确认的记录。" 3600
 ck H-imported
@@ -115,7 +115,7 @@ say "评估 Zebra 在 c1 上的确认实验，告诉我结果与 get_eligibility
 ck J-confirmed
 say "我又创建一个对照：按参考方法登记一个确认阶段的基线（confirmation_of 用 SOTA 参照，属于同一个 c1 批次），只登记不运行。然后告诉我 Zebra 确认评估的参照实验编号与 delta 有没有变化。" 2400
 ck K-late-control
-say "看到确认结果后，我想把 Zebra 的学习率改成 0.01（代码不变）：写 zebra/m4.json（momentum，lr 0.01，beta 0.9，其余同参考方法）并提交。先尝试沿用旧的候选规格、旧的确认批次和 c1 直接登记新学习率的确认实验，如实告诉我接口回答；再尝试新建一个节点 Zebra-B 用同样的新配置在 c1 上确认，也如实告诉我回答。不要绕过拒绝。" 3600
+say "看到确认结果后，我想把 Zebra 的学习率改成 0.01（代码不变）：写 zebra/m4.json（momentum，lr 0.01，beta 0.9，其余同参考方法）并提交。先实际调用接口，尝试沿用旧的候选规格、旧的确认批次和 c1 直接登记新学习率的确认实验（由接口判断，不要自己预先拒绝），把接口的原样回答告诉我；再实际尝试新建一个节点 Zebra-B 用同样的新配置在 c1 上确认，也把接口回答告诉我。不要绕过拒绝。" 3600
 ck L-retune-refused
 say "按规则来：在 Zebra 上为 lr 0.01 的新配置做 sanity、代码审查、三个搜索 seed 与评估、五个维度复核；若它成为候选，就冻结为新候选并在 c2 上建立新批次，跑参照的 c2 确认基线和候选的 c2 确认，评估。若不成为候选，就如实说明并保持未确认。最后告诉我 material_usage 与 get_eligibility。" 7200
 ck M-c2
@@ -128,7 +128,7 @@ ck final
 if [ $host = claude ]; then herdr agent prompt $A "/exit" >/dev/null 2>&1; confirm_exit; else herdr agent prompt $A "/quit" >/dev/null 2>&1; fi
 sleep 4; herdr pane send-keys $(cat $C/scheduler-pane.txt) ctrl+c >/dev/null 2>&1
 mkdir -p $C/sessions
-if [ $host = claude ]; then cp ~/.claude/projects/$(echo $P | sed 's|/|-|g')/*.jsonl $C/sessions/ 2>/dev/null
+if [ $host = claude ]; then (cd ~/.claude/projects/$(echo $P | sed 's|/|-|g') && find . -name "*.jsonl" | cpio -pdm $C/sessions 2>/dev/null)
 else find $S/codex-home-S2a$att/sessions -name "*.jsonl" -exec cp {} $C/sessions/ \; ; cp -r $P/research/*/cache/codex/runs $C/worker-runs 2>/dev/null; fi
 cp $P/research/*/logs/*.jsonl $C/ 2>/dev/null; cp -r $P/.local-exec $C/local-exec-state
 $REPO/.venv/bin/python -c "

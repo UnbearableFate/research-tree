@@ -71,6 +71,15 @@ class S2Test(ConfirmationTest):
                          (before["confirmation_evaluation_id"], "confirmed"))
         self.assertEqual(self.rld.get(conf)["baseline_experiment_id"], base)
 
+    def test_a_confirmation_preview_names_its_own_baseline(self):  # S2 real scenario (Claude a01)
+        base = self.confirm_baseline()
+        conf = self.confirm(self.h, self.exp)
+        self.finish_runs(self.worker, conf, effect=(base, (0.3, 0.1, 0.1)))
+        same = self.rld.preview_evaluation(conf, baseline_experiment_id=base)  # naming its own baseline is fine
+        self.assertEqual(same["references"]["sota"], base)
+        with self.assertRaisesRegex(ResearchDBError, "is a confirmation: it is compared with its batch's fixed baseline"):
+            self.rld.preview_evaluation(conf, baseline_experiment_id=self.sota)
+
     def test_reg_s2_02_a_retuned_method_on_the_same_material_is_refused(self):
         self.confirmed()
         with self.assertRaisesRegex(ResearchDBError, "CANDIDATE_IDENTITY_MISMATCH"):

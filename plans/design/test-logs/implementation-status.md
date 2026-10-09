@@ -139,3 +139,13 @@ Fable 5.1 补充 usage credits。期间继续不依赖评审的实现、REG 与�
   门因待补证阻塞——按 verdict 处理，记录的 Z4 判据改为只看“缺回执”。控制器缺陷：会话退出时 Claude Code 因后台任务弹出确认框，
   `/exit` 未生效、重启的会话没有启动；操作者确认对话框并以相同命令手工完成余下步骤（commands.jsonl 有记录）。所有控制器已加
   `confirm_exit`。
+- Codex a02（合并后构建）：SC-COMMON-01、SC-S1-01 PASS（gpt-6-luna medium）。SC-S1-02/03 FAIL：Codex 的 workspace-write
+  沙箱让仓库 .git 只读，worktree 的索引在 code/.git/worktrees/ 下，worker 无法提交方法配置，实验没有登记。修复：
+  `research_control commit`（插件服务端在沙箱外为 worker 提交它自己节点 worktree 中点名的文件），含回归测试。Codex 周额度剩 11%。
+
+## S2 真实场景记录
+
+- Claude a01：SC-COMMON-01 PASS。发现：①控制器让 seed 1042 单独登记（确认实验须一次登记全部三个确认 seed），agent 停下询问，
+  注入的数据目录故障没有发生；②弱对照与改学习率两步没有要求实际调用接口，agent 自行判断拒绝，没有接口拒绝的证据；③产品缺陷：
+  确认实验的 preview/evaluate 在显式写出它自己的固定参照时被拒（提示指向 SOTA），agent 因此没有完成确认评估——已修复并加回归测试。
+  另：控制器只复制了主会话原文，worker 子代理的原文（`<session>/subagents/`）也要收集——已修复，记录脚本读取嵌套文件。

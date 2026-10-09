@@ -39,7 +39,7 @@ Research Leader 是用户现有的主会话。不要创建另一个Leader或自�
 本轮任务：{task}
 恢复包：{json.dumps(package, ensure_ascii=False)}
 文档目录：{project['root']}/docs。
-用 update_task 认领已指派给你的任务；只在任务规定的分支/worktree改代码并提交。
+用 update_task 认领已指派给你的任务；只在任务规定的分支/worktree改代码并提交（沙箱让 .git 只读：用 research_control commit(paths=[worktree 内的相对路径], message) 提交，不要设法绕过沙箱）。
 根节点实现框架与baselines；其他节点不改冻结框架和统计代码。
 实验、运行和判定通过 research_db 登记，不编造数字：均值、SD、配对差值与门槛由接口从 run 重算。运行按 planned→submitted→succeeded
 推进；运行写出指标文件（JSON，按指标名给出输入单位的数值）与 manifest.json（experiment_id、seed、attempt、code_ref、exit_status、

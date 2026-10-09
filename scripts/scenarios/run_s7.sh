@@ -107,7 +107,7 @@ ck final
 if [ $host = claude ]; then herdr agent prompt $A "/exit" >/dev/null 2>&1; confirm_exit; else herdr agent prompt $A "/quit" >/dev/null 2>&1; fi
 sleep 4; herdr pane send-keys $(cat $C/scheduler-pane.txt) ctrl+c >/dev/null 2>&1
 mkdir -p $C/sessions
-if [ $host = claude ]; then cp ~/.claude/projects/$(echo $P | sed 's|/|-|g')/*.jsonl $C/sessions/ 2>/dev/null
+if [ $host = claude ]; then (cd ~/.claude/projects/$(echo $P | sed 's|/|-|g') && find . -name "*.jsonl" | cpio -pdm $C/sessions 2>/dev/null)
 else find $S/codex-home-S7a$att/sessions -name "*.jsonl" -exec cp {} $C/sessions/ \; ; cp -r $P/research/*/cache/codex/runs $C/worker-runs 2>/dev/null; fi
 cp $P/research/*/logs/*.jsonl $C/ 2>/dev/null; cp -r $P/.local-exec $C/local-exec-state
 $REPO/.venv/bin/python -c "
