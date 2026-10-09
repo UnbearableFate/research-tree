@@ -2062,8 +2062,10 @@ class BudgetTest(Fixture):
         _, refs2 = self.planned(1)
         with self.assertRaisesRegex(ResearchDBError, "BUDGET_EXCEEDED: .*search budget"):
             self.worker.reserve_submission("k2", refs2, {"nodes": 1, "walltime_s": 200})
-        self.worker.reserve_submission("k2", refs2, {"nodes": 1, "walltime_s": 200, "budget_pool": "confirmation"})
-        self.assertEqual(self.rld.budget_status()["available"]["confirmation"], 3400)
+        # S6 §10.1: a search run cannot be moved into the confirmation pool by asking; nothing is reserved
+        with self.assertRaisesRegex(ResearchDBError, "BUDGET_POOL_MISMATCH: the runs' experiments draw on the search"):
+            self.worker.reserve_submission("k2", refs2, {"nodes": 1, "walltime_s": 200, "budget_pool": "confirmation"})
+        self.assertEqual(self.rld.budget_status()["available"]["confirmation"], 3600)
 
     def test_caps_are_raised_only_by_the_user(self):
         self.rld.update_project(total_limit=12000)  # lowering a cap is allowed

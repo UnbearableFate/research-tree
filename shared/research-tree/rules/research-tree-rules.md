@@ -31,7 +31,7 @@
 
 ## 2. 项目配置与模型
 
-`research-tree.yaml` 规定开发与实验在哪里、怎么运行，资源上限与预算，阶段1门槛，以及UI与worker子代理的模型和effort。立项确认时登记为生效版本；之后只由用户修改，经 `/research-tree config apply` 登记为新版本并通知Leader（插件拒绝agent写这个文件）。需要变更时，Leader向用户说明理由和影响，由用户决定。资源上限、并发worker数和累计用量提醒由接口执行，被拒绝时按第6节“预算与其他上报”处理。
+`research-tree.yaml` 规定开发与实验在哪里、怎么运行，资源上限与预算，阶段1门槛，以及UI与worker子代理的模型和effort。立项确认时登记为生效版本；之后只由用户修改，经 `/research-tree config apply` 登记为新版本并通知Leader（插件拒绝agent写这个文件）。需要变更时，Leader向用户说明理由和影响，由用户决定。资源上限、并发worker数和累计用量提醒由接口执行，被拒绝时按第6节“预算与其他上报”处理。预算分池由已批准的实验决定（S6）：普通搜索与复制用 search，冻结批次的确认用 confirmation，repair 只由 Leader 依据实际失败的 attempt 或 OPEN obligation 分配（`create_experiment(budget_pool="repair", repair_basis=…)`）；预留时 `budget_pool` 只是核对，与实验不符即 `BUDGET_POOL_MISMATCH`，一次预留只含一个池的 run。同一 submission_key 只对应一个完整请求（run、节点数 × walltime、池、平台）：1×60 与 2×30 不是同一请求，改形状、池或平台须换 key 前先对账原请求（`SUBMISSION_AMBIGUOUS`）。旧的错池记录用 `migrate_budget` 更正分池视图（原账保留，不释放在途预留；更正后超额的池拒绝新准入）。
 
 Leader是主会话，其模型由用户启动宿主CLI时选择；建议使用能力最强的模型和较高的effort。配置中的模型名不保证在当前账户可用。子代理的模型分三层看待：
 

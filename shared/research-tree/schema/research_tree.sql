@@ -190,6 +190,7 @@ CREATE TABLE experiment (
     estimated_node_h    REAL,                  -- 登记时的成本预估（全部 seed 的 node·h）；新实验必填
     milestone           TEXT CHECK (milestone IN ('M0', 'M1', 'M2', 'M3', 'M4')),  -- 03 §6 里程碑
     budget_pool         TEXT CHECK (budget_pool IN ('search', 'confirmation', 'repair')),  -- 预留计入的分项
+    repair_basis        TEXT,                  -- repair 池的依据（S6）：RLD 分配时引用的 OPEN obligation 或失败的 run attempt
     selection_rationale TEXT,                  -- 为什么现在做、结果怎样改变下一步（同一 claim 多轮不确定后必填）
     result_doc_id       TEXT,                  -- 统计结果文档（冻结统计代码的输出与解读）
     code_ref            TEXT NOT NULL,         -- 运行的 git commit；打标签 exp/<实验ID>，分支删除后仍可追溯
@@ -368,6 +369,9 @@ CREATE TABLE reservation (
     claim_generation    INTEGER NOT NULL DEFAULT 0,  -- 领取次数；只有最新一次领取的执行者能写回作业
     job_id              TEXT,
     platform_profile    TEXT,
+    request_nodes       INTEGER,               -- 申请的节点数（S6：请求身份的一部分；1×60 与 2×30 不是同一请求）
+    request_walltime_s  INTEGER,               -- 申请的 walltime 上限
+    pool_correction     JSON,                  -- 迁移发现的分池更正 {from, to, reason, at}；原账保留，视图按更正后的池
     accounting_ref      TEXT,                  -- 结算依据（调度器用量文件），相对研究根目录
     accounting_sha256   TEXT,
     overrun             BOOLEAN,               -- 实际用量超过预留或剩余预算

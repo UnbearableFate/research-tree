@@ -16,7 +16,7 @@ import score  # noqa: E402
 class ScoreTest(unittest.TestCase):
     def test_false_go_found_and_premature_elimination(self):
         truth = {"scenario": "combination", "best": ["clip", "ema"]}
-        base = {"valid_runs": 12, "node_seconds": 7200, "extra_attempts": 1, "user_instructions": 3,
+        base = {"valid_runs": 12, "node_seconds": 7200, "user_instructions": 3,
                 "review_cost_usd": 0.4}
         wrong = score.score({**base, "status": "go", "go_knobs": ["clip"],
                              "tested": [{"knobs": ["clip"], "node_retired": False},

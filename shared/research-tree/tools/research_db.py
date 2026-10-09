@@ -59,7 +59,7 @@ SPEC_PATH = Path(__file__).resolve().parent.parent / "schema" / "research_tree.s
 CLEANUP_SCRIPT = "research-tree-cleanup.py"
 CLEANUP_TEMPLATE = Path(__file__).resolve().parent.parent / "schema" / "cleanup.template.py"
 # The database layout this interface writes (schema/create_db.py SCHEMA_VERSION; a test keeps them equal).
-SCHEMA_VERSION = 19
+SCHEMA_VERSION = 20
 OPEN_ATTEMPTS = 40
 OPEN_RETRY_DELAY_S = 0.25
 
@@ -284,7 +284,7 @@ OPTIONAL_PARAMS = {
                        "harness_paths", "sota_experiment_id") + GATE_FIELDS + LIMIT_FIELDS + EVIDENCE_DOC_FIELDS,
     "update_hypothesis": ("title", "statement", "doc_id", "owner"),
     "create_experiment": ("config_path", "owner", "keep", "keep_reason", "stage", "selection_rationale",
-                          "estimated_node_h", "milestone", "budget_pool", "ablation_of", "source_review_id",
+                          "estimated_node_h", "milestone", "budget_pool", "repair_basis", "ablation_of", "source_review_id",
                           "candidate_spec_id", "confirmation_batch_id", "baseline_experiment_id", "confirmation_of"),
     "update_run": REPORTED_FIELDS + ("attempt",) + RUN_MEASUREMENTS,
     "update_document": ("title", "summary"),
@@ -1816,10 +1816,23 @@ class ResearchDB:
             project = self._project(tx)
             same = tx.ids("reservation", "WHERE n.submission_key = $k", k=submission_key)
             if same:
+                # S6 §10.1: the same key is the same request only when everything about it is the same — the
+                # runs, the shape (1 x 60 is not 2 x 30), the pool and the platform; the reservation stays as it was
                 r = tx.get(same[0])
-                if r["run_attempt_refs"] != refs or r["reserved_units"] != nodes * walltime:
-                    raise CodedError("SUBMISSION_AMBIGUOUS", f"{submission_key} already reserves {r['run_attempt_refs']} "
-                                                             f"({r['reserved_units']} node-s); one key, one submission")
+                mine = {"refs": refs, "nodes": nodes, "walltime_s": walltime,
+                        "pool": resource_request.get("budget_pool") or r["budget_pool"],
+                        "platform_profile": resource_request.get("platform_profile")}
+                theirs = {"refs": r["run_attempt_refs"], "nodes": r.get("request_nodes"),
+                          "walltime_s": r.get("request_walltime_s"), "pool": r["budget_pool"],
+                          "platform_profile": r.get("platform_profile")}
+                if r.get("request_nodes") is None:
+                    raise CodedError("SUBMISSION_AMBIGUOUS", f"{submission_key} was reserved before request shapes were "
+                                                             "recorded; its shape is not reconstructed from node-seconds: "
+                                                             "reconcile it by its key (claim_submission, attach_job)")
+                if mine != theirs:
+                    differ = sorted(k for k in mine if mine[k] != theirs[k])
+                    raise CodedError("SUBMISSION_AMBIGUOUS", f"{submission_key} already reserves {theirs}; this request "
+                                                             f"differs in {differ}: one key, one submission")
                 return self._reservation_view(r, created=False)
             self._require_active(project)
             if project.get("admission_paused"):
@@ -1841,7 +1854,7 @@ class ResearchDB:
                                                              "submitted already; reconcile, do not reserve again")
                 if run.get("submission_key"):
                     raise CodedError("SUBMISSION_AMBIGUOUS", f"{run_id}@{attempt} is under {run['submission_key']}")
-                pools.add(exp.get("budget_pool") or ("confirmation" if exp.get("stage") == "confirm" else "search"))
+                pools.add(self._experiment_pool(exp))
                 self._check_ready(tx, project, exp)
             requested = [tx.get(tx.get(ref.rpartition("@")[0])["experiment_id"]) for ref in refs]
             need_nodes = max(e["nodes"] for e in requested)
@@ -1850,9 +1863,14 @@ class ResearchDB:
                 raise CodedError("BUDGET_EXCEEDED", f"the request ({nodes} nodes x {walltime} s) is smaller than the "
                                                     f"runs' registered requests ({need_nodes} nodes, {need_units} "
                                                     "node-s in all): reserve what the scheduler will be asked for")
-            pool = resource_request.get("budget_pool") or (pools.pop() if len(pools) == 1 else None)
-            if pool is None or pool not in BUDGET_POOLS:
-                raise ResearchDBError(f"budget_pool is one of {BUDGET_POOLS}; the runs' experiments name {sorted(pools)}")
+            if len(pools) != 1:
+                raise CodedError("BUDGET_POOL_MISMATCH", f"one allocation draws on one pool; these runs belong to "
+                                                         f"{sorted(pools)}: reserve them separately")
+            pool = pools.pop()
+            asked = resource_request.get("budget_pool")
+            if asked is not None and asked != pool:  # only an assertion: the pool is the experiments'
+                raise CodedError("BUDGET_POOL_MISMATCH", f"the runs' experiments draw on the {pool} pool, not {asked}; "
+                                                         "a pool is assigned when the experiment is approved")
             units = nodes * walltime
             self._check_budget(tx, project, pool, units)
             if pool == "search":
@@ -1862,10 +1880,55 @@ class ResearchDB:
                 "id": res_id, "project_id": project["id"], "submission_key": submission_key,
                 "run_attempt_refs": refs, "budget_pool": pool, "resource_class": "node", "reserved_units": units,
                 "accounting_status": "reserved", "submission_phase": "intent", "claim_generation": 0,
-                "platform_profile": resource_request.get("platform_profile")})
+                "platform_profile": resource_request.get("platform_profile"), "request_nodes": nodes,
+                "request_walltime_s": walltime})
             for ref in refs:
                 tx.set(ref.rpartition("@")[0], {"submission_key": submission_key})
             return self._reservation_view(tx.get(res_id), created=True)
+
+    @staticmethod
+    def _reservation_pool(r: dict) -> str:
+        """The pool a reservation counts in: a migration's correction when there is one (the original stays)."""
+        return (r.get("pool_correction") or {}).get("to") or r["budget_pool"]
+
+    def migrate_budget(self, dry_run: bool = True) -> dict:
+        """S6 §10.4: reservations whose pool is not the one their experiments draw on. The original record stays;
+        a pool_correction moves it in the per-pool view (the total spent is unchanged, nothing is released: an
+        in-flight or unknown reservation stays held and is reconciled by its key). A reservation over several pools
+        is reported, not split by guesswork. Pools over their limit after the correction are reported; new
+        admission to them is refused by the ordinary budget check. Idempotent. rld only."""
+        self._require_role("rld")
+        report = {"corrected": [], "mixed": [], "over_limit": {}}
+        with self.reader() as tx:
+            plan = []
+            for r in (tx.get(i) for i in tx.ids("reservation")):
+                exps = [tx.get(tx.get(ref.rpartition("@")[0])["experiment_id"]) for ref in r["run_attempt_refs"]
+                        if tx.get(ref.rpartition("@")[0])]
+                pools = {self._experiment_pool(e) for e in exps}
+                if len(pools) > 1:
+                    report["mixed"].append(r["id"])
+                elif pools and pools != {self._reservation_pool(r)}:
+                    plan.append((r["id"], r["budget_pool"], pools.pop()))
+                    report["corrected"].append(r["id"])
+        if not dry_run:
+            with self._writer() as tx:
+                for res_id, old, new in plan:
+                    if (tx.get(res_id).get("pool_correction") or {}).get("to") != new:
+                        self._update(tx, res_id, {"pool_correction": {
+                            "from": old, "to": new, "at": now_utc(),
+                            "reason": "the runs' experiments draw on this pool (S6 migration)"}})
+        with self.reader() as tx:
+            project = self._project(tx)
+            committed = self._committed(tx)
+            for pool in BUDGET_POOLS:
+                limit = project.get(f"{pool}_limit")
+                if limit is not None and committed[pool] > limit:
+                    report["over_limit"][pool] = {"committed": committed[pool], "limit": limit}
+        return report
+
+    @staticmethod
+    def _experiment_pool(exp: dict) -> str:
+        return exp.get("budget_pool") or ("confirmation" if exp.get("stage") == "confirm" else "search")
 
     def claim_submission(self, submission_key: str, reclaim: bool = False) -> dict:
         """Step 2: one executor takes the intent before submitting; it gets a claim generation that attach_job
@@ -2036,7 +2099,7 @@ class ResearchDB:
         (the rest of the search pool's commitments, usage outside reservations included)."""
         explore = 0
         for r in (tx.get(i) for i in tx.ids("reservation")):
-            if r["budget_pool"] != "search" or r["accounting_status"] == "released":
+            if self._reservation_pool(r) != "search" or r["accounting_status"] == "released":
                 continue
             amount = (r.get("actual_units") or 0) if r["accounting_status"] == "settled" else r["reserved_units"]
             if self._refs_explore(tx, r["run_attempt_refs"]):
@@ -2072,11 +2135,11 @@ class ResearchDB:
                 covered.update(r["run_attempt_refs"])
             amount = (r.get("actual_units") or 0) if r["accounting_status"] == "settled" else (
                 r["reserved_units"] if r["accounting_status"] in ("reserved", "held_unknown") else 0)
-            out[r["budget_pool"]] += amount
+            out[self._reservation_pool(r)] += amount
             out["total"] += amount
         for run in (tx.get(i) for i in tx.ids("run")):
             exp = tx.get(run["experiment_id"])
-            pool = exp.get("budget_pool") or ("confirmation" if exp.get("stage") == "confirm" else "search")
+            pool = self._experiment_pool(exp)
             for n, a in [(run["attempt"], run), *((int(k), v) for k, v in (run.get("attempts") or {}).items())]:
                 if f"{run['id']}@{n}" in covered or not (a.get("nodes_used") and a.get("walltime_used_s")):
                     continue
@@ -2149,6 +2212,18 @@ class ResearchDB:
         stage = optional.pop("stage", None) or "screen"
         if stage not in ("screen", "replicate", "confirm"):
             raise ResearchDBError("stage is screen, replicate or confirm")
+        # S6 §10.1: the pool follows from what was approved: a confirmation of a frozen batch draws on the
+        # confirmation pool, everything else on search; only the Leader assigns repair, on a recorded failure
+        derived = "confirmation" if stage == "confirm" else "search"
+        asked = optional.get("budget_pool")
+        if asked is not None and asked not in BUDGET_POOLS:
+            raise ResearchDBError(f"budget_pool is one of {BUDGET_POOLS}")
+        if asked in ("search", "confirmation") and asked != derived:
+            raise CodedError("BUDGET_POOL_MISMATCH", f"a {stage} experiment draws on the {derived} pool, not {asked}")
+        if asked == "repair" and stage == "confirm":
+            raise CodedError("BUDGET_POOL_MISMATCH", "a confirmation draws on the confirmation pool, not repair")
+        if optional.get("repair_basis") and asked != "repair":
+            raise ResearchDBError("repair_basis belongs to an experiment the Leader assigns to the repair pool")
         confirm_args = {k: optional.pop(k, None) for k in ("candidate_spec_id", "confirmation_batch_id",
                                                            "baseline_experiment_id", "confirmation_of")}
         if stage != "confirm" and any(confirm_args.values()):
@@ -2159,6 +2234,16 @@ class ResearchDB:
         if optional.get("keep") and not (optional.get("keep_reason") or "").strip():
             raise ResearchDBError("keep needs keep_reason: which later experiment uses these outputs")
         with self._writer() as tx:
+            if asked == "repair":  # S6: the Leader's assignment rests on a recorded failure or an open finding
+                basis = optional.get("repair_basis")
+                item = tx.get(str(basis or "").rpartition("@")[0] if "@" in str(basis or "") else str(basis or ""))
+                failed = item is not None and item.get("_table") == "run" and (
+                    (str(item["attempt"]) == str(basis).rpartition("@")[2] and item["exec_status"] in ("failed", "cancelled"))
+                    or ((item.get("attempts") or {}).get(str(basis).rpartition("@")[2]) or {}).get("exec_status") in ("failed", "cancelled"))
+                if not (failed or (item is not None and item.get("_table") == "obligation" and item["status"] == "OPEN")):
+                    raise CodedError("BUDGET_POOL_MISMATCH", "the repair pool is assigned on a recorded failure: "
+                                                             "repair_basis is an OPEN obligation id or a failed run "
+                                                             "attempt (E-…/s…@n)")
             project = self._project(tx)
             self._require_active(project)
             if not project.get("harness_ref") and kind != "sanity":
