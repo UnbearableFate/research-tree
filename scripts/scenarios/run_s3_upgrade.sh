@@ -8,6 +8,13 @@
 # was. The fictional user asks for the plugin's own upgrade and migration path; the controller keeps read-only
 # checkpoints before and after, and after a restart. Panes are closed at the end.
 set -u
+confirm_exit() {  # Claude Code asks before stopping running background tasks: confirm, or the old session stays
+  sleep 4
+  if herdr pane read $pane 2>/dev/null | tail -15 | grep -q "Exit and stop tasks"; then
+    herdr pane send-keys $pane Enter >/dev/null 2>&1
+    echo '{"event":"confirmed the Claude Code exit dialog (background tasks were running)"}' >> $C/commands.jsonl; sleep 3
+  fi
+}
 host=$1; att=$2; pane=$3; spane=$4; OLD=$(readlink -f "$5"); NEW=$(readlink -f "$6")
 R=/home/yu/workspace/rt-scenarios; S=$R/S3; REPO=/home/yu/workspace/research-tree
 mkdir -p $S
@@ -73,12 +80,12 @@ PY
   say "这个研究项目是用旧版 research-tree 插件建立的，插件刚升级。请按插件给出的升级与迁移流程处理：先备份研究目录，升级数据库，然后对旧记录逐项先 dry_run 再正式迁移（包括单位等缺失的元数据），再执行一次确认没有重复变更。告诉我哪些 run 的原始单位恢复了（依据是什么）、哪些仍未验证，以及 Zebra 当前的资格有没有变化。不要改动任何历史结果，也不要重新训练。" 5400
   ck migrated
   echo "{\"event\":\"end session ($variant)\"}" >> $C/commands.jsonl
-  if [ $host = claude ]; then herdr agent prompt $A "/exit" >/dev/null 2>&1; else herdr agent prompt $A "/quit" >/dev/null 2>&1; fi
+  if [ $host = claude ]; then herdr agent prompt $A "/exit" >/dev/null 2>&1; confirm_exit; else herdr agent prompt $A "/quit" >/dev/null 2>&1; fi
   sleep 6; A=${A}r; start_agent
   say "$CMD status" 900
   say "恢复当前工作：先按插件的恢复方式接手，再把单位迁移以 dry_run 方式执行一次，告诉我是否还有待恢复的记录、已恢复的有没有变化。只核对。" 2400
   ck after-restart
-  if [ $host = claude ]; then herdr agent prompt $A "/exit" >/dev/null 2>&1; else herdr agent prompt $A "/quit" >/dev/null 2>&1; fi
+  if [ $host = claude ]; then herdr agent prompt $A "/exit" >/dev/null 2>&1; confirm_exit; else herdr agent prompt $A "/quit" >/dev/null 2>&1; fi
   sleep 4; herdr pane send-keys $spane ctrl+c >/dev/null 2>&1; sleep 1
   herdr pane send-keys $pane ctrl+d >/dev/null 2>&1; herdr pane send-keys $spane ctrl+d >/dev/null 2>&1; sleep 1
   mkdir -p $C/sessions

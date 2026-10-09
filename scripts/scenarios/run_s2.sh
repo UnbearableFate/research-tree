@@ -8,6 +8,13 @@
 # old spec, old batch, c1 and another node refused; a new candidate on c2); SC-COMMON-01 suffix. The controller only
 # types what the fictional user says; after every step it keeps a read-only checkpoint. Panes are closed at the end.
 set -u
+confirm_exit() {  # Claude Code asks before stopping running background tasks: confirm, or the old session stays
+  sleep 4
+  if herdr pane read $pane 2>/dev/null | tail -15 | grep -q "Exit and stop tasks"; then
+    herdr pane send-keys $pane Enter >/dev/null 2>&1
+    echo '{"event":"confirmed the Claude Code exit dialog (background tasks were running)"}' >> $C/commands.jsonl; sleep 3
+  fi
+}
 host=$1; att=$2; pane=$3; spane=$4
 R=/home/yu/workspace/rt-scenarios; S=$R/S2; REPO=/home/yu/workspace/research-tree
 mkdir -p $S
@@ -57,7 +64,7 @@ say() {
   if limit_hit; then
     echo '{"event":"BLOCKED: the host reported its usage limit; the attempt stops here"}' >> $C/commands.jsonl
     echo "[$(date +%T)] BLOCKED: host usage limit"; ck blocked-usage-limit
-    if [ $host = claude ]; then herdr agent prompt $A "/exit" >/dev/null 2>&1; else herdr agent prompt $A "/quit" >/dev/null 2>&1; fi
+    if [ $host = claude ]; then herdr agent prompt $A "/exit" >/dev/null 2>&1; confirm_exit; else herdr agent prompt $A "/quit" >/dev/null 2>&1; fi
     sleep 4; herdr pane send-keys $(cat $C/scheduler-pane.txt) ctrl+c >/dev/null 2>&1
     for p in $(cat $C/pane.txt) $(cat $C/scheduler-pane.txt); do herdr pane close $p >/dev/null 2>&1; done
     exit 3
@@ -77,7 +84,7 @@ PY
 }
 end_session() {
   echo "{\"event\":\"end session ($1)\"}" >> $C/commands.jsonl
-  if [ $host = claude ]; then herdr agent prompt $A "/exit" >/dev/null 2>&1; else herdr agent prompt $A "/quit" >/dev/null 2>&1; fi
+  if [ $host = claude ]; then herdr agent prompt $A "/exit" >/dev/null 2>&1; confirm_exit; else herdr agent prompt $A "/quit" >/dev/null 2>&1; fi
   sleep 6; A=${A}r; start_agent
 }
 echo "[$(date +%T)] prepare"; say "$CMD prepare" 900
@@ -118,7 +125,7 @@ say "恢复当前工作：先按插件的恢复方式接手，再告诉我各候
 ck N-after-restart
 say "$CMD build" 900; say "$CMD check" 900
 ck final
-if [ $host = claude ]; then herdr agent prompt $A "/exit" >/dev/null 2>&1; else herdr agent prompt $A "/quit" >/dev/null 2>&1; fi
+if [ $host = claude ]; then herdr agent prompt $A "/exit" >/dev/null 2>&1; confirm_exit; else herdr agent prompt $A "/quit" >/dev/null 2>&1; fi
 sleep 4; herdr pane send-keys $(cat $C/scheduler-pane.txt) ctrl+c >/dev/null 2>&1
 mkdir -p $C/sessions
 if [ $host = claude ]; then cp ~/.claude/projects/$(echo $P | sed 's|/|-|g')/*.jsonl $C/sessions/ 2>/dev/null

@@ -8,6 +8,13 @@
 # fallback, no self-review; then a real cross-family review); SC-S4-04 (an altered code snapshot gives no method_code
 # pass; the real one does); SC-COMMON-01 suffix. Checkpoints after every step; panes closed, build packed at the end.
 set -u
+confirm_exit() {  # Claude Code asks before stopping running background tasks: confirm, or the old session stays
+  sleep 4
+  if herdr pane read $pane 2>/dev/null | tail -15 | grep -q "Exit and stop tasks"; then
+    herdr pane send-keys $pane Enter >/dev/null 2>&1
+    echo '{"event":"confirmed the Claude Code exit dialog (background tasks were running)"}' >> $C/commands.jsonl; sleep 3
+  fi
+}
 host=$1; att=$2; pane=$3; spane=$4
 R=/home/yu/workspace/rt-scenarios; S=$R/S4; REPO=/home/yu/workspace/research-tree
 mkdir -p $S
@@ -52,7 +59,7 @@ say() {
   if limit_hit; then
     echo '{"event":"BLOCKED: the host reported its usage limit; the attempt stops here"}' >> $C/commands.jsonl
     echo "[$(date +%T)] BLOCKED: host usage limit"; ck blocked-usage-limit
-    if [ $host = claude ]; then herdr agent prompt $A "/exit" >/dev/null 2>&1; else herdr agent prompt $A "/quit" >/dev/null 2>&1; fi
+    if [ $host = claude ]; then herdr agent prompt $A "/exit" >/dev/null 2>&1; confirm_exit; else herdr agent prompt $A "/quit" >/dev/null 2>&1; fi
     sleep 4; herdr pane send-keys $(cat $C/scheduler-pane.txt) ctrl+c >/dev/null 2>&1
     for p in $(cat $C/pane.txt) $(cat $C/scheduler-pane.txt); do herdr pane close $p >/dev/null 2>&1; done
     exit 3
@@ -72,7 +79,7 @@ PY
 }
 end_session() {
   echo "{\"event\":\"end session ($1)\"}" >> $C/commands.jsonl
-  if [ $host = claude ]; then herdr agent prompt $A "/exit" >/dev/null 2>&1; else herdr agent prompt $A "/quit" >/dev/null 2>&1; fi
+  if [ $host = claude ]; then herdr agent prompt $A "/exit" >/dev/null 2>&1; confirm_exit; else herdr agent prompt $A "/quit" >/dev/null 2>&1; fi
   sleep 6; A=${A}r; start_agent
 }
 echo "[$(date +%T)] prepare"; say "$CMD prepare" 900
@@ -108,7 +115,7 @@ echo '{"event":"fictional user restored models.reviewer in research-tree.yaml"}'
 say "我把 reviewer 改回原来的设置了，请让配置生效，暂时不要评审。" 1200
 # the next session starts with the reviewer backend unavailable on its PATH (F-S4-03b)
 echo '{"event":"end session (before the unavailable-backend check)"}' >> $C/commands.jsonl
-if [ $host = claude ]; then herdr agent prompt $A "/exit" >/dev/null 2>&1; shimmed=pi; else herdr agent prompt $A "/quit" >/dev/null 2>&1; shimmed=claude; fi
+if [ $host = claude ]; then herdr agent prompt $A "/exit" >/dev/null 2>&1; confirm_exit; shimmed=pi; else herdr agent prompt $A "/quit" >/dev/null 2>&1; shimmed=claude; fi
 sleep 6
 mkdir -p $C/shim-$shimmed
 printf '#!/bin/sh\necho "%s: not logged in (S4 controller shim)" >&2\nexit 1\n' "$shimmed" > $C/shim-$shimmed/$shimmed; chmod +x $C/shim-$shimmed/$shimmed
@@ -119,7 +126,7 @@ say "$CMD status" 900
 say "请为 Zebra 做一次 theory 维度的跨模型复核，如实告诉我结果；后端不可用时不要换后端，也不要自评。" 2400
 ck I-unavailable
 echo '{"event":"end session (after the unavailable-backend check)"}' >> $C/commands.jsonl
-if [ $host = claude ]; then herdr agent prompt $A "/exit" >/dev/null 2>&1; else herdr agent prompt $A "/quit" >/dev/null 2>&1; fi
+if [ $host = claude ]; then herdr agent prompt $A "/exit" >/dev/null 2>&1; confirm_exit; else herdr agent prompt $A "/quit" >/dev/null 2>&1; fi
 sleep 6
 herdr pane run $pane "export PATH=\$(echo \$PATH | sed 's#$C/shim-$shimmed:##')"; sleep 1
 echo '{"event":"controller restored the PATH for the next session"}' >> $C/commands.jsonl
@@ -141,7 +148,7 @@ say "恢复当前工作：先按插件的恢复方式接手，再告诉我各复
 ck M-after-restart
 say "$CMD build" 900; say "$CMD check" 900
 ck final
-if [ $host = claude ]; then herdr agent prompt $A "/exit" >/dev/null 2>&1; else herdr agent prompt $A "/quit" >/dev/null 2>&1; fi
+if [ $host = claude ]; then herdr agent prompt $A "/exit" >/dev/null 2>&1; confirm_exit; else herdr agent prompt $A "/quit" >/dev/null 2>&1; fi
 sleep 4; herdr pane send-keys $(cat $C/scheduler-pane.txt) ctrl+c >/dev/null 2>&1
 mkdir -p $C/sessions
 if [ $host = claude ]; then cp ~/.claude/projects/$(echo $P | sed 's|/|-|g')/*.jsonl $C/sessions/ 2>/dev/null

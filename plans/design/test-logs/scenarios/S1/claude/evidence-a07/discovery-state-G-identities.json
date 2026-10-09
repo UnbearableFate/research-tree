@@ -1,0 +1,92 @@
+{
+ "mode": "precheck",
+ "executor_model": null,
+ "created": "2026-10-09T03:17:44Z",
+ "gate": {
+  "verdict": "BLOCKED",
+  "reasons": [
+   "CAND-0002: its novelty receipt needs evidence (NEEDS_EVIDENCE): run the requested searches (literature_followup) and review again with them"
+  ],
+  "at": "2026-10-09T03:32:40Z",
+  "report": "docs/project/reports/discovery.v2.md"
+ },
+ "stages": [
+  {
+   "stage": "brief",
+   "status": "done",
+   "artifact": "docs/project/goal.v1.md",
+   "evidence": null,
+   "updated": "2026-10-09T03:17:53Z"
+  },
+  {
+   "stage": "literature",
+   "status": "accepted",
+   "artifact": "docs/project/discovery/literature.md",
+   "evidence": [
+    "cache/discovery/note5.out",
+    "cache/discovery/note6.out",
+    "cache/discovery/verify-1706.02677.out"
+   ],
+   "updated": "2026-10-09T03:25:16Z",
+   "verifier": "literature.py"
+  },
+  {
+   "stage": "candidates",
+   "status": "skipped",
+   "artifact": null,
+   "evidence": null,
+   "updated": "2026-10-09T03:17:44Z"
+  },
+  {
+   "stage": "feasibility",
+   "status": "skipped",
+   "artifact": null,
+   "evidence": null,
+   "updated": "2026-10-09T03:17:44Z"
+  },
+  {
+   "stage": "triage",
+   "status": "skipped",
+   "artifact": null,
+   "evidence": null,
+   "updated": "2026-10-09T03:17:44Z"
+  },
+  {
+   "stage": "novelty",
+   "status": "accepted",
+   "artifact": "docs/project/discovery/novelty-reviews.md",
+   "evidence": [
+    "D-0009",
+    "D-0020"
+   ],
+   "updated": "2026-10-09T03:27:46Z",
+   "verifier": null
+  },
+  {
+   "stage": "critique",
+   "status": "accepted",
+   "artifact": "docs/project/discovery/critical-reviews.md",
+   "evidence": [
+    "D-0010",
+    "D-0021"
+   ],
+   "updated": "2026-10-09T03:27:47Z",
+   "verifier": null
+  },
+  {
+   "stage": "refine",
+   "status": "done",
+   "artifact": "docs/project/discovery/refined-hypotheses.md",
+   "evidence": null,
+   "updated": "2026-10-09T03:27:54Z"
+  },
+  {
+   "stage": "gate",
+   "status": "failed",
+   "artifact": "docs/project/reports/discovery.v2.md",
+   "evidence": null,
+   "updated": "2026-10-09T03:32:40Z"
+  }
+ ],
+ "updated": "2026-10-09T03:32:40Z"
+}

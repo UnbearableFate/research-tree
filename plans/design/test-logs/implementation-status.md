@@ -57,7 +57,7 @@ Fable 5.1 补充 usage credits。期间继续不依赖评审的实现、REG 与�
 | 阶段 | REG与构建 | Claude真实SC | Codex真实SC | 独立终审 | 阶段状态 |
 | --- | --- | --- | --- | --- | --- |
 | S0 | PASS | PASS（a03） | PASS（a07；a04 FAIL 已修复，a05/a06 中止） | BLOCKED（Fable 不可用） | IN_PROGRESS |
-| S1 | PASS（REG-S1-01..06，`test_identity.py`；已并入 `bug-fix-1008`） | a01 FAIL、a02 FAIL/BLOCKED（用量上限），已修复；a03 进行中 | a01 中止（夹具缺陷） | BLOCKED（Fable 不可用） | IN_PROGRESS |
+| S1 | PASS（REG-S1-01..06） | PASS（a07 四个 SC；a04–a06 各有部分 PASS） | 未开始（a01 中止） | BLOCKED（Fable 不可用） | IN_PROGRESS |
 | S2 | PASS（REG-S2-01..08，`test_confirmation.py`；分支 `s2-dev`） | NOT_STARTED | NOT_STARTED | BLOCKED（Fable 不可用） | IN_PROGRESS |
 | S3 | PASS（REG-S3-01..07，`test_units.py`；分支 `s3-dev`） | NOT_STARTED | NOT_STARTED | BLOCKED（Fable 不可用） | IN_PROGRESS |
 | S4 | PASS（REG-S4-01..08，`test_reviews_s4.py` 与 `test_review_call.py`；分支 `s4-dev`） | NOT_STARTED | NOT_STARTED | BLOCKED（Fable 不可用） | IN_PROGRESS |
@@ -134,3 +134,8 @@ Fable 5.1 补充 usage credits。期间继续不依赖评审的实现、REG 与�
   run 被拒导入；①评估 EV-0004；③因 SANITY_REQUIRED 被拒）。SC-S1-02 FAIL（K1–K3）：五维真实复核已做（reviewer 的真实结论
   四维 uncertain/failed、method_code pass，按原样记录），但扩大的主张被接口拒绝——agent 的新假说文档同时改了问题锚点，
   触发防漂移检查（DESIGN_SECTION_MISSING），因此没有新的主张版本。控制器提示改为“问题锚点保持逐字一致”，a07 重测。
+- Claude a07：**SC-COMMON-01、SC-S1-01、SC-S1-02、SC-S1-03 全部 PASS**（扩大主张 → 主张版本 2，method_code/novelty/theory 复核
+  失效、numbers/protocol 与数字不变；收回 → 版本 4，只重做受影响维度；重启后不变）。Alpha 的查新回执为 NEEDS_EVIDENCE（S4），
+  门因待补证阻塞——按 verdict 处理，记录的 Z4 判据改为只看“缺回执”。控制器缺陷：会话退出时 Claude Code 因后台任务弹出确认框，
+  `/exit` 未生效、重启的会话没有启动；操作者确认对话框并以相同命令手工完成余下步骤（commands.jsonl 有记录）。所有控制器已加
+  `confirm_exit`。

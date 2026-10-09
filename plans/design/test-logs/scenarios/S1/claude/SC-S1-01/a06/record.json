@@ -318,7 +318,7 @@
   },
   {
    "id": "Z4",
-   "expected": "Alpha's real novelty and critical reviews of its current revision; the gate then follows the receipts (no receipt reason for Alpha)",
+   "expected": "Alpha's real novelty and critical reviews of its current revision; the gate then follows their verdicts (no missing-receipt reason for Alpha; a verdict such as NEEDS_EVIDENCE may still block)",
    "actual": {
     "new_calls": [
      {

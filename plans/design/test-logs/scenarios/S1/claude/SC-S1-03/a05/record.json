@@ -355,5 +355,7 @@
  },
  "failures": [],
  "fixes_and_retests": [],
- "remaining_gaps": []
+ "remaining_gaps": [
+  "SC-S1-03 I4: the code review of the node's commit was blocking twice because the S1 build gave the reviewer no view of the worktree commit (zebra/ files); S4's read-only snapshot of the reviewed commit closes this; later attempts run on the merged build."
+ ]
 }

@@ -1,0 +1,14 @@
+{
+ "changed": [
+  "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a07/code/zebra/m1.json",
+  "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a07/code/zebra/m2.json"
+ ],
+ "searched": [
+  "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a07/code",
+  "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a07/code"
+ ],
+ "restored": [
+  "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a07/code/zebra/m1.json",
+  "/home/yu/workspace/rt-scenarios/S1/rt-S1-claude-a07/code/zebra/m2.json"
+ ]
+}

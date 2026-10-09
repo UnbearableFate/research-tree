@@ -102,12 +102,12 @@ def make(host: str, attempt: int, status: str, notes: list[str], layout: str, bl
           gate_c.get("verdict") == "BLOCKED" and gate_d.get("verdict") == "BLOCKED"
           and bool(mentions(gate_c, alpha)) and bool(mentions(gate_d, alpha))
           and not mentions(gate_c, zebra) and not mentions(gate_d, zebra)),
-        a("Z4", "Alpha's real novelty and critical reviews of its current revision; the gate then follows the "
-                "receipts (no receipt reason for Alpha)",
+        a("Z4", "Alpha's real novelty and critical reviews of its current revision; the gate then follows their "
+                "verdicts (no missing-receipt reason for Alpha; a verdict such as NEEDS_EVIDENCE may still block)",
           {"new_calls": [{k: c.get(k) for k in ("kind", "review_id", "backend", "observed_model")} for c in new_alpha],
            "gate": gate_e}, ev_file(f"checkpoint-{names['rereviewed']}.json"),
           {"novelty_precheck", "critical_review"} <= {c["kind"] for c in new_alpha}
-          and not [r for r in mentions(gate_e, alpha) if "receipt" in r])]
+          and not [r for r in mentions(gate_e, alpha) if re.search(r"\bno \w+ receipt", r)])]  # a verdict may still block
     if layout == "v2":
         s101.insert(2, a("Z2b", "before its change Alpha had real novelty and critical receipts",
                          sorted(before_change), ev_file(f"checkpoint-{names['alpha_reviewed']}.json"),
