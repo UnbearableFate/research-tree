@@ -151,7 +151,8 @@ def protocol_requirements(config: dict) -> dict:
             "max_confirmation_candidates": v["max_confirmation_candidates"],
             "require_artifact_import": config["evidence_policy"]["require_artifact_import"],
             **({"confirmation_materials": v["confirmation_materials"]} if v.get("confirmation_materials") else {}),
-            **({"independence_fields": v["independence_fields"]} if v.get("independence_fields") else {})}
+            **({"independence_fields": v["independence_fields"]} if v.get("independence_fields") else {}),
+            **({"repetition": v["repetition"]} if v.get("repetition") else {})}
 
 
 def walltime_seconds(value: int | str) -> int:
