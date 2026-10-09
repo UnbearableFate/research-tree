@@ -136,6 +136,7 @@ def train(args: argparse.Namespace) -> dict:
     (out / "predictions.jsonl").write_text("".join(json.dumps(p) + "\n" for p in preds), encoding="utf-8")
     (out / "model.json").write_text(json.dumps({"format": "toyopt-logreg-1", "w": w, "b": b,
                                                 "n_features": data.N_FEATURES}) + "\n", encoding="utf-8")
+    metrics["model_bytes"] = (out / "model.json").stat().st_size  # the saved model's actual size (S3: an auxiliary measurement)
     (out / "metrics.json").write_text(json.dumps(metrics, indent=1) + "\n", encoding="utf-8")
     (out / "curve.csv").write_text("step,loss\n" + "".join(f"{s},{v:.6f}\n" for s, v in curve), encoding="utf-8")
     (out / "curve.json").write_text(json.dumps({"step": [s for s, _ in curve], "loss": [v for _, v in curve]}),
