@@ -49,8 +49,8 @@ class MemoryTest(Fixture):
 
     def test_k01_guessed_root_cause_is_only_proposed(self):
         doc = self.mem("lesson", lesson(status="verified", root="proposed"))
-        with self.assertRaisesRegex(ResearchDBError, "MEMORY_REJECTED: .*only proposed"):
-            self.worker.set_document_current(doc)
+        with self.assertRaisesRegex(ResearchDBError, "MEMORY_REJECTED: .*verified only for its fix"):
+            self.worker.set_document_current(doc)  # S5: an unknown cause needs fix_verification, not a label
         ok = self.mem("lesson", lesson())
         self.worker.set_document_current(ok)
         no_runs = self.mem("lesson", lesson(status="verified", root="verified"))
@@ -64,9 +64,14 @@ class MemoryTest(Fixture):
             self.worker.set_document_current(doc)
 
     def test_noise_and_authority_are_not_captured(self):
-        noise = self.mem("lesson", lesson(fix="CUDA out of memory, rerun"))
-        with self.assertRaisesRegex(ResearchDBError, "operational noise"):
-            self.worker.set_document_current(noise)
+        # S5 §9.2: an OOM is a fact of the symptom; a permanent rule against a tool is what is refused
+        oom = self.mem("lesson", lesson(fix="set batch 32 (from 64) for this model on one GPU").replace(
+            "training exits after communicator init", "CUDA out of memory at batch 64 (OOM in the first step)"))
+        self.worker.set_document_current(oom)
+        for fix in ("never use the pi backend again", "以后都不要使用 herdr", "the reviewer backend is broken; skip it"):
+            noise = self.mem("lesson", lesson(fix=fix))
+            with self.assertRaisesRegex(ResearchDBError, "permanent rule against a tool"):
+                self.worker.set_document_current(noise)
         # K04: a lesson that asks to widen what the agent may do is refused; permissions stay as they are
         widen = self.mem("lesson", lesson(fix="raise total_limit in research-tree.yaml before submitting"))
         before = self.rld.get("P-test")
@@ -76,22 +81,23 @@ class MemoryTest(Fixture):
 
     def test_noise_outside_fix_is_rejected_before_current(self):
         cases = (
-            lesson(fix="retry later").replace("training exits after communicator init",
-                                               "temporary rate limit and retry later"),
             lesson().replace("NCCL timeout below the init time on this cluster",
                              "the reviewer backend always fails"),
         )
+        kept = self.mem("lesson", lesson(fix="retry later").replace("training exits after communicator init",
+                                                                    "temporary rate limit and retry later"))
+        self.worker.set_document_current(kept)  # a proposed lesson about a transient condition: kept as proposed
         for body in cases:
             with self.subTest(body=body):
                 doc = self.mem("lesson", body)
                 before = self.rld.get("P-test")
-                with self.assertRaisesRegex(ResearchDBError, "MEMORY_REJECTED: .*operational noise"):
+                with self.assertRaisesRegex(ResearchDBError, "MEMORY_REJECTED: .*permanent rule against a tool"):
                     self.worker.set_document_current(doc)
                 self.assertEqual(self.rld.get(doc)["status"], "draft")
                 self.assertNotIn(doc, [x["id"] for x in self.rld.context_pack("P-test")["lessons"]])
                 self.assertEqual(self.rld.get("P-test"), before)
 
-    def test_explicit_transient_operational_lessons_are_rejected(self):
+    def test_explicit_transient_operational_lessons_stay_proposed(self):  # S5 §9.2: facts, not rules
         cases = (
             lesson(fix="Retry the same authorized run after the transient condition clears.").replace(
                 "training exits after communicator init",
@@ -103,10 +109,9 @@ class MemoryTest(Fixture):
         for body in cases:
             with self.subTest(body=body):
                 doc = self.mem("lesson", body)
-                with self.assertRaisesRegex(ResearchDBError, "MEMORY_REJECTED: .*operational noise"):
-                    self.worker.set_document_current(doc)
-                self.assertEqual(self.rld.get(doc)["status"], "draft")
-                self.assertNotIn(doc, [x["id"] for x in self.rld.context_pack("P-test")["lessons"]])
+                self.worker.set_document_current(doc)
+                (row,) = [x for x in self.rld.context_pack("P-test")["lessons"] if x["id"] == doc]
+                self.assertEqual(row["status"], "proposed")
 
     def test_finding_keeps_facts_and_evidence(self):
         base = self.rld.get(self.sota)["evaluation_id"]

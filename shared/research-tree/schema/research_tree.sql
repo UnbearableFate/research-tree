@@ -454,6 +454,7 @@ CREATE TABLE document (
     reviewer_provider   TEXT,                  -- review：观测模型的接入渠道（S4 §8.3）
     reviewer_model_id   TEXT,                  -- review：规范化的模型 ID
     reviewer_family     TEXT,                  -- review：模型家族；无法确定时为空（不能满足跨族要求）
+    memory_basis        JSON,                  -- finding/lesson：系统在设为 current 时派生的依据（修复验证的检查结果、来源与适用范围，S5）；只读
     parent_review_id    TEXT,                  -- review：补查后续评审所接续的前轮回执（S4 §8.4）
     evidence_set        JSON,                  -- review：本次实际使用的补查资料集 {path, sha256}
     followup            JSON,                  -- review：为本回执的 requested_queries 执行的补查 {manifest, sha256, queries, at}

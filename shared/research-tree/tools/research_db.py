@@ -59,7 +59,7 @@ SPEC_PATH = Path(__file__).resolve().parent.parent / "schema" / "research_tree.s
 CLEANUP_SCRIPT = "research-tree-cleanup.py"
 CLEANUP_TEMPLATE = Path(__file__).resolve().parent.parent / "schema" / "cleanup.template.py"
 # The database layout this interface writes (schema/create_db.py SCHEMA_VERSION; a test keeps them equal).
-SCHEMA_VERSION = 18
+SCHEMA_VERSION = 19
 OPEN_ATTEMPTS = 40
 OPEN_RETRY_DELAY_S = 0.25
 
@@ -3916,9 +3916,10 @@ class ResearchDB:
             if doc["doc_type"] in ("experiment_result", "report"):
                 self._check_wording(tx, doc)
             if doc["doc_type"] in ("finding", "lesson", "literature"):
-                self._check_memory(tx, doc)
+                basis = self._check_memory(tx, doc)
             digest = sha256_file(self.docs_root / doc["path"])
-            self._update(tx, doc_id, {"status": "current", "sha256": digest})
+            self._update(tx, doc_id, {"status": "current", "sha256": digest,
+                                      **({"memory_basis": basis} if doc["doc_type"] in ("finding", "lesson") and basis else {})})
             return digest
 
     def _check_wording(self, tx: _Tx, doc: dict) -> None:
@@ -3941,8 +3942,9 @@ class ResearchDB:
                                                         "'agreement on the proxy' or a relative improvement only; "
                                                         "write a new version within that limit")
 
-    def _check_memory(self, tx: _Tx, doc: dict) -> None:
-        """08 §1, §4: findings and lessons are validated and screened; literature is scanned for injections."""
+    def _check_memory(self, tx: _Tx, doc: dict) -> dict | None:
+        """08 §1, §4: findings and lessons are validated and screened; literature is scanned for injections. Returns
+        the memory_basis of a finding or lesson (S5): what the system established about it now."""
         text = (self.docs_root / doc["path"]).read_text(encoding="utf-8")
         if doc["doc_type"] == "literature":
             found = threat_scan.scan_for_threats(text, scope="all")
@@ -3963,6 +3965,261 @@ class ResearchDB:
             run = tx.get(run_id)
             if run is None or (int(attempt) != run["attempt"] and str(attempt) not in (run.get("attempts") or {})):
                 raise CodedError("MEMORY_REJECTED", f"{doc['id']}: evidence run {ref} does not exist")
+        if doc["doc_type"] == "finding":
+            return {"kind": "finding", "evidence": self._finding_evidence(tx, data), "derived_at": now_utc()}
+        return {"kind": "lesson", "verification": self._verify_fix(tx, data, doc), "derived_at": now_utc()}
+
+    # -- S5: what a lesson's fix verification and a finding's evidence establish -------------------------------
+
+    def _attempt(self, tx: _Tx, ref: str) -> dict | None:
+        m = memory.RUN_REF_RE.fullmatch(str(ref or ""))
+        if not m:
+            return None
+        run = tx.get(m.group(1))
+        if run is None:
+            return None
+        n = int(m.group(2))
+        attempt = run if run["attempt"] == n else (run.get("attempts") or {}).get(str(n))
+        return None if attempt is None else {**attempt, "id": run["id"], "attempt": n,
+                                             "experiment_id": run["experiment_id"]}
+
+    def _verify_fix(self, tx: _Tx, data: dict, doc: dict | None = None) -> dict:
+        """S5 §9.1: a fix is verified only when the records show the failure, a criterion frozen before the check,
+        verifying attempts that really succeeded and were imported, the fix actually used by them, and every
+        criterion check passing on the runs' own records and artifacts (fixed checkers, CHECK_TYPES). Anything
+        else leaves it unverified, with the reasons. The root cause's status is not touched."""
+        v = data.get("fix_verification")
+        reasons, checks = [], []
+        ignored = sorted(k for k in memory.SELF_REPORTED if k in data or (isinstance(v, dict) and k in v))
+        if not isinstance(v, dict):
+            return {"state": "unverified" if data.get("status") == "verified" else "not_claimed",
+                    "reasons": ["no fix_verification"] if data.get("status") == "verified" else [],
+                    "ignored_self_reports": ignored}
+        failure = self._attempt(tx, v.get("failure_attempt_ref"))
+        if failure is None:
+            reasons.append(f"failure_attempt_ref {v.get('failure_attempt_ref')!r} is not a recorded attempt")
+        elif failure.get("exec_status") not in ("failed", "cancelled") and failure.get("valid") is not False:
+            reasons.append(f"{v['failure_attempt_ref']} did not fail (exec_status {failure.get('exec_status')})")
+        elif not failure.get("log_path"):
+            reasons.append(f"{v['failure_attempt_ref']} has no log of the failure")
+        criterion = tx.get(str(v.get("criterion_doc_id") or ""))
+        spec = None
+        if criterion is None or criterion.get("doc_type") not in ("experiment_design", "task_request") \
+                or criterion.get("status") not in ("current", "superseded"):
+            reasons.append(f"criterion_doc_id {v.get('criterion_doc_id')!r} is not a frozen experiment_design or "
+                           "task_request")
+        else:
+            body = self._section(self._doc_sections(tx, criterion["id"])[0], "检查项") or ""
+            blocks = re.findall(r"```json[ \t]*\n(.*?)```", body, re.S)
+            try:
+                spec = json.loads(blocks[-1]) if blocks else None
+            except json.JSONDecodeError:
+                spec = None
+            if not isinstance(spec, dict) or not isinstance(spec.get("checks"), list) or not spec["checks"]:
+                reasons.append(f"{criterion['id']} has no '## 检查项' JSON block {{\"checks\": [{{id, type, ...}}]}}")
+                spec = None
+        # the same attempt named twice (or imported twice) is one verification, not two
+        runs = [(ref, self._attempt(tx, ref)) for ref in dict.fromkeys(v.get("run_attempt_refs") or [])]
+        for ref, att in runs:
+            if att is None:
+                reasons.append(f"{ref} is not a recorded attempt")
+            elif ref == v.get("failure_attempt_ref"):
+                reasons.append(f"{ref} is the failed attempt itself")
+            elif (att.get("exec_status"), att.get("valid")) != ("succeeded", True) or att.get("retracted_at") \
+                    or not att.get("import_record"):
+                reasons.append(f"{ref} is {att.get('exec_status')}, valid={att.get('valid')}"
+                               f"{', retracted' if att.get('retracted_at') else ''}"
+                               f"{'' if att.get('import_record') else ', not imported'}: not a completed, imported check")
+            elif criterion is not None and criterion.get("created_at") and \
+                    criterion["created_at"] > (att.get("started_at") or (att.get("import_record") or {}).get("imported_at") or ""):
+                reasons.append(f"{criterion['id']} was written after {ref} started: the criterion is frozen first")
+        good = {ref: att for ref, att in runs if att is not None and not any(r.startswith(ref + " ") for r in reasons)}
+        fix = v.get("applied_fix_ref") if isinstance(v.get("applied_fix_ref"), dict) else None
+        if fix is None:
+            reasons.append("applied_fix_ref is {kind: execution_config, field, expected} or {kind: code, commit}")
+        for ref, att in good.items():
+            if fix is None:
+                break
+            ok, why = self._fix_used(tx, att, fix, failure)
+            if not ok:
+                reasons.append(f"{ref}: {why}")
+        evidence = v.get("check_evidence_refs") if isinstance(v.get("check_evidence_refs"), list) else []
+        for check in (spec or {}).get("checks", []):
+            cid = check.get("id") if isinstance(check, dict) else None
+            refs = [e.get("run") for e in evidence if isinstance(e, dict) and e.get("check") == cid]
+            if not refs:
+                reasons.append(f"check {cid}: no check_evidence_refs entry")
+                continue
+            for ref in refs:
+                att = good.get(ref)
+                ok, observed = (False, f"{ref} is not one of the verifying attempts") if att is None \
+                    else self._run_check(att, check)
+                checks.append({"check": cid, "type": check.get("type"), "run": ref, "passed": ok, "observed": observed})
+                if not ok:
+                    reasons.append(f"check {cid} on {ref}: {observed}")
+        if not runs:
+            reasons.append("run_attempt_refs names no verifying attempt")
+        return {"state": "verified" if not reasons else "unverified", "reasons": reasons, "checks": checks,
+                "failure": v.get("failure_attempt_ref"), "runs": [r for r, _ in runs],
+                "criterion": v.get("criterion_doc_id"), "applied_fix": fix, "ignored_self_reports": ignored}
+
+    def _launch_value(self, att: dict, field: str):
+        snap = att.get("manifest_snapshot") or {}
+        for place in (snap.get("config") or {}, snap):
+            if isinstance(place, dict) and field in place:
+                return place[field]
+        command = snap.get("command") or []
+        flag = "--" + field.replace("_", "-")
+        if isinstance(command, list) and flag in command and command.index(flag) + 1 < len(command):
+            return command[command.index(flag) + 1]
+        return None
+
+    def _fix_used(self, tx: _Tx, att: dict, fix: dict, failure: dict | None) -> tuple[bool, str]:
+        if fix.get("kind") == "execution_config":
+            value = self._launch_value(att, str(fix.get("field") or ""))
+            want = str(fix.get("expected") or "")
+            if value is None:
+                return False, f"its recorded launch has no {fix.get('field')}"
+            got = os.path.normpath(str(value))
+            if not (got == os.path.normpath(want) or got.endswith(os.sep + os.path.normpath(want))):
+                return False, f"it ran with {fix.get('field')}={value!r}, not the fix {want!r}"
+            return True, ""
+        if fix.get("kind") == "code":
+            exp = tx.get(att["experiment_id"]) or {}
+            if exp.get("code_ref") != fix.get("commit"):
+                return False, f"it ran code {str(exp.get('code_ref'))[:10]}, not the fix commit {str(fix.get('commit'))[:10]}"
+            if failure is not None and (tx.get(failure["experiment_id"]) or {}).get("code_ref") == fix.get("commit"):
+                return False, "the failed attempt already ran the fix commit"
+            return True, ""
+        return False, f"applied_fix_ref kind {fix.get('kind')!r} is not execution_config or code"
+
+    def _run_check(self, att: dict, check: dict) -> tuple[bool, object]:
+        """The fixed checkers (memory.CHECK_TYPES): they read the attempt's records and files, nothing else."""
+        kind = check.get("type")
+        snap = att.get("manifest_snapshot") or {}
+        if kind == "exit_status":
+            value = snap.get("exit_status")
+            return value in (0, "succeeded") and att.get("exec_status") == "succeeded", value
+        if kind == "import_valid":
+            return bool(att.get("import_record")) and att.get("valid") is True and not att.get("retracted_at"), \
+                {"valid": att.get("valid"), "imported": bool(att.get("import_record"))}
+        if kind == "launch_config":
+            value = self._launch_value(att, str(check.get("field") or ""))
+            return value is not None and str(value) == str(check.get("expected")), value
+        if kind == "read_count":
+            value = (snap.get("counts") or {}).get(str(check.get("field") or ""))
+            return value is not None and value == check.get("expected"), value
+        if kind == "artifacts_match_manifest":
+            record = att.get("import_record") or {}
+            root = self.db_path.parent
+            manifest = root / (att.get("manifest_path") or "")
+            metrics_file = manifest.parent / (snap.get("metrics_path") or "")
+            same = (manifest.is_file() and sha256_file(manifest) == record.get("manifest_sha256")
+                    and metrics_file.is_file() and sha256_file(metrics_file) == record.get("metrics_sha256"))
+            return same, "the imported files are unchanged" if same else "the files differ from the import"
+        return False, f"unknown check type {kind!r} (fixed checkers: {', '.join(memory.CHECK_TYPES)})"
+
+    def _finding_evidence(self, tx: _Tx, data: dict) -> dict:
+        """S5 §9.3: whether a finding's evaluations still hold: none stale, recomputed or resting on a retracted run."""
+        project = self._project(tx)
+        reasons, sources = [], []
+        for ref in data.get("evidence_ids") or []:
+            item = tx.get(str(ref))
+            if item is None:
+                reasons.append(f"{ref} no longer exists")
+                continue
+            sources.append(item["id"])
+            if item["_table"] == "evaluation":
+                stale = self._stale_reasons(tx, project, item)
+                if stale:
+                    reasons.append(f"{item['id']}: {', '.join(stale)}")
+                newer = [e for e in self._evaluations_of(tx, item["experiment_id"])
+                         if e["result_revision"] > item["result_revision"]]
+                if newer:
+                    reasons.append(f"{item['id']} was recomputed as {newer[-1]['id']}")
+            elif item["_table"] == "document" and item.get("status") != "current":
+                reasons.append(f"{item['id']} is {item.get('status')}")
+        return {"state": "stale" if reasons else "current", "reasons": reasons, "sources": sources}
+
+    def memory_status(self, doc_id: str) -> dict:
+        """S5 §9.3: one answer for every reader (context_pack, resume, the page): the declared status in the front
+        matter, the effective status now, the evidence state, why it needs a recheck, its scope and its sources.
+        Read-only."""
+        with self.reader() as tx:
+            return self._memory_status(tx, self._project(tx), tx.require(doc_id, ("document",)))
+
+    def _memory_status(self, tx: _Tx, project: dict, d: dict) -> dict:
+        data = memory.front_matter((self.docs_root / d["path"]).read_text(encoding="utf-8")) \
+            if (self.docs_root / d["path"]).is_file() else {}
+        data = data or {}
+        declared = data.get("status")
+        basis = d.get("memory_basis")
+        if basis is not None and basis.get("legacy"):
+            basis = None  # migrated without support: still legacy until it is checked again
+        out = {"id": d["id"], "doc_type": d["doc_type"], "declared_status": declared,
+               "scope": data.get("applicability") or data.get("scope") or {}, "recheck_reasons": []}
+        if d["doc_type"] == "lesson":
+            verification = self._verify_fix(tx, data, d)  # now, against the current records
+            out["root_cause_status"] = data.get("root_cause_status")
+            out["verification"] = {k: verification.get(k) for k in ("state", "reasons", "runs", "failure")}
+            out["source_refs"] = [*(verification.get("runs") or []), *(data.get("evidence_runs") or [])]
+            recheck, why = memory.applicability(data, project)
+            if not out["scope"]:
+                why = ["scope not stated: applies only where it is checked again"] + why
+            out["recheck_reasons"] = why
+            if basis is None:
+                out.update(evidence_state="legacy", effective_status="unverified" if declared == "verified" else declared)
+                out["recheck_reasons"] = ["recorded before S5: no memory_basis"] + out["recheck_reasons"]
+            elif declared == "verified":
+                if verification["state"] != "verified":
+                    out.update(evidence_state="unverified", effective_status="unverified")
+                    out["recheck_reasons"] += verification["reasons"]
+                else:
+                    out.update(evidence_state="current" if not why else "recheck",
+                               effective_status="verified" if not why else "recheck")
+            else:
+                out.update(evidence_state="current", effective_status=declared)
+            return out
+        evidence = self._finding_evidence(tx, data)
+        out["source_refs"] = evidence["sources"]
+        out["recheck_reasons"] = list(evidence["reasons"])
+        if basis is None:
+            out.update(evidence_state="legacy", effective_status="observed" if declared == "supported" else declared)
+            out["recheck_reasons"] = ["recorded before S5: no memory_basis"] + out["recheck_reasons"]
+        elif evidence["state"] != "current":
+            # stale is not contradicted: the history stays, the current support does not
+            out.update(evidence_state="stale", effective_status="stale" if declared in ("supported", "observed") else declared)
+        else:
+            out.update(evidence_state="current", effective_status=declared)
+        return out
+
+    def migrate_memory(self, dry_run: bool = True) -> dict:
+        """S5 §9.4: current findings and lessons recorded before S5. Each one gets the basis the system can derive
+        now (nothing in the text is rewritten); a declared supported/verified without that support stays legacy
+        (shown as unverified / observed until it is checked again). Idempotent. rld only."""
+        self._require_role("rld")
+        report = {"derived": [], "legacy": []}
+        with self.reader() as tx:
+            todo = [d for d in (tx.get(i) for i in tx.ids("document")) if d.get("doc_type") in ("finding", "lesson")
+                    and d["status"] == "current" and d.get("memory_basis") is None]
+            plan = []
+            for d in todo:
+                text = (self.docs_root / d["path"]).read_text(encoding="utf-8") if (self.docs_root / d["path"]).is_file() else ""
+                data = memory.front_matter(text) or {}
+                basis = ({"kind": "finding", "evidence": self._finding_evidence(tx, data)} if d["doc_type"] == "finding"
+                         else {"kind": "lesson", "verification": self._verify_fix(tx, data, d)})
+                basis.update(migrated=True, derived_at=now_utc())
+                holds = (basis.get("evidence") or {}).get("state") == "current" or \
+                    (basis.get("verification") or {}).get("state") in ("verified", "not_claimed")
+                (report["derived"] if holds else report["legacy"]).append(d["id"])
+                plan.append((d["id"], basis if holds else {**basis, "legacy": True}))
+        if dry_run:
+            return report
+        with self._writer() as tx:
+            for doc_id, basis in plan:
+                if tx.get(doc_id).get("memory_basis") is None:
+                    self._update(tx, doc_id, {"memory_basis": basis})
+        return report
 
     def context_pack(self, node_id: str, role: str = "worker") -> dict:
         # role: worker (its node's lineage) or rld (every open obligation and finding: decision batches)
@@ -4000,9 +4257,13 @@ class ResearchDB:
                 text = (self.docs_root / d["path"]).read_text(encoding="utf-8")
                 data = memory.front_matter(text) or {}
                 about = {e["target_id"] for e in tx.edges("rel_describes", source=d["id"])}
-                recheck, why_not = memory.applicability(data, project)
+                status = self._memory_status(tx, project, d)  # S5: the same answer every reader gets
+                why_not = status["recheck_reasons"]
+                recheck = status["effective_status"] != status["declared_status"] or bool(why_not)
                 lessons.append({
-                    "id": d["id"], "path": d["path"], "status": data.get("status"),
+                    "id": d["id"], "path": d["path"], "status": status["effective_status"],
+                    "declared_status": status["declared_status"], "evidence_state": status["evidence_state"],
+                    "root_cause_status": data.get("root_cause_status"), "source_refs": status["source_refs"],
                     "symptom": memory.quarantine(str(data.get("symptom", "")), d["id"]),
                     "fix": memory.quarantine(str(data.get("fix", "")), d["id"]),
                     "why_relevant": ("同一节点或其祖先" if about & set(lineage) else
@@ -4010,13 +4271,15 @@ class ResearchDB:
                     "applicability": data.get("applicability") or {}, "recheck": recheck, "recheck_reasons": why_not,
                     "counterexamples": (data.get("counterexamples") or []) if project.get("memory_counterevidence", True)
                     else [], "_rank": (0 if about & set(lineage) else 1,
-                                       LESSON_ORDER.get(data.get("status"), 9), -int(d["id"].split("-")[1]))})
+                                       LESSON_ORDER.get(status["effective_status"], 9), -int(d["id"].split("-")[1]))})
             lessons.sort(key=lambda x: x["_rank"])
             lessons = [{k: v for k, v in x.items() if k != "_rank"} for x in
                        lessons[:project.get("memory_max_items") or 5]]
             for x in lessons:
                 app = "，".join(f"{k}={str(v)[:40]}" for k, v in x["applicability"].items())
-                lines.append(f"- 经验 {x['id']} [{x['status']}{'，待核对：' + '；'.join(x['recheck_reasons']) if x['recheck'] else ''}]"
+                cause = "；根因未确定（只指导已验证的操作）" if x["root_cause_status"] != "verified" else ""
+                lines.append(f"- 经验 {x['id']} [{x['status']}{'（声明 ' + str(x['declared_status']) + '）' if x['status'] != x['declared_status'] else ''}"
+                             f"{'，待核对：' + '；'.join(x['recheck_reasons'])[:200] if x['recheck'] else ''}]{cause}"
                              f"（{x['why_relevant']}）症状：{x['symptom'][:160]}；修复：{x['fix'][:200]}"
                              + (f"；适用范围：{app}" if app else "；适用范围：未写明")
                              + (f"；反例：{'；'.join(map(str, x['counterexamples']))[:200]}" if x["counterexamples"] else ""))
@@ -4029,8 +4292,11 @@ class ResearchDB:
                 if about and not about & subjects and not leader:
                     continue
                 data = memory.front_matter((self.docs_root / d["path"]).read_text(encoding="utf-8")) or {}
+                status = self._memory_status(tx, project, d)
                 findings.append({"id": d["id"], "claim": memory.quarantine(str(data.get("claim", "")), d["id"]),
-                                 "status": data.get("status"), "limitations": str(data.get("limitations", ""))})
+                                 "status": status["effective_status"], "declared_status": status["declared_status"],
+                                 "evidence_state": status["evidence_state"], "recheck_reasons": status["recheck_reasons"],
+                                 "source_refs": status["source_refs"], "limitations": str(data.get("limitations", ""))})
             seen, shown = set(), []
             for f in sorted(findings, key=lambda f: -int(f["id"].split("-")[1])):  # the same claim once, newest
                 key = " ".join(f["claim"].lower().split())
@@ -4038,7 +4304,9 @@ class ResearchDB:
                     seen.add(key)
                     shown.append(f)
             findings = sorted(shown, key=lambda f: int(f["id"].split("-")[1]))
-            sections.append(("研究发现", [f"- {f['id']} [{f['status']}] {f['claim'][:200]}（局限：{f['limitations'][:120]}）"
+            sections.append(("研究发现", [f"- {f['id']} [{f['status']}"
+                                          f"{'，待复核：' + '；'.join(f['recheck_reasons'])[:200] if f['recheck_reasons'] else ''}] "
+                                          f"{f['claim'][:200]}（局限：{f['limitations'][:120]}；来源：{', '.join(f['source_refs'])[:80]}）"
                                           for f in findings]))
             if node["_table"] == "hypothesis":
                 e = self._eligibility(tx, project, node)
@@ -4049,7 +4317,15 @@ class ResearchDB:
                 sections.append(("最近的关系", [f"- 父节点 {node.get('parent_id')}；子节点 {', '.join(kids) or '无'}；"
                                                f"相关 {', '.join(related) or '无'}"]))
         limit = project.get("memory_pack_limit") or memory.PACK_LIMIT
-        text, truncated = memory.render(sections, limit)
+        # S5 §9.3: the structured arrays share the budget with the text (at most half of it; the least relevant
+        # entries go first), and the text gets the rest
+        size = lambda: len(json.dumps({"lessons": lessons, "findings": findings}, ensure_ascii=False))  # noqa: E731
+        dropped = False
+        while (lessons or findings) and size() > limit // 2:
+            (findings if findings else lessons).pop()
+            dropped = True
+        text, truncated = memory.render(sections, limit - size())
+        truncated = truncated or dropped
         return {"node": node_id, "role": role, "text": text, "truncated": truncated, "limit": limit,
                 "lessons": lessons, "findings": findings}
 
@@ -5469,7 +5745,7 @@ def default_worker_id(node_id: str, table: str) -> str:
 READ_METHODS = ("help", "get", "find", "edges", "children", "history", "go_candidates", "latest_result",
                 "screen_seed_count", "export_snapshot", "verify_document", "resume_package", "cleanup_due",
                 "get_eligibility", "evaluations", "preview_evaluation", "obligations", "budget_status",
-                "reconcile_submission", "reviews", "context_pack", "relations", "review_basis", "material_usage")
+                "reconcile_submission", "reviews", "context_pack", "relations", "review_basis", "material_usage", "memory_status")
 
 CLI_METHODS = sorted(
     name for name in vars(ResearchDB) if not name.startswith("_") and callable(getattr(ResearchDB, name))
