@@ -116,3 +116,8 @@ Fable 5.1 补充 usage credits。期间继续不依赖评审的实现、REG 与�
   命令，Codex 的 `research_control status` 返回同样的命令。21:16:49 起宿主会话达到账户用量上限（原文 “You've hit your session limit
   · resets 11:30pm (UTC)”），之后所有提示无回答：SC-COMMON-01、SC-S1-02、SC-S1-03 记 BLOCKED。控制器现在在宿主报告用量上限时立即停止
   并关闭 pane。注意：测试宿主与本实施会话共用同一账户额度。
+- Claude a03：中止，不形成记录（证据在 `rt-S1-claude-a03.ctl/`）。重启后 RLD 仍找不到发现命令：注入行写在“项目已载入”分支里，
+  新会话开头项目状态尚未载入，所以没有注入；它在文件系统里找到本实施会话早期 scratchpad 中的旧插件构建并运行了旧的
+  `discovery merge`，把 candidates.json 改写成旧格式（编号互换、revision 丢失），随后停在提问对话框。修复：命令行无条件注入；
+  删除旧 scratchpad 中的插件构建与登录副本；旧场景构建打包进 `rt-scenarios/archive/`，控制器在每次尝试结束时打包自己的构建；
+  控制器遇到 agent 提问时记录并关闭对话框再继续。

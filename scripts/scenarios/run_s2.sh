@@ -48,6 +48,12 @@ limit_hit() {  # the host's account limit is an environment block, never an agen
 }
 say() {
   $R/say.sh $C $A 120000 "$1" >/dev/null 2>&1; sleep 5; wait_agent ${2:-3600}
+  if [ "$(herdr agent get $A 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin)['result']['agent']['agent_status'])" 2>/dev/null)" = blocked ]; then
+    # the agent stopped at a question for the user: logged, dismissed; the next scripted message continues
+    herdr pane read $pane 2>/dev/null | tail -30 > $C/question-$(date +%H%M%S).txt
+    echo '{"event":"the agent asked the user a question (saved beside this log); the controller dismissed it"}' >> $C/commands.jsonl
+    herdr agent send-keys $A Escape >/dev/null 2>&1; sleep 3
+  fi
   if limit_hit; then
     echo '{"event":"BLOCKED: the host reported its usage limit; the attempt stops here"}' >> $C/commands.jsonl
     echo "[$(date +%T)] BLOCKED: host usage limit"; ck blocked-usage-limit
@@ -125,4 +131,7 @@ db=glob.glob('$P/research/*/research_tree.db')[0]
 json.dump(ResearchDB(db,'ui/ui').export_snapshot(), open('$C/db-snapshot-final.json','w'), ensure_ascii=False, default=str)"
 for p in $(cat $C/pane.txt) $(cat $C/scheduler-pane.txt); do herdr pane close $p >/dev/null 2>&1; done
 [ $host = codex ] && rm -f $S/codex-home-S2a$att/auth.json
+# this attempt's build is packed away, so a later attempt's agent cannot find and run an older plugin
+mkdir -p $R/archive && tar -czf $R/archive/build-S2-$host-a$att.tar.gz -C $S dist-$host-S2a$att $( [ $host = codex ] && echo codex-home-S2a$att ) 2>/dev/null \
+  && rm -rf $S/dist-$host-S2a$att $( [ $host = codex ] && echo $S/codex-home-S2a$att )
 echo "[$(date +%T)] done (panes closed)"
