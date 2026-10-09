@@ -444,6 +444,13 @@ def toyopt_config(host: str, stage: str, discovery_mode: str, total_limit: int |
     total = "null" if total_limit is None else str(total_limit)
     alert = "null" if alert_node_h is None else str(alert_node_h)
     review_alert = "null" if review_usd_alert is None else str(review_usd_alert)
+    # S3 (§7.5): the saved model's size as an auxiliary, guarded measurement, and a declared independence unit
+    later = stage not in ("S0", "S1", "S2")
+    aux_metric = ("\n          - name: model_bytes\n            direction: lower\n            input_unit: bytes\n"
+                  "            canonical_unit: bytes\n            effect_mode: absolute\n"
+                  "            minimum_practical_gain: 0\n            allowed_regression: 1024\n"
+                  "            aggregation: paired_run_mean") if later else ""
+    independence = "\n          independence_fields: [train_seed]" if later else ""
     return textwrap.dedent(f'''\
         # ToyOpt Lab 真实宿主测试配置（{host} 宿主，{stage}；模型矩阵见实施文档 §2.2）
         version: 2
@@ -492,9 +499,9 @@ def toyopt_config(host: str, stage: str, discovery_mode: str, total_limit: int |
             effect_mode: absolute
             minimum_practical_gain: {min_gain}
             aggregation: paired_run_mean
-            valid_range: [0.0, 1.0]
+            valid_range: [0.0, 1.0]{aux_metric}
 
-        verification:
+        verification:{independence}
           screening_seeds: [{SEEDS["search"][0]}]
           replication_seeds: [{SEEDS["search"][1]}, {SEEDS["search"][2]}]
           confirmation_seeds: [{", ".join(map(str, SEEDS["c1"]))}]
