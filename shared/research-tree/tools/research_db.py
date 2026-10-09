@@ -3686,10 +3686,11 @@ class ResearchDB:
         history = self._evaluations_of(tx, exp["id"])
         if history and history[-1].get("baseline_experiment_id"):  # a rescoring sticks to its new baseline
             sota = history[-1]["baseline_experiment_id"]
-        if baseline_id is not None and baseline_id != sota:  # naming the experiment's own baseline changes nothing
-            if exp.get("stage") == "confirm":
+        if baseline_id is not None and exp.get("stage") == "confirm":  # a confirmation keeps its batch's baseline
+            if baseline_id != sota:
                 raise ResearchDBError(f"{exp['id']} is a confirmation: it is compared with its batch's fixed baseline "
                                       f"{sota} (omit baseline_experiment_id), never with {baseline_id}")
+        elif baseline_id is not None:
             if baseline_id != project.get("sota_experiment_id"):
                 raise ResearchDBError(f"rescoring is against the current SOTA baseline "
                                       f"{project.get('sota_experiment_id')}, not {baseline_id}; omit "
