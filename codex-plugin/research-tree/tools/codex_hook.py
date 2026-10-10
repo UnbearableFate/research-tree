@@ -36,12 +36,13 @@ def deny(reason):
                                     "permissionDecisionReason": f"research-tree: {reason}"}}
 
 
-def protected(path, cwd, summary, db):
+def protected(path, cwd, summary, db, actor="rld/main"):
     target = (cwd / path).resolve()
     if target == db or str(target).startswith(str(db) + "-"):
         return "不要直接改数据库文件；调用 research_db。"
-    if target == db.parent.parent.parent / CONFIG:
-        return f"{CONFIG} 由用户修改：请用户自己编辑它，再用 research_control config apply 生效；需要变更时向用户说明理由。"
+    if target == db.parent.parent.parent / CONFIG and actor != "rld/main":
+        # the Leader edits it when the user asks (then research_control config apply with the user's words)
+        return f"{CONFIG} 只由用户或按用户指示的 Leader（主会话）修改，{actor} 不写它；需要变更时交给 Leader。"
     guards = summary.get("guards", {})
     if any(target == Path(p).resolve() for p in guards.get("frozen_docs", [])):
         return "这是已生效文档；写 vN+1 并登记为新版本。"
@@ -168,12 +169,13 @@ def guard(event, cwd, summary, marker):
     if name in {"spawn_agent", "Agent"}:
         return "项目代理通过 research_control worker 或 lens 启动；UI由用户的独立入口启动。"
     db = Path(marker["db"]).resolve()
+    actor = os.environ.get("RESEARCH_TREE_ACTOR", "rld/main")
     if name in {"apply_patch", "Edit", "Write", "NotebookEdit"}:
         patch = args.get("command", args.get("input", ""))
         paths = re.findall(r"^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+)$", patch, re.M)
         paths += [args[k] for k in ("file_path", "notebook_path") if args.get(k)]
         for path in paths:
-            reason = protected(path, cwd, summary, db)
+            reason = protected(path, cwd, summary, db, actor)
             if reason:
                 return reason
     if name in {"Bash", "exec_command", "shell", "shell_command"}:
@@ -190,7 +192,7 @@ def guard(event, cwd, summary, marker):
         except ValueError:
             return None  # let the shell report its own syntax error
         blocked = (reviewer_bypass(tokens) or
-                   call_block(research_calls(tokens), os.environ.get("RESEARCH_TREE_ACTOR", "rld/main")))
+                   call_block(research_calls(tokens), actor))
         if blocked:
             return blocked
         writer = False
@@ -204,7 +206,7 @@ def guard(event, cwd, summary, marker):
             if Path(token).name == "cp":
                 paths, copy_end = copy_destinations(tokens, i + 1, cwd)
                 for path in paths:
-                    reason = protected(path, cwd, summary, db)
+                    reason = protected(path, cwd, summary, db, actor)
                     if reason:
                         return reason
                 continue
@@ -214,7 +216,7 @@ def guard(event, cwd, summary, marker):
                 writer = True
             redirect = i > 0 and tokens[i - 1] in {">", ">>", ">|", "&>"}
             if writer or redirect:
-                reason = protected(token, cwd, summary, db)
+                reason = protected(token, cwd, summary, db, actor)
                 if reason:
                     return reason
     return None

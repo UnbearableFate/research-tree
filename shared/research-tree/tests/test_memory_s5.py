@@ -182,6 +182,33 @@ class CurrencyTest(S5Fixture):
             self.assertEqual(kept["status"], "verified")  # a harness change outside the lesson's scope: still verified
         self.assertIn("finding", json.dumps(self.rld.resume_package(self.h), ensure_ascii=False))
 
+    def test_configuration_changes_reach_only_their_scope(self):
+        """A research-tree.yaml change (budget, confirmation settings) leaves findings and run lessons current; a
+        platform change sends a lesson bound to the configuration to a recheck."""
+        criterion, verified = self.fail_then_fix()
+        config = "version: 2\nplatform:\n  development: local\nbudget:\n  total_node_h: {}\n"
+        first = self.doc(self.rld, "project/config.v1.yaml", "config", body=config.format(10))
+        self.rld.update_project(config_doc_id=first)
+        lesson = self.lesson(lesson_text(self.verification(criterion, verified), extra={
+            "applicability": {"harness_ref": "HARNESS", "config_doc_id": first}}))
+        ev = self.rld.get(self.sota)["evaluation_id"]
+        finding = self.doc(self.rld, "findings/f.v1.md", "finding", current=False, about=(self.h,), body=(
+            f"---\nkind: finding\nclaim: \"the reference reaches 70\"\nevidence_ids: [{ev}]\n"
+            "interpretation: \"the toy task is easy\"\nlimitations: \"one setting\"\nstatus: supported\n---\n"))
+        self.rld.set_document_current(finding)
+        status = lambda doc: self.rld.memory_status(doc)["effective_status"]  # noqa: E731
+        self.rld.update_project(config_doc_id=self.doc(self.rld, "project/config.v2.yaml", "config",
+                                                       body=config.format(5)))
+        protocol = self.doc(self.rld, "project/protocol.v2.json", "protocol",
+                            body=json.dumps({**self.protocol_content, "max_confirmation_candidates": 1}))
+        ui = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0700.v1.md", "user_instruction")
+        self.rld.update_project(protocol_doc_id=protocol, user_instruction_doc_id=ui)
+        self.assertEqual((status(lesson), status(finding)), ("verified", "supported"))
+        self.rld.update_project(config_doc_id=self.doc(self.rld, "project/config.v3.yaml", "config",
+                                                       body=config.format(5).replace("local", "pbs")))
+        self.assertEqual((status(lesson), status(finding)), ("recheck", "supported"))
+        self.assertTrue(any("config_doc_id" in r for r in self.rld.memory_status(lesson)["recheck_reasons"]))
+
     def test_reg_s5_06_scope_and_budget(self):
         old = self.lesson(lesson_text(None, status="proposed").replace("HARNESS", "0" * 40))  # another harness
         scopeless = self.lesson(lesson_text(None, status="proposed").replace(

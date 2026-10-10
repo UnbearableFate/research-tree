@@ -1,6 +1,6 @@
 {
   "name": "research-tree",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "research-tree for ML method discovery in Claude Code: /research-tree init <plan.md> sets up a uv project, a research database and a research-tree.yaml config (platform, budget, gates, subagent models) in the current directory, the main session plans as Research Leader, the UI agent talks with you in a window, and one worker per node implements and evaluates after you confirm the plan. Bundles its Python tools, schema and rules.",
   "types": "./types/index.d.ts",
   "userConfig": {

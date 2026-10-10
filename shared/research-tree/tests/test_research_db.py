@@ -1239,9 +1239,7 @@ class EligibilityTest(Fixture):
         doc = self.doc(self.rld, "project/metric-spec.v2.json", "metric_spec", body=json.dumps(specs))
         instruction = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0300.v1.md", "user_instruction")
         self.rld.update_project(metric_spec_doc_id=doc, user_instruction_doc_id=instruction)
-        with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_STALE: the sota reference"):
-            self.concluded("beats_sota", sota=(0.3, 0.1, -2.0))
-        self.worker.evaluate_experiment(self.sota, self.result_doc(exp=self.sota))  # the baseline under the new specification
+        # the baseline's evaluation under the earlier specification still serves: comparisons recompute from runs
         h, exp = self.concluded("beats_sota", sota=(0.3, 0.1, -2.0))  # +2 GiB
         ev = self.rld.evaluations(experiment_id=exp)[-1]
         self.assertEqual((ev["gate_passed"], ev["guardrails_passed"]), (True, False))
@@ -3237,3 +3235,51 @@ class HarnessSanityFirstTest(Fixture):
         listed = {m["method"]: m for m in rdb.describe()}
         self.assertIn("valid", listed["update_run"]["optional_parameters"])
         self.assertNotIn("optional_parameters", listed["get"])
+
+
+class ConfigChangeTest(Fixture):
+    """research-tree.yaml changes govern later work; they do not void earlier experiments and conclusions."""
+
+    def switch_protocol(self, name: str, **fields) -> str:
+        protocol = self.doc(self.rld, f"project/protocol-{name}.v1.json", "protocol",
+                            body=json.dumps({**self.protocol_content, **fields}))
+        instruction = self.doc(ResearchDB(self.db, "ui/ui"), f"instructions/UI-{name}.v1.md", "user_instruction")
+        self.rld.update_project(protocol_doc_id=protocol, user_instruction_doc_id=instruction)
+        return protocol
+
+    def test_configuration_protocol_fields_keep_evaluations_and_identity(self):
+        h, exp = self.candidate()
+        basis = self.rld.get_eligibility(h)["basis_evaluation_id"]
+        self.switch_protocol("cfg", max_confirmation_candidates=1, confirmation_seeds=[7, 8, 9])
+        now = self.rld.get_eligibility(h)
+        self.assertEqual((now["eligible"], now["evidence_state"], now["basis_evaluation_id"]), (True, "current", basis))
+        code = self.rld.get(exp)["code_ref"]
+        later = self.method(h, code_ref=code, walltime_s=900)  # the same method, registered under the new protocol
+        self.assertEqual(self.rld.get(later)["method_spec_doc_id"], self.rld.get(exp)["method_spec_doc_id"])
+        # a change of the comparison itself (outside the configuration's fields) still makes the evidence stale
+        self.switch_protocol("cmp", max_confirmation_candidates=1, confirmation_seeds=[7, 8, 9], min_pairs=3)
+        self.assertIn("PROTOCOL_CHANGED", self.rld.get_eligibility(h)["reasons"])
+        other = self.method(h, code_ref=code, walltime_s=600)
+        self.assertNotEqual(self.rld.get(other)["method_spec_doc_id"], self.rld.get(exp)["method_spec_doc_id"])
+
+    def test_a_metric_specification_change_keeps_evaluations(self):
+        h, exp = self.candidate()
+        specs = json.loads(json.dumps(SPECS))
+        specs["metrics"][2]["allowed_regression"] = 1.0
+        doc = self.doc(self.rld, "project/metric-spec.v2.json", "metric_spec", body=json.dumps(specs))
+        instruction = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0600.v1.md", "user_instruction")
+        self.rld.update_project(metric_spec_doc_id=doc, user_instruction_doc_id=instruction)
+        self.assertTrue(self.rld.get_eligibility(h)["eligible"])
+        # the SOTA evaluated again on the same runs under the new specification is still the same baseline
+        self.worker.evaluate_experiment(self.sota, self.result_doc(exp=self.sota))
+        self.assertTrue(self.rld.get_eligibility(h)["eligible"])
+        # a baseline evaluated on other runs is not
+        run = f"{self.sota}/s42"
+        values = self.values_for(self.sota)
+        self.rld.retract_run(run, "corrupted metrics file", self.decision_doc())
+        self.worker.update_run(run, attempt=2, exec_status="submitted")
+        self.worker.update_run(run, exec_status="succeeded", valid=True, metric_value=values["acc"],
+                               secondary={k: values[k] for k in SECONDARY}, nodes_used=1, walltime_used_s=600,
+                               output_path=f"outputs/{run}", log_path=f"outputs/{run}/train.log")
+        self.worker.evaluate_experiment(self.sota, self.result_doc(exp=self.sota))
+        self.assertIn("BASELINE_CHANGED", self.rld.get_eligibility(h)["reasons"])

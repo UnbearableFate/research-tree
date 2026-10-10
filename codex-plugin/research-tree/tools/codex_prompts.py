@@ -110,7 +110,7 @@ def skills_note(project) -> str:
     if not check.get("missing"):
         return ""
     return (f"platform.skills 中未在本机找到的技能：{json.dumps(check, ensure_ascii=False)}；在立项计划中指出（含相近名称），"
-            "请用户决定是否改配置，不要自行修改 research-tree.yaml。\n")
+            "请用户决定是否改配置；用户要求时再由你修改 research-tree.yaml 并用 research_control config apply（words 为用户原话）生效。\n")
 
 
 def planning(project, conf):

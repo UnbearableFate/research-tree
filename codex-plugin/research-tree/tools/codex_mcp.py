@@ -121,7 +121,7 @@ def serve(cwd: Path, actor: str) -> None:
                 raise ValueError("params must be an object")
             if method == "initialize":
                 result = {"protocolVersion": params.get("protocolVersion", "2024-11-05"),
-                          "capabilities": {"tools": {}}, "serverInfo": {"name": "research-tree", "version": "0.1.0"},
+                          "capabilities": {"tools": {}}, "serverInfo": {"name": "research-tree", "version": "0.1.1"},
                           "instructions": f"Research-tree actor: {actor}. " +
                           ("Main session: supply the absolute project directory on every tool call. " if actor == "rld/main" else
                            "Managed child session: omit project on every tool call; your workspace and role are already bound. ") +

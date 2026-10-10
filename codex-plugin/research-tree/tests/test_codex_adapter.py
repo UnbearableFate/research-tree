@@ -515,12 +515,18 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         self.assertEqual(codex_hook.handle(event), {})
         event["tool_input"]["command"] = f"sed -n '1,20p' '{path}'"
         self.assertEqual(codex_hook.handle(event), {})
+        # the Leader edits the configuration when the user asks; a worker never does
         config = self.cwd / "research-tree.yaml"
-        for command in (f"echo x > '{config}'", "sed -i s/a/b/ research-tree.yaml"):
-            event["tool_input"]["command"] = command
-            self.assertEqual(codex_hook.handle(event)["hookSpecificOutput"]["permissionDecision"], "deny", command)
-        event.update(tool_name="apply_patch", tool_input={"command": f"*** Begin Patch\n*** Update File: {config}\n*** End Patch"})
-        self.assertIn("由用户修改", codex_hook.handle(event)["hookSpecificOutput"]["permissionDecisionReason"])
+        patch = {"command": f"*** Begin Patch\n*** Update File: {config}\n*** End Patch"}
+        for actor, denied in (("rld/main", False), ("worker/root", True)):
+            with patch.dict(os.environ, {"RESEARCH_TREE_ACTOR": actor}):
+                for command in (f"echo x > '{config}'", "sed -i s/a/b/ research-tree.yaml"):
+                    event.update(tool_name="Bash", tool_input={"command": command})
+                    answer = codex_hook.handle(event).get("hookSpecificOutput", {}).get("permissionDecision")
+                    self.assertEqual(answer == "deny", denied, (actor, command))
+                event.update(tool_name="apply_patch", tool_input=patch)
+                reason = codex_hook.handle(event).get("hookSpecificOutput", {}).get("permissionDecisionReason", "")
+                self.assertEqual("按用户指示的 Leader" in reason, denied, actor)
         # A worker acts only as itself and the UI only reads, also from a shell; the RLD drives the tools.
         db_call = f"python tools/research_db.py --db '{self.runtime.marker['db']}'"
         cases = [("worker/root", f"{db_call} --actor rld/main update_run '{{}}'", True),

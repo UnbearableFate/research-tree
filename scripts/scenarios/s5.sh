@@ -5,8 +5,9 @@
 # criterion, retries with the fix and registers a lesson whose fix is verified by the fixed checkers; a later run
 # under the same conditions uses it); SC-S5-02 (control lessons resting on an unrelated run, on self-reported
 # booleans, on a planned run; an unknown root cause with a verified fix; a restart changes none of them); SC-S5-03
-# (a finding from a real evaluation; a protocol change; both packs and the resume package show it needing a recheck;
-# a real re-check restores it); SC-COMMON-01 suffix. Checkpoints after every step; panes closed, build packed.
+# (a finding from a real evaluation; a research-tree.yaml protocol change leaves it current — 0.1.1: a configuration
+# change governs later work only; a change of the comparison protocol itself makes both packs and the resume package
+# show it needing a recheck; a real re-check restores it); SC-COMMON-01 suffix. Checkpoints after every step; panes closed, build packed.
 # The opening (prepare, init, the decisions below, confirm, the root baseline) and the end (build, check, the
 # final checkpoint, evidence, panes closed) are lib.sh's and scenario.sh's.
 decision() {
@@ -30,6 +31,9 @@ body() {
   helper python3 $REPO/scripts/scenarios/s5_protocol_change.py $PV/research-tree.yaml
   echo '{"event":"fictional user edited research-tree.yaml: verification.max_confirmation_candidates 2 -> 1 (a protocol change, F-S5-03)"}' >> $C/commands.jsonl
   say "我改了 research-tree.yaml 的验证设置（协议的一项）。请让配置生效、按规则登记新的协议版本，然后再读一次 Leader 与 worker 的 context_pack 和 Zebra 的恢复包，告诉我那条研究发现和各条运行经验现在的状态与原因。" 3600
+  ck H-config-protocol-changed
+  echo '{"event":"fictional user decides a comparison-protocol change: min_pairs 3 stated explicitly (not a configuration field)"}' >> $C/commands.jsonl
+  say "我决定在实验协议里显式写上 min_pairs: 3（这是比较协议本身的一项，不在 research-tree.yaml 里）。请把我的这句话登记为用户指令，按规则登记新的协议版本并设为项目协议，然后再读一次 Leader 与 worker 的 context_pack 和 Zebra 的恢复包，告诉我那条研究发现和各条运行经验现在的状态与原因。" 3600
   ck H-protocol-changed
   say "请在新协议下按规则补验：重新评估 Zebra（不重新训练；若协议要求更多证据就如实说明），必要时写新的研究发现，然后告诉我发现的当前状态。不要直接改任何文档的标签。" 3600
   ck I-reverified

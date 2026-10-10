@@ -8,7 +8,7 @@
 需要 POSIX 环境、Python 3、uv 和已登录的 Codex CLI。已验证 CLI 0.160.0；需支持插件、
 stdio MCP、`codex exec --json` / `exec resume`、`codex queue` 和生命周期 hooks。
 
-解压 `research-tree-codex-0.1.0.zip`，然后：
+解压 `research-tree-codex-0.1.1.zip`，然后：
 
 ```bash
 codex plugin marketplace add /absolute/path/to/research-tree-codex

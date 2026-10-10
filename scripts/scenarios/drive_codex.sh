@@ -19,7 +19,7 @@ while [ $t -lt $max ]; do
       python3 -c 'import json,sys,datetime; print(json.dumps({"ts":datetime.datetime.now(datetime.UTC).isoformat(),"event":"approval","what":sys.argv[1],"choice":"Always allow"}))' "$tool" >> "$ctl/commands.jsonl"
       herdr agent send-keys "$a" 3 >/dev/null; sleep 3; t=$((t+3)); continue
     fi
-    if echo "$screen" | grep -q "don't ask again for commands that start with" && echo "$screen" | tr -d '\n ' | grep -q "plugins/cache/research-tree/research-tree/0.1.0/tools/"; then
+    if echo "$screen" | grep -q "don't ask again for commands that start with" && echo "$screen" | tr -d '\n ' | grep -q "plugins/cache/research-tree/research-tree/[0-9.]*/tools/"; then
       cmd=$(echo "$screen" | grep -A3 '^\s*\$' | tr -s ' ' | head -4 | tr '\n' ' ')
       python3 -c 'import json,sys,datetime; print(json.dumps({"ts":datetime.datetime.now(datetime.UTC).isoformat(),"event":"approval","what":sys.argv[1],"choice":"p (plugin tool, do not ask again)"}))' "$cmd" >> "$ctl/commands.jsonl"
       herdr agent send-keys "$a" p >/dev/null; sleep 3; t=$((t+3)); continue

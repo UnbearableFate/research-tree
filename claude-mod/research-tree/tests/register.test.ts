@@ -51,15 +51,32 @@ test('redirections and wrapped commands into a project database count; quoted an
   expect(internals.writesDatabase(`cat <<EOF > notes.txt\nrm ${db}\nEOF\nrm ${db}`)).toBe(true)
 })
 
-test('the project configuration is the user\'s: edits and shell writes to it are refused', () => {
+test('the project configuration is not a subagent\'s: its edits and shell writes are refused', () => {
   const config = '/w/study/research-tree.yaml'
-  expect(internals.guardReason(null, config, config)).toContain('由用户修改')
+  expect(internals.guardReason(null, config, config)).toContain('按用户指示的 RLD')
   expect(internals.guardReason(null, '/w/other/research-tree.yaml', config)).toBeUndefined()
   expect(internals.writesConfig('cat > research-tree.yaml <<EOF\nx\nEOF', config)).toBe(true)
   expect(internals.writesConfig(`sed -i 's/a/b/' ${config}`, config)).toBe(true)
   expect(internals.writesConfig('sed s/a/b/ research-tree.yaml', config)).toBe(false)
   expect(internals.writesConfig('cat research-tree.yaml', config)).toBe(false)
   expect(internals.writesConfig('cp /tmp/x/research-tree.yaml /tmp/y', config)).toBe(false)  // another project's
+})
+
+test('the RLD edits the configuration on the user\'s request and applies it with their words; a subagent never does', async () => {
+  const { host } = uiHost({})
+  const config = '/w/study/research-tree.yaml'
+  const next = async () => ({ result: 'ran' })
+  for (const tool of ['Write', 'Edit']) {
+    expect((await registeredTool(tool)(host, { file_path: config } as never, next)).deny).toBeUndefined()
+    expect((await registeredTool(tool)(host, { agentId: 'w1', file_path: config } as never, next)).deny).toContain('按用户指示的 RLD')
+  }
+  const bash = registeredTool('Bash')
+  expect((await bash(host, { command: `sed -i s/a/b/ ${config}` } as never, next)).deny).toBeUndefined()
+  expect((await bash(host, { agentId: 'w1', command: `sed -i s/a/b/ ${config}` } as never, next)).deny).toContain('按用户指示的 RLD')
+  expect((await bash(host, { command: '.venv/bin/python /plug/tools/research_tree.py config apply' } as never, next)).deny).toContain('--words')
+  expect(internals.configApply('python tools/research_tree.py config show; echo apply')).toBeUndefined()
+  const applied = await bash(host, { command: '.venv/bin/python /plug/tools/research_tree.py config apply --words "把总预算调到 20 node·h"' } as never, next)
+  expect(applied.deny).toBeUndefined()
 })
 
 test('a subagent is never the RLD: a worker acts as itself, other helpers only read', () => {
@@ -497,7 +514,8 @@ function uiHost(outboxes: Record<string, string>, answered: Set<string> = new Se
           : [{ kind: 'awaiting_reply', id: null, text: 'ui-0001（question）尚无RLD回执：…' }] })
         : '{"ok": true, "result": []}',
     }) },
-    agent: { spawn: async (input: { prompt: string }) => (spawns.push(input.prompt), { agentId: `a${spawns.length}` }) },
+    agent: { spawn: async (input: { prompt: string }) => (spawns.push(input.prompt), { agentId: `a${spawns.length}` }),
+      register: async () => undefined },
     clock: { after: (_ms: number, fn: () => void) => fn() },
     prompt: { submit: async (input: { text: string }) => void prompts.push(input.text) },
     ui: { toast: () => undefined, open: async () => undefined, status: () => undefined },

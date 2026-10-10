@@ -253,7 +253,7 @@ Codex 侧同样支持 GPT 易读名称，如 `ui: {model: GPT 6 Luna, effort: hi
 
 `go_margin` 由主指标的 `minimum_practical_gain` 给出，单位与方向逐指标声明（如 accuracy 以百分点计）。门槛与统一 seed 在第一个实验登记后不能再修改；之后更换指标规范或协议须引用用户指令，旧 evaluation 随之失效。
 
-**提交与预算：**设置 `total_limit` 后，worker 每次提交依次 `reserve_submission` → `claim_submission` → 带 submission_key 提交 → `attach_job`，作业结束后按调度器的用量文件 `settle_reservation`。提交超时的运行保持 unknown，按 submission_key 核对，不会自动重提；实际用量超出预留或授权时准入暂停，由你决定后恢复。`budget_status` 查看已授权、已承诺与可用量；提高授权或上限只能由你修改配置文件并 `config apply`。
+**提交与预算：**设置 `total_limit` 后，worker 每次提交依次 `reserve_submission` → `claim_submission` → 带 submission_key 提交 → `attach_job`，作业结束后按调度器的用量文件 `settle_reservation`。提交超时的运行保持 unknown，按 submission_key 核对，不会自动重提；实际用量超出预留或授权时准入暂停，由你决定后恢复。`budget_status` 查看已授权、已承诺与可用量；提高授权或上限只能由你修改配置文件（或让 RLD 按你的要求修改）并 `config apply`。
 
 `platform.skills` 中的站点技能（如集群调度技能）对插件至少要做到：
 
@@ -267,7 +267,7 @@ Codex 侧同样支持 GPT 易读名称，如 `ui: {model: GPT 6 Luna, effort: hi
 
 研究对话中尚未得到 RLD 回执的消息显示在状态栏，也可用 `/research-tree inbox` 查看。
 
-**配置何时生效：**立项确认前，文件修改用于当前规划；确认时登记为生效版本。确认后须运行 `config apply`，插件会生成 `docs/project/config.vN.yaml`、记录用户指令并更新项目记录。新启动的子代理使用现行配置，活跃 worker 由 Leader 转告变更。
+**配置何时生效：**立项确认前，文件修改用于当前规划；确认时登记为生效版本。确认后须运行 `config apply`，插件会生成 `docs/project/config.vN.yaml`、记录用户指令并更新项目记录。新启动的子代理使用现行配置，活跃 worker 由 Leader 转告变更。你可以自己改文件，也可以让 RLD（主会话）按你的要求修改并代为 apply（它把你要求修改的原话登记为用户指令）；worker 等子代理不能写这个文件。配置变更只约束之后的工作：已有实验、评估、方法身份与研究发现不因此失效，指标规范的新版本只用于之后的评估；只有冻结框架或比较协议本身（评测类型、配对字段、必须一致的设定、计数等，不含配置规定的确认设置）的变化才使依赖它的证据待重评。
 
 主会话就是 RLD，其模型由用户启动宿主 CLI 时选择。
 

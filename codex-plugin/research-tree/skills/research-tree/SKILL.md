@@ -185,8 +185,11 @@ Workers recover their assigned work with `research_db(resume_package)` and commu
 - `check`: compare page and database versions; `chat`: persisted research dialogue.
 - `config show`: call `research_control(action="config")` for the effective version and pending YAML
   changes. `config apply`: call that tool with `params={"apply":true,"words":<user's words>}`; this
-  applies an authorized change. Gates lock after experiments begin. Do not edit the user's configuration
-  autonomously. New turns use the current model/platform settings; tell active workers about changes.
+  applies an authorized change. Gates lock after experiments begin. Edit `research-tree.yaml` only when the
+  user asks, and only the items they named (workers cannot write it), then apply with their words. A
+  configuration change governs later work: earlier experiments, evaluations, method identities and findings
+  stay valid (only a harness or comparison-protocol change makes evidence stale). New turns use the current
+  model/platform settings; tell active workers about changes.
 
 Workers use workspace-write unless the user's CODEX_HOME/config.toml explicitly sets
 sandbox_mode="danger-full-access", in which case they inherit Full access. UI and lens assistants
