@@ -46,9 +46,11 @@ def lock_busy(path: Path) -> bool:
 
 
 def actor_key(actor: str) -> str:
-    if not re.fullmatch(r"(?:rld/main|ui/ui|worker/[A-Za-z0-9_.]+|architect/[A-Za-z0-9_.]+|explorer/main|analyst/main|assistant/lens_[A-Za-z0-9_.]+)", actor):
+    if not re.fullmatch(r"(?:rld/main|ui/ui|worker/[A-Za-z0-9_.]+|architect/[A-Za-z0-9_.]+|explorer/main|analyst/main)", actor):
         raise ValueError(f"invalid adapter actor: {actor}")
-    return actor.replace("architect/", "worker/", 1).replace("/", "-")  # one writer lock per node, across role migration
+    if actor == "worker/root" or (actor.startswith("architect/") and actor != "architect/root"):
+        raise ValueError(f"invalid adapter actor: {actor}; root execution requires architect/root")
+    return actor.replace("/", "-")
 
 
 def project_dir(cwd: Path) -> Path:
@@ -60,4 +62,6 @@ def cache_dir(cwd: Path) -> Path:
     marker = read_json(cwd / ".research-tree.json")
     if not marker:
         raise ValueError(f"no research project in {cwd}; initialize it first")
+    if marker.get("format_version") != 3:
+        raise ValueError("UNSUPPORTED_PROJECT_VERSION: only version 3 projects are supported; migrate explicitly to a new project without rewriting old data")
     return Path(marker["root"]) / "cache" / "codex"

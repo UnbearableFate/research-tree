@@ -31,7 +31,7 @@ class IncrementalReadinessTest(unittest.TestCase):
         self.tmp = tempfile.TemporaryDirectory()
         self.addCleanup(self.tmp.cleanup)
         self.root = Path(self.tmp.name)
-        discovery.start(self.root, "incremental", "claude-opus-5-5")
+        discovery.start(self.root, "claude-opus-5-5")
 
     def candidates(self, *items):
         candidates = discovery.merge([], list(items), discovery.read_candidates(self.root))
@@ -39,8 +39,7 @@ class IncrementalReadinessTest(unittest.TestCase):
         return candidates
 
     def check(self, candidate_id="CAND-0001", **kwargs):
-        return discovery.evaluate_candidate(self.root, candidate_id, workflow_mode="fast_screening",
-                                            max_nodes=2, max_walltime_s=120, screen_node_h=0.05, **kwargs)
+        return discovery.evaluate_candidate(self.root, candidate_id, max_nodes=2, max_walltime_s=120, screen_node_h=0.05, **kwargs)
 
     def test_ready_candidate_does_not_wait_for_incomplete_neighbor_or_batch_stages(self):
         candidates = self.candidates(screening_candidate(), {"title": "B"})
@@ -48,8 +47,7 @@ class IncrementalReadinessTest(unittest.TestCase):
         self.assertEqual(self.check()["verdict"], "PASS")
         self.assertEqual(self.check(candidates[1]["id"])["verdict"], "BLOCKED")
         self.assertEqual(before, {p: p.read_bytes() for p in self.root.rglob("*") if p.is_file()})
-        self.assertIsNone(discovery.load(self.root)["gate"])
-        self.assertEqual(discovery.resume_point(self.root)["stage"], "brief")
+        self.assertNotIn("gate", discovery.load(self.root))
 
     def test_each_screening_description_is_required(self):
         for field in ("prediction", "intervention", "comparator", "stop_conditions"):
@@ -81,10 +79,8 @@ class IncrementalReadinessTest(unittest.TestCase):
                 discovery.write_candidates(self.root, [{**candidate, **changes}])
                 self.assertEqual(self.check()["verdict"], "BLOCKED")
 
-    def test_screening_content_changes_revision_and_invalidates_old_receipts(self):
+    def test_screening_content_changes_revision_and_invalidates_old_admission_identity(self):
         old = self.candidates(screening_candidate())[0]
-        receipt = {"review_basis": {"candidate_id": old["id"], "revision": old["revision"],
-                                    "content_sha": old["content_sha"]}}
         for field, value in (("intervention", "New update"), ("comparator", "Matched baseline B"),
                              ("resource_ceiling", {"nodes": 1, "walltime_s": 61}),
                              ("stop_conditions", "Stop at cap")):
@@ -92,36 +88,20 @@ class IncrementalReadinessTest(unittest.TestCase):
                 changed = self.candidates({**screening_candidate(), field: value})[0]
                 self.assertEqual(changed["id"], old["id"])
                 self.assertGreater(changed["revision"], old["revision"])
-                self.assertFalse(discovery.receipt_applies(receipt, changed))
+                self.assertNotEqual((old["revision"], old["content_sha"]), (changed["revision"], changed["content_sha"]))
         restored = self.candidates(screening_candidate())[0]
         self.assertEqual(restored["content_sha"], old["content_sha"])
-        self.assertFalse(discovery.receipt_applies(receipt, restored))
+        self.assertGreater(restored["revision"], old["revision"])
 
-    def test_strict_mode_checks_only_own_current_receipts_and_distinct_verified_citations(self):
-        candidates = self.candidates({**screening_candidate(), "literature": ["D-1", "D-1", "D-2"]}, {"title": "B"})
-        candidate = candidates[0]
-        basis = {"candidate_id": candidate["id"], "revision": candidate["revision"],
-                 "content_sha": candidate["content_sha"]}
-        reviews = [{"id": f"D-{i}", "status": "current", "review_about": candidate["id"],
-                    "review_basis": basis, "review_kind": kind, "review_result": result}
-                   for i, kind, result in ((10, "novelty_precheck", "PROCEED"), (11, "critical_review", "proceed"))]
-
-        def check(receipts=reviews, literature=None):
-            return discovery.evaluate_candidate(self.root, candidate["id"], reviews=receipts,
-                                                literature=literature or {"D-1": True, "D-2": True}, min_related_work=2)
-
-        self.assertEqual(check()["verdict"], "PASS")
-        self.assertEqual(check([])["verdict"], "BLOCKED")
-        self.assertEqual(check(literature={"D-1": True, "D-2": False})["verdict"], "BLOCKED")
-        for changes in ({"status": "superseded"}, {"review_about": "CAND-0002"}, {"review_basis_changed": True},
-                        {"review_result": "NEEDS_EVIDENCE"},
-                        {"review_basis": {**basis, "revision": 0}},
-                        {"review_basis": {**basis, "content_sha": "stale"}}):
-            with self.subTest(changes=changes):
-                self.assertEqual(check([{**reviews[0], **changes}, reviews[1]])["verdict"], "BLOCKED")
+    def test_readiness_rejects_all_old_workflow_arguments(self):
+        self.candidates(screening_candidate())
+        for kwargs in ({"workflow_mode": "strict"}, {"workflow_mode": "fast_screening"}, {"reviews": []},
+                       {"literature": {}}, {"min_related_work": 3}):
+            with self.subTest(kwargs=kwargs), self.assertRaises(TypeError):
+                discovery.evaluate_candidate(self.root, "CAND-0001", **kwargs)
 
     def test_selection_is_incremental_and_is_not_admission(self):
-        items = discovery.merge([{"lens": "variant", "candidates": [screening_candidate(), {"title": "B"}]}], [])
+        items = discovery.merge([{"source": "explorer/main", "candidates": [screening_candidate(), {"title": "B"}]}], [])
         discovery.write_candidates(self.root, items)
         self.assertEqual(self.check()["verdict"], "BLOCKED")
         discovery.select_candidate(self.root, items[0]["id"])
@@ -132,38 +112,11 @@ class IncrementalReadinessTest(unittest.TestCase):
         with self.assertRaisesRegex(discovery.DiscoveryError, "not a current"):
             discovery.select_candidate(self.root, "CAND-9999")
 
-    def test_incremental_cannot_create_a_global_pass_or_silently_change_existing_mode(self):
-        with self.assertRaisesRegex(discovery.DiscoveryError, "no whole-batch gate"):
-            discovery.evaluate(self.root, [], {}, 0, None)
-        with self.assertRaisesRegex(discovery.DiscoveryError, "already started"):
+    def test_incremental_has_no_global_pass_or_mode_switch(self):
+        self.assertFalse(hasattr(discovery, "evaluate"))
+        with self.assertRaises(TypeError):
             discovery.start(self.root, "full", "claude-opus-5-5")
-        with self.assertRaisesRegex(discovery.DiscoveryError, "unknown workflow"):
-            discovery.evaluate_candidate(self.root, "CAND-0001", workflow_mode="skip")
-
-
-class IncrementalConfigTest(unittest.TestCase):
-    def test_new_template_opts_in_but_old_partial_configs_stay_strict_full(self):
-        current = project_config.parse(project_config.template_text())
-        self.assertEqual((current["workflow"]["mode"], current["discovery"]["mode"]), ("fast_screening", "incremental"))
-        for text in ("{}", "version: 2", "workflow: {}", "discovery: {}", "budget: {screen_node_h: 2}"):
-            with self.subTest(text=text):
-                conf = project_config.parse(text)
-                self.assertEqual((conf["workflow"]["mode"], conf["discovery"]["mode"]), ("strict", "full"))
-                self.assertTrue(project_config.db_fields(conf)["require_precheck"])
-        fields = project_config.db_fields(project_config.parse("version: 1"))
-        self.assertEqual((fields["workflow_mode"], fields["discovery_mode"]), ("strict", "off"))
-
-    def test_explicit_modes_and_role_models_remain_independent(self):
-        for mode in ("full", "precheck", "off", "incremental"):
-            conf = project_config.parse(f"workflow: {{mode: fast_screening}}\ndiscovery: {{mode: {mode}}}")
-            self.assertEqual(project_config.db_fields(conf)["discovery_mode"], mode)
-        for role in ("architect", "explorer", "analyst"):
-            conf = project_config.parse(f"models: {{{role}: {{model: GPT 6 Astra, effort: max}}}}")
-            self.assertEqual(conf["models"][role], {"model": "gpt-6-astra", "effort": "max"})
-        for text in ("workflow: {mode: skip}", "discovery: {mode: skip}", "workflow: null", "discovery: null",
-                     "memory: null", "workflow: {mode: strict, bypass: true}", "workflow: {bypass: true}"):
-            with self.subTest(text=text), self.assertRaises(project_config.ConfigError):
-                project_config.parse(text)
+        self.assertNotIn("mode", discovery.load(self.root))
 
 
 class IncrementalAdmissionTest(Fixture):
@@ -172,9 +125,8 @@ class IncrementalAdmissionTest(Fixture):
         goal = self.doc(self.rld, "project/goal.v1.md", "goal", body=ANCHOR)
         instruction = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/fast-scope.v1.md", "user_instruction",
                                body="Use fast screening and incremental discovery within the existing project budget.")
-        self.rld.update_project(goal_doc_id=goal, workflow_mode="fast_screening", discovery_mode="incremental",
-                                require_precheck=True, user_instruction_doc_id=instruction)
-        discovery.start(self.root, "incremental", "claude-opus-5-5")
+        self.rld.update_project(goal_doc_id=goal, user_instruction_doc_id=instruction)
+        discovery.start(self.root, "claude-opus-5-5")
         candidates = discovery.merge([], [screening_candidate(), {"title": "B"}])
         discovery.write_candidates(self.root, candidates)
         self.ready, self.pending = [c["id"] for c in candidates]
@@ -193,8 +145,8 @@ class IncrementalAdmissionTest(Fixture):
         with self.assertRaisesRegex(ResearchDBError, "PRECHECK_REQUIRED"):
             self.rld.create_hypothesis("B", "Improve matched accuracy", self.hyp_doc, [], candidate_id=self.pending)
         self.assertEqual(self.rld.find("hypothesis"), before)
-        self.assertIsNone(discovery.load(self.root)["gate"])
-        self.assertTrue(all(s["status"] == "pending" for s in discovery.load(self.root)["stages"]))
+        self.assertNotIn("gate", discovery.load(self.root))
+        self.assertNotIn("stages", discovery.load(self.root))
         self.assertEqual(self.rld.reviews(), [])
 
     def test_candidate_scope_and_hypothesis_scope_are_both_rechecked_at_admission(self):
@@ -254,29 +206,30 @@ class IncrementalCommandTest(unittest.TestCase):
         self.assertIsNone(self.command("check")["blocked"])
         self.assertEqual(research_tree.read_marker(self.cwd)["phase"], "planning")
         registry = json.loads((self.root / "agents.json").read_text())
-        for actor in ("architect/root", "worker/root", "explorer/main", "analyst/main"):
+        for actor in ("architect/root", "explorer/main", "analyst/main"):
             self.assertIn(actor, registry)
 
     def test_cli_candidate_checks_do_not_write_global_gate_or_confirm_scope(self):
         self.command("start")
-        items = discovery.merge([{"lens": "variant", "candidates": [screening_candidate(), {"title": "B"}]}], [])
+        items = discovery.merge([{"source": "explorer/main", "candidates": [screening_candidate(), {"title": "B"}]}], [])
         discovery.write_candidates(self.root, items)
         self.command("select", candidate=items[0]["id"])
         marker = copy.deepcopy(research_tree.read_marker(self.cwd))
         self.assertEqual(self.command("gate", candidate=items[0]["id"])["verdict"], "PASS")
         self.assertEqual(self.command("gate", candidate=items[1]["id"])["verdict"], "BLOCKED")
         self.assertEqual(research_tree.read_marker(self.cwd), marker)
-        self.assertIsNone(discovery.load(self.root)["gate"])
-        with self.assertRaisesRegex(research_tree.TreeError, "one candidate"):
+        self.assertNotIn("gate", discovery.load(self.root))
+        with self.assertRaisesRegex(research_tree.TreeError, "requires --candidate"):
             self.command("gate")
 
-    def test_legacy_modes_still_block_scope_request_and_reject_candidate_shortcut(self):
-        for mode in ("full", "precheck"):
+    def test_old_configuration_never_falls_back_to_a_current_workflow(self):
+        for mode in ("full", "precheck", "incremental"):
             (self.cwd / "research-tree.yaml").write_text(f"version: 2\ndiscovery: {{mode: {mode}}}\n")
-            self.assertIsNotNone(research_tree.discovery_blocks_confirmation(self.cwd))
-            for action in ("select", "gate"):
-                with self.subTest(mode=mode, action=action), self.assertRaisesRegex(research_tree.TreeError, "incremental"):
+            for action in ("check", "select", "gate"):
+                with self.subTest(mode=mode, action=action), self.assertRaisesRegex(project_config.ConfigError,
+                                                                                  "UNSUPPORTED_CONFIG_VERSION"):
                     self.command(action, candidate="CAND-0001")
+        self.assertEqual(research_tree.read_marker(self.cwd)["phase"], "planning")
 
 
 if __name__ == "__main__":

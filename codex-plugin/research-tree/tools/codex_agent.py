@@ -55,7 +55,7 @@ def command(spec, directory):
         # Background exec sessions cannot answer approval prompts (approval_policy never): the plugin's own server
         # is pre-approved; it fixes the actor and applies every research gate itself.
         "mcp_servers.research_tree.default_tools_approval_mode": "approve",
-        "sandbox_mode": "read-only" if actor == "ui/ui" or actor.startswith(("assistant/", "explorer/", "analyst/")) else worker_sandbox(),
+        "sandbox_mode": "read-only" if actor == "ui/ui" or actor.startswith(("explorer/", "analyst/")) else worker_sandbox(),
         "approval_policy": "never",
     }
     if effort is not None:
@@ -110,7 +110,10 @@ def run(directory: Path, lock_fd: int) -> int:
                         state["thread_id"] = thread
                         write_json(state_file, state)
                         if spec.get("node_id"):
-                            runtime.db("rld/main").bind_worker_session(spec["node_id"], thread)
+                            if spec["actor"] == "architect/root":
+                                runtime.db("rld/main").bind_architect_session(thread)
+                            else:
+                                runtime.db("rld/main").bind_worker_session(spec["node_id"], thread)
                         tree.log_agent_model(runtime.root, {"agent": thread, "actor": spec["actor"], "event": "requested",
                                                             "model": argv[argv.index("--model") + 1],
                                                             "effort": spec["model"].get("effort")})

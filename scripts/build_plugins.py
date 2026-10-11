@@ -45,12 +45,16 @@ def assemble(target: str, destination: Path, repo: Path = REPO) -> dict:
     for required in ("tools/prepare.sh", "tools/research_db.py", "tools/metrics.py", "tools/evidence.py",
                      "tools/research_tree.py", "tools/project_config.py", "tools/notify.py", "tools/review_call.py", "tools/discovery.py", "tools/literature.py", "tools/memory.py", "tools/threat_scan.py", "tools/capture_filter.py",
                      "schema/reviews/candidate_recheck.schema.json", "schema/reviews/candidate_recheck.md",
-                     "schema/config.v1.schema.json", "schema/config.v1.template.yaml",
                      "tools/send_message.py", "tools/build_site.py", "schema/research_tree.sql",
                      "schema/create_db.py", "schema/config.schema.json", "schema/config.template.yaml", "schema/cleanup.template.py", "schema/plan.template.md",
-                     "schema/message.schema.json", "rules/research-tree-rules.md"):
+                     "schema/message.schema.json", "schema/progress_page.md", "rules/research-tree-rules.md"):
         if not (repo / "shared/research-tree" / required).is_file():
             raise ValueError(f"shared core is incomplete: missing {required}")
+    for obsolete in ("schema/web_builder.md", "schema/config.v1.schema.json", "schema/config.v1.template.yaml",
+                     "schema/reviews/triage.schema.json", "schema/reviews/novelty_precheck.schema.json",
+                     "schema/reviews/critical_review.schema.json", "schema/reviews/proposal_review.schema.json"):
+        if (repo / "shared/research-tree" / obsolete).exists():
+            raise ValueError(f"obsolete compatibility artifact must not ship: {obsolete}")
     plugin = destination / "plugins" / "research-tree"
     files = {}
     for source in (repo / "shared/research-tree", adapter):

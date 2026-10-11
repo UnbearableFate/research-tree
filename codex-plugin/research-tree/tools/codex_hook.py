@@ -6,11 +6,12 @@ import json
 import os
 import re
 import shlex
+import subprocess
 import sys
 import time
 from pathlib import Path
 
-from codex_state import cache_dir, locked, project_dir, read_json, write_json
+from codex_state import actor_key, cache_dir, locked, project_dir, read_json, write_json
 
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = "research-tree.yaml"
@@ -24,10 +25,10 @@ READ_METHODS = {"help", "get", "find", "edges", "children", "history", "go_candi
 WORKFLOW = f"""research-tree 项目已启用。主会话是唯一 Research Leader。
 读取 {ROOT / 'skills/research-tree/SKILL.md'} 与 {ROOT / 'rules/research-tree-rules.md'}。
 只通过 research_db 修改研究数据库；已生效文档写新版本；节点不能修改冻结框架。
-用户确认最小范围前不启动执行角色；确认后先assign_worker和分配任务，再research_control architect实现根节点框架与baseline，worker执行假说节点。
+用户确认最小范围前不启动执行角色；确认后先assign_architect或assign_worker并分配对应任务，再research_control architect实现根节点框架与baseline，worker执行假说节点。
 research_control explorer与analyst是只读顾问；Explorer持续提出可证伪候选，Analyst整理证据与下一实验建议，由Leader登记并作方向、预算、争议与最终GO/NOT GO决定。
-执行角色使用独立Codex会话，同一节点共用worker身份/锁；主会话不以原生spawn_agent绕开身份/确认/并发门槛。
-新项目fast_screening/incremental按候选准入，不等待整批发现或每次廉价筛选的模型审批；旧strict/full项目保持原门槛，读取生效配置与research_db help。
+执行角色使用独立Codex会话，根节点只用architect/root，worker只负责假说节点；主会话不以原生spawn_agent绕开身份/确认/并发门槛。
+仅支持version 3配置与schema 23数据库，快速筛选/增量发现按候选准入，不等待整批发现或每次廉价筛选的模型审批；旧项目须明确迁移，不静默转换。
 保留原始证据、方法身份、公平配对、预算与防重复门槛；positive_signal不是GO。选定少量候选、必要重复与控制后再独立确认，最后集中五维复核。
 research_review立即返回ticket，稍后以同一ticket收取；等待期间推进独立工作，不重复启动。
 需要用户决定时post_to_ui；主会话的明确授权同样有效。UI按需build/pane，只有交互需要时使用ui_path，不运行常驻UI。轻量摘要GO=null/eligibility_checked=false表示未检查，用get_eligibility核验。
@@ -164,14 +165,47 @@ def copy_destinations(tokens, start, cwd):
     return paths, i
 
 
-def guard(event, cwd, summary, marker):
+def authoritative_guards(project, marker):
+    """Fresh DB-only authority, independent of the best-effort presentation cache."""
+    python = project / ".venv/bin/python"
+    if not python.is_file():
+        raise ValueError(f"missing project interpreter: {python}")
+    result = subprocess.run([str(python), str(ROOT / "tools/build_site.py"), "--db", marker["db"], "--summary"],
+                            cwd=project, capture_output=True, text=True, timeout=30)
+    if result.returncode:
+        raise ValueError(result.stderr.strip() or f"guard reader exit {result.returncode}")
+    snapshot = json.loads(result.stdout)
+    guards = snapshot.get("guards") if isinstance(snapshot, dict) else None
+    if not isinstance(guards, dict) or snapshot.get("db_path") != marker["db"] or any(
+            not isinstance(guards.get(key), list)
+            or any(not isinstance(path, str) or not Path(path).is_absolute() for path in guards[key])
+            for key in ("frozen_docs", "harness")):
+        raise ValueError("database did not return complete file guards for this project")
+    return {"guards": guards}
+
+
+def guard(event, cwd, marker, project):
     name = event.get("tool_name", "")
     args = event.get("tool_input", {})
     if not isinstance(args, dict):
         return None
     if name in {"spawn_agent", "Agent"}:
-        return "项目代理通过research_control worker/architect/explorer/analyst/lens启动；UI仅按需由用户入口启动。"
+        return "项目代理通过research_control worker/architect/explorer/analyst启动；UI仅按需由用户入口启动。"
     db = Path(marker["db"]).resolve()
+    authority = None
+
+    def check(path):
+        nonlocal authority
+        fixed = protected(path, cwd, {}, db)
+        if fixed:
+            return fixed
+        try:
+            if authority is None:
+                authority = authoritative_guards(project, marker)
+            return protected(path, cwd, authority, db)
+        except Exception as exc:
+            return f"无法核验最新的研究文件保护状态，已拒绝本次写入；恢复项目数据库访问后重试：{str(exc)[:300]}"
+
     if name in {"apply_patch", "Edit", "Write", "NotebookEdit"}:
         if os.environ.get("RESEARCH_TREE_ACTOR", "rld/main").startswith(("explorer/", "analyst/")):
             return "研究顾问只读文件与科学记录；返回建议与来源，由Leader保存。"
@@ -179,7 +213,7 @@ def guard(event, cwd, summary, marker):
         paths = re.findall(r"^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+)$", patch, re.M)
         paths += [args[k] for k in ("file_path", "notebook_path") if args.get(k)]
         for path in paths:
-            reason = protected(path, cwd, summary, db)
+            reason = check(path)
             if reason:
                 return reason
     if name in {"Bash", "exec_command", "shell", "shell_command"}:
@@ -210,7 +244,7 @@ def guard(event, cwd, summary, marker):
             if Path(token).name == "cp":
                 paths, copy_end = copy_destinations(tokens, i + 1, cwd)
                 for path in paths:
-                    reason = protected(path, cwd, summary, db)
+                    reason = check(path)
                     if reason:
                         return reason
                 continue
@@ -220,7 +254,7 @@ def guard(event, cwd, summary, marker):
                 writer = True
             redirect = i > 0 and tokens[i - 1] in {">", ">>", ">|", "&>"}
             if writer or redirect:
-                reason = protected(token, cwd, summary, db)
+                reason = check(token)
                 if reason:
                     return reason
     return None
@@ -235,6 +269,7 @@ def handle(event):
     cache = cache_dir(project)
     kind = event.get("hook_event_name")
     actor = os.environ.get("RESEARCH_TREE_ACTOR", "rld/main")
+    actor_key(actor)
     # Only the main CLI records its address. Child sessions never become the Leader.
     lease_answer = None
     if actor == "rld/main" and kind in {"SessionStart", "PostToolUse"} and event.get("session_id"):
@@ -281,9 +316,8 @@ def handle(event):
                                              "event": "observed", "model": event["model"]}, ensure_ascii=False) + "\n")
     if lease_answer is not None:  # after the model record: a session waiting to take over is observed too
         return lease_answer
-    summary = read_json(cache / "summary.json", {})
     if kind == "PreToolUse":
-        reason = guard(event, cwd, summary, marker)
+        reason = guard(event, cwd, marker, project)
         return deny(reason) if reason else {}
     if kind == "SessionStart":
         if actor == "rld/main":
@@ -304,11 +338,6 @@ def handle(event):
             workflow = f"""research-tree 固定身份 ui/ui；主会话是唯一 Research Leader。
 读取 {ROOT / 'rules/research-tree-rules.md'}。研究数据库与科学材料只读，不直接调用控制工具确认或调度代理、评审、训练。
 可用 requirement_draft 保存需求草稿；最终返回 reply/actions JSON。用户明确确认当前立项计划时，输出 confirm 动作转交控制器；控制器记录用户原话并执行确认，UI 不直接写项目状态。
-"""
-        else:
-            workflow = f"""research-tree 固定身份 {actor}；主会话是唯一 Research Leader。
-读取 {ROOT / 'rules/research-tree-rules.md'}。研究数据库与科学材料只读，不调度代理、评审或训练，不确认计划。
-只读本轮指定材料并返回候选 JSON，由 Leader 保存分片。
 """
         return {"hookSpecificOutput": {"hookEventName": kind, "additionalContext": workflow +
                                         f"\n项目 {marker['project_id']}：{marker['phase']}。当前数据摘要可能是旧快照，用status刷新。"}}

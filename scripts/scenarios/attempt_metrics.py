@@ -65,7 +65,7 @@ def metrics(project_dir: Path, tables: dict, root: Path, duplicate_import_reques
                                            or prev.get("valid") is False or prev.get("retracted_at")):
             authorized += 1
     # every start beyond the first of a key, and every start of a key no reservation (no run intent) explains
-    duplicates = sum(n - 1 for n in starts.values() if n > 1) + sum(n for k, n in starts.items() if k not in reserved_keys)
+    duplicates = sum(max(0, n - 1) if k in reserved_keys else n for k, n in starts.items())
     # avoidable repeated failures: a fault class whose fix was verified before this failure, not injected again
     verified = []
     for d in tables.get("document", []):

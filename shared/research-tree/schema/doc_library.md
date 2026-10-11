@@ -1,6 +1,8 @@
-# 研究文档库设计（草案，2026-10-03）
+# 研究文档库与消息契约（version 3 / schema 23）
 
 文档库存放研究的全部正文：假说、实验设计与统计结果、新颖性与理论复核、决定理由、用户指令、委派与交付、工作流和报告。LatticeDB（`research_tree.db`，结构见 `research_tree.sql`）只存索引、状态和关系，不存正文。
+
+本契约仅用于 version 3 配置与 schema 23 数据库，工作流固定为快速筛选和增量发现。旧项目、配置、数据库拒绝打开并给出迁移说明；不升级、不补写缺失身份或把历史回执重新解释为当前证据。迁移应保留旧项目档案，在新目录用当前模板显式重建计划、配置及所需证据登记，重新确认范围；不得通过新项目重置已使用确认材料或已发生的费用。
 
 基本原则：
 
@@ -17,8 +19,9 @@
 <project-root>/research/<project-id>/
 ├── research_tree.db, research_tree.db-wal   # LatticeDB（不进git，定期导出快照）
 ├── snapshots/                               # 数据库JSON导出，进git
-├── messages/<agent-id>.jsonl                # 每个发送者的消息日志，进git
+├── messages/<role>--<agent-id>.jsonl                # 每个发送者的消息日志，进git
 ├── messages/window.jsonl                    # 研究对话窗口的全部对话（w-<编号>），由mod写入，进git
+├── cache/discovery/proposals/*.json        # Explorer 实际提案：{source, candidates}，source 标明真实来源
 ├── cache/literature/                        # 相关研究原文缓存（PDF/HTML），不进git；由literature笔记引用
 └── docs/                                    # 文档库根，进git
     ├── project/
@@ -30,7 +33,7 @@
     │   ├── decisions/go-or-not-go.v1.md     # 项目级决定的理由
     │   └── reports/                         # 阶段报告、GO/NOT GO报告
     ├── instructions/UI-0001.v1.md           # 用户指令，每条指令一个文件
-    ├── requirements/REQ-0001.v1.md          # 经UI澄清的需求（需求记录各项与用户原话），每次提交一个新版本
+    ├── requirements/REQ-0001.v1.md          # 经主会话或按需UI澄清的需求（需求记录各项与用户原话），每次提交一个新版本
     ├── workflow/                            # 本项目采用的规则版本、模板、约定
     ├── literature/LIT-0004.v1.md            # 相关研究笔记（创建节点时的缓存），可被多个节点引用
     ├── baselines/E-0002/                    # 不属于任何假说的基线实验
@@ -38,15 +41,15 @@
     │   └── result.v1.md
     ├── hypotheses/H-0007/                   # 每个假说节点一个目录（平铺，见下）
     │   ├── hypothesis.v1.md
-    │   ├── novelty.v1.md                    # 优于SOTA后RLD的新颖性复核
-    │   ├── theory.v1.md                     # 优于SOTA后RLD的理论正确性复核
+    │   ├── novelty.v1.md                    # RLD 的新颖性论证，独立复核另存 reviews/
+    │   ├── theory.v1.md                     # RLD 的理论论证，独立复核另存 reviews/
     │   ├── experiments/E-0031/
     │   │   ├── design.v1.md
     │   │   ├── result.v1.md                 # 冻结统计代码的输出与解读
     │   │   └── stats.v1.json                # 统计代码的结构化输出（逐seed与配对比较），可选
     │   ├── decisions/prune-after-gate.v1.md # 节点决定的理由
     │   └── notes/                           # 补充分析、讨论（经rel_describes关联）
-    ├── project/discovery/                   # 增量或整批发现：user-hypotheses.json、candidates.json（候选池，CAND-编号及 revision）
+    ├── project/discovery/                   # 增量发现：user-hypotheses.json、candidates.json（CAND-编号及 revision）
     ├── findings/                            # 研究发现（finding，08 §1.1）
     ├── lessons/                             # 运行经验（lesson，08 §1.2；front matter kind: execution_lesson）
     ├── reviews/                             # 跨模型非交互评审（review_call.py，作者 reviewer）
@@ -105,81 +108,69 @@ created_at: 2026-10-03T10:21:00Z
 
 | doc_type | 作者 | 必需内容 |
 |---|---|---|
-| `goal` | RLD（据用户指令） | 研究问题、目标场景、发表目标、范围与排除项、所依据的用户指令ID；**`## 问题锚点`**：底线问题、必须解决的瓶颈、非目标、约束、成功条件（版本 2 配置下，假说文档逐字复制，接口核对） |
-| `min_setup` | RLD | 模型、数据、训练量、评测（模型与数据集写 Hugging Face Hub 正式 ID，数据集含 config 与 split）；主指标及优劣方向、是否百分比指标；其他比较指标（过程loss、显存、训练时间等）；统一seed顺序；评测类型（与协议的 eval_type 相同）及它限制的结论措辞；SOTA基线方法与来源，以及每个基线家族的合理调参机会、训练量与数据处理（不能以一个未调好的单一配置代表现有方法）；单次运行上限与筛选预算；**冻结的实验框架与统计代码**：版本、文件清单、记录的指标与曲线、配对比较方法、判定规则（无提升/差不多/优于父节点/优于SOTA/需要RLD复核的具体口径） |
-| `hypothesis` | RLD | fast_screening：问题锚点（与获准 goal 逐字一致）、可证伪预测、干预、匹配对照、资源上限、停止与继续条件六个 `## ` 章节；资源上限含 JSON `{nodes, walltime_s, n_seeds?}`，正数且不超授权。strict 保留方法步骤、技术缺口、可证伪预测与竞争解释、最接近工作与差异、Claim map、实验块、成本估计、停止条件、有意舍弃的复杂度等完整章节与上限。方法变化可为代码或科学配置；明确思想来源、代码起点、比较参照与已引用文献，不把未验证方向说成赢家 |
-| `novelty` | RLD | 节点优于SOTA后的复核：检索记录（查询词、来源、日期），范围不限于创建时引用的文献；最接近工作的逐项对比表（机制、适用条件、实验设定、已报告结果、差异）；结论 |
-| `theory` | RLD | 节点优于SOTA后的复核：推导或论证的逐步核对；关键假设；与实验结果是否一致；结论 |
-| `literature` | worker/助手 | 由 `literature.py note` 生成：front matter 含标题、作者、年份、arXiv ID/DOI/URL、访问日期、`verification`（verified/unverified，不手改）、核验方法、缓存路径与 sha256；正文章节：出处、核心方法、实验设定与结果、与本项目的关系、最近邻差异（机制是否相同、改变了什么假设、已有结果是否覆盖本项目声明） |
-| `experiment_design` | worker | 版本 2 配置下方法与消融实验必需的 `## ` 章节：检验的 claim、存在理由、数据与切分、比较系统、指标、设定、成功判据、失败解释、表图目标、优先级与成本。另写：要验证的代码改动；代码版本（含冻结框架）；配置；seed数（按筛选预算）；单次运行资源（不超过上限）；有效性验收标准 |
-| `experiment_result` | worker | 逐seed的主指标、其他指标、过程曲线路径、实际节点数与时长；与父节点和SOTA的配对差值及离散度（取自冻结统计代码写出的统计文件或 `preview_evaluation` 的只读预览，`evaluate_experiment` 再与接口重算值核对；不手算）；判定及依据；局限；原始产物路径。文中每个数字在一个 ` ```evidence ` 代码块里列出来源：`[{"id", "value", "source"}]`，`source` 相对研究根目录（如 `outputs/E-0002/s42/metrics.json`）；设为现行时接口逐项核对数值以精确十进制出现在来源文件中，找不到即拒绝（STAT_MISMATCH）。来源文件用常规 JSON（`"acc": 0.9` 或紧凑的 `"acc":0.9`）或以空格分隔的文本；CSV 的 `0.1,0.2` 这类逗号紧接的数字不会被识别（防止与千位分隔混淆）。汇总数字用保留编号：`mean:<指标>`（主指标均值必填）、`sd:<指标>`、`delta:<sota\|parent>:<指标>`，计算时按写出的小数位与重算值核对；每个已导入运行的指标文件都要引用 |
-| `decision` | RLD | 变更字段与前后取值；理由；依据（实验、文档、用户指令ID）；判定为“需要RLD复核”时RLD的判断理由 |
-| `user_instruction` | UI | 用户原话（逐字）；UI的理解；类型（指令/偏好/问题/讨论）；生效范围；取代的旧指令ID |
+| `goal` | RLD（据用户指令） | 研究问题、目标场景、发表目标、范围与排除项、所依据的用户指令ID；**`## 问题锚点`**：底线问题、必须解决的瓶颈、非目标、约束、成功条件（假说文档逐字复制，接口核对） |
+| `min_setup` | RLD | 模型、数据、训练量、评测（模型与数据集写 Hugging Face Hub 正式 ID，数据集含 config 与 split）；主指标及优劣方向、是否百分比指标；其他比较指标（过程loss、显存、训练时间等）；统一seed顺序；评测类型（与协议的 eval_type 相同）及它限制的结论措辞；SOTA基线方法与来源，以及每个基线家族的合理调参机会、训练量与数据处理（不能以一个未调好的单一配置代表现有方法）；单次运行上限与筛选预算；**冻结的实验框架与统计代码**：版本、文件清单、记录的指标与曲线、配对比较方法、确定性 outcome 规则、比较门槛、保护指标和确认要求 |
+| `hypothesis` | RLD | 问题锚点（与获准 goal 逐字一致）、可证伪预测、干预、匹配对照、资源上限、停止与继续条件六个 `## ` 章节；资源上限含 JSON `{nodes, walltime_s, n_seeds?}`，正数且不超授权。方法变化可为代码或科学配置；明确思想来源、代码起点、比较参照与已引用文献。候选准入绑定当前 candidate ID、revision、内容哈希与范围，文档更新不能丢掉这些边界 |
+| `novelty` | RLD | 晋级与最终主张的论证材料：检索记录（查询词、来源、日期），范围不限于创建时引用的文献；最接近工作的逐项对比表（机制、适用条件、实验设定、已报告结果、差异）；结论 |
+| `theory` | RLD | 晋级与最终主张的论证材料：推导或论证的逐步核对；关键假设；与实验结果是否一致；结论 |
+| `literature` | RLD/Architect/Worker（限任务范围） | 由 `literature.py note` 生成：front matter 含标题、作者、年份、arXiv ID/DOI/URL、访问日期、`verification`（verified/unverified，不手改）、核验方法、缓存路径与 sha256；正文章节：出处、核心方法、实验设定与结果、与本项目的关系、最近邻差异（机制是否相同、改变了什么假设、已有结果是否覆盖本项目声明） |
+| `experiment_design` | RLD/Architect/Worker（限任务范围） | 方法与消融筛选使用五个 `## ` 章节：可证伪预测、干预、匹配对照、资源上限、停止与继续条件；另列代码版本、不可变科学配置、协议/数据/切分、seed 数、有效性验收标准和原始输出位置。资源上限节为 JSON `{nodes, walltime_s, n_seeds?}`。精确最小对照先写入 `## 预声明最小对照` JSON 并由 Leader 在目标提交前批准；超范围控制另走适用审查。晋级与确认补齐主张、竞争解释和必要的论证 |
+| `experiment_result` | RLD/Architect/Worker | 逐seed的主指标、其他指标、过程曲线路径、实际节点数与时长；与已绑定比较参照和SOTA的配对差值及离散度（取自冻结统计代码写出的统计文件或 `preview_evaluation` 的只读预览，`evaluate_experiment` 再与接口重算值核对；不手算）；判定及依据；局限；原始产物路径。文中每个数字在一个 ` ```evidence ` 代码块里列出来源：`[{"id", "value", "source"}]`，`source` 相对研究根目录（如 `outputs/E-0002/s42/metrics.json`）；设为现行时接口逐项核对数值以精确十进制出现在来源文件中，找不到即拒绝（STAT_MISMATCH）。来源文件用常规 JSON（`"acc": 0.9` 或紧凑的 `"acc":0.9`）或以空格分隔的文本；CSV 的 `0.1,0.2` 这类逗号紧接的数字不会被识别（防止与千位分隔混淆）。汇总数字用保留编号：`mean:<指标>`（主指标均值必填）、`sd:<指标>`、`delta:<sota\|parent>:<指标>`，计算时按写出的小数位与重算值核对；每个已导入运行的指标文件都要引用 |
+| `decision` | RLD | 变更字段与前后取值；理由；依据（实验、evaluation、文档、用户指令 ID）；投入处置与科学结论分开，暂停或不再投入须有复议条件 |
+| `user_instruction` | UI 或 RLD（代用户登记） | 用户原话（逐字）；理解与来源；类型（指令/偏好/问题/讨论）；生效范围；取代的旧指令 ID。主会话授权无须在 UI 重复 |
 | `task_request` | RLD | 章节（接口检查）：任务与节点、问题与预测、干预与对照、范围与权限、资源与预算、验收与停止条件、交付；各章节的内容见规则第4节 |
-| `task_delivery` | worker/architect/助手/web builder；只读建议任务由 rld 代记 | 章节（接口检查）：实际改动与版本、运行与产物、验证结果、资源观测、未完成与未知项；Explorer/Analyst 的报告保持 rld 作者并用 about=[task_id] 绑定任务，引用 advisor 会话与真实来源；各章节的内容见规则第4节 |
+| `task_delivery` | Architect/Worker；只读建议任务由 RLD 代记 | 章节：实际改动与版本、运行与产物、验证结果、资源观测、未完成与未知项。Explorer/Analyst 的交付保持 RLD 作者并用 about=[task_id] 绑定任务，引用真实 advisor 会话/报告与来源；不得冒充只读角色直接写库 |
 | `workflow` | RLD | 规则版本、模板、项目约定 |
-| `report` | RLD | 阶段总结、GO/NOT GO报告（第6、7节要求的内容） |
+| `report` | RLD | 阶段总结、GO/NOT GO报告（工作规则第6、7节要求的内容） |
 | `metric_spec` | RLD | JSON：`{"version": 1, "primary": <主指标>, "metrics": [...]}`，每个指标 `name`、`direction`（higher/lower）、`input_unit`（run 报告的单位，如 fraction、percentage、seconds、gib）、`canonical_unit`（比较单位，如 percentage_point）、`effect_mode`（absolute 或 relative_to_reference_mean）、`minimum_practical_gain`、`aggregation`（paired_run_mean），可选 `allowed_regression`（保护指标允许的最大退化）、`valid_range`（输入单位的合法范围；fraction 默认 [0,1]、percentage 默认 [0,100]。百分数指标收到 0–1 的比例时默认范围查不出，需要时把 valid_range 收紧到实际可能的区间）、`relative_min_denominator`（相对效应必填）；指标恰为项目的主指标与其他比较指标。设为现行时接口校验 |
-| `protocol` | RLD | JSON：`{"version": 1, "eval_type": real_gt/synthetic_proxy/self_supervised_proxy/simulation_only/human_eval, "pair_fields": ["seed", ...], "match": {必须一致的设定}, "required_counts": {计数: 值}}`，可选 `gate_comparison`（">" 或 ">="，默认 ">"）、`min_pairs`、`require_artifact_import`、`description`；`profile`（`stage1_confirmed`（默认）：GO 需要独立确认；`screening`：搜索过门槛即 candidate_ready，GO 报告须写明未经独立确认）、`confirmation_seeds`（与搜索 seed 不重叠，至少 `min_confirmation_pairs` 个，默认 3）、`max_confirmation_candidates`、`independence_fields`（共享这些 manifest 字段的运行只算一次独立重复）。设为现行时接口校验 |
+| `protocol` | RLD | JSON：`{"version":1,"eval_type":real_gt/synthetic_proxy/self_supervised_proxy/simulation_only/human_eval,"pair_fields":["seed",...],"match":{必须一致的设定},"required_counts":{计数:值}}`，可选 `gate_comparison`、`min_pairs`、`require_artifact_import`、`description`。独立确认是固定要求：声明与搜索不重叠的 `confirmation_seeds`、`min_confirmation_pairs`、`max_confirmation_candidates` 及命名的确认材料。`independence_fields` 声明独立单元字段，共享独立单元不得重复计数；`repetition` 控制有界搜索复制建议。没有 screening-only GO 或关闭独立确认的配置 |
 | `review` | reviewer（只经 `review_call.py`） | front matter：kind、about、dimension 与 evaluation_id（candidate_recheck）、code_ref（code_review：所读提交，提交作业时核对同一提交）、result、backend（pi/claude_code）、provider、请求与 observed 的模型、thinking、会话、brief 路径、终止原因、费用与用量、permission_denials、原始输出路径（`cache/reviews/`）；正文为 reviewer 原文与结构化 JSON。Leader 不能登记或替换 review 文档 |
-| `finding` | RLD/worker | docs/findings/；YAML front matter：kind finding、claim（事实）、scope、evidence_ids（存在的 evaluation/实验/文档）、interpretation（与 claim 分开）、limitations、status（observed/supported/contradicted/stale）、supersedes |
-| `lesson` | RLD/worker/助手 | docs/lessons/；YAML front matter：kind execution_lesson、symptom（如实写报错、OOM、ImportError、路径错误等事实）、root_cause、root_cause_status（verified/proposed/unknown）、fix（怎么修）、applicability（harness_ref、config_doc_id、平台、依赖版本等适用范围；不写则显示“范围未写明，待核对”）、counterexamples、status（proposed/observed/verified/contradicted/stale）。status verified 表示“修复已验证”，须给 `fix_verification`：failure_attempt_ref（失败的 attempt，E-…/s…@n，有日志）、criterion_doc_id（验证开始前冻结的 task_request 或 experiment_design，含 `## 检查项` JSON 块 {"checks": [{id, type, field?, expected?}]}，type 只能是 exit_status、import_valid、launch_config、read_count、artifacts_match_manifest）、run_attempt_refs（验证用的成功、已导入、valid 的 attempt）、applied_fix_ref（{kind: execution_config, field, expected} 或 {kind: code, commit}）、check_evidence_refs（[{check, run}]）。系统用固定检查器从 run 记录与产物判定，结果记为只读的 memory_basis；自填的 fix_applied、checks_passed 被忽略。根因未确定（unknown/proposed）时也可登记已验证的修复，根因状态不变。root_cause 与 fix 拒绝“永远不要用某工具”“某工具坏了”一类永久否定；全文过滤注入/扩权内容（MEMORY_REJECTED） |
+| `finding` | RLD/Architect/Worker | docs/findings/；YAML front matter：kind finding、claim（事实）、scope、evidence_ids（存在的 evaluation/实验/文档）、interpretation（与 claim 分开）、limitations、status（observed/supported/contradicted/stale）、supersedes |
+| `lesson` | RLD/Architect/Worker | docs/lessons/；YAML front matter：kind execution_lesson、symptom（如实写报错、OOM、ImportError、路径错误等事实）、root_cause、root_cause_status（verified/proposed/unknown）、fix（怎么修）、applicability（harness_ref、config_doc_id、平台、依赖版本等适用范围；不写则显示“范围未写明，待核对”）、counterexamples、status（proposed/observed/verified/contradicted/stale）。status verified 表示“修复已验证”，须给 `fix_verification`：failure_attempt_ref（失败的 attempt，E-…/s…@n，有日志）、criterion_doc_id（验证开始前冻结的 task_request 或 experiment_design，含 `## 检查项` JSON 块 {"checks": [{id, type, field?, expected?}]}，type 只能是 exit_status、import_valid、launch_config、read_count、artifacts_match_manifest）、run_attempt_refs（验证用的成功、已导入、valid 的 attempt）、applied_fix_ref（{kind: execution_config, field, expected} 或 {kind: code, commit}）、check_evidence_refs（[{check, run}]）。系统用固定检查器从 run 记录与产物判定，结果记为只读的 memory_basis；自填的 fix_applied、checks_passed 被忽略。根因未确定（unknown/proposed）时也可登记已验证的修复，根因状态不变。root_cause 与 fix 拒绝“永远不要用某工具”“某工具坏了”一类永久否定；全文过滤注入/扩权内容（MEMORY_REJECTED） |
 | `config` | RLD（mod 代用户登记） | 项目目录 `research-tree.yaml` 的原文：开发与实验平台、资源预算、阶段1门槛、子代理模型；立项确认与每次 `/research-tree config apply` 时登记新版本 |
 
-## 5. 写入权限
+## 5. 身份、写入权限与证据边界
 
-| 区域 | 写入者 | 说明 |
-|---|---|---|
-| `project/`、`hypotheses/*/hypothesis.*`、`novelty.*`、`theory.*`、`decisions/`、`workflow/`、`reports/` | RLD | 节点和项目层面的内容、复核与决定 |
-| `reviews/RV-*` | reviewer（review_call.py） | RLD 只写 `reviews/briefs/`（brief 本身不登记为 review） |
-| `findings/` / `lessons/` | RLD、worker / RLD、worker、助手 | 登记时校验 front matter 并过滤运维噪声与注入、扩权内容 |
-| `instructions/` | UI | 只有UI登记用户指令；用户直接在main下达的指令由RLD代为登记 |
-| `hypotheses/*/experiments/`、`notes/`、`baselines/`、`literature/` | 被委派的worker或助手 | 只能写自己认领任务范围内的路径 |
-| `tasks/*/request.*` / `delivery.*` | RLD / 被委派者 | |
-| 任何区域 | web builder不可写 | 只读数据库和文档库 |
+所有数据库操作经过 `tools/research_db.py`，以明确的 `<角色>/<ID>` 校验权限。会话角色只包括 `rld`、按需 `ui`、根节点 `architect`、假说 `worker`、`explorer`、`analyst`；`reviewer` 仅经独立评审包装器登记回执。未知或缺失角色不能回退成 Worker。
 
-所有数据库写入都经过 `tools/research_db.py`（Python接口与同名CLI），它按schema检查字段、取值和引用，并按调用者身份（`<角色>/<agent ID>`）检查权限：
-
-| 写入 | 谁可以 |
+| 区域或操作 | 权限 |
 |---|---|
-| 项目、假说节点、分支创建与处置、任务创建与验收、所有状态决定（`decide`） | 只有RLD |
-| 文档登记、修改草稿、`draft → current` | 作者（文档类型须是该角色可写的类型），或RLD |
-| 节点worker的指派（`assign_worker`）与会话绑定（`bind_worker_session`） | 只有RLD（mod 在启动worker时自动绑定会话） |
-| 节点恢复文档的追加（`add_resume_docs`） | 节点的worker，或RLD |
-| 实验、运行、产物导入（`import_run_result`）、扩展seed（`extend_seeds`）、统计计算（`evaluate_experiment`，兼容入口 `record_verdict`）、实验依赖 | 实验owner worker，或RLD；节点已指派worker时，只有该worker能为它建实验 |
-| 撤回已有效的运行（`retract_run`）、历史判定的影子迁移（`migrate_evaluations`）、旧状态迁移（`migrate_states`）、投入处置（`decide_disposition`）、停滞计数（`note_findings`）、关闭未决问题（`resolve_obligation`、`waive_obligation`） | 只有RLD |
-| 登记未决问题（`add_obligation`、`reconcile_obligations`） | RLD 或 worker；STAT_MISMATCH 与 PAIRING_MISMATCH 由接口自动登记 |
-| 分支交还（`active → returned`） | 分支owner worker，或RLD |
-| 任务开始与交付 | 任务的assignee |
+| 项目、假说、分支创建与处置、任务创建与验收、研究和投入决定 | RLD |
+| 根节点执行身份和会话 | RLD 用 `assign_architect(architect_id="root")`、`bind_architect_session(agent_id)`；字段为 `architect_id`、`architect_agent_id`、`architect_session_at` |
+| 假说执行身份和会话 | RLD 用 `assign_worker`、`bind_worker_session`；只接受假说节点，不是根节点别名 |
+| `project/`、假说正文、`novelty.*`、`theory.*`、决定与报告 | RLD |
+| 共享框架、根节点 sanity、baseline 与对应实验文档 | 分配给根节点的 Architect；不接管假说任务 |
+| 假说实验、运行、导入、评价和交付 | 固定的假说 Worker，限已分配任务；不接管根节点 |
+| 用户指令 | 按需 UI 或 RLD 代用户记录原话；代理建议不构成授权 |
+| Explorer/Analyst 建议 | 只读；Leader 登记任务进度和版本化交付并按证据验收 |
+| `reviews/RV-*` | 仅 reviewer 包装器；RLD 可写中立的 `reviews/briefs/`，不能伪造或替换回执 |
+| 恢复资料、findings、lessons | RLD 或相应执行 owner，按文档类型和任务范围检查 |
+| 页面与摘要 | 确定性生成器只读研究记录；按需 UI 不写科学决定 |
 
-每次写入是一个短事务，遇到锁冲突有限次重试。接口同时执行以下规则：
+生效文档只增加新版本，不原地改写；每次数据库写入是短事务，锁冲突只有限重试。以下保护始终适用：
 
-- **冻结框架。** Experiment Architect（根执行者，兼容旧 worker/root）实现实验框架与统计代码，RLD审核后用 `update_project(harness_ref, harness_paths)` 冻结。此后所有实验的代码必须包含该版本，且框架文件与之完全一致（git核对），否则不能记录判定。更换框架会清空SOTA基线，必须用新框架重跑。
-- **SOTA基线与seed预算。** SOTA基线在统一seed上跑满 `gate_seeds`（默认3）个seed并记录结果后，才能设为项目的SOTA。节点实验的初始seed数由SOTA第一个seed的成本 c（节点数×时长）决定：满足 n×c < `screen_budget_node_h`（默认10 node·h）的最大n，至少1、至多3。判定为“差不多”或“优于父节点”时，worker可扩展到3个seed；RLD可随时扩展。
-- **创建节点。** strict 按 `project.min_related_work` 引用足量现行、已核验 literature，并保留旧父节点可拓展条件。fast_screening 用获准的五项最小设计逐候选准入，已有文献可复用；parent_id/relations 表示思想来源，code_parent_id/branch base_commit 是代码起点，comparator_experiment_id 是匹配参照，投入状态独立记录。思想父节点无需已胜出，但代码和比较身份仍须有效；不改变授权或最终 GO 门。
-- **开始验证**要求节点已有代码分支，且 `experiment_status` 为running；节点实验的代码必须是不同于分支基准的提交。
-- **运行**按 planned → submitted（→ running）→ succeeded/failed/cancelled 推进；主指标与其他指标只能记在已成功的运行上。设为有效需要主指标、其他指标、实际节点数与时长，以及日志或输出路径；设为无效需要写明原因。重新提交（attempt 加1）只适用于失败、取消，或已成功但被判为无效的运行；之前每次 attempt 的记录保留在运行的 `attempts` 中，其用量计入累计用量。
-- **产物导入**：运行成功后，owner 用 `import_run_result(run_id, attempt, manifest_path)` 导入运行写出的 manifest（实验与 seed、attempt、代码版本、退出状态、指标文件、每个指标的单位 `units`（须与指标规范的 input_unit 一致）、计数、数据版本、配置、环境）；冻结解析器核对身份、数值有限且在合法范围、计数与协议要求的设定，指标文件写入 run 的数值并登记为证据（`evidence_paths`）。同一 attempt 用相同文件重复导入不变，用不同文件导入被拒绝；导入的数值不能再用 `update_run` 改写。有效性仍由 `update_run(valid=...)` 决定：指标文件存在、进程返回0都不等于实验有效。
-- **产物清理**：实验登记判定后，其owner用 `run_cleanup` 运行项目目录的 `research-tree-cleanup.py` 清理产物；接口检查清理计划（在运行的输出目录内、不含日志、曲线、manifest 与导入登记的证据文件、不属于保留类别）并把结果记入实验的清理账本。登记实验时可用 `keep` 与 `keep_reason` 声明保留的产物类别。节点任务交付和项目NOT GO都要等相关清理完成。
-- **项目结项后**（GO、NOT GO、停止）不能再新建假说、实验、运行、分支或研究类任务（harness、literature、experiment、analysis）；恢复研究需要用户指令。
-- **任务文档**：建任务时请求文档、交付时交付文档必须有规定的章节（见第4节文档类型表）。
-- **统计计算**（`evaluate_experiment`）要求每个seed的运行都有效；接口按指标规范从 run 的数值重算每个指标的均值与样本SD（n=1 时为空并说明，不填0）、按协议的配对字段配对后的效应（越好为正；绝对差或相对参照均值）、SOTA 门槛（配对数达到 `gate_seeds` 或协议的 `min_pairs`，且主指标效应超过 `minimum_practical_gain`）与保护指标，写成一条 evaluation（绑定 run/attempt、代码、框架、协议、指标规范与参照），调用者不提供权威数字。兼容期内节点实验仍由调用者给出判定（no_gain/close/beats_parent/beats_sota/needs_rld），接口只核对它与重算的比较一致；M2 起改为确定性的 outcome。参与比较的每个运行（含参照）都须满足现行协议固定的设定与计数，参照的 evaluation 也须在现行协议与指标规范下，否则先重评参照（EVIDENCE_STALE）。结果文档须引用每个已导入运行的指标文件；文中以保留编号 `mean:<指标>`、`sd:<指标>`、`delta:<sota|parent>:<指标>` 写出的汇总数字还与重算值核对。来源不能是文档库中的文件。比较对象在创建实验时固定：当时的SOTA，以及父节点当时最新已判定的实验（顶层节点只比SOTA）；之后父节点补实验不改变它，SOTA 更换后可用 `baseline_experiment_id` 对新SOTA重评分（新增一条 evaluation，旧的保留）。相同输入重复计算返回同一条 evaluation；计算期间依据（run、参照、协议、框架）变化时拒绝写入（EVIDENCE_CHANGED）。兼容入口 `record_verdict` 给出的数字只用于核对，按调用者写出的小数位四舍五入后与重算值不一致即拒绝（STAT_MISMATCH）。接口核对判定与重算的比较一致：“无提升”当且仅当相对父节点的所有指标都不更好；“优于父节点”要求主指标更好；“优于SOTA”要求通过门槛，通过门槛时判定只能是“优于SOTA”或“需要RLD复核”；少于 `gate_seeds` 个seed时不能判“优于SOTA”；seed 满时仍可判“差不多”（不确定）。没有指标规范的旧项目按兼容规范计算主指标，次指标差值沿用调用者的，evaluation 标为 `legacy_unverified`。
-- **节点结论**（`experiment_status`）必须等于节点最新已判定实验的判定，并引用该实验；“差不多”须先扩展seed；“需要RLD复核”由RLD附决定文档自行选择（选“优于SOTA”仍须通过门槛）。可拓展要求优于父节点或优于SOTA；无提升不强制剪枝，转为可消灭是有证据、有复议条件的决定。
-- **复核**只在节点优于SOTA后进行，判为通过或未通过须引用RLD写的、描述该节点的novelty或theory文档；判为通过还须引用所复核的实验（节点最新已判定的实验），复核因此绑定到该实验的代码版本：之后方法代码改变，旧复核不再支持GO；同一代码追加seed不影响。复核失败可将节点标为可消灭。
-- **用户放弃。** 节点在上限或权限内无法实验时，RLD上报用户；用户决定放弃后，UI登记描述该节点（`about`）的用户指令文档，RLD引用它即可把节点标为可消灭，无需实验。
-- **节点关键时间戳**由接口自动记录，调用者不能设置：创建（`created_at`）、首次开始验证（`started_at`）、首次实验即第一个运行提交（`first_experiment_at`）、首次统计判定（`first_result_at`）、首次判定优于SOTA（`beats_sota_at`）、完成即最近一次转为可拓展或可消灭（`concluded_at`，重新验证时清空）。首次类时间戳写入后不再改写。
-- **GO资格**（`get_eligibility`、`go_candidates`）只从 evaluation 计算，不读缓存标签：节点最新的 evaluation 仍适用（框架、协议、指标规范、SOTA及其评估都未变，引用的 run 未被撤回或重新提交）、不是 `legacy_unverified`、通过 SOTA 门槛与保护指标，且两项复核通过并绑定到同一代码版本。不满足时返回原因（HARNESS_CHANGED、BASELINE_CHANGED、PROTOCOL_CHANGED、METRIC_SPEC_CHANGED、RUN_RETRACTED、INPUT_CHANGED、RESULT_REVISION_PENDING、LEGACY_RESULT_UNVERIFIED、GATE_NOT_PASSED、GUARDRAIL_FAILED、OBLIGATION_OPEN、DISPOSITION_RETIRED、EVAL_TYPE_MISSING、STATISTICS_CHANGED、RECHECK_PENDING、RECHECK_FAILED、RECHECK_STALE、CONFIRMATION_REQUIRED、CONFIRMATION_FAILED、CONFIRMATION_REUSED、CONFIRMATION_STALE）。**GO**在写事务中重新检查资格（证据失效时 EVIDENCE_STALE）；已作出的 GO 是历史事实，后来的失效只改变当前资格，不改写项目状态，也不自动重开研究。**NOT GO**的条件见下面“GO / NOT GO 报告”；项目停止或恢复必须引用用户指令文档。
-- **GO / NOT GO 报告**须有 evidence 代码块，列出所依据的数字及来源；协议为 screening 时 GO 报告须有“未经独立确认”一节；NOT GO 报告还须有“未探索、工程失败、不确定、重复方向、明确反证、投入价值判断”各节。NOT GO 要求没有仍在投入的节点（投入处置为暂停或不再投入），清理未完成不阻挡决定。
-- **结论与投入处置**：每个 evaluation 带确定性的 `outcome`（正向信号、负向信号、不确定）；节点实验不再需要调用者给判定（给出时仍核对）。节点结论可为 inconclusive；达到 seed 上限可以停在不确定。基于不确定结果的状态或结论决定，决定文档须有“缺失证据”“下一实验”两节；连续两次不确定后新实验须写 `selection_rationale`。无提升不再强制剪枝；转为可消灭须引用证据，未做实验的节点只能由用户放弃。`decide_disposition` 记录继续、暂停或不再投入（理由、依据、暂停与不再投入的复议条件）。
-- **确认**：`create_experiment(stage=confirm)` 在协议的确认 seed 上运行：先是确认基线（kind baseline），再是节点冻结的候选代码（最近一次过门槛的搜索实验的代码）；协议为 stage1_confirmed 时，GO 资格需要同一代码的确认 evaluation 仍适用、过门槛与保护指标，且确认 seed 未被此前其他代码的确认用过（CONFIRMATION_REQUIRED / FAILED / REUSED / STALE）。
-- **未决问题与停滞**：节点或其实验、evaluation 上有 OPEN 的 obligation 时不是 GO 候选（OBLIGATION_OPEN）；`note_findings` 的 `doc_id` 必须是当前决定文档，作为批次身份。同节点/同文档重复调用不追加账本、不累计或复位，返回节点当前状态。连续 `stall_structural_at` 个不同批次无新发现后子树进入 structural，同方向子节点被拒（STALL_STRUCTURAL），到 `stall_human_at` 批时返回需报告用户。
-- **任务验收**须给 `evidence_ids`，验收者不是执行者；`resume_package` 给出第一个未验收的任务。
-- **指标规范与协议**一起登记：有指标规范就必须有协议（评测类型标在每个 evaluation 上）；主指标的 `minimum_practical_gain` 等于项目的 `go_margin`，协议的 `min_pairs` 不小于 `gate_seeds`：门槛只写一处。
-- **协议与指标规范**在实验存在后更换须引用一份现行的用户指令文档（`update_project(..., user_instruction_doc_id)`）：这是用户的决定，不能由agent在看到结果后改口径；旧 evaluation 随之失效。有效运行事后被证明无效时，RLD 用 `retract_run` 撤回（记录保留，引用它的 evaluation 失效），之后可作为新 attempt 重新提交。
+- **确认与范围。** 先登记最小目标、协议、指标和预算，再由用户确认。候选准入不改变确认阶段，不能授权新目标、资源或权限；配置只由用户修改并显式应用。
+- **冻结框架。** Architect 实现训练、评测、统计与 manifest；Leader 检查后用 `update_project(harness_ref, harness_paths)` 冻结。实验代码必须包含且保持框架文件一致；换框架使依赖证据失效并需重建参照。
+- **增量候选。** 候选 JSON 必须含 prediction、intervention、comparator、resource_ceiling、stop_conditions。Leader 合并实际提案，逐候选 select/gate，`create_hypothesis` 再核验当前 revision/hash 与范围。候选 A 的通过不能放行 B；没有全池报告或固定篇数文献门。
+- **独立关系。** `parent_id`/typed relations 是思想来源；`code_parent_id` 与 branch `base_commit` 是代码起点；`comparator_experiment_id` 是实验比较参照；投入处置另记。思想父节点无需胜出，不允许循环，也不能把对照的相同科学方法改名作为新干预。
+- **方法与主张身份。** 实验登记 `method_config` 或 `config_path`，固定代码、科学配置、数据/协议和框架的身份。执行字段如输出路径、walltime、seed 不构成新方法；科学配置变更可以构成干预。导入配置须匹配。主张变化形成新 revision，旧回执和争议裁决只有依据仍适用时才有效。
+- **baseline 与复制。** 有效且匹配的 baseline seed 可先支持搜索，其余 baseline 继续。reserve、claim、提交前都检查对应参照；缺失或撤回的 seed 不能先提交后补对照。部分配对不构成完整 SOTA 或晋级。自主追加复制要求当前适用的 positive_signal、匹配身份与协议、种子上限和已授权预算；负向、不确定和过期结果不自动放行扩量。
+- **运行与重试。** planned → submitted（→ running）→ succeeded/failed/cancelled；只有成功且通过有效性验收的运行支持科学结论。每次 attempt 保留原作业、结果、失败理由和实际用量；只重试允许重试的执行失败，不能撤回有效结果来挑选更好结果。查询失败和提交超时维持 unknown，核对原 submission_key，不盲目重提。
+- **原始导入。** `import_run_result(run_id, attempt, manifest_path)` 校验代码、配置、seed、attempt、数据/协议、实际计数、指标单位和原始路径。相同 attempt 同文件重复导入幂等，换文件或事后改导入数值被拒绝。manifest、哈希、原始指标与单位保留；缺失 provenance 不由当前配置倒填。
+- **程序计算。** `evaluate_experiment` 从有效 run 重算均值、样本 SD、配对效应、门槛和保护指标，产生 positive_signal/negative_signal/inconclusive。n=1 的 SD 为空并解释，不写成 0。调用者不提交 verdict 或权威统计数字；结果文档须引用每个已导入指标文件及可核验的汇总来源。相同输入幂等；计算中依据变化拒绝写入。
+- **证据时效。** evaluation 绑定实际用到的 run/attempt、代码、科学配置、框架、协议、指标与参照。增加未使用的 baseline seed 不改旧结果；更改或撤回实际使用的 run 则使其失效。独立单元、单位、配对字段和 required_counts 必须可核验，重复 attempt 不增加样本数。
+- **代码审查与最小对照。** 普通廉价搜索不逐次等待模型审查，但同方法 sanity、原始证据、数据/指标有效性、匹配、授权与预算仍检查。精确预声明的最小对照经 Leader 在目标提交前 `approve_minimum_controls` 批准后，只免除重复 ablation_plan；超范围实验保留适用审查。已验证的有效性缺陷不能绕过。
+- **争议。** `dispute_code_review` 保留原阻塞回执、具体问题和证据；独立 recheck 后 Leader 用 `adjudicate_code_review` 记录 upheld/overturned/fixed。真实缺陷不能 overturned 豁免。fixed 需要新方法身份、实际修复证据与独立 clear，只放行精确绑定的新实验；旧方法仍阻塞。换配置、节点、后代提交或沿用缺陷源码不能洗掉未解决问题。
+- **独立确认。** Leader 在充分搜索复制与关键控制后 `freeze_candidate` 冻结方法、主张、搜索依据和参照，再 `create_confirmation_batch` 固定名单与未使用的声明材料。Architect 运行冻结参照的确认 baseline，Worker 运行对应候选；身份、批次、比较和材料端到端绑定。确认材料从首次提交计入使用史，不因撤回、改名或重启清除，后续经反馈修改的方法须用另一份预声明材料或保持未确认。
+- **最终复核与 GO。** `get_eligibility`/`go_candidates` 从当前 evaluation 计算，检查足量配对、门槛、保护指标、独立确认、五维独立复核及未决问题；不读缓存标签。numbers/protocol 绑定最终确认 evaluation，其余维度也须与当前方法/主张/证据依据一致。Leader 的 GO 在写事务中重查，历史 GO 不被后来的失效改写，也不自动重开研究。
+- **未决问题。** 有 OPEN obligation 不能 GO；在 API 允许的有限范围内，reviewer 不可用的代码审查豁免或 obligation 豁免均须明确用户指令与对应决定记录，不能豁免已验证的有效性缺陷；新的整体 pass 不自动关闭旧问题，必须按相应证据解决流程处理。新颖性/理论整维豁免只按冻结协议与现行主张的明确适用性检查，不能把未知问题标作不适用。
+- **投入与 NOT GO。** 科学 outcome、节点生命周期、active/paused/retired 处置和项目 GO/NOT GO 分开。NOT GO 要求没有仍在投入的节点，Leader 无值得验证的新方向，报告覆盖未探索、工程失败、不确定、重复方向、明确反证与投入价值判断；预算不足或工程失败本身不构成 NOT GO。
+- **预算与防重复。** reserve → claim → 使用 submission_key 提交 → attach_job → 以真实调度用量 settle。预留须等于登记的总 node-seconds 并符合组合资源边界；开销预先声明。search/confirmation/repair 分池按实验依据固定，同 key 不能换 run、资源形状、池或平台；未知请求保留预留并对账。实际失败费用也入账，超额暂停准入，不静默取消作业或放宽预算。
+- **任务与恢复。** 请求和交付须具备规定章节；验收 `update_task(status=accepted, evidence_ids)` 引用真实依据，验收者不是执行者。`resume_package` 返回角色限定的 actor 和 first_unaccepted_task，沿用原会话与作业身份，不因 agent 一轮结束就宣告实验结束。
+- **指标变更。** 主指标的收益门槛和统一种子在开始实验后冻结；其他允许的协议/规范变更必须引用当前用户指令并使不适用证据失效。改单位必须与保留的原始单位一致且等价换算，不重新解释已导入值。
+- **清理与结项。** evaluation 登记后由实验 owner 按项目清理脚本清理非证据产物；保留日志、曲线、manifest、导入证据和声明仍需复用的产物，记录释放量与失败项。清理不是科学结论。GO/NOT GO/停止后不接受新的研究工作；重开须新的用户指令和范围记录。
 
-数据库放在共享文件系统上时，LatticeDB的文件锁能否跨主机生效取决于文件系统的挂载方式（例如Lustre需要flock挂载选项）；生效时，一方以写模式打开会拒绝其他读写，只读可以同时打开。无论能否跨主机加锁，计算节点上的作业都不直接打开数据库：长时间运行的作业一旦持有写锁会阻塞所有agent，而且作业并不是任何记录的owner。作业只把结果写到输出目录，由worker登记。
-
-git提交的分工见第6节。
+数据库位于共享文件系统时，跨主机锁是否有效取决于挂载方式。计算作业不直接打开数据库，只写输出目录；由固定执行 owner 导入。长作业不能持有数据库锁，文件锁也不替代角色或单 writer 检查。
 
 ## 6. 节点分支、worktree与git提交
 
@@ -188,33 +179,33 @@ git提交的分工见第6节。
 | 仓库 | 谁提交 | 说明 |
 |---|---|---|
 | 文档仓库 `research/<project-id>/` | 只有RLD | 文档不开分支。各agent直接在共享路径写自己负责的文件（第5节），写入后立即对所有人可见；RLD在批次节点统一提交。 |
-| 代码仓库的节点分支 | 该分支当前的owner worker | 只在自己的worktree内提交自己的分支，以保持并行度。 |
+| 代码仓库的节点分支 | 该分支当前的 Architect 或 Worker owner | 只在自己的worktree内提交自己的分支，以保持并行度。 |
 | 代码仓库的 `main` 等共享分支 | 只有RLD | 合并由RLD决定并执行。 |
 
 **分支与worktree的生命周期：**
 
-1. **创建。** 节点第一次需要写代码时，由RLD创建分支 `node/<节点ID>` 及其worktree，并登记 `branch` 记录。基准取父节点分支的当前提交；顶层节点或父节点分支已不存在时取 `main`。只做新颖性或理论验证、不写代码的节点不建分支。
-2. **开发。** 同一时刻只有一个owner worker可以提交。实验提交时冻结的提交打标签 `exp/<实验ID>`，写进 `experiment.code_ref`。这样之后即使删除分支，实验所用代码仍可追溯。
-3. **交还。** 节点验证完成（可拓展或可消灭）后，worker确认worktree内没有未提交的改动，在交付文档中列出最后提交和主要改动，把分支状态改为 `returned`，owner交还RLD。
+1. **创建。** 节点第一次需要写代码时，由RLD创建分支 `node/<节点ID>` 及其worktree，并登记 `branch` 记录。按登记的 `code_parent_id` 选择代码来源并固定 `base_commit`；思想 `parent_id` 不隐含代码起点。只做新颖性或理论验证、不写代码的节点不建分支。
+2. **开发。** 同一时刻只有一个已绑定的执行 owner 可以提交。实验提交时冻结的提交打标签 `exp/<实验ID>`，写进 `experiment.code_ref`。这样之后即使删除分支，实验所用代码仍可追溯。
+3. **交还。** 本轮分支任务完成并交还时，执行 owner 确认worktree内没有未提交的改动，在交付文档中列出最后提交和主要改动，把分支状态改为 `returned`，owner交还RLD。
 4. **处置。** RLD作出决定并写入决定记录，然后执行以下一种处置。三种处置都要移除worktree；只有提交在分支上的代码会保留，worktree里未提交的内容会丢失，所以交还时必须先全部提交。
    - **合并（merged）**：例如GO候选或可复用的基础设施，合并目标由RLD决定。
    - **保留（kept）**：例如可拓展节点的分支，作为子节点的基准。
    - **删除（deleted）**：例如可消灭节点。删除前确认所有实验提交都已打 `exp/` 标签。
 
-子节点分支以父节点分支为基准，因此父节点可拓展时，其分支应保留到子节点都创建分支之后。
+代码来源若仍被待建分支使用，按已登记依赖保留到所需 checkout 建立；思想祖先与代码依赖分开，不因思想父节点未胜出而禁止变体。
 
 ## 7. 消息格式
 
 agent之间的消息是一行紧凑的JSON，只包含简短说明和引用，不复制文档内容。格式由 `message.schema.json` 定义：
 
 ```json
-{"v":1,"id":"w3-0042","ts":"2026-10-03T10:21:00Z","project":"P-online-polora","from":"worker/w3","to":"rld/main","type":"delivery","re":"main-0040","about":["T-0088","E-0031"],"text":"T-0088完成：E-0031判定优于SOTA，3 seeds配对差+0.21pt。","docs":["hypotheses/H-0007/experiments/E-0031/result.v1.md","tasks/T-0088/delivery.v1.md"],"need":"ack"}
+{"v":1,"id":"worker--w3-0042","ts":"2026-10-03T10:21:00Z","project":"P-online-polora","from":"worker/w3","to":"rld/main","type":"delivery","re":"rld--main-0040","about":["T-0088","E-0031"],"text":"T-0088完成：E-0031得到正向信号；当前证据见交付。","docs":["hypotheses/H-0007/experiments/E-0031/result.v1.md","tasks/T-0088/delivery.v1.md"],"need":"ack"}
 ```
 
 | 字段 | 含义 |
 |---|---|
-| `id` | `<发送者ID>-<序号>`，由发送者自己编号，无需中心计数器 |
-| `from` / `to` | `<角色>/<agent ID>`，角色为 ui、rld、worker、assistant、web_builder |
+| `id` | `<角色>--<发送者ID>-<序号>`，由发送工具在角色限定日志锁内分配 |
+| `from` / `to` | `<角色>/<agent ID>`，会话角色为 ui、rld、architect、worker、explorer、analyst；reviewer 仅供评审包装器 |
 | `type` | instruction（UI→RLD，已登记的用户指令）、task（RLD→被委派者）、delivery（任务交付）、question、reply、confirm_request（RLD→UI，需要用户决定）、ack（仅确认收到）、alert（故障、阻塞、完整性问题） |
 | `re` | 所回复消息的ID；reply和ack必填 |
 | `about` | 相关的数据库实体ID（项目、节点、实验、分支、决定、任务），最多5个；指令和文献等文档放在 `docs` |
@@ -224,10 +215,10 @@ agent之间的消息是一行紧凑的JSON，只包含简短说明和引用，�
 
 规则：
 
-- **序列化与大小。** 用UTF-8紧凑格式（`ensure_ascii=False`、无空格），整行不超过1000字节：消息只是短说明加引用，细节一律写进文档。JSON Schema无法检查字节数，由发送工具检查。上例为358字节。
-- **先记录后发送。** 发送者先把完全相同的一行追加到 `messages/<发送者ID>.jsonl`（位于文档仓库，每个发送者一个文件，避免并发追加冲突），再交给收件方。消息丢失时以日志为准对账。
+- **序列化与大小。** 用UTF-8紧凑格式（`ensure_ascii=False`、无空格），整行不超过1000字节：消息只是短说明加引用，细节一律写进文档。JSON Schema无法检查字节数，由发送工具检查。角色限定的地址与编号不可省略或回退。
+- **先记录后发送。** 发送者先把完全相同的一行追加到 `messages/<角色>--<发送者ID>.jsonl`（位于文档仓库，每个发送者一个文件，避免并发追加冲突），再交给收件方。消息丢失时以日志为准对账。
 - **内容在文档里。** 凡是会影响决定的信息都必须在被引用的文档里；不带 `docs` 的消息只用于确认、提问、催办和告警。接收方据此行动前，必须读取被引用的文档。
-- **用户指令先登记。** 用户的话由UI先登记为 `user_instruction` 文档，再发送引用该文档的instruction消息；不得在消息里转述后直接执行。
+- **用户指令先登记。** 用户的话由主会话 RLD 或按需 UI 先登记为 `user_instruction` 文档，再发送引用该文档的instruction消息；不得在消息里转述后直接执行。
 - **不回确认的确认。** 收到ack不再回复，避免两个session相互唤醒。
 
 ### 发送工具
@@ -236,22 +227,19 @@ agent之间的消息是一行紧凑的JSON，只包含简短说明和引用，�
 
 ```bash
 .venv/bin/python tools/send_message.py --root research/P-xxx \
-  --from worker/w3 --to rld/main --type delivery --re main-0040 \
-  --text "T-0088完成：E-0031判定优于SOTA。" --about T-0088 E-0031 \
+  --from worker/w3 --to rld/main --type delivery --re rld--main-0040 \
+  --text "T-0088完成：E-0031得到正向信号，待进一步确认。" --about T-0088 E-0031 \
   --docs tasks/T-0088/delivery.v1.md
 ```
 
 可收发消息的身份登记在 `research/<project-id>/agents.json`（地址列表，由 `/research-tree init` 写入）：
 
 ```json
-["ui/ui", "rld/main", "worker/root", "assistant/a1", "web_builder/site"]
+["ui/ui", "rld/main", "architect/root", "explorer/main", "analyst/main"]
 ```
 
 节点worker以节点命名（`worker/h0007`），无需登记即可发送；收件人必须已登记。
 
-## 8. 需同步修改的地方
+## 8. 契约维护
 
-- `research_tree.sql`：`document.doc_type` 增加 `task_request`、`task_delivery`；新增 `branch` 表，`decision.field` 增加 `branch_status`（均已改）。
-- 新增 `message.schema.json` 与发送工具 `tools/send_message.py`（均已加，测试见 `tests/test_send_message.py`）。
-- 新增数据库读写接口 `tools/research_db.py`（已加，测试见 `tests/test_research_db.py`）。
-- 规则文件第3、4节的需求记录、交接表和消息格式，改为引用本设计（待做）。
+文档与 `research_tree.sql`、配置 schema、消息 schema、数据库 API 和两端适配器保持一致。更新公共角色、字段、消息或准入时同时更新对应回归，不把历史实施计划当作当前 API 文档。只读页面、摘要、恢复与消息路径同样检查版本；版本拒绝不得触发旧项目的静默重写。

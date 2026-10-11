@@ -14,7 +14,7 @@ class FastFixture(IdentityFixture):
         self.anchor = "底线问题: x；必须解决的瓶颈: x；非目标: x；约束: x；成功条件: x"
         goal = self.doc(self.rld, "project/goal-fast.v1.md", "goal", body="## 问题锚点\n" + self.anchor)
         instruction = self.doc(self.rld, "instructions/fast.v1.md", "user_instruction")
-        self.rld.update_project(goal_doc_id=goal, workflow_mode="fast_screening", screen_seeds=1,
+        self.rld.update_project(goal_doc_id=goal, screen_seeds=1,
                                 code_review_required=True, user_instruction_doc_id=instruction)
 
     def body(self, ceiling=None):
@@ -27,7 +27,7 @@ class FastFixture(IdentityFixture):
     def hypothesis(self, parent=None, **kw):
         self.n += 1
         doc = self.doc(self.rld, f"h/fast{self.n}.v1.md", "hypothesis", body=self.body())
-        return self.rld.create_hypothesis("h", "s", doc, [], parent_id=parent, **kw)
+        return self.create_hypothesis("h", "s", doc, [], parent_id=parent, **kw)
 
     def exp(self, h, code, config, kind="method", walltime=60, body=None, **kw):
         self.n += 1
@@ -38,9 +38,9 @@ class FastFixture(IdentityFixture):
 
     def finish_seed(self, exp, seed):
         run = f"{exp}/s{seed}"
-        self.worker.create_run(exp, seed)
-        self.worker.update_run(run, exec_status="submitted")
-        self.worker.update_run(run, exec_status="succeeded", valid=True, metric_value=BASE["acc"],
+        self.owner_for(exp).create_run(exp, seed)
+        self.owner_for_run(run).update_run(run, exec_status="submitted")
+        self.owner_for_run(run).update_run(run, exec_status="succeeded", valid=True, metric_value=BASE["acc"],
             secondary={k: BASE[k] for k in SECONDARY}, nodes_used=1, walltime_used_s=10, output_path="outputs/run")
 
     def partial_doc(self, exp):
@@ -60,7 +60,7 @@ class CheapScreeningTest(FastFixture):
         exp = self.exp(h, self.harness, {"lr": 0.2})
         self.effects[exp] = (self.sota, (0.3, 0.0, 0.0))
         self.finish_runs(self.worker, exp)
-        result = self.worker.evaluate_experiment(exp, self.result_doc(exp=exp))
+        result = self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp))
         self.assertEqual(result["outcome"], "positive_signal")
         self.assertEqual(self.rld.reviews(kind="code_review"), [])
         import build_site
@@ -77,15 +77,15 @@ class CheapScreeningTest(FastFixture):
         self.assertIn("SEARCH_REPLICATION_REQUIRED", state["reasons"])
         with self.assertRaisesRegex(ResearchDBError, "not ready to freeze"):
             self.rld.freeze_candidate(h, result["evaluation_id"])
-        self.worker.extend_seeds(exp, 3)
+        self.owner_for(exp).extend_seeds(exp, 3)
         self.assertEqual(len(self.rld.get(exp)["seeds"]), 3)
 
     def test_five_fields_and_declared_resource_ceiling_are_enforced(self):
         doc = self.doc(self.rld, "h/incomplete.v1.md", "hypothesis", body=self.body().replace("## 干预\n改变更新规则\n", ""))
         with self.assertRaisesRegex(ResearchDBError, "DESIGN_SECTION_MISSING"):
-            self.rld.create_hypothesis("bad", "s", doc, [])
+            self.create_hypothesis("bad", "s", doc, [])
         doc = self.doc(self.rld, "h/small.v1.md", "hypothesis", body=self.body({"nodes": 1, "walltime_s": 30, "n_seeds": 1}))
-        h = self.rld.create_hypothesis("small", "s", doc, [])
+        h = self.create_hypothesis("small", "s", doc, [])
         self.start(h)
         with self.assertRaisesRegex(ResearchDBError, "BUDGET_EXCEEDED"):
             self.exp(h, self.commit(), {"lr": 0.2}, walltime=31)
@@ -119,7 +119,7 @@ class CheapScreeningTest(FastFixture):
         first = self.exp(h, self.commit(), {"lr": 0.2})
         second = self.exp(h, self.commit(), {"lr": 0.3})
         for exp in (first, second):
-            self.worker.create_run(exp, 42)
+            self.owner_for(exp).create_run(exp, 42)
         with self.assertRaisesRegex(ResearchDBError, "BUDGET_EXCEEDED"):
             self.worker.reserve_submission("oversized", [f"{first}/s42@1"], {"nodes": 8, "walltime_s": 3600})
         self.assertEqual(self.rld.find("reservation"), [])
@@ -131,7 +131,7 @@ class CheapScreeningTest(FastFixture):
     def test_reduced_scope_is_rechecked_at_submission_and_claim(self):
         h = self.node()
         exp = self.exp(h, self.commit(), {"lr": 0.2})
-        self.worker.create_run(exp, 42)
+        self.owner_for(exp).create_run(exp, 42)
         self.worker.reserve_submission("planned", [f"{exp}/s42@1"], {"nodes": 1, "walltime_s": 60})
         doc = self.doc(self.rld, "h/reduced.v1.md", "hypothesis", body=self.body({"nodes": 1, "walltime_s": 30, "n_seeds": 3}))
         self.rld.update_hypothesis(h, doc_id=doc)
@@ -146,12 +146,12 @@ class CheapScreeningTest(FastFixture):
         exp = self.exp(h, code, {"lr": 0.2})
         same = self.exp(h, code, {"lr": 0.2, "out": "another-output"})
         self.assertEqual(same, exp)
-        self.worker.create_run(exp, 42)
-        self.worker.update_run(f"{exp}/s42", exec_status="submitted")
-        self.worker.update_run(f"{exp}/s42", exec_status="failed", valid=False, invalid_reason="broken runner")
+        self.owner_for(exp).create_run(exp, 42)
+        self.owner_for_run(f"{exp}/s42").update_run(f"{exp}/s42", exec_status="submitted")
+        self.owner_for_run(f"{exp}/s42").update_run(f"{exp}/s42", exec_status="failed", valid=False, invalid_reason="broken runner")
         self.assertEqual(self.rld.get_eligibility(h)["outcome"], "invalid")
         with self.assertRaisesRegex(ResearchDBError, "valid run for every seed"):
-            self.worker.evaluate_experiment(exp, self.result_doc(exp=exp))
+            self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp))
 
 
 class IndependentLineageTest(FastFixture):
@@ -160,13 +160,13 @@ class IndependentLineageTest(FastFixture):
         code = self.commit()
         ref = self.exp(parent, code, {"lr": 0.2})
         self.finish_runs(self.worker, ref)
-        self.worker.evaluate_experiment(ref, self.result_doc(exp=ref))
+        self.owner_for(ref).evaluate_experiment(ref, self.result_doc(exp=ref))
         child = self.hypothesis(parent, code_parent_id="P-test", comparator_experiment_id=ref)
         self.start(child)
         noop = self.exp(child, code, {"lr": 0.2})
         self.finish_runs(self.worker, noop)
         with self.assertRaisesRegex(ResearchDBError, "not a new intervention"):
-            self.worker.evaluate_experiment(noop, self.result_doc(exp=noop))
+            self.owner_for(noop).evaluate_experiment(noop, self.result_doc(exp=noop))
 
     def test_unproven_idea_has_parallel_variants_with_explicit_code_and_control(self):
         h = self.hypothesis()
@@ -180,7 +180,7 @@ class IndependentLineageTest(FastFixture):
                              (h, "P-test", self.sota))
             self.assertIsNone(self.rld.get(exp).get("parent_experiment_id"))
             self.finish_runs(self.worker, exp)
-            self.worker.evaluate_experiment(exp, self.result_doc(exp=exp))
+            self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp))
         with self.assertRaisesRegex(ResearchDBError, "cycle"):
             self.rld.link("rel_related", h, child, kind="variant_of")
         with self.assertRaisesRegex(ResearchDBError, "itself"):
@@ -204,24 +204,24 @@ class IncrementalBaselineTest(FastFixture):
     def new_baseline(self, count=3):
         self.n += 1
         design = self.doc(self.worker, f"exp/partial-base{self.n}.v1.md", "experiment_design")
-        return self.worker.create_experiment("baseline", "incremental", design, self.harness, 1, 60,
+        return self.architect.create_experiment("baseline", "incremental", design, self.harness, 1, 60,
             n_seeds=count, method_config={"lr": 0.05, "baseline": self.n}, estimated_node_h=0.1)
 
     def test_first_pair_does_not_wait_for_remaining_baseline_and_stays_current(self):
         baseline = self.new_baseline()
         self.finish_seed(baseline, 42)
-        base_ev = self.worker.evaluate_experiment(baseline, self.partial_doc(baseline))
+        base_ev = self.owner_for(baseline).evaluate_experiment(baseline, self.partial_doc(baseline))
         self.rld.update_project(sota_experiment_id=baseline)
         self.assertEqual(self.rld.get(base_ev["evaluation_id"])["metrics"]["acc"]["n"], 1)
         h = self.node()
         exp = self.exp(h, self.harness, {"lr": 0.2})
         self.finish_runs(self.worker, exp)
-        ev = self.worker.evaluate_experiment(exp, self.result_doc(exp=exp))
+        ev = self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp))
         self.assertEqual(ev["comparisons"]["sota"]["n_paired"], 1)
         self.assertFalse(self.rld.get_eligibility(h)["eligible"])
         for seed in (43, 44):
             self.finish_seed(baseline, seed)
-        self.worker.evaluate_experiment(baseline, self.result_doc(exp=baseline))
+        self.owner_for(baseline).evaluate_experiment(baseline, self.result_doc(exp=baseline))
         with self.rld.reader() as tx:
             self.assertEqual(self.rld._stale_reasons(tx, self.rld._project(tx), tx.get(ev["evaluation_id"])), [])
         self.rld.retract_run(f"{baseline}/s42", "bad source", self.decision_doc())
@@ -230,19 +230,19 @@ class IncrementalBaselineTest(FastFixture):
     def test_missing_baseline_seed_cannot_authorize_submission(self):
         baseline = self.new_baseline()
         with self.assertRaisesRegex(ResearchDBError, "no valid matching"):
-            self.worker.evaluate_experiment(baseline, self.result_doc(exp=baseline))
+            self.owner_for(baseline).evaluate_experiment(baseline, self.result_doc(exp=baseline))
         self.finish_seed(baseline, 42)
-        self.worker.evaluate_experiment(baseline, self.partial_doc(baseline))
+        self.owner_for(baseline).evaluate_experiment(baseline, self.partial_doc(baseline))
         self.rld.update_project(sota_experiment_id=baseline)
         h = self.node()
         exp = self.exp(h, self.commit(), {"lr": 0.2})
         self.rld.extend_seeds(exp, 2)
-        self.worker.create_run(exp, 43)
+        self.owner_for(exp).create_run(exp, 43)
         with self.assertRaisesRegex(ResearchDBError, "PAIRING_MISMATCH"):
             self.worker.reserve_submission("no-baseline-43", [f"{exp}/s43@1"], {"nodes": 1, "walltime_s": 60})
         self.assertEqual(self.rld.find("reservation"), [])
         with self.assertRaisesRegex(ResearchDBError, "PAIRING_MISMATCH"):
-            self.worker.update_run(f"{exp}/s43", exec_status="submitted")
+            self.owner_for_run(f"{exp}/s43").update_run(f"{exp}/s43", exec_status="submitted")
         self.finish_seed(baseline, 43)
         self.worker.reserve_submission("baseline-43", [f"{exp}/s43@1"], {"nodes": 1, "walltime_s": 60})
         self.rld.retract_run(f"{baseline}/s43", "bad source", self.decision_doc())
@@ -260,16 +260,16 @@ class FastConfirmationTest(FastFixture):
         exp = self.exp(h, self.harness, {"lr": 0.2})
         self.effects[exp] = (self.sota, (0.3, 0.1, 0.1))
         self.finish_runs(self.worker, exp)
-        self.worker.evaluate_experiment(exp, self.result_doc(exp=exp))
-        self.worker.extend_seeds(exp, 3)
+        self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp))
+        self.owner_for(exp).extend_seeds(exp, 3)
         self.finish_runs(self.worker, exp)
-        result = self.worker.evaluate_experiment(exp, self.result_doc(exp=exp))
+        result = self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp))
         self.rld.decide(h, {"experiment_status": "beats_sota"}, "search gate passed", based_on=[exp])
         self.recheck_pass(h, exp)
         state = self.rld.get_eligibility(h)
         self.assertEqual(state["stage"], "candidate_ready")
         self.assertFalse(state["eligible"])
-        self.assertEqual(state["reasons"], ["CONFIRMATION_REQUIRED"])
+        self.assertEqual(state["reasons"], ["CONFIRMATION_REQUIRED", "RECHECK_PENDING"])
         candidate = self.rld.freeze_candidate(h, result["evaluation_id"])
         self.rld.create_confirmation_batch([candidate], "c1")
         self.assertFalse((self.rld.get("P-test").get("material_usage") or {}).get("events"))
@@ -287,7 +287,7 @@ class MinimumControlTest(FastFixture):
         return h, code, target
 
     def test_exact_predeclared_control_needs_no_ablation_review(self):
-        self.rld.update_project(design_required=True)
+        self.rld.update_project()
         h, code, target = self.target()
         approval = self.rld.approve_minimum_controls(target, self.decision_doc())
         self.assertEqual(approval["controls"][0]["id"], "without-b")
@@ -305,7 +305,7 @@ class MinimumControlTest(FastFixture):
                      predeclared_control_id="without-b", walltime=61)
 
     def test_late_unapproved_and_changed_claim_controls_are_blocked(self):
-        self.rld.update_project(design_required=True)
+        self.rld.update_project()
         h, code, target = self.target()
         with self.assertRaisesRegex(ResearchDBError, "CONTROL_NOT_APPROVED"):
             self.exp(h, code, {"a": True, "b": False}, kind="ablation", ablation_of=target,
@@ -332,7 +332,7 @@ class ReviewDisputesTest(FastFixture):
             "verified": verified}]}
         review = self.register(exp, "code_review", "blocking", self.reviewer.review_basis(exp, "code_review"), payload=payload)
         evidence = self.doc(self.worker, "exp/dispute-evidence.v1.md", "other", body="readable evidence")
-        dispute = self.worker.dispute_code_review(exp, review, "input_unreadable", evidence, "path case is wrong")
+        dispute = self.owner_for(exp).dispute_code_review(exp, review, "input_unreadable", evidence, "path case is wrong")
         return h, code, exp, review, evidence, dispute
 
     def recheck_dispute(self, exp, review, evidence, dispute, resolution="overturned"):
@@ -373,7 +373,7 @@ class ReviewDisputesTest(FastFixture):
         for exp in (same_node, renamed):
             with self.assertRaisesRegex(ResearchDBError, "CODE_REVIEW_REQUIRED"):
                 self.submit(exp)
-        dispute = self.worker.dispute_code_review(changed, review, "validity_defect", evidence, "configuration repair evidence")
+        dispute = self.owner_for(changed).dispute_code_review(changed, review, "validity_defect", evidence, "configuration repair evidence")
         generic = self.register(changed, "code_review", "clear", self.reviewer.review_basis(changed, "code_review"))
         with self.assertRaisesRegex(ResearchDBError, "REVIEW_DISPUTE_MISMATCH"):
             self.rld.adjudicate_code_review(review, dispute["id"], generic, "fixed", self.decision_doc(), "generic clear")
@@ -394,7 +394,7 @@ class ReviewDisputesTest(FastFixture):
     def test_fixed_resolution_expires_with_claim_or_any_supporting_evidence(self):
         h, code, _, review, evidence, _ = self.blocked(verified=True)
         repaired = self.exp(h, code, {"lr": 0.3})
-        dispute = self.worker.dispute_code_review(repaired, review, "validity_defect", evidence, "configuration repair evidence")
+        dispute = self.owner_for(repaired).dispute_code_review(repaired, review, "validity_defect", evidence, "configuration repair evidence")
         recheck = self.recheck_dispute(repaired, review, evidence, dispute, "fixed")
         decision = self.decision_doc()
         self.rld.adjudicate_code_review(review, dispute["id"], recheck, "fixed", decision, "checked repair")
@@ -451,7 +451,7 @@ class RoleBoundaryTest(IdentityFixture):
             self.assertEqual((recorded["assignee_role"], recorded["assignee_id"], recorded["accepted_by"]),
                              (role, "main", "rld/main"))
             self.assertEqual(self.rld.get(delivery)["author_role"], "rld")
-        worker_task = self.rld.create_task("harness", "worker", request, target_id="P-test", assignee_id="w1")
+        worker_task = self.rld.create_task("harness", "architect", request, target_id="P-test", assignee_id="root")
         with self.assertRaisesRegex(ResearchDBError, "only the assignee"):
             self.rld.update_task(worker_task, status="in_progress")
 
@@ -462,13 +462,13 @@ class RoleBoundaryTest(IdentityFixture):
             with self.assertRaisesRegex(ResearchDBError, "requires role|advisory"):
                 actor.update_project(title="changed")
             with self.assertRaisesRegex(ResearchDBError, "advisory|requires role"):
-                actor.migrate_states(dry_run=False)
+                actor.assign_architect()
 
-    def test_architect_root_alias_and_node_scope(self):
-        self.rld.assign_worker("P-test", "w1")
-        architect = ResearchDB(self.db, "architect/w1")
+    def test_architect_root_identity_and_node_scope(self):
+        self.rld.assign_architect()
+        architect = ResearchDB(self.db, "architect/root")
         request = self.doc(self.rld, "tasks/root-fast.v1.md", "task_request")
-        task = self.rld.create_task("harness", "worker", request, target_id="P-test", assignee_id="w1")
+        task = self.rld.create_task("harness", "architect", request, target_id="P-test", assignee_id="root")
         architect.update_task(task, status="in_progress")
         self.assertEqual(self.rld.get(task)["status"], "in_progress")
         self.assertIn(request, architect.add_resume_docs("P-test", [request]))
@@ -483,49 +483,82 @@ class RoleBoundaryTest(IdentityFixture):
         with self.assertRaisesRegex(ResearchDBError, "architect tasks"):
             self.rld.create_task("experiment", "architect", request, target_id=h, assignee_id="w1")
 
+    def test_rld_created_experiments_keep_the_assigned_executor(self):
+        design = self.doc(self.rld, "exp/rld-baseline.v1.md", "experiment_design")
+        common = {"method_config": {"lr": 0.1}, "estimated_node_h": 0.1, "n_seeds": 1}
+        baseline = self.rld.create_experiment("baseline", "rld baseline", design, self.harness, 1, 60, **common)
+        self.assertEqual(self.rld.get(baseline)["owner"], "root")
+        self.architect.create_run(baseline, 42)
+        with self.assertRaisesRegex(ResearchDBError, "architect/root"):
+            self.rld.create_experiment("baseline", "wrong root", design, self.harness, 1, 60, owner="main", **common)
+        h = self.node()
+        code = self.commit()
+        method = self.rld.create_experiment("method", "rld method", design, code, 1, 60,
+                                            hypothesis_id=h, **common)
+        self.assertEqual(self.rld.get(method)["owner"], self.worker.agent)
+        with self.assertRaisesRegex(ResearchDBError, "worker/w1"):
+            self.rld.create_experiment("method", "wrong worker", design, code, 1, 60,
+                                       hypothesis_id=h, owner="w2", **common)
+
+    def test_branch_owner_must_match_the_permanent_worker(self):
+        h = self.hypothesis()
+        with self.assertRaisesRegex(ResearchDBError, "branch belongs to worker/w1"):
+            self.rld.create_branch(h, f"node/{h}", "main", self.harness, str(self.root / "wt"), owner="w2")
+        self.assertEqual(self.rld.find("branch"), [])
+
 
 class FastSchemaCompatibilityTest(IdentityFixture):
-    def test_schema21_upgrade_preserves_evidence_and_does_not_opt_into_fast_mode(self):
-        before = self.rld.get(self.sota)
-        self.raw("P-test", workflow_mode=None, discovery_mode=None)
-        with Database(self.db) as db, db.write() as txn:
-            txn.set_property(txn.get_nodes_by_label("Meta")[0], "schema_version", 21)
-            txn.commit()
-        self.assertEqual(self.rld.get(self.sota), before)
-        with self.assertRaisesRegex(ResearchDBError, "schema_version 21"):
-            self.rld.update_project(title="new title")
-        self.assertEqual(create_db.upgrade_db(self.db), 21)
-        self.assertEqual(create_db.upgrade_db(self.db), 22)
-        self.assertEqual(self.rld.get(self.sota), before)
-        self.assertNotIn("workflow_mode", self.rld.get("P-test"))
-        self.assertNotIn("discovery_mode", self.rld.get("P-test"))
-        self.rld.update_project(code_review_required=True)
+    def test_prior_schema_is_rejected_without_touching_historical_evidence(self):
+        with Database(self.db) as db, db.write() as tx:
+            tx.set_property(tx.get_nodes_by_label("Meta")[0], "schema_version", 22)
+            tx.commit()
+        before = {p.name: p.read_bytes() for p in self.root.glob("research_tree.db*")}
+        for call in (lambda: self.rld.get(self.sota), lambda: self.rld.update_project(title="changed")):
+            with self.assertRaisesRegex(ResearchDBError, "Migration notice"):
+                call()
+        self.assertEqual(before, {p.name: p.read_bytes() for p in self.root.glob("research_tree.db*")})
+        self.assertFalse(hasattr(create_db, "upgrade_db"))
+
+
+class IncrementalOnlyIntegrationTest(IdentityFixture):
+    def test_current_candidate_contract_admits_without_legacy_review_pipeline(self):
+        h = self.hypothesis()
+        candidate = self.rld.get(h)["candidate_id"]
+        self.assertTrue(candidate.startswith("CAND-"))
+        self.assertEqual(self.rld.find("document", doc_type="review"), [])
+        for kind in ("triage", "novelty_precheck", "critical_review", "proposal_review"):
+            with self.assertRaisesRegex(ResearchDBError, "kind is one of"):
+                self.reviewer.review_basis(h, kind)
+        with self.assertRaisesRegex(ResearchDBError, "REVIEW_SUBJECT_UNSUPPORTED"):
+            self.reviewer.review_basis(candidate, "ablation_plan")
+
+
+class ZeroRepairBudgetTest(FastFixture):
+    def test_zero_repairs_rejects_the_first_patch_and_requires_permission_to_raise(self):
         h = self.node()
+        self.rld.update_project(max_repairs_per_root_cause=0)
+        request = self.doc(self.rld, "tasks/no-patches.v1.md", "task_request")
+        task = self.rld.create_task("experiment", "worker", request, target_id=h, assignee_id=self.worker.agent)
+        with self.assertRaisesRegex(ResearchDBError, "FAILURE_BUDGET"):
+            self.worker.report_failure(task, "same defect", "patch")
+        self.assertNotIn("failure_log", self.rld.get(task))
+        with self.assertRaisesRegex(ResearchDBError, "BUDGET_EXCEEDED.*raising"):
+            self.rld.update_project(max_repairs_per_root_cause=1)
+        self.assertEqual(self.rld.get("P-test")["max_repairs_per_root_cause"], 0)
+
+    def test_zero_repairs_rejects_the_first_renamed_repair_node(self):
+        h = self.hypothesis(direction="same mechanism")
+        self.start(h)
         exp = self.exp(h, self.commit(), {"lr": 0.2})
-        with self.assertRaisesRegex(ResearchDBError, "CODE_REVIEW_REQUIRED"):
-            self.submit(exp)  # No silent fast-mode bypass on an upgraded project.
-        doc = self.doc(self.rld, "h/legacy-child.v1.md", "hypothesis")
-        with self.assertRaisesRegex(ResearchDBError, "expandable"):
-            self.rld.create_hypothesis("child", "s", doc, self.literature, parent_id=h, code_parent_id="P-test")
-
-
-class StrictIncrementalIntegrationTest(IdentityFixture):
-    def test_verified_literature_map_and_candidate_receipts_admit_independently(self):
-        import discovery
-        instruction = self.doc(self.rld, "instructions/incremental.v1.md", "user_instruction")
-        self.rld.update_project(discovery_mode="incremental", require_precheck=True, literature_verification=True,
-                                user_instruction_doc_id=instruction)
-        discovery.start(self.root, "incremental", "fixture-only")
-        candidate = discovery.merge([], [{"title": "A", "literature": self.literature}])[0]
-        discovery.write_candidates(self.root, [candidate, {"id": "CAND-0002", "title": "pending"}])
-        with self.rld._writer() as tx:  # Deterministic verification fixture; no external literature call.
-            for doc in self.literature:
-                tx.set(doc, {"literature_check": "verified"})
-        for kind, result in (("novelty_precheck", "PROCEED"), ("critical_review", "proceed")):
-            self.register(candidate["id"], kind, result, self.reviewer.review_basis(candidate["id"], kind))
-        doc = self.doc(self.rld, "h/incremental-strict.v1.md", "hypothesis")
-        h = self.rld.create_hypothesis("A", "s", doc, self.literature, candidate_id=candidate["id"])
-        self.assertEqual(self.rld.get(h)["candidate_id"], candidate["id"])
+        self.effects[exp] = (self.sota, (-0.3, 0.0, 0.0))
+        self.finish_runs(self.worker, exp)
+        self.worker.evaluate_experiment(exp, self.result_doc(exp=exp))
+        self.rld.decide_disposition(h, "retired", "negative screening result", [exp], reconsider_when="new evidence")
+        self.rld.update_project(max_repairs_per_root_cause=0)
+        before = len(self.rld.find("hypothesis"))
+        with self.assertRaisesRegex(ResearchDBError, "REPEATED_DIRECTION.*repaired 0 times"):
+            self.hypothesis(direction="same mechanism", relations=[{"kind": "repairs", "target": h}])
+        self.assertEqual(len(self.rld.find("hypothesis")), before)
 
 
 if __name__ == "__main__":

@@ -115,7 +115,7 @@ class MemoryTest(Fixture):
 
     def test_finding_keeps_facts_and_evidence(self):
         base = self.rld.get(self.sota)["evaluation_id"]
-        bad = self.mem("finding", f"---\nkind: finding\nclaim: x\nevidence_ids: [EV-9999]\ninterpretation: y\n"
+        bad = self.mem("finding", "---\nkind: finding\nclaim: x\nevidence_ids: [EV-9999]\ninterpretation: y\n"
                                   "limitations: z\nstatus: observed\n---\n")
         with self.assertRaisesRegex(ResearchDBError, "do not exist"):
             self.rld.set_document_current(bad)
@@ -193,8 +193,8 @@ class FixesTest(Fixture):
 
     def test_memory_switches(self):
         import project_config
-        text = project_config.template_text().replace("cross_project: false", "cross_project: true")
-        with self.assertRaisesRegex(project_config.ConfigError, "cross_project is not supported"):
+        text = "version: 3\nmemory: {cross_project: true}\n"
+        with self.assertRaisesRegex(project_config.ConfigError, "unsupported.*cross_project"):
             project_config.parse(text)
         h = self.hypothesis()
         self.worker.set_document_current(self.doc(self.worker, "lessons/l.v1.md", "lesson", current=False,

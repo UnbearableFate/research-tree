@@ -3,7 +3,6 @@ from __future__ import annotations
 
 import argparse
 import fcntl
-import hashlib
 import json
 import os
 import socket
@@ -34,13 +33,11 @@ HELP = {
     "confirm": {"words": "verbatim user confirmation"},
     "instruction": {"words": "verbatim user instruction from the main conversation",
                     "understanding": "interpretation and scope", "kind": "指令", "about": ["project or node ID"]},
-    "worker": {"node_id": "assigned project or H-id", "task": "this turn's task",
+    "worker": {"node_id": "assigned H-id (hypothesis only)", "task": "this turn's task",
                "restart": "false; true starts a new session only when previous run is no longer active"},
     "architect": {"node_id": "project/root ID", "task": "shared harness and baseline task", "restart": False},
     "explorer": {"task": "literature, hypotheses, variants and negative-findings task", "restart": False},
     "analyst": {"task": "compare evidence and recommend next experiments; no decision authority", "restart": False},
-    "lens": {"lens": "configured discovery lens or variant/combination/competing/repair",
-             "task": "candidate-generation task with read-only source paths; full discovery, planning only"},
     "agents": {}, "inbox": {}, "acknowledge": {"ids": ["event-id"]},
     "commit": {"paths": ["files inside your node's worktree, relative to it"], "message": "commit message",
                "node_id": "optional when you have one branch"},
@@ -187,7 +184,7 @@ class Runtime:
         if not isinstance(text, str) or not 1 <= len(text) <= 200:
             raise ValueError("text must contain 1..200 characters")
         if kind == "confirm_request" and self.marker["phase"] == "planning":
-            blocked = tree.discovery_blocks_confirmation(self.cwd)  # 02 D8: the discovery gate first
+            blocked = tree.discovery_blocks_confirmation(self.cwd)  # current minimum-scope confirmation checks
             if blocked:
                 raise ValueError(blocked)
         if kind != "notice":
@@ -212,11 +209,11 @@ class Runtime:
             if marker["phase"] != "awaiting_confirmation":
                 raise ValueError("RLD has not submitted a plan for confirmation")
             tree.apply_config(self.cwd, "rld/main", require_project=True)
-            document = tree.register_instruction(self.root, words, "用户确认立项计划，允许worker实现根节点。",
+            document = tree.register_instruction(self.root, words, "用户确认立项计划，允许Architect实现根节点。",
                                                  "确认（立项计划）", [marker["project_id"]])
             tree.set_phase(self.cwd, "confirmed")
         self.say("note", f"立项确认已登记：{document['doc_id']}。")
-        # The RLD answers a confirmation by starting the root's worker, not with a receipt.
+        # The RLD assigns the root Architect after confirmation.
         result = self.relay("instruction", "用户确认立项计划，请指派根节点 Experiment Architect 实现框架与baselines；Explorer 可继续发现，Worker 逐个筛选已就绪候选。",
                             [document["path"]], [marker["project_id"]], need="none")
         return {"document": document, **result}
@@ -252,7 +249,7 @@ class Runtime:
         finally:
             handle.close()  # the child holds the same open file description and lock
 
-    def start_worker(self, node_id, task, restart=False, role="worker"):
+    def start_execution(self, role, node_id, task, restart=False):
         self.require_rld()
         if self.marker["phase"] != "confirmed":
             raise ValueError("plan must be confirmed by the user before a worker starts")
@@ -262,36 +259,38 @@ class Runtime:
             raise ValueError("unknown execution role")
         if role == "architect" and node_id != self.marker["project_id"]:
             raise ValueError("the architect only owns the project root harness and baselines")
+        if role == "worker" and node_id == self.marker["project_id"]:
+            raise ValueError("workers own hypotheses only; use architect for the project root")
         with locked(self.cache / "control.lock"):
             package = self.db().resume_package(node_id)
-            if not package["worker"]:
-                raise ValueError("assign_worker before starting the node's session")
-            if role == "architect":
-                package = {**package, "worker": "architect/" + package["worker"].split("/", 1)[1]}
-            agent = read_json(self.cache / "agents" / f"{actor_key(package['worker'])}.json", {})
-            if lock_busy(self.cache / "agents" / f"{actor_key(package['worker'])}.lock"):
+            if not package["actor"]:
+                raise ValueError(f"assign_{role} before starting the node's session")
+            if package["actor"].split("/", 1)[0] != role:
+                raise ValueError("assigned actor does not match the requested execution role")
+            agent = read_json(self.cache / "agents" / f"{actor_key(package['actor'])}.json", {})
+            if lock_busy(self.cache / "agents" / f"{actor_key(package['actor'])}.lock"):
                 if restart:
                     raise ValueError("cannot replace a live worker")
                 state = read_json(Path(agent["directory"]) / "state.json", {}) if agent else {}
                 if not state.get("thread_id"):
                     raise ValueError("worker is starting; its thread ID is not available yet")
-                return self.queue_worker(state["thread_id"], agent.get("actor", package["worker"]), task)
-            worker_id = package["worker"].split("/", 1)[1]
+                return self.queue_worker(state["thread_id"], agent.get("actor", package["actor"]), task)
+            worker_id = package["actor"].split("/", 1)[1]
             tasks = self.db().find("task")
             busy = busy_workers(tasks)
             project = self.db().find("project")[0]
             limit = project.get("max_parallel_workers")
             if limit is not None and worker_id not in busy and len(busy) >= limit:
                 raise ValueError(f"max_parallel_workers={limit} reached")
-            if not any(t.get("assignee_id") == worker_id and t["status"] in {"open", "in_progress", "rejected"}
-                       for t in package["tasks"]):
+            if not any(t.get("assignee_role") == role and t.get("assignee_id") == worker_id and t["status"] in {"open", "in_progress", "rejected"}
+                       for t in tasks if t.get("target_id") == node_id):
                 raise ValueError("assign an actionable node task to this worker before starting it")
             conf = tree.show_config(self.cwd)["effective"]
             workdir = (package.get("branch") or {}).get("worktree_path") or package["node"].get("repo_path") or self.cwd
             if not Path(workdir).is_dir():
                 raise ValueError(f"assigned worker checkout does not exist: {workdir}")
-            return self.start_agent(package["worker"], codex_prompts.worker(self.marker, package, conf, task),
-                                    conf["models"].get(role, conf["models"]["worker"]), node_id=node_id,
+            return self.start_agent(package["actor"], codex_prompts.worker(self.marker, package, conf, task),
+                                    conf["models"][role], node_id=node_id,
                                     resume=None if restart else package.get("agent_id"), workdir=workdir)
 
     def start_advisor(self, role, task, restart=False):
@@ -310,7 +309,7 @@ class Runtime:
                     raise ValueError(f"{actor} already has a live turn")
                 return self.queue_worker(state["thread_id"], actor, task)
             return self.start_agent(actor, codex_prompts.advisor(self.marker, conf, role, task),
-                                    conf["models"].get(role, conf["models"].get("lens_assistant", conf["models"]["worker"])),
+                                    conf["models"][role],
                                     resume=None if restart else state.get("thread_id"))
 
     def queue_worker(self, thread_id, actor, text):
@@ -330,26 +329,6 @@ class Runtime:
             receipt.update(delivery="failed", error=str(exc))
         write_json(path, receipt)
         return receipt
-
-    def start_lens(self, lens, task):
-        """A planning-only, read-only candidate generator; it never owns a scientific node."""
-        self.require_rld()
-        if self.marker["phase"] != "planning":
-            raise ValueError("lens generation runs during planning, before the confirmation request")
-        conf = tree.show_config(self.cwd)["effective"]
-        if conf.get("discovery", {}).get("mode") != "full":
-            raise ValueError("lens generation requires discovery.mode full")
-        allowed = set(conf["discovery"]["lenses"]) | set(conf["discovery"].get("seed_lenses", []))
-        if not isinstance(lens, str) or lens not in allowed:
-            raise ValueError(f"lens must be configured, or a seed lens: {', '.join(sorted(allowed))}")
-        if not isinstance(task, str) or not task.strip():
-            raise ValueError("lens needs a concrete candidate-generation task and source paths")
-        model = conf["models"].get("lens_assistant")
-        if not model:
-            raise ValueError("configure models.lens_assistant before generating candidates")
-        actor = "assistant/lens_" + hashlib.sha256(lens.encode()).hexdigest()[:12]
-        with locked(self.cache / "control.lock"):
-            return {"lens": lens, **self.start_agent(actor, codex_prompts.lens(self.marker, lens, task), model)}
 
     def start_ui(self, text):
         # This is called by the human-facing CLI, never exposed as an RLD MCP action.
@@ -434,19 +413,18 @@ class Runtime:
         architect = self.actor.startswith("architect/")
         projects = self.db().find("project") if architect else []
         root = projects[0] if len(projects) == 1 else None
-        if architect and (not root or root.get("worker_id") != agent
+        if architect and (not root or root.get("architect_id") != agent
                           or (params.get("node_id") and params["node_id"] != root["id"])):
             raise ValueError("architect commits only its assigned project root")
         branches = [b for b in self.db().find("branch") if b.get("worktree_path")
                     and (self.actor == "rld/main" or b.get("owner") == agent)
                     and (not architect or b.get("hypothesis_id") == root["id"])
                     and (not params.get("node_id") or b.get("hypothesis_id") == params["node_id"])]
-        if not branches:
-            # A root harness lives in Project.repo_path, not a hypothesis Branch. Support the
-            # original root worker and its architect successor without granting other nodes access.
+        if not branches and architect:
+            # The root Architect owns Project.repo_path; hypothesis workers own Branch worktrees.
             projects = projects or self.db().find("project")
             root = projects[0] if len(projects) == 1 else None
-            if root and root.get("repo_path") and root.get("worker_id") == agent \
+            if root and root.get("repo_path") and root.get("architect_id") == agent \
                     and (not params.get("node_id") or params["node_id"] == root["id"]):
                 if self.marker["phase"] != "confirmed":
                     raise ValueError("root commits require a confirmed plan")
@@ -482,11 +460,10 @@ class Runtime:
             # S1 real scenario a02: a resumed session finds the discovery and literature commands here
             py = self.cwd / ".venv" / "bin" / "python"
             tools = Path(__file__).resolve().parent
-            commands = {"discovery": f"{py} {tools}/research_tree.py discovery status | start | set --stage <stage> "
-                                     "--status <status> | accept --stage <stage> --evidence <review ids> | merge "
-                                     "--user-hypotheses <json> | cite --candidate CAND-… --literature D-… | gate "
-                                     "--report <report> (run in the project directory; rerun the gate after a merge "
-                                     "or new receipts)",
+            commands = {"discovery": f"{py} {tools}/research_tree.py discovery start | status | merge "
+                                     "--user-hypotheses <json> | feasibility | select --candidate CAND-… | "
+                                     "cite --candidate CAND-… --literature D-… | gate --candidate CAND-… | check "
+                                     "(run in the project directory; candidate revisions are checked independently)",
                         "literature": f"{py} {tools}/literature.py search | verify | note | text | fetch"}
             return {"project": self.marker, "summary": self.summary(), "agents": self.agents(), "commands": commands}
         if action == "chat":
@@ -526,13 +503,11 @@ class Runtime:
                 data = build_site.build(Path(self.marker["db"]), page)
             return {"path": str(page), "data_version": data["meta"]["data_version"]}
         if action == "worker":
-            return self.start_worker(**params)
+            return self.start_execution("worker", **params)
         if action == "architect":
-            return self.start_worker(**params, role="architect")
+            return self.start_execution("architect", **params)
         if action in {"explorer", "analyst"}:
             return self.start_advisor(action, **params)
-        if action == "lens":
-            return self.start_lens(**params)
         if action == "agents":
             return self.agents()
         if action == "attach":
@@ -578,7 +553,7 @@ class Runtime:
                 return describe(**kwargs)
             if method not in CLI_METHODS:
                 raise ValueError("unknown research_db method; use help")
-            if (self.actor == "ui/ui" or self.actor.startswith(("assistant/", "explorer/", "analyst/"))) and method not in READS:
+            if (self.actor == "ui/ui" or self.actor.startswith(("explorer/", "analyst/"))) and method not in READS:
                 raise ValueError(f"{self.actor} may only read scientific records")
             if self.actor.startswith(("worker/", "architect/")) and self.marker["phase"] != "confirmed":
                 raise ValueError("worker access requires a confirmed plan")
@@ -628,8 +603,8 @@ class Runtime:
                 return tree.draft_requirement(self.cwd, args.get("req"), args.get("title"), fields,
                                               args.get("messages", []), args.get("about", []))
         if name == "research_message":
-            if self.actor == "ui/ui" or self.actor.startswith("assistant/"):
-                raise ValueError("UI and lens assistants return their response; they do not send messages directly")
+            if self.actor == "ui/ui":
+                raise ValueError("UI returns its response; it does not send messages directly")
             if args.get("resend"):
                 mid = args["resend"]
                 if not messaging.MESSAGE_ID_RE.fullmatch(mid):

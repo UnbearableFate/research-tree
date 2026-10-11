@@ -1,6 +1,6 @@
 """S3 (plans/research-tree-implementation-and-real-scenarios.md §7.4): imported values keep the units they were
-reported in; history is never reinterpreted; independence fields are complete on both sides; old imports migrate
-only from verifiable originals. REG-S3-01..07. The numbers are REG fixtures, not measurements."""
+reported in; history is never reinterpreted; independence fields are complete on both sides; incomplete records
+are rejected without reconstruction. REG-S3-01..07. The numbers are REG fixtures, not measurements."""
 
 from __future__ import annotations
 
@@ -30,10 +30,10 @@ class S3Test(Fixture):
 
     def imported_baseline(self, **per_seed) -> str:
         design = self.doc(self.worker, f"exp/ib{self.n}.v1.md", "experiment_design")
-        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800,
+        base = self.architect.create_experiment("baseline", "sota", design, self.harness, 1, 1800,
                                              method_config={"lr": 0.05, "design": design}, estimated_node_h=1.0)
         self.import_all(base, **per_seed)
-        self.worker.evaluate_experiment(base, self.result_doc(exp=base))
+        self.owner_for(base).evaluate_experiment(base, self.result_doc(exp=base))
         self.rld.update_project(sota_experiment_id=base)
         return base
 
@@ -43,12 +43,12 @@ class S3Test(Fixture):
             self.effects[exp] = effect
         for i, seed in enumerate(self.rld.get(exp)["seeds"]):
             run = f"{exp}/s{seed}"
-            self.worker.create_run(exp, seed)
-            self.worker.update_run(run, exec_status="submitted")
-            self.worker.update_run(run, exec_status="succeeded")
+            self.owner_for(exp).create_run(exp, seed)
+            self.owner_for(exp).update_run(run, exec_status="submitted")
+            self.owner_for(exp).update_run(run, exec_status="succeeded")
             extra = {k: v[i] for k, v in per_seed.items() if v[i] is not None}
-            self.worker.import_run_result(run, 1, self.manifest(exp, seed, **extra))
-            self.worker.update_run(run, valid=True)
+            self.owner_for(exp).import_run_result(run, 1, self.manifest(exp, seed, **extra))
+            self.owner_for(exp).update_run(run, valid=True)
 
     def respec(self, edit, **project) -> str:
         """The user's specification change (a new metric_spec document and the instruction that records it)."""
@@ -63,7 +63,7 @@ class S3Test(Fixture):
         return doc
 
     def evaluated(self, exp: str) -> dict:
-        self.worker.evaluate_experiment(exp, self.result_doc(exp=exp))
+        self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp))
         return self.rld.evaluations(experiment_id=exp)[-1]
 
     def mem(self, specs, **changes):
@@ -77,19 +77,19 @@ class S3Test(Fixture):
         n_before = len(self.rld.evaluations())
         self.respec(lambda s: self.mem(s, input_unit="mib"))  # read "42" as MiB (0.04 GiB): would pass
         with self.assertRaisesRegex(ResearchDBError, "METRIC_UNIT_MISMATCH: .*reported peak_mem_gb in gib"):
-            self.worker.evaluate_experiment(self.base, self.result_doc(exp=self.base))
+            self.owner_for(self.base).evaluate_experiment(self.base, self.result_doc(exp=self.base))
         with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_STALE: the sota reference"):  # no reference under it
-            self.worker.evaluate_experiment(exp, self.result_doc(exp=exp))
+            self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp))
         self.assertEqual(len(self.rld.evaluations()), n_before)
         self.assertFalse(self.rld.evaluations(experiment_id=exp)[-1]["guardrails_passed"])
         # a future run stating the new unit is read in it; a run still stating gib is refused at import
         later = self.method(self.h, n_seeds=1)
         run = f"{later}/s42"
-        self.worker.create_run(later, 42)
-        self.worker.update_run(run, exec_status="submitted")
-        self.worker.update_run(run, exec_status="succeeded")
+        self.owner_for(later).create_run(later, 42)
+        self.owner_for_run(run).update_run(run, exec_status="submitted")
+        self.owner_for_run(run).update_run(run, exec_status="succeeded")
         with self.assertRaisesRegex(ResearchDBError, "METRIC_UNIT_MISMATCH: .*declares units"):
-            self.worker.import_run_result(run, 1, self.manifest(later, 42))
+            self.owner_for_run(run).import_run_result(run, 1, self.manifest(later, 42))
 
     def test_reg_s3_02_an_auxiliary_canonical_unit_converts_equivalently(self):
         exp = self.method(self.h)
@@ -109,13 +109,13 @@ class S3Test(Fixture):
     def test_reg_s3_03_the_import_snapshot_is_kept(self):
         exp = self.method(self.h, n_seeds=1)
         run = f"{exp}/s42"
-        self.worker.create_run(exp, 42)
-        self.worker.update_run(run, exec_status="submitted")
-        self.worker.update_run(run, exec_status="succeeded")
+        self.owner_for(exp).create_run(exp, 42)
+        self.owner_for_run(run).update_run(run, exec_status="submitted")
+        self.owner_for_run(run).update_run(run, exec_status="succeeded")
         config = {"lr": 0.05, "optimizer": {"name": "sgd", "betas": [0.9, 0.99]}}
         env = {"python": "3.13", "libs": {"numpy": "2.1.0"}}
         path = self.manifest(exp, 42, config=config, env=env)
-        self.worker.import_run_result(run, 1, path)
+        self.owner_for_run(run).import_run_result(run, 1, path)
         original = json.loads((self.root / path).read_text())
         stored = self.rld.get(run)
         self.assertEqual(stored["manifest_snapshot"], original)
@@ -139,36 +139,19 @@ class S3Test(Fixture):
         with self.assertRaisesRegex(MetricErrorAlias, "no conversion from gib to seconds"):
             metrics_mod.check_spec({**frac, "input_unit": "gib", "canonical_unit": "seconds"})
 
-    def test_reg_s3_06_migration_recovers_only_from_verifiable_originals(self):
+    def test_reg_s3_06_missing_raw_units_are_rejected_without_rewriting_history(self):
         exp = self.method(self.h)
         self.import_all(exp, effect=(self.base, (0.3, 0.1, 0.1)))
-        self.evaluated(exp)
-        runs = [f"{exp}/s{s}" for s in (42, 43, 44)]
-        usage = {r: (self.rld.get(r)["nodes_used"], self.rld.get(r)["walltime_used_s"]) for r in runs}
-        n_eval = len(self.rld.evaluations())
-        for r in runs:  # as imported by a plugin before S3: no units, no snapshot
-            record = {k: v for k, v in self.rld.get(r)["import_record"].items()
-                      if k not in ("units", "raw_values", "metric_spec_doc_id", "protocol_doc_id")}
-            self.raw(r, import_record=record, manifest_snapshot=None)
-        moved = self.root / self.rld.get(runs[2])["manifest_path"]
-        moved.write_text(moved.read_text().replace('"toy-v1"', '"toy-v2"'))  # no longer the imported file
+        run = f"{exp}/s42"
+        before = self.rld.get(run)
+        record = {k: v for k, v in before["import_record"].items() if k not in ("units", "raw_values")}
+        self.raw(run, import_record=record)
         with self.assertRaisesRegex(ResearchDBError, "RAW_METADATA_UNVERIFIED"):
-            self.worker.evaluate_experiment(exp, self.result_doc(exp=exp))
-        report = self.rld.migrate_units(dry_run=True)
-        self.assertEqual((report["recovered"], report["unverified"]), ([f"{runs[0]}@1", f"{runs[1]}@1"], [f"{runs[2]}@1"]))
-        self.assertNotIn("units", self.rld.get(runs[0])["import_record"])  # a dry run writes nothing
-        self.rld.migrate_units(dry_run=False)
-        rec = self.rld.get(runs[0])["import_record"]
-        self.assertEqual((rec["units"]["peak_mem_gb"], rec["units_recovered_from"]),
-                         ("gib", self.rld.get(runs[0])["manifest_path"]))
-        self.assertNotIn("units", self.rld.get(runs[2])["import_record"])  # never back-filled from the spec
-        with self.assertRaisesRegex(ResearchDBError, f"RAW_METADATA_UNVERIFIED: {runs[2]}"):
-            self.worker.evaluate_experiment(exp, self.result_doc(exp=exp))
-        again = self.rld.migrate_units(dry_run=False)
-        self.assertEqual((again["recovered"], again["unverified"]), ([], [f"{runs[2]}@1"]))
-        self.assertEqual(self.rld.get(runs[0])["import_record"], rec)  # idempotent
-        self.assertEqual(len(self.rld.evaluations()), n_eval)  # history kept, nothing re-evaluated
-        self.assertEqual({r: (self.rld.get(r)["nodes_used"], self.rld.get(r)["walltime_used_s"]) for r in runs}, usage)
+            self.rld.preview_evaluation(exp)
+        self.assertFalse(hasattr(self.rld, "migrate_units"))
+        self.assertEqual(self.rld.get(run)["import_record"], record)
+        self.assertEqual(self.rld.get(run)["secondary"], before["secondary"])
+        self.assertEqual(self.rld.evaluations(experiment_id=exp), [])
 
     def test_reg_s3_07_the_primary_contract_and_the_imported_encoding_are_frozen(self):
         exp = self.method(self.h)
@@ -187,9 +170,9 @@ class S3Test(Fixture):
         before = self.rld.get(run)
         units = {**before["import_record"]["units"], "peak_mem_gb": "mib"}
         with self.assertRaises(ResearchDBError):  # same attempt, another encoding: no overwrite
-            self.worker.import_run_result(run, 1, self.manifest(exp, 42, units=units))
+            self.owner_for_run(run).import_run_result(run, 1, self.manifest(exp, 42, units=units))
         with self.assertRaisesRegex(ResearchDBError, "valid and frozen"):  # no new attempt for a valid result
-            self.worker.update_run(run, attempt=2, exec_status="submitted")
+            self.owner_for_run(run).update_run(run, attempt=2, exec_status="submitted")
         after = self.rld.get(run)
         self.assertEqual((after["attempt"], after["import_record"], after["secondary"]),
                          (before["attempt"], before["import_record"], before["secondary"]))
@@ -209,7 +192,7 @@ class S3IndependenceTest(S3Test):
     test_reg_s3_02_an_auxiliary_canonical_unit_converts_equivalently = None
     test_reg_s3_03_the_import_snapshot_is_kept = None
     test_reg_s3_05_scale_is_a_hint_range_is_a_rule = None
-    test_reg_s3_06_migration_recovers_only_from_verifiable_originals = None
+    test_reg_s3_06_missing_raw_units_are_rejected_without_rewriting_history = None
     test_reg_s3_07_the_primary_contract_and_the_imported_encoding_are_frozen = None
 
     def test_reg_s3_04_a_missing_key_is_not_an_independent_unit(self):
@@ -218,19 +201,48 @@ class S3IndependenceTest(S3Test):
             self.import_all(exp, effect=(self.base, (0.3, 0.1, 0.1)), data_order=["a", "b", None])
         self.assertIsNone(self.rld.get(f"{exp}/s44").get("import_record"))  # nothing half-written
         run = f"{exp}/s44"
-        self.worker.import_run_result(run, 1, self.manifest(exp, 44, data_order="b"))
-        self.worker.update_run(run, valid=True)
-        again = self.worker.import_run_result(run, 1, self.manifest(exp, 44, data_order="b"))  # a repeated import
+        self.owner_for_run(run).import_run_result(run, 1, self.manifest(exp, 44, data_order="b"))
+        self.owner_for_run(run).update_run(run, valid=True)
+        again = self.owner_for_run(run).import_run_result(run, 1, self.manifest(exp, 44, data_order="b"))  # a repeated import
         self.assertFalse(again["imported"])
         ev = self.evaluated(exp)
         self.assertEqual((ev["comparisons"]["sota"]["n_paired"], ev["comparisons"]["sota"]["n_independent"]), (3, 2))
-        # a run recorded without the field (an older import) on either side: unverified, not a third unit
+        # a run missing its bound field on either side: unverified, not a third unit
         for side in (f"{exp}/s44", f"{self.base}/s44"):
             manifest = dict(self.rld.get(side)["manifest"])
             self.raw(side, manifest={k: v for k, v in manifest.items() if k != "data_order"})
             with self.assertRaisesRegex(ResearchDBError, "INDEPENDENCE_UNVERIFIED"):
-                self.worker.evaluate_experiment(exp, self.result_doc(exp=exp))
+                self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp))
             self.raw(side, manifest=manifest)
+
+
+class AdviceIndependenceTest(Fixture):
+    protocol_content = {**PROTOCOL, "independence_fields": ["data_order"],
+                        "repetition": {"enabled": True, "se_multiple": 2.0, "batch": 2,
+                                       "seed_pool": [45, 46, 47]}}
+
+    def test_shared_reference_and_cross_pair_units_never_get_numeric_advice(self):
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h)
+        self.finish_runs(self.worker, exp, effect=(self.sota, (0.6, 0.0, 0.0)))
+        for e in (exp, self.sota):
+            for seed, unit in zip((42, 43, 44), ("a", "b", "c")):
+                self.raw(f"{e}/s{seed}", manifest={"data_order": unit})
+        before = len(self.rld.find("run"))
+        verified = self.rld.repetition_advice(exp)
+        self.assertEqual(verified["n_independent"], 3)
+        self.raw(f"{self.sota}/s43", manifest={"data_order": "a"})
+        shared = self.rld.repetition_advice(exp)
+        self.assertEqual(shared["advice"], "independence_unverified")
+        self.assertNotIn("se", shared)
+        # Every side has distinct units, but another pair reuses the reference's unit.
+        self.raw(f"{self.sota}/s43", manifest={"data_order": "c"})
+        self.raw(f"{self.sota}/s44", manifest={"data_order": "d"})
+        chained = self.rld.repetition_advice(exp)
+        self.assertEqual(chained["advice"], "independence_unverified")
+        self.assertNotIn("seeds", chained)
+        self.assertEqual(len(self.rld.find("run")), before)
 
 
 if __name__ == "__main__":

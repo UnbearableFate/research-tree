@@ -1,16 +1,8 @@
 {
   "name": "research-tree",
-  "version": "0.1.0",
-  "description": "research-tree for ML method discovery in Claude Code: /research-tree init <plan.md> sets up a uv project, a research database and a research-tree.yaml config (platform, budget, gates, subagent models) in the current directory, the main session plans as Research Leader, the UI agent talks with you in a window, and one worker per node implements and evaluates after you confirm the plan. Bundles its Python tools, schema and rules.",
+  "version": "0.2.0",
+  "description": "ML research with a main-session Research Leader, read-only Explorer and Analyst, a root-only Architect and hypothesis Workers. Version 3 projects use fast screening and incremental candidate admission, mandatory independent final confirmation, auditable evidence and resource accounting. UI is on demand.",
   "types": "./types/index.d.ts",
-  "userConfig": {
-    "actor": {
-      "type": "string",
-      "title": "Actor",
-      "description": "Who the main session is in the research team (<role>/<agent-id>); UI and worker runs are fixed by the mod.",
-      "default": "rld/main"
-    }
-  },
   "author": {
     "name": "yu mingzhe"
   }

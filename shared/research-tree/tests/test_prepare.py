@@ -1,5 +1,4 @@
 """prepare: a uv project with the tools' dependencies, plus plan.md and research-tree.yaml to fill in. No Python."""
-import os
 from pathlib import Path
 import shutil
 import subprocess

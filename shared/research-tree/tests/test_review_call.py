@@ -19,9 +19,10 @@ import research_tree  # noqa: E402
 import review_call  # noqa: E402
 from research_db import PermissionDenied, ResearchDB  # noqa: E402
 
-NOVELTY = {"verdict": "PROCEED", "score": 7, "closest_prior_work": [
-    {"title": "Prior A", "id": "arXiv:2401.00001", "overlap": "same family", "difference": "different schedule"}],
-    "delta_sentence": "A schedule nobody has run at this scale.", "abandon_paper": None}
+ABLATION = {"ablations": [{"name": "Remove update", "what_it_tests": "Contribution of the changed update",
+                          "expected_if_component_matters": "Matched effect disappears", "priority": 1,
+                          "config_only": True}], "coverage_assessment": "Matched control covers the mechanism",
+            "unnecessary_ablations": [], "suggested_order": ["Remove update"], "estimated_compute": "60 node-seconds"}
 
 FAKE_PI = r'''
 import json, os, sys
@@ -143,25 +144,32 @@ class ReviewCallTest(unittest.TestCase):
         proto = self.rld.register_document("project/protocol.v1.json", "protocol", "protocol")
         self.rld.set_document_current(proto)
         fields = research_tree.show_config(self.cwd)["db_fields"]
-        self.rld.create_project("P-r", "r", setup, "accuracy", "higher", True, ["train_time_s"], [42, 43, 44],
+        self.rld.create_project("P-r", "r", setup, "accuracy", "higher", ["train_time_s"], [42, 43, 44],
                                 metric_spec_doc_id=marker["metric_spec"]["doc_id"], protocol_doc_id=proto,
                                 **{k: v for k, v in fields.items() if k != "seeds"})
+        # Minimal, deliberately synthetic subject for transport/receipt unit tests only. Scientific
+        # admission and full mock flows are exercised by the database suites, not these fake model outputs.
+        from latticedb import Database
+        with Database(marker["db"]) as db, db.write() as tx:
+            tx.create_node(labels=["Hypothesis"], properties={"id": "H-0001", "claim_revision": 1,
+                           "claim_sha": "transport-fixture-claim", "project_id": "P-r"})
+            tx.commit()
         if leader:
             research_tree.log_agent_model(self.root, {"agent": "main", "actor": "rld/main", "event": "observed",
                                                       "model": leader})
-        brief = self.root / "docs/reviews/briefs/novelty.v1.md"
+        brief = self.root / "docs/reviews/briefs/controls.v1.md"
         brief.parent.mkdir(parents=True)
         brief.write_text("# brief\nFiles: docs/project/min-setup.v1.md\n", encoding="utf-8")
-        self.brief = "docs/reviews/briefs/novelty.v1.md"
+        self.brief = "docs/reviews/briefs/controls.v1.md"
 
     def fake(self, name: str) -> None:
         path = self.bin / name
         path.write_text(f"#!{sys.executable}\n" + (FAKE_PI if name == "pi" else FAKE_CLAUDE))
         path.chmod(0o755)
 
-    def call(self, answers: list[dict], kind: str = "novelty_precheck", **kw) -> dict:
+    def call(self, answers: list[dict], kind: str = "ablation_plan", **kw) -> dict:
         self.env["FAKE_ANSWERS"] = json.dumps(answers)
-        argv = ["--kind", kind, "--brief", kw.pop("brief", self.brief), "--about", kw.pop("about", "P-r")]
+        argv = ["--kind", kind, "--brief", kw.pop("brief", self.brief), "--about", kw.pop("about", "H-0001")]
         for k, v in kw.items():
             argv += [f"--{k.replace('_', '-')}", v]
         out = []
@@ -174,18 +182,18 @@ class ReviewCallTest(unittest.TestCase):
         return [json.loads(line) for line in self.log.read_text().splitlines()] if self.log.exists() else []
 
     def test_init_checks_the_selected_backend_without_review_or_blocking_planning(self):
-        cases = (("anthropic/claude-sonnet-5-5", "full", "ok", True, "claude_code"),
-                 ("anthropic/claude-sonnet-5-5", "full", "missing", False, "claude_code"),
-                 ("openai/gpt-6-astra", "off", "ok", True, "pi"))
+        cases = (("anthropic/claude-sonnet-5-5", "ok", True, "claude_code"),
+                 ("anthropic/claude-sonnet-5-5", "missing", False, "claude_code"),
+                 ("openai/gpt-6-astra", "ok", True, "pi"))
         self.fake("pi")
         self.fake("claude")
-        for index, (model, mode, auth, ready, backend) in enumerate(cases):
-            with self.subTest(model=model, mode=mode, auth=auth):
+        for index, (model, auth, ready, backend) in enumerate(cases):
+            with self.subTest(model=model, auth=auth):
                 cwd = self.cwd / str(index)
                 cwd.mkdir()
                 (cwd / "plan.md").write_text("# Fresh planning input\n")
                 text = (self.cwd / "research-tree.yaml").read_text().replace(
-                    "model: openai/gpt-6-astra", f"model: {model}").replace("mode: incremental", f"mode: {mode}")
+                    "model: openai/gpt-6-astra", f"model: {model}")
                 (cwd / "research-tree.yaml").write_text(text)
                 self.log.unlink(missing_ok=True)
                 with patch.dict(os.environ, {**self.env, "FAKE_CLAUDE_AUTH": auth, "FAKE_PI_AUTH": auth}):
@@ -206,11 +214,11 @@ class ReviewCallTest(unittest.TestCase):
         the first call returns a ticket, the Leader collects the result with it, and nothing runs twice."""
         self.project()
         self.fake("pi")
-        self.env["FAKE_ANSWERS"] = json.dumps([{"text": block(NOVELTY)}])
+        self.env["FAKE_ANSWERS"] = json.dumps([{"text": block(ABLATION)}])
         out = []
         with patch.dict(os.environ, self.env), patch("builtins.print", lambda s: out.append(json.loads(s))), \
                 patch.object(Path, "cwd", lambda: self.cwd):
-            review_call.main(["--kind", "novelty_precheck", "--brief", self.brief, "--about", "P-r", "--background",
+            review_call.main(["--kind", "ablation_plan", "--brief", self.brief, "--about", "H-0001", "--background",
                               "--wait-s", "0"])
             pending = out[-1]
             self.assertTrue(pending["pending"], pending)
@@ -222,7 +230,7 @@ class ReviewCallTest(unittest.TestCase):
             bad = out[-1]
         self.assertTrue(done["ok"], done)
         self.assertEqual(done, again)
-        self.assertEqual(done["result"]["result"], "PROCEED")
+        self.assertEqual(done["result"]["result"], "planned")
         self.assertEqual(len(self.rld.reviews()), 1)
         self.assertEqual(len([c for c in self.calls() if c[1:2] not in (["auth"], ["--list-models"])]), 1)  # one model call
         self.assertFalse(bad["ok"])
@@ -233,21 +241,21 @@ class ReviewCallTest(unittest.TestCase):
 
     def test_r01_r18_r19_backend_routing_without_fallback(self):
         self.project()
-        out = self.call([{"text": block(NOVELTY)}])  # R01: pi not on PATH
+        out = self.call([{"text": block(ABLATION)}])  # R01: pi not on PATH
         self.assertFalse(out["ok"])
         self.assertIn("REVIEW_UNAVAILABLE: pi is not on PATH", out["error"])
         self.assertEqual(self.rld.reviews(), [])
         self.fake("pi")
         self.env["FAKE_PI_AUTH"] = "missing"
-        self.assertIn("not ready", self.call([{"text": block(NOVELTY)}])["error"])
+        self.assertIn("not ready", self.call([{"text": block(ABLATION)}])["error"])
         self.env["FAKE_PI_AUTH"] = "ok"
-        out = self.call([{"text": block(NOVELTY)}])
+        out = self.call([{"text": block(ABLATION)}])
         self.assertTrue(out["ok"], out)
         self.assertEqual(out["result"]["backend"], "pi")  # R18: a non-anthropic reviewer only calls pi
         self.assertEqual({c[0] for c in self.calls()}, {"pi"})
         doc = self.rld.reviews()[0]
         self.assertEqual((doc["review_backend"], doc["reviewer_model"], doc["review_result"], doc["author_role"]),
-                         ("pi", "openai/gpt-6-astra", "PROCEED", "reviewer"))
+                         ("pi", "openai/gpt-6-astra", "planned", "reviewer"))
         text = (self.root / "docs" / doc["path"]).read_text(encoding="utf-8")
         self.assertIn('backend: "pi"', text)
         self.assertTrue((self.root / "cache/reviews/RV-0001.v1.jsonl").is_file())
@@ -255,14 +263,14 @@ class ReviewCallTest(unittest.TestCase):
     def test_r19_anthropic_reviewer_never_falls_back_to_pi(self):
         self.project(reviewer="anthropic/claude-sonnet-5-5", leader="gpt-6-luna")
         self.fake("pi")  # pi's anthropic provider is ready, claude is missing
-        out = self.call([{"text": block(NOVELTY)}])
+        out = self.call([{"text": block(ABLATION)}])
         self.assertIn("REVIEW_UNAVAILABLE: claude is not on PATH", out["error"])
         self.assertEqual(self.calls(), [])
         self.fake("claude")
         self.env["FAKE_CLAUDE_AUTH"] = "no"
-        self.assertIn("not logged in", self.call([{"text": block(NOVELTY)}])["error"])
+        self.assertIn("not logged in", self.call([{"text": block(ABLATION)}])["error"])
         self.env["FAKE_CLAUDE_AUTH"] = "ok"
-        out = self.call([{"structured": NOVELTY, "text": json.dumps(NOVELTY)}])
+        out = self.call([{"structured": ABLATION, "text": json.dumps(ABLATION)}])
         self.assertTrue(out["ok"], out)
         self.assertEqual(out["result"]["backend"], "claude_code")  # R18
         self.assertNotIn("pi", {c[0] for c in self.calls()})
@@ -286,7 +294,7 @@ class ReviewCallTest(unittest.TestCase):
         self.project(reviewer="anthropic/claude-sonnet-5-5", leader="gpt-6-luna")
         self.fake("claude")
         out = self.call([{"is_error": True, "terminal_reason": "api_error", "status": 404,
-                          "text": "model not found", "structured": NOVELTY}])
+                          "text": "model not found", "structured": ABLATION}])
         self.assertIn("REVIEW_UNAVAILABLE: claude_code: is_error=True", out["error"])
         self.assertEqual(self.rld.reviews(), [])
 
@@ -294,7 +302,7 @@ class ReviewCallTest(unittest.TestCase):
         from jsonschema import Draft7Validator
         self.project(reviewer="anthropic/claude-sonnet-5-5", leader="gpt-6-luna")
         self.fake("claude")
-        out = self.call([{"structured": NOVELTY, "text": json.dumps(NOVELTY)}])
+        out = self.call([{"structured": ABLATION, "text": json.dumps(ABLATION)}])
         self.assertTrue(out["ok"], out)
         backend = review_call.ClaudeBackend("anthropic/claude-sonnet-5-5", "medium", self.root, 900)
         for kind in review_call.REVIEW_KINDS:
@@ -308,15 +316,15 @@ class ReviewCallTest(unittest.TestCase):
                 self.assertEqual(source, before)
                 validator = Draft7Validator(cli_schema)
                 self.assertFalse(validator.is_valid({}))
-                if kind == "novelty_precheck":
-                    self.assertTrue(validator.is_valid(NOVELTY))
-                    self.assertFalse(validator.is_valid({**NOVELTY, "score": 11}))
-                    self.assertFalse(validator.is_valid({**NOVELTY, "closest_prior_work": [{"title": "uncited"}]}))
+                if kind == "ablation_plan":
+                    self.assertTrue(validator.is_valid(ABLATION))
+                    self.assertFalse(validator.is_valid({**ABLATION, "ablations": [{**ABLATION["ablations"][0], "priority": 11}]}))
+                    self.assertFalse(validator.is_valid({**ABLATION, "ablations": [{"name": "missing contract"}]}))
 
     def test_r03_one_follow_up_then_invalid(self):
         self.project()
         self.fake("pi")
-        out = self.call([{"text": "no json here"}, {"text": block(NOVELTY)}])
+        out = self.call([{"text": "no json here"}, {"text": block(ABLATION)}])
         self.assertTrue(out["ok"], out)  # the follow-up in the same session gave the JSON
         sessions = {c[c.index("--session-id") + 1] for c in self.calls() if "--session-id" in c}
         self.assertEqual(len(sessions), 1)
@@ -329,7 +337,7 @@ class ReviewCallTest(unittest.TestCase):
     def test_r04_same_family_is_refused(self):
         self.project(leader="gpt-6-luna")  # the Leader is OpenAI, so is the reviewer
         self.fake("pi")
-        out = self.call([{"text": block(NOVELTY)}])
+        out = self.call([{"text": block(ABLATION)}])
         self.assertIn("REVIEW_UNAVAILABLE: reviewer openai/gpt-6-astra is the Leader's family", out["error"])
         self.assertFalse([c for c in self.calls() if "-p" in c])  # the model was never called
 
@@ -337,7 +345,7 @@ class ReviewCallTest(unittest.TestCase):
         # the Leader reached through an aggregator is still OpenAI: refused before any model call
         self.project(leader="openrouter/openai/gpt-6-luna")
         self.fake("pi")
-        out = self.call([{"text": block(NOVELTY)}])
+        out = self.call([{"text": block(ABLATION)}])
         self.assertIn("is the Leader's family", out["error"])
         self.assertFalse([c for c in self.calls() if "-p" in c])
 
@@ -345,12 +353,12 @@ class ReviewCallTest(unittest.TestCase):
         self.project()
         self.fake("pi")
         # the requested model answering through another channel is the same model
-        out = self.call([{"text": block(NOVELTY), "provider": "openrouter", "model": "openai/gpt-6-astra"}])
+        out = self.call([{"text": block(ABLATION), "provider": "openrouter", "model": "openai/gpt-6-astra"}])
         self.assertTrue(out["ok"], out)
         self.assertEqual(self.rld.get(out["result"]["review_id"])["reviewer_family"], "openai")
         # another model answered (here the Leader's own family): kept and paid, never an independent review
         before = self.rld.get("P-r").get("review_cost_usd") or 0
-        out = self.call([{"text": block(NOVELTY), "provider": "anthropic", "model": "claude-opus-5-5", "cost": 0.03}])
+        out = self.call([{"text": block(ABLATION), "provider": "anthropic", "model": "claude-opus-5-5", "cost": 0.03}])
         self.assertIn("REVIEW_INVALID: the review ran on anthropic/claude-opus-5-5", out["error"])
         self.assertAlmostEqual(self.rld.get("P-r")["review_cost_usd"] - before, 0.03)
         self.assertEqual(len(self.rld.reviews()), 1)
@@ -358,7 +366,7 @@ class ReviewCallTest(unittest.TestCase):
     def test_inapplicable_code_ref_is_rejected_before_backend_and_cost(self):
         self.project(reviewer="anthropic/claude-sonnet-5-5", leader="gpt-6-luna")
         self.fake("claude")
-        cases = (("novelty_precheck", NOVELTY, {}),
+        cases = (("ablation_plan", ABLATION, {}),
                  ("candidate_recheck", {"dimension": "numbers", "result": "pass",
                                          "evidence_paths": ["docs/project/min-setup.v1.md"], "reason": "fixture"},
                   {"dimension": "numbers", "evaluation": "EV-0001"}))
@@ -376,27 +384,27 @@ class ReviewCallTest(unittest.TestCase):
     def test_unknown_leader_model_is_unavailable(self):
         self.project(leader=None)
         self.fake("pi")
-        self.assertIn("cannot be placed in a model family", self.call([{"text": block(NOVELTY)}])["error"])
+        self.assertIn("cannot be placed in a model family", self.call([{"text": block(ABLATION)}])["error"])
 
-    def test_r05_r06_novelty_verdict_limits(self):
+    def test_removed_review_kinds_fail_before_backend_or_model_cost(self):
         self.project()
         self.fake("pi")
-        unnamed = {**NOVELTY, "verdict": "ABANDON", "abandon_paper": None}
-        out = self.call([{"text": block(unnamed)}, {"text": block(unnamed)}])  # R05: invalid, not negative
-        self.assertIn("REVIEW_INVALID: ABANDON names the paper", out["error"])
+        before = self.rld.export_snapshot()
+        for kind in ("triage", "novelty_precheck", "critical_review", "proposal_review"):
+            with self.subTest(kind=kind), self.assertRaisesRegex(review_call.ReviewError, "REVIEW_INVALID"):
+                review_call.review(self.cwd, kind, self.brief, "H-0001")
+        self.assertFalse([c for c in self.calls() if "-p" in c])
+        self.assertEqual(self.rld.export_snapshot(), before)
         self.assertEqual(self.rld.reviews(), [])
-        caution = {**NOVELTY, "verdict": "PROCEED_WITH_CAUTION"}
-        out = self.call([{"text": block(caution)}])  # R06: counted as positive
-        self.assertEqual(out["result"]["result"], "PROCEED_WITH_CAUTION")
 
     def test_r07_repeat_is_a_new_document_and_session_continues(self):
         self.project()
         self.fake("pi")
-        first = self.call([{"text": block(NOVELTY)}])["result"]
-        second = self.call([{"text": block(NOVELTY)}])["result"]
+        first = self.call([{"text": block(ABLATION)}])["result"]
+        second = self.call([{"text": block(ABLATION)}])["result"]
         self.assertNotEqual(first["review_id"], second["review_id"])
         self.assertEqual([d["status"] for d in self.rld.reviews()], ["current", "current"])
-        third = self.call([{"text": block(NOVELTY)}], session=first["session"])["result"]
+        third = self.call([{"text": block(ABLATION)}], session=first["session"])["result"]
         self.assertEqual((third["session"], third["path"]), (first["session"], "reviews/RV-0001.v2.md"))
         self.assertEqual(self.rld.get(first["review_id"])["status"], "superseded")
 
@@ -407,14 +415,14 @@ class ReviewCallTest(unittest.TestCase):
         with self.assertRaises(PermissionDenied):
             self.rld.register_document("reviews/fake.v1.md", "review", "self review")
         with self.assertRaises(PermissionDenied):
-            self.rld.register_review("reviews/fake.v1.md", "x", "novelty_precheck", ["P-r"], "PROCEED", "RV-9",
+            self.rld.register_review("reviews/fake.v1.md", "x", "ablation_plan", ["P-r"], "planned", "RV-9",
                                      "pi", "openai/gpt-6-astra", 0.0)
 
     def test_r14_review_budget(self):
         self.project(alert=0.015)
         self.fake("pi")
-        self.assertTrue(self.call([{"text": block(NOVELTY), "cost": 0.02}])["ok"])
-        out = self.call([{"text": block(NOVELTY)}])
+        self.assertTrue(self.call([{"text": block(ABLATION), "cost": 0.02}])["ok"])
+        out = self.call([{"text": block(ABLATION)}])
         self.assertIn("REVIEW_BUDGET", out["error"])
         kinds = [a["kind"] for a in review_call_attention(self.root, self.rld)]
         self.assertIn("review_budget", kinds)
@@ -423,15 +431,15 @@ class ReviewCallTest(unittest.TestCase):
     def test_r21_other_or_several_observed_models_are_invalid(self):
         self.project(reviewer="anthropic/claude-sonnet-5-5", leader="gpt-6-luna")
         self.fake("claude")
-        out = self.call([{"structured": NOVELTY, "models": ["claude-sonnet-5-5", "claude-haiku-4-5"]}])
+        out = self.call([{"structured": ABLATION, "models": ["claude-sonnet-5-5", "claude-haiku-4-5"]}])
         self.assertIn("REVIEW_INVALID", out["error"])
-        out = self.call([{"structured": NOVELTY, "models": ["claude-opus-5-5"]}])
+        out = self.call([{"structured": ABLATION, "models": ["claude-opus-5-5"]}])
         self.assertIn("not the requested anthropic/claude-sonnet-5-5", out["error"])
 
     def test_r21_pi_answer_from_another_model_is_invalid(self):
         self.project()
         self.fake("pi")
-        out = self.call([{"text": block(NOVELTY), "model": "gpt-6-luna"}])
+        out = self.call([{"text": block(ABLATION), "model": "gpt-6-luna"}])
         self.assertIn("REVIEW_INVALID: the review ran on openai/gpt-6-luna", out["error"])
         self.assertEqual(self.rld.reviews(), [])
 
@@ -445,9 +453,9 @@ class ReviewCallTest(unittest.TestCase):
         self.project(reviewer="anthropic/claude-sonnet-5-5", leader="gpt-6-luna")
         self.fake("claude")
         self.env["FAKE_EXPECT_PROMPT"] = review_call.PROMPT.format(brief=(self.root / self.brief).resolve())
-        first = self.call([{"structured": NOVELTY}], add_dir=str(self.cwd))
+        first = self.call([{"structured": ABLATION}], add_dir=str(self.cwd))
         self.assertTrue(first["ok"], first)
-        resumed = self.call([{"structured": NOVELTY}], add_dir=str(self.cwd), session=first["result"]["session"])
+        resumed = self.call([{"structured": ABLATION}], add_dir=str(self.cwd), session=first["result"]["session"])
         self.assertTrue(resumed["ok"], resumed)
         self.assertEqual(resumed["result"]["session"], first["result"]["session"])
         self.assertEqual(self.rld.get(first["result"]["review_id"])["status"], "superseded")
@@ -456,7 +464,7 @@ class ReviewCallTest(unittest.TestCase):
         self.project(reviewer="anthropic/claude-sonnet-5-5", leader="gpt-6-luna")
         self.fake("claude")
         denial = {"tool_name": "Read", "tool_input": {"file_path": "/etc/hostname"}}
-        out = self.call([{"structured": NOVELTY, "denials": [denial]}], add_dir="/data/code")
+        out = self.call([{"structured": ABLATION, "denials": [denial]}], add_dir="/data/code")
         self.assertTrue(out["ok"], out)
         command = [c for c in self.calls() if "-p" in c][0]
         self.assertEqual(command[command.index("--add-dir") + 1], "/data/code")
@@ -464,7 +472,7 @@ class ReviewCallTest(unittest.TestCase):
         self.assertIn("/etc/hostname", text.split("---")[1])
 
 
-class RecheckCallTest(ReviewCallTest):  # noqa: the base tests run again here
+class RecheckCallTest(ReviewCallTest):  # The base tests run again here.
     """K06 and concurrency through review_call itself."""
 
     def test_k06_structure_is_corrected_a_verdict_is_not(self):
@@ -488,12 +496,12 @@ class RecheckCallTest(ReviewCallTest):  # noqa: the base tests run again here
         import threading
         self.project()
         self.fake("pi")
-        self.env["FAKE_ANSWERS"] = json.dumps([{"text": block(NOVELTY)}])
+        self.env["FAKE_ANSWERS"] = json.dumps([{"text": block(ABLATION)}])
         results = []
         with patch.dict(os.environ, self.env):
             def go():
                 try:
-                    results.append(review_call.review(self.cwd, "novelty_precheck", self.brief, "P-r"))
+                    results.append(review_call.review(self.cwd, "ablation_plan", self.brief, "H-0001"))
                 except Exception as exc:  # noqa: BLE001
                     results.append(exc)
             threads = [threading.Thread(target=go) for _ in range(3)]
@@ -516,12 +524,12 @@ class RecheckCallTest(ReviewCallTest):  # noqa: the base tests run again here
     def test_pi_tool_reading_turns_reach_the_review_budget_once(self):
         self.project(alert=0.05)
         self.fake("pi")
-        out = self.call([{"text": block(NOVELTY), "cost": 0.01, "tool_costs": [0.02, 0.03]}])
+        out = self.call([{"text": block(ABLATION), "cost": 0.01, "tool_costs": [0.02, 0.03]}])
         self.assertTrue(out["ok"], out)
         self.assertAlmostEqual(self.rld.get("P-r")["review_cost_usd"], 0.06)
         self.assertAlmostEqual(review_call.spent(self.root), 0.06)
         before = self.calls()
-        out = self.call([{"text": block(NOVELTY)}])
+        out = self.call([{"text": block(ABLATION)}])
         self.assertIn("REVIEW_BUDGET", out["error"])
         self.assertEqual(self.calls(), before)
 

@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 
-from test_research_db import Fixture, ResearchDB, ResearchDBError, rdb  # noqa: E402
+from test_research_db import Fixture, ResearchDBError, rdb  # noqa: E402
 
 CHECKS = [{"id": "C1", "type": "exit_status"}, {"id": "C2", "type": "import_valid"},
           {"id": "C3", "type": "launch_config", "field": "data_dir", "expected": "data/good"},
@@ -49,18 +49,18 @@ class S5Fixture(Fixture):
 
     def fail_then_fix(self, data_dir: str = "data/good", checks=CHECKS) -> tuple[str, str]:
         """attempt 1 fails with a log; the criterion is frozen; attempt 2 runs with data_dir and is imported."""
-        self.worker.create_run(self.exp, 42)
-        self.worker.update_run(self.run, exec_status="submitted")
+        self.owner_for(self.exp).create_run(self.exp, 42)
+        self.owner_for_run(self.run).update_run(self.run, exec_status="submitted")
         log = self.root / "outputs" / self.exp / "s42" / "fail.log"
         log.parent.mkdir(parents=True, exist_ok=True)
         log.write_text("FileNotFoundError: data/missing/train.jsonl\n")
-        self.worker.update_run(self.run, exec_status="failed", log_path=f"outputs/{self.exp}/s42/fail.log")
+        self.owner_for_run(self.run).update_run(self.run, exec_status="failed", log_path=f"outputs/{self.exp}/s42/fail.log")
         criterion = self.criterion(checks)
-        self.worker.update_run(self.run, attempt=2, exec_status="submitted", started_at=rdb.now_utc())
-        self.worker.update_run(self.run, exec_status="succeeded")
+        self.owner_for_run(self.run).update_run(self.run, attempt=2, exec_status="submitted", started_at=rdb.now_utc())
+        self.owner_for_run(self.run).update_run(self.run, exec_status="succeeded")
         config = {**(self.rld.get(self.exp).get("effective_config") or {"lr": 0.05}), "data_dir": data_dir}
-        self.worker.import_run_result(self.run, 2, self.manifest(self.exp, 42, attempt=2, config=config))
-        self.worker.update_run(self.run, valid=True)
+        self.owner_for_run(self.run).import_run_result(self.run, 2, self.manifest(self.exp, 42, attempt=2, config=config))
+        self.owner_for_run(self.run).update_run(self.run, valid=True)
         return criterion, f"{self.run}@2"
 
     def verification(self, criterion: str, verified: str, **over) -> dict:
@@ -102,7 +102,7 @@ class VerificationTest(S5Fixture):
         criterion, verified = self.fail_then_fix()
         other = self.method(self.h, n_seeds=1)
         planned = f"{other}/s42"
-        self.worker.create_run(other, 42)  # planned, never run
+        self.owner_for(other).create_run(other, 42)  # planned, never run
         cases = {"planned": f"{planned}@1", "the failed attempt": f"{self.run}@1", "nonexistent": f"{self.run}@9"}
         for why, ref in cases.items():
             with self.subTest(why):
@@ -111,9 +111,9 @@ class VerificationTest(S5Fixture):
                 self.assertEqual(self.rld.memory_status(doc)["effective_status"], "unverified")
         for state in ("running", "unknown"):
             exp = self.method(self.h, n_seeds=1)
-            self.worker.create_run(exp, 42)
-            self.worker.update_run(f"{exp}/s42", exec_status="submitted")
-            self.worker.update_run(f"{exp}/s42", exec_status=state)
+            self.owner_for(exp).create_run(exp, 42)
+            self.owner_for_run(f"{exp}/s42").update_run(f"{exp}/s42", exec_status="submitted")
+            self.owner_for_run(f"{exp}/s42").update_run(f"{exp}/s42", exec_status=state)
             ref = f"{exp}/s42@1"
             doc = self.lesson(lesson_text(self.verification(criterion, ref, check_evidence_refs=[
                 {"check": c["id"], "run": ref} for c in CHECKS])))
@@ -201,22 +201,16 @@ class CurrencyTest(S5Fixture):
 
 
 class MigrationTest(S5Fixture):
-    def test_reg_s5_07_old_labels_are_not_trusted_and_migration_is_idempotent(self):
+    def test_missing_memory_basis_is_untrusted_without_inferred_migration(self):
         criterion, verified = self.fail_then_fix()
         good = self.lesson(lesson_text(self.verification(criterion, verified)))
-        label_only = self.lesson(lesson_text(None, status="verified", root="verified",
-                                             extra={"evidence_runs": [verified]}))
+        label_only = self.lesson(lesson_text(None, status="verified", root="verified", extra={"evidence_runs": [verified]}))
         for doc in (good, label_only):
-            self.raw(doc, memory_basis=None)  # as recorded before S5
-        self.assertEqual(self.rld.memory_status(good)["evidence_state"], "legacy")
-        self.assertEqual(self.rld.memory_status(label_only)["effective_status"], "unverified")
-        report = self.rld.migrate_memory(dry_run=False)
-        self.assertEqual((report["derived"], report["legacy"]), ([good], [label_only]))
-        self.assertEqual(self.rld.memory_status(good)["effective_status"], "verified")
-        self.assertEqual(self.rld.memory_status(label_only)["evidence_state"], "legacy")
-        again = self.rld.migrate_memory(dry_run=False)
-        self.assertEqual(again, {"derived": [], "legacy": []})
-        # the same verifying attempt named twice is one verification
+            self.raw(doc, memory_basis=None)
+            self.assertEqual(self.rld.memory_status(doc)["evidence_state"], "unverified")
+            self.assertEqual(self.rld.memory_status(doc)["effective_status"], "unverified")
+        self.assertFalse(hasattr(self.rld, "migrate_memory"))
+        self.assertIsNone(self.rld.get(good).get("memory_basis"))
         twice = self.lesson(lesson_text(self.verification(criterion, verified, run_attempt_refs=[verified, verified])))
         self.assertEqual(self.rld.get(twice)["memory_basis"]["verification"]["runs"], [verified])
 

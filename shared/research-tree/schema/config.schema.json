@@ -1,14 +1,13 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "research-tree/config.schema.json",
-  "title": "research-tree project configuration, version 2",
-  "description": "research-tree.yaml (version 2), completed and validated by project_config. Missing workflow stays strict; new templates explicitly opt in to fast screening.",
+  "title": "research-tree project configuration, version 3",
+  "description": "The sole bounded-screening, incremental-discovery workflow. Earlier configuration versions require an explicit new project; they are never reinterpreted.",
   "type": "object",
   "additionalProperties": false,
   "required": [
     "version",
     "platform",
-    "discovery",
     "design",
     "evidence_policy",
     "metric_specs",
@@ -16,15 +15,12 @@
     "budget",
     "search",
     "memory",
-    "review",
     "notify",
-    "literature",
-    "models",
-    "workflow"
+    "models"
   ],
   "properties": {
     "version": {
-      "const": 2
+      "const": 3
     },
     "platform": {
       "type": "object",
@@ -55,89 +51,15 @@
         }
       }
     },
-    "discovery": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "mode",
-        "require_precheck",
-        "lenses",
-        "seed_lenses",
-        "max_candidates",
-        "triage_top_n",
-        "max_initial_nodes",
-        "pi_generator"
-      ],
-      "properties": {
-        "mode": {
-          "enum": [
-            "off",
-            "precheck",
-            "full",
-            "incremental"
-          ]
-        },
-        "require_precheck": {
-          "type": "boolean"
-        },
-        "lenses": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "seed_lenses": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "max_candidates": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "triage_top_n": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "max_initial_nodes": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "pi_generator": {
-          "type": "boolean"
-        }
-      }
-    },
     "design": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "max_primary_claims",
-        "max_core_blocks",
-        "max_baseline_families",
-        "proposal_review_rounds",
         "code_review",
         "sanity_first",
         "overrun_factor"
       ],
       "properties": {
-        "max_primary_claims": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "max_core_blocks": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "max_baseline_families": {
-          "type": "integer",
-          "minimum": 1
-        },
-        "proposal_review_rounds": {
-          "type": "integer",
-          "minimum": 0
-        },
         "code_review": {
           "type": "boolean"
         },
@@ -154,21 +76,10 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "profile",
-        "require_artifact_import",
-        "preserve_raw_metrics"
+        "require_artifact_import"
       ],
       "properties": {
-        "profile": {
-          "enum": [
-            "screening",
-            "stage1_confirmed"
-          ]
-        },
         "require_artifact_import": {
-          "type": "boolean"
-        },
-        "preserve_raw_metrics": {
           "type": "boolean"
         }
       }
@@ -188,9 +99,7 @@
         "replication_seeds",
         "confirmation_seeds",
         "min_confirmation_pairs",
-        "max_confirmation_candidates",
-        "allow_inconclusive_at_limit",
-        "inference_mode"
+        "max_confirmation_candidates"
       ],
       "properties": {
         "screening_seeds": {
@@ -222,14 +131,6 @@
         "max_confirmation_candidates": {
           "type": "integer",
           "minimum": 1
-        },
-        "allow_inconclusive_at_limit": {
-          "type": "boolean"
-        },
-        "inference_mode": {
-          "enum": [
-            "descriptive"
-          ]
         },
         "confirmation_materials": {
           "type": "array",
@@ -297,10 +198,8 @@
               "type": "array",
               "items": {
                 "type": "integer"
-              }
-            },
-            "auto": {
-              "type": "boolean"
+              },
+              "uniqueItems": true
             }
           },
           "description": "S7: the fixed repetition-advice rule (search/replicate seeds only, never confirmation seeds)"
@@ -312,14 +211,11 @@
       "additionalProperties": false,
       "required": [
         "per_run",
-        "compute_unit",
         "total_limit",
         "search_limit",
         "confirmation_limit",
         "repair_limit",
         "screen_node_h",
-        "reserve_from_scheduler_limits",
-        "unknown_submission_policy",
         "max_parallel_workers",
         "alert_node_h",
         "review_usd_alert"
@@ -350,9 +246,6 @@
               ]
             }
           }
-        },
-        "compute_unit": {
-          "const": "node_seconds"
         },
         "total_limit": {
           "type": [
@@ -385,12 +278,6 @@
         "screen_node_h": {
           "type": "number",
           "exclusiveMinimum": 0
-        },
-        "reserve_from_scheduler_limits": {
-          "type": "boolean"
-        },
-        "unknown_submission_policy": {
-          "const": "hold_and_reconcile"
         },
         "max_parallel_workers": {
           "type": [
@@ -456,7 +343,6 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "cross_project",
         "enabled",
         "include_counterevidence",
         "max_items_per_task",
@@ -464,9 +350,6 @@
       ],
       "properties": {
         "enabled": {
-          "type": "boolean"
-        },
-        "cross_project": {
           "type": "boolean"
         },
         "max_items_per_task": {
@@ -479,28 +362,6 @@
         "pack_limit_chars": {
           "type": "integer",
           "minimum": 1000
-        }
-      }
-    },
-    "review": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "trigger",
-        "permanent_reviewer",
-        "require_method_code_alignment"
-      ],
-      "properties": {
-        "trigger": {
-          "enum": [
-            "candidate_ready"
-          ]
-        },
-        "permanent_reviewer": {
-          "const": false
-        },
-        "require_method_code_alignment": {
-          "const": true
         }
       }
     },
@@ -526,30 +387,12 @@
         }
       }
     },
-    "literature": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "min_related_work",
-        "require_verified"
-      ],
-      "properties": {
-        "min_related_work": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "require_verified": {
-          "type": "boolean"
-        }
-      }
-    },
     "models": {
       "type": "object",
       "additionalProperties": false,
       "required": [
         "ui",
         "worker",
-        "lens_assistant",
         "reviewer",
         "explorer",
         "architect",
@@ -560,9 +403,6 @@
           "$ref": "#/$defs/model"
         },
         "worker": {
-          "$ref": "#/$defs/model"
-        },
-        "lens_assistant": {
           "$ref": "#/$defs/model"
         },
         "reviewer": {
@@ -607,22 +447,6 @@
         },
         "analyst": {
           "$ref": "#/$defs/model"
-        }
-      }
-    },
-    "workflow": {
-      "type": "object",
-      "additionalProperties": false,
-      "required": [
-        "mode"
-      ],
-      "properties": {
-        "mode": {
-          "enum": [
-            "strict",
-            "fast_screening"
-          ],
-          "description": "Fast screening defers deep review until promotion; scientific validity and independent final confirmation remain required."
         }
       }
     }

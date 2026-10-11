@@ -10,7 +10,7 @@
     {
       "name": "research-tree",
       "source": "./dist/claude/plugins/research-tree",
-      "description": "/research-tree init <plan.md> sets up a research project in the current directory; RLD planning, a UI window, one worker per node, a research database with workflow rules, a progress pane and an offline page."
+      "description": "Version 3 research projects: main-session Leader, root-only Architect, hypothesis Workers, read-only Explorer/Analyst, fast screening and incremental discovery, mandatory independent confirmation and on-demand UI."
     }
   ]
 }

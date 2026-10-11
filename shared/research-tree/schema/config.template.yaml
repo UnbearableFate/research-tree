@@ -1,8 +1,8 @@
-# research-tree 项目配置（version 2）。
+# research-tree 项目配置（version 3）。
 # /research-tree config 可在初始化前复制本文件（不覆盖已有文件）。编辑后 init；立项确认时登记为生效版本。之后修改本文件，
 # 运行 /research-tree config apply 才会生效（登记为用户指令与新版本配置，并通知 RLD）。
 # 阈值都是示例值：按你的研究计划填写；看到实验结果之后不能由 agent 调低。
-version: 2
+version: 3
 
 # 开发与实验在哪里、怎么运行。文字原样交给 RLD 和每个 worker。
 platform:
@@ -19,35 +19,16 @@ platform:
   #   5. 不修改 research-tree.yaml、已生效文档与冻结框架。
   skills: []
 
-# 新项目显式选择快速筛选；旧配置不写 workflow 时保留 strict，不自动迁移。
-workflow:
-  mode: fast_screening       # fast_screening | strict；不降低最终 GO 的证据标准
-
-# 先确认最小范围，再逐候选准入；框架、基线和文献发现可并行。
-discovery:
-  mode: incremental          # incremental | off | precheck | full；full/precheck 保留整批严格门
-  require_precheck: true     # fast+incremental 检查五项筛选说明；strict 检查本候选回执；full/precheck 保留整批门
-  lenses: [method-transfer, contradiction, untested-assumption, scaling-regime, diagnostic]
-  seed_lenses: [variant, combination, competing, repair]
-  max_candidates: 12   # 指引：本版本不由接口检查
-  triage_top_n: 4
-  max_initial_nodes: 3   # 指引：本版本不由接口检查
-  pi_generator: false   # 指引：本版本不由接口检查
-
-# 从想法到实验设计（03）
+# 唯一流程：先做有预算上限的有效筛选，逐候选准入，最终 GO 必须独立确认。
+# 版本 1/2 与旧数据库不兼容；保留原项目证据，用本模板建立并重新授权新项目。
+# 设计与提交保护；普通廉价筛选不等待逐次模型审查。
 design:
-  max_primary_claims: 2
-  max_core_blocks: 5
-  max_baseline_families: 3     # 立项计划的指引（Leader 照此写基线家族）；本版本不由接口检查
-  proposal_review_rounds: 1    # 指引：proposal_review 至多几轮；本版本不由接口检查
-  code_review: true           # strict 每次准入；fast_screening 对关键候选/确认保留，普通筛选不等模型评审
+  code_review: true           # 对关键候选/确认保留代码审查，普通廉价筛选不等模型评审
   sanity_first: true
   overrun_factor: 2.0         # 实际用量达到预估的倍数，写待处理项（不取消作业）
 
 evidence_policy:
-  profile: stage1_confirmed   # screening | stage1_confirmed：后者 GO 前需在确认 seed 上独立确认
   require_artifact_import: true
-  preserve_raw_metrics: true
 
 # 指标规范：第一个为主指标。init 把它登记为 metric_spec 文档；主指标的 minimum_practical_gain 就是优于 SOTA 的门槛。
 metric_specs:
@@ -79,20 +60,19 @@ verification:
   # 命名的确认材料（S2）：每份是评测切分（内容哈希 split_sha256，runner 在 manifest 的 manifest_field 中报告）与训练 seed 块；
   # 确认批次各用一份，用过的材料不能给反馈之后的新候选再用。为空时只有一份由 confirmation_seeds 构成的材料。
   confirmation_materials: []
-  allow_inconclusive_at_limit: true
-  inference_mode: descriptive
+  # 可选：manifest 中标识独立重复单元的字段。
+  independence_fields: []
+  # 只读追加重复建议；不会自动预留或提交，seed_pool 必须属于上面的搜索 seeds。
+  repetition: {enabled: false, se_multiple: 2.0, batch: 2, seed_pool: []}
 
 # 资源预算。用量按 node-seconds 记（节点数 × 墙钟秒）；单机实验把整台机器算作 1 个节点。
 budget:
   per_run: {nodes: 8, walltime: 1h}
-  compute_unit: node_seconds
   total_limit: null           # 授权总量（node-seconds）；null 只有提醒、不封顶。例：360000 = 100 node·h
   search_limit: null          # 其中探索
   confirmation_limit: null    # 其中独立确认（总量的一部分）
   repair_limit: null          # 其中修复
   screen_node_h: 10           # 筛选预算：按 SOTA 第一个 seed 的成本决定筛选实验的 seed 数
-  reserve_from_scheduler_limits: true    # 本版本固定：预留按申请的节点数 × walltime 上限计
-  unknown_submission_policy: hold_and_reconcile   # 本版本固定：提交状态未知时保留预留并按 submission_key 核对
   max_parallel_workers: null
   alert_node_h: null
   review_usd_alert: null      # 累计评审费用提醒阈值（M4 起）
@@ -107,24 +87,14 @@ search:
 
 memory:
   enabled: true
-  cross_project: false        # 本版本不支持跨项目检索（须先有权限过滤）
   max_items_per_task: 5
   include_counterevidence: true
   pack_limit_chars: 8000      # 上下文包的字符上限
-
-review:
-  trigger: candidate_ready
-  permanent_reviewer: false
-  require_method_code_alignment: true   # 本版本固定：方法—代码对齐（method_code）总在复核维度中，pass 须引用所读代码
 
 # 外部通知（可选）：确认请求与用量提醒时向这个地址 POST JSON；超时不等于同意。
 notify:
   url: null
   timeout_s: 10
-
-literature:
-  min_related_work: 3         # 严格路径/晋级时的相关研究数；快速筛选复用文献，引用仍须可追溯
-  require_verified: true      # 只有 literature.py 核验存在的文献计入上面的数量
 
 models:
   # 可用易读名称（忽略大小写），如 Haiku 5 / Haiku 5.5 → claude-haiku-5-5、Sonnet 5.5 → claude-sonnet-5-5。
@@ -135,7 +105,6 @@ models:
   explorer: {model: inherit, effort: null}
   architect: {model: inherit, effort: null}
   analyst: {model: inherit, effort: null}
-  lens_assistant: {model: inherit, effort: null}
   reviewer:                   # 基座按 provider 自动选择：anthropic/* → Claude Code CLI，其余 → pi
     model: openai/gpt-6-astra
     thinking: high

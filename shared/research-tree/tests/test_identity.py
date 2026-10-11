@@ -12,7 +12,7 @@ TOOLS = Path(__file__).resolve().parents[1] / "tools"
 sys.path.insert(0, str(TOOLS))
 
 import discovery  # noqa: E402
-from test_research_db import METHOD_CONFIG, Fixture, rdb, recheck_payload  # noqa: E402
+from test_research_db import Fixture, rdb, recheck_payload  # noqa: E402
 
 ResearchDB, ResearchDBError = rdb.ResearchDB, rdb.ResearchDBError
 
@@ -51,8 +51,8 @@ class IdentityFixture(Fixture):
     def submit(self, exp: str) -> None:
         run = f"{exp}/s{self.rld.get(exp)['seeds'][0]}"
         if self.rld.get(run) is None:
-            self.worker.create_run(exp, self.rld.get(exp)["seeds"][0])
-        self.worker.update_run(run, exec_status="submitted")
+            self.owner_for(exp).create_run(exp, self.rld.get(exp)["seeds"][0])
+        self.owner_for_run(run).update_run(run, exec_status="submitted")
 
 
 class MethodSpecTest(IdentityFixture):
@@ -83,13 +83,72 @@ class MethodSpecTest(IdentityFixture):
         h = self.node()
         exp = self.exp(h, self.commit(), {"lr": 0.05})
         run = f"{exp}/s{SEED}"
+        self.owner_for(exp).create_run(exp, SEED)
+        self.owner_for_run(run).update_run(run, exec_status="submitted")
+        self.owner_for_run(run).update_run(run, exec_status="succeeded")
+        with self.assertRaisesRegex(ResearchDBError, "METHOD_SPEC_MISMATCH: .*lr: spec 0.05, run 0.1"):
+            self.owner_for_run(run).import_run_result(run, 1, self.manifest(exp, SEED, config={"lr": 0.1}))
+        self.assertIsNone(self.rld.get(run).get("import_record"))  # nothing half-written
+        self.owner_for_run(run).import_run_result(run, 1, self.manifest(exp, SEED, config={"lr": 0.05, "eval_split": "explore"}))
+
+    def test_missing_method_identity_cannot_bypass_submission_or_import(self):
+        h = self.node()
+        exp = self.exp(h, self.commit(), {"lr": 0.05})
+        run = f"{exp}/s{SEED}"
         self.worker.create_run(exp, SEED)
+        original = self.rld.get(exp)
+        self.raw(exp, method_spec_doc_id=None)
+        with self.assertRaisesRegex(ResearchDBError, "METHOD_SPEC_INCOMPLETE"):
+            self.worker.update_run(run, exec_status="submitted")
+        self.assertEqual(self.rld.get(run)["exec_status"], "planned")
+        self.raw(exp, method_spec_doc_id=original["method_spec_doc_id"])
         self.worker.update_run(run, exec_status="submitted")
         self.worker.update_run(run, exec_status="succeeded")
-        with self.assertRaisesRegex(ResearchDBError, "METHOD_SPEC_MISMATCH: .*lr: spec 0.05, run 0.1"):
-            self.worker.import_run_result(run, 1, self.manifest(exp, SEED, config={"lr": 0.1}))
-        self.assertIsNone(self.rld.get(run).get("import_record"))  # nothing half-written
-        self.worker.import_run_result(run, 1, self.manifest(exp, SEED, config={"lr": 0.05, "eval_split": "explore"}))
+        manifest = self.manifest(exp, SEED)
+        self.raw(exp, method_spec_doc_id=None)
+        before = self.rld.get(run)
+        with self.assertRaisesRegex(ResearchDBError, "METHOD_SPEC_INCOMPLETE"):
+            self.worker.import_run_result(run, 1, manifest)
+        self.assertEqual(self.rld.get(run), before)
+        self.assertIsNone(self.rld.get(exp).get("method_spec_doc_id"))
+
+    def test_code_review_requires_its_explicit_hypothesis_identity(self):
+        h = self.node()
+        code = self.commit()
+        exp = self.exp(h, code, {"lr": 0.05})
+        basis = self.reviewer.review_basis(h, "code_review", code_ref=code)
+        self.assertEqual(basis["hypothesis_id"], h)
+        receipt = self.register(h, "code_review", "clear", basis, code_ref=code)
+        with self.rld.reader() as tx:
+            self.assertTrue(self.rld._code_review_applies(tx, tx.get(receipt), tx.get(exp)))
+        self.raw(receipt, review_basis={k: v for k, v in basis.items() if k != "hypothesis_id"})
+        with self.rld.reader() as tx:
+            self.assertFalse(self.rld._code_review_applies(tx, tx.get(receipt), tx.get(exp)))
+
+    def test_scheduler_names_paths_and_stage_do_not_fork_scientific_seed_identity(self):
+        self.rld.update_project(screen_seeds=1)
+        h = self.node()
+        code = self.commit({"config-a.json": '{"lr": 0.1}', "config-b.json": '{"lr": 0.1}'})
+        first = self.exp(h, code, {"lr": 0.1}, config_path="config-a.json")
+        result = self.evaluate(first, sota=(-0.3, 0.0, 0.0))
+        recorded = self.rld.get(first)
+        self.assertEqual(result["outcome"], "inconclusive")  # one seed cannot settle the negative effect
+        for extra in ({"method_name": "renamed"}, {"walltime_s": 30}, {"nodes": 2},
+                      {"stage": "replicate"}, {"config_path": "config-b.json"},
+                      {"method_config": {"lr": 0.1, "out": "outputs/renamed"}}):
+            with self.subTest(extra=extra):
+                kwargs = {"kind": "method", "method_name": "m", "design_doc_id": recorded["design_doc_id"],
+                          "code_ref": code, "nodes": 1, "walltime_s": 60, "hypothesis_id": h,
+                          "n_seeds": 1, "method_config": {"lr": 0.1}, "estimated_node_h": 0.1,
+                          "config_path": "config-a.json", **extra}
+                self.assertEqual(self.worker.create_experiment(**kwargs), first)
+                self.assertEqual(self.rld.get(first), recorded)
+        with self.assertRaisesRegex(ResearchDBError, "already exists"):
+            self.worker.create_run(first, 42)
+        with self.assertRaisesRegex(ResearchDBError, "current positive_signal"):
+            self.worker.extend_seeds(first, 2)
+        changed = self.exp(h, code, {"lr": 0.2})
+        self.assertNotEqual(changed, first)
 
 
 SEED = 42
@@ -97,11 +156,11 @@ SEED = 42
 
 class ClaimAndBasisTest(IdentityFixture):
     def candidate_with_rechecks(self):
-        h, exp = self.concluded("beats_sota")
+        h, exp = self.concluded()
         self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
         self.recheck_pass(h, exp)
-        self.rld.update_project(recheck_required=True)
-        ev = self.rld.get(exp)["evaluation_id"]
+        self.rld.update_project()
+        ev = self.complete_confirmation(h, exp)
         for dimension in rdb.RECHECK_DIMENSIONS:
             self.recheck(h, dimension, ev)
         return h, exp, ev
@@ -120,7 +179,7 @@ class ClaimAndBasisTest(IdentityFixture):
         states, after = self.states(h)
         self.assertEqual(states, {"numbers": "pass", "protocol": "pass", "method_code": "stale",
                                   "novelty": "stale", "theory": "stale"})
-        self.assertEqual(after["basis_evaluation_id"], ev)  # the numbers are not rewritten
+        self.assertEqual(after["basis_evaluation_id"], self.rld.get(exp)["evaluation_id"])  # the numbers are not rewritten
         self.assertFalse(after["eligible"])
         self.assertIn("RECHECK_STALE", after["reasons"])
         self.assertFalse(after["rld_rechecks"]["novelty"]["bound"])  # REG-S1-06: the RLD's pass judged the old claim
@@ -148,16 +207,16 @@ class ClaimAndBasisTest(IdentityFixture):
         self.assertTrue(self.rld.get(doc)["review_basis_changed"])
         states, _ = self.states(h)
         self.assertEqual(states["novelty"], "stale")
-        # a review registered without a basis (before S1) never binds the current state
-        self.register(h, "candidate_recheck", "pass", None, dimension="numbers", evaluation_id=ev,
-                      payload=recheck_payload(self, "numbers", "pass", ev))
-        states, e = self.states(h)
-        self.assertEqual(states["numbers"], "stale")
-        self.assertTrue(next(r for r in e["rechecks"] if r["dimension"] == "numbers")["needs_recheck"])
+        # Missing system-captured identity is rejected; it cannot replace valid evidence.
+        with self.assertRaisesRegex(ResearchDBError, "captured review_basis"):
+            self.register(h, "candidate_recheck", "pass", None, dimension="numbers", evaluation_id=ev,
+                          payload=recheck_payload(self, "numbers", "pass", ev))
+        states, _ = self.states(h)
+        self.assertEqual(states["numbers"], "pass")
 
     def test_reg_s1_06_same_code_new_configuration_or_claim_needs_new_clearance(self):
         h = self.node()
-        self.rld.update_project(sanity_required=True, code_review_required=True)
+        self.rld.update_project(sanity_required=True, code_review_required=True, screen_budget_node_h=0.01)
         code = self.commit()
         exp = self.exp(h, code, {"lr": 0.05})
         # a sanity of the method, declared as a projection (short training), counts for it
@@ -191,35 +250,37 @@ class ClaimAndBasisTest(IdentityFixture):
             self.submit(other)
         # and the clear review of the first configuration no longer applies after the claim changed either
         third = self.exp(h, code, {"lr": 0.05}, walltime=61)
-        self.assertEqual(self.rld.get(third)["method_spec_doc_id"], self.rld.get(exp)["method_spec_doc_id"])
+        self.assertEqual(third, exp)  # a new walltime cannot create another trial of the same method and seed
+        self.rld.extend_seeds(third, 2)
+        self.worker.create_run(third, 43)
         with self.assertRaisesRegex(ResearchDBError, "CODE_REVIEW_REQUIRED"):
-            self.submit(third)
+            self.worker.update_run(f"{third}/s43", exec_status="submitted")
 
 
 class CandidateTest(unittest.TestCase):
-    def receipt(self, c: dict) -> dict:
-        return {"review_kind": "novelty_precheck", "status": "current", "review_about": c["id"],
-                "review_basis": {"candidate_id": c["id"], "revision": c["revision"], "content_sha": c["content_sha"]}}
+    @staticmethod
+    def identity(candidate):
+        return (candidate["id"], candidate["revision"], candidate["content_sha"])
 
-    def test_reg_s1_03_reordering_and_insertion_move_no_receipt(self):
+    def test_reg_s1_03_reordering_and_insertion_preserve_candidate_identity(self):
         zebra = {"title": "Zebra 动量", "summary": "heavy ball"}
         first = discovery.merge([], [zebra])
         z = first[0]
         self.assertEqual(z["id"], "CAND-0001")
-        receipt = self.receipt(z)
+        receipt = self.identity(z)
         alpha = {"title": "Alpha 学习率预热", "summary": "warmup"}
         second = discovery.merge([], [alpha, zebra], first)
         by_title = {c["title"]: c for c in second}
         self.assertEqual(by_title["Zebra 动量"]["id"], "CAND-0001")  # sorted first or not, Zebra keeps its id
         self.assertEqual(by_title["Alpha 学习率预热"]["id"], "CAND-0002")
-        self.assertTrue(discovery.receipt_applies(receipt, by_title["Zebra 动量"]))
-        self.assertFalse(discovery.receipt_applies({**receipt, "review_about": "CAND-0002"}, by_title["Alpha 学习率预热"]))
+        self.assertEqual(receipt, self.identity(by_title["Zebra 动量"]))
+        self.assertNotEqual(receipt, self.identity(by_title["Alpha 学习率预热"]))
         # Alpha's mechanism changes: same id, next revision; a receipt of the old revision no longer counts
-        old_alpha = self.receipt(by_title["Alpha 学习率预热"])
+        old_alpha = self.identity(by_title["Alpha 学习率预热"])
         third = discovery.merge([], [{"title": "Alpha 学习率预热", "summary": "cosine schedule"}, zebra], second)
         a3 = next(c for c in third if c["title"].startswith("Alpha"))
         self.assertEqual((a3["id"], a3["revision"]), ("CAND-0002", 2))
-        self.assertFalse(discovery.receipt_applies(old_alpha, a3))
+        self.assertNotEqual(old_alpha, self.identity(a3))
         # removing Alpha and adding Beta: Beta gets a new number, never Alpha's
         fourth = discovery.merge([], [zebra, {"title": "Beta 梯度裁剪", "summary": "clip"}], third)
         ids = {c["title"]: (c["id"], c["present"]) for c in fourth}
@@ -230,31 +291,16 @@ class CandidateTest(unittest.TestCase):
 
 
 class MigrationTest(IdentityFixture):
-    def test_reg_s1_05_legacy_records_need_rechecks_and_migration_is_idempotent(self):
-        h, exp = self.concluded("beats_sota")
-        self.rld.update_project(recheck_required=True)
-        ev = self.rld.get(exp)["evaluation_id"]
-        old_review = self.register(h, "candidate_recheck", "pass", None, dimension="numbers", evaluation_id=ev,
-                                   payload=recheck_payload(self, "numbers", "pass", ev))
-        # records as an older plugin left them
-        self.raw(h, claim_sha=None, claim_revision=None, claim_history=None)
-        self.raw(exp, method_spec_doc_id=None, method_spec_sha=None)
-        dry = self.rld.migrate_identity()
-        self.assertIn(h, dry["claims"])
-        self.assertIn(exp, dry["legacy_unbound_experiments"])
-        self.assertIn(old_review, dry["needs_recheck_reviews"])
-        self.assertIsNone(self.rld.get(h).get("claim_sha"))  # a dry run writes nothing
-        done = self.rld.migrate_identity(dry_run=False)
-        hyp = self.rld.get(h)
-        self.assertEqual(hyp["claim_revision"], 1)
-        self.assertTrue(hyp["claim_history"]["revisions"][0]["legacy"])
-        again = self.rld.migrate_identity(dry_run=False)
-        self.assertEqual(again["claims"], [])
-        self.assertEqual(self.rld.get(h)["claim_history"], hyp["claim_history"])
-        self.assertEqual(done["legacy_unbound_experiments"], again["legacy_unbound_experiments"])
-        e = self.rld.get_eligibility(h)
-        self.assertIn("METHOD_IDENTITY_UNBOUND", e["reasons"])  # history stays readable, it cannot carry GO
-        self.assertFalse(e["eligible"])
+    def test_unbound_identity_is_rejected_without_inferred_repair(self):
+        h, exp = self.concluded()
+        evaluation = self.rld.get(exp)["evaluation_id"]
+        with self.assertRaisesRegex(ResearchDBError, "captured review_basis"):
+            self.register(h, "candidate_recheck", "pass", None, dimension="numbers", evaluation_id=evaluation,
+                          payload=recheck_payload(self, "numbers", "pass", evaluation))
+        self.raw(exp, method_spec_doc_id=None)
+        self.assertIn("METHOD_IDENTITY_UNBOUND", self.rld.get_eligibility(h)["reasons"])
+        self.assertFalse(hasattr(self.rld, "migrate_identity"))
+        self.assertIsNone(self.rld.get(exp).get("method_spec_doc_id"))
 
 
 if __name__ == "__main__":

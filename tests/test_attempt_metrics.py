@@ -64,6 +64,13 @@ class AttemptMetricsTest(unittest.TestCase):
         self.write()
         self.assertEqual(attempt_metrics.metrics(self.project, self.tables(run, ["k-a1", "k-a2"]), self.root)["duplicate_jobs"], 2)
 
+    def test_every_unreserved_start_is_counted_once(self):
+        self.start("orphan")
+        self.start("orphan", launch=2)
+        self.write()
+        m = attempt_metrics.metrics(self.project, {"run": [], "reservation": [], "document": []}, self.root)
+        self.assertEqual((m["duplicate_jobs"], m["starts_per_key"]), (2, {"orphan": 2}))
+
     def test_avoidable_failures_need_an_earlier_verified_fix(self):
         verified = {"doc_type": "lesson", "status": "current", "updated_at": "2026-10-08T10:00:00Z",
                     "memory_basis": {"verification": {"state": "verified", "failure": "E-1/s42@1"}}}

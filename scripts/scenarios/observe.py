@@ -77,6 +77,8 @@ def artifact_checks(out_dir: Path) -> dict:
 def observe(project: Path, tools: Path = REPO_TOOLS) -> dict:
     project = Path(project).resolve()
     marker = json.loads((project / ".research-tree.json").read_text(encoding="utf-8"))
+    if type(marker.get("format_version")) is not int or marker["format_version"] != 3:
+        raise ValueError("the observer requires a version-3 project marker")
     db = Path(marker["db"])
     root = Path(marker["root"])
     before = sha(db)

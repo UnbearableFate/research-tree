@@ -117,7 +117,7 @@ def check(marketplace: Path, work: Path):
             if prepared.returncode:
                 raise RuntimeError(prepared.stderr + prepared.stdout)
             # This transport fixture authorizes no discovery or experiments; the real-host tests cover discovery.
-            (project / "research-tree.yaml").write_text("version: 2\ndiscovery:\n  mode: off\n")
+            (project / "research-tree.yaml").write_text("version: 3\n")
             initialized = call("research_control", action="init", params={"project_id": "P-native"})
             root = Path(initialized["project"]["root"])
 
@@ -128,15 +128,15 @@ def check(marketplace: Path, work: Path):
                 return ident
 
             setup = doc("project/min-setup.v1.md", "min_setup")
-            # the version-2 template states the metric specification; init registered it
+            # the version-3 template states the metric specification; init registered it
             specs = initialized["project"]["metric_spec"]["doc_id"]
+            config_view = call("research_control", action="config")
             protocol = doc("project/protocol.v1.json", "protocol", json.dumps({
                 "version": 1, "eval_type": "real_gt", "pair_fields": ["seed"], "profile": "stage1_confirmed",
-                "confirmation_seeds": [1042, 1043, 1044], "min_confirmation_pairs": 3,
-                "max_confirmation_candidates": 2, "require_artifact_import": True}))
+                **config_view["protocol_requirements"]}))
             call("research_db", method="create_project", kwargs={"id": "P-native", "title": "Native installation smoke",
                   "metric_spec_doc_id": specs, "protocol_doc_id": protocol, "min_setup_doc_id": setup, "primary_metric": "accuracy", "metric_direction": "higher",
-                  "metric_is_percent": True, "secondary_metrics": ["train_time_s"], "seeds": [42, 43, 44], "go_margin": 0.2})
+                  "secondary_metrics": ["train_time_s"], **config_view["db_fields"]})
             doc("project/reports/init-plan.v1.md", "report")
             call("post_to_ui", type="confirm_request", text="Fixture plan; confirm only for validation.", docs=["project/reports/init-plan.v1.md"])
             confirmed = call("research_control", action="confirm", params={"words": "Fixture confirmation; no experiments authorized."})

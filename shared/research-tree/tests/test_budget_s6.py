@@ -37,7 +37,7 @@ class S6Test(trdb.BudgetTest):
         return (len(self.rld.find("reservation")), status["committed"], [r.get("submission_key") for r in runs])
 
     def test_reg_s6_01_a_full_search_pool_is_not_bypassed(self):
-        e1, r1 = self.planned(1)
+        e1, r1 = self.planned(1, 3600)
         self.worker.reserve_submission("k1", r1, {"nodes": 1, "walltime_s": 3600})  # 5400 + 3600 = the search limit
         _, r2 = self.planned(1)
         before = self.state()
@@ -69,13 +69,13 @@ class S6Test(trdb.BudgetTest):
                                        repair_basis=f"{run}@1", selection_rationale="s6")  # nothing failed yet
         self.worker.reserve_submission("k1", r1, {"nodes": 1, "walltime_s": 100})
         gen = self.worker.claim_submission("k1")["claim_generation"]
-        self.worker.update_run(run, exec_status="submitted")
+        self.owner_for_run(run).update_run(run, exec_status="submitted")
         self.worker.attach_job("k1", "job-1", gen)
-        self.worker.update_run(run, exec_status="failed")
+        self.owner_for_run(run).update_run(run, exec_status="failed")
         repair = self.rld.create_experiment("method", "m", design, code, 1, 100, hypothesis_id=self.h, owner="w1",
                                             method_config={**METHOD_CONFIG, "fixed": True}, estimated_node_h=0.1,
                                             budget_pool="repair", repair_basis=f"{run}@1", selection_rationale="s6")
-        self.worker.create_run(repair, self.rld.get(repair)["seeds"][0])
+        self.owner_for(repair).create_run(repair, self.rld.get(repair)["seeds"][0])
         rep_ref = f"{repair}/s{self.rld.get(repair)['seeds'][0]}@1"
         _, r2 = self.planned(1)
         with self.assertRaisesRegex(ResearchDBError, "BUDGET_POOL_MISMATCH: one allocation draws on one pool"):
@@ -84,7 +84,7 @@ class S6Test(trdb.BudgetTest):
                          "repair")  # the worker runs it under the Leader's assignment
 
     def test_reg_s6_03_one_key_one_complete_request(self):
-        _, refs = self.planned(1)
+        _, refs = self.planned(1, 120)
         first = self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 120, "platform_profile": "cpu"})
         before = self.state()
         for request, field in (({"nodes": 2, "walltime_s": 60, "platform_profile": "cpu"}, "nodes"),  # same 120 node-s
@@ -100,33 +100,16 @@ class S6Test(trdb.BudgetTest):
         with self.assertRaisesRegex(ResearchDBError, "SUBMISSION_AMBIGUOUS: .*not reconstructed"):
             self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 120, "platform_profile": "cpu"})
 
-    def test_reg_s6_07_migration_moves_the_view_and_frees_nothing(self):
-        _, r1 = self.planned(1)
-        held = self.worker.reserve_submission("k1", r1, {"nodes": 1, "walltime_s": 3000})
-        run = r1[0].rpartition("@")[0]
-        self.worker.claim_submission("k1")
-        self.worker.update_run(run, exec_status="submitted")
-        self.worker.update_run(run, exec_status="unknown")  # in flight, state unknown
-        self.raw(held["reservation_id"], budget_pool="confirmation")  # booked in the wrong pool by an older plugin
-        before = self.rld.budget_status()["committed"]
-        self.assertEqual(before["confirmation"], 3000)
-        dry = self.rld.migrate_budget(dry_run=True)
-        self.assertEqual(dry["corrected"], [held["reservation_id"]])
-        report = self.rld.migrate_budget(dry_run=False)
-        after = self.rld.budget_status()["committed"]
-        self.assertEqual((after["total"], after["search"], after["confirmation"]), (before["total"], 8400, 0))
-        res = self.rld.get(held["reservation_id"])
-        self.assertEqual((res["budget_pool"], res["pool_correction"]["to"], res["accounting_status"]),
-                         ("confirmation", "search", "held_unknown"))  # the original stays; nothing is released
-        self.assertEqual(report["over_limit"], {})
-        self.assertEqual(self.rld.migrate_budget(dry_run=False)["corrected"], [])  # idempotent
-        self.assertEqual(self.rld.get(held["reservation_id"])["pool_correction"], res["pool_correction"])  # unchanged
-        # a correction that overfills the search pool is reported, and new search admission is refused
-        self.rld.update_project(search_limit=8000)
-        self.assertEqual(self.rld.migrate_budget(dry_run=True)["over_limit"]["search"], {"committed": 8400, "limit": 8000})
-        _, r2 = self.planned(1)
-        with self.assertRaisesRegex(ResearchDBError, "BUDGET_EXCEEDED: .*search budget"):
-            self.worker.reserve_submission("k2", r2, {"nodes": 1, "walltime_s": 100})
+    def test_reg_s6_07_no_pool_migration_or_hidden_reservation_padding(self):
+        _, refs = self.planned(1, 100)
+        before = self.state()
+        with self.assertRaisesRegex(ResearchDBError, "exact aggregate"):
+            self.worker.reserve_submission("padded", refs, {"nodes": 1, "walltime_s": 3000})
+        self.assertEqual(before, self.state())
+        self.assertFalse(hasattr(self.rld, "migrate_budget"))
+        reservation = self.worker.reserve_submission("exact", refs, {"nodes": 1, "walltime_s": 100})
+        self.assertEqual(reservation["reserved_units"], 100)
+        self.assertEqual(self.rld.get(reservation["reservation_id"])["budget_pool"], "search")
 
 
 if __name__ == "__main__":

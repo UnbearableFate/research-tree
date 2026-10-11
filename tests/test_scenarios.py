@@ -1,5 +1,4 @@
-"""S0 scenario base (plans/research-tree-implementation-and-real-scenarios.md §4.2): REG-S0-01..05 and the local
-execution adapter the real scenarios submit through."""
+"""Current-contract project generation and the real ToyOpt execution, scoring and evidence boundaries."""
 
 import json
 import os
@@ -8,13 +7,17 @@ import sys
 import tempfile
 import time
 import unittest
+
+import yaml
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SCEN = ROOT / "scripts" / "scenarios"
 sys.path.insert(0, str(SCEN))
 sys.path.insert(0, str(SCEN / "toyopt"))
+sys.path.insert(0, str(ROOT / "shared" / "research-tree" / "tools"))
 
+import project_config  # noqa: E402
 import observe  # noqa: E402
 import record  # noqa: E402
 import scorer  # noqa: E402
@@ -63,6 +66,49 @@ class GeneratorTest(unittest.TestCase):
                              ("claude", "S0", "SC-S0-01", 1, False))
             # controller files stay outside the project
             self.assertFalse(any(p.name in ("scenario.json", "fault-plan.json") for p in a.rglob("*")))
+
+    def test_generator_emits_only_the_current_contract(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            configs = []
+            for index, (host, label) in enumerate((("claude", "FAST"), ("codex", "FAST"), ("claude", "S7"))):
+                project = Path(tmp) / str(index)
+                made = make(project, "--host", host, "--stage", label)
+                text = (project / "research-tree.yaml").read_text()
+                config = yaml.safe_load(text)
+                self.assertEqual(project_config.parse(text)["version"], 3)
+                self.assertEqual(config["version"], 3)
+                self.assertFalse(set(config) & {"workflow", "discovery", "literature", "review"})
+                self.assertEqual(set(config["design"]), {"code_review", "sanity_first", "overrun_factor"})
+                self.assertEqual(config["evidence_policy"], {"require_artifact_import": True})
+                self.assertNotIn("compute_unit", config["budget"])
+                self.assertEqual(set(config["models"]), {"ui", "worker", "architect", "explorer", "analyst", "reviewer"})
+                self.assertEqual(config["verification"]["independence_fields"], ["train_seed"])
+                self.assertNotIn("repetition", config["verification"])
+                provenance = json.loads((Path(made["controller"]) / "scenario.json").read_text())
+                self.assertEqual(provenance["generator_version"], "toyopt-lab-3")
+                self.assertIn("architect/root", (project / "plan.md").read_text())
+                configs.append(config)
+            self.assertEqual(configs[0], configs[2])  # stage is metadata, never a contract selector
+
+    def test_retired_generator_switches_are_rejected(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp) / "p"
+            for flags in (("--legacy-toytrain",), ("--config-version", "2"), ("--profile", "screening"),
+                          ("--discovery", "full"), ("--hypotheses", "0"), ("--with-reviewer",)):
+                with self.subTest(flags=flags):
+                    out = subprocess.run([sys.executable, str(ROOT / "scripts/make_rt_test_project.py"),
+                                          str(project), "--host", "claude", *flags], capture_output=True, text=True)
+                    self.assertNotEqual(out.returncode, 0)
+                    self.assertIn("unrecognized arguments", out.stderr)
+                    self.assertFalse(project.exists())
+
+    def test_observer_rejects_unsupported_project_markers(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            for version in (None, 1, 2, True):
+                (project / ".research-tree.json").write_text(json.dumps({"format_version": version}))
+                with self.assertRaisesRegex(ValueError, "version-3"):
+                    observe.observe(project)
 
     def test_refuses_a_used_directory(self):
         with tempfile.TemporaryDirectory() as tmp:

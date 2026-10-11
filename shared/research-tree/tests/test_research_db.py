@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -45,7 +46,7 @@ SPECS = {"version": 1, "primary": "acc", "metrics": [
     {"name": "peak_mem_gb", "direction": "lower", "input_unit": "gib", "canonical_unit": "gib",
      "effect_mode": "absolute", "minimum_practical_gain": 0.0, "aggregation": "paired_run_mean"},
 ]}
-PROTOCOL = {"version": 1, "eval_type": "real_gt", "pair_fields": ["seed"], "profile": "screening"}
+PROTOCOL = {"version": 1, "eval_type": "real_gt", "pair_fields": ["seed"], "profile": "stage1_confirmed", "confirmation_seeds": [1042, 1043, 1044]}
 METHOD_CONFIG = {"lr": 0.05}  # every experiment states its configuration (S1 method identity)
 
 
@@ -88,6 +89,7 @@ class Fixture(unittest.TestCase):
         create_db.create_db(self.db)
         self.rld = ResearchDB(self.db, "rld/main")
         self.worker = ResearchDB(self.db, "worker/w1")
+        self.architect = ResearchDB(self.db, "architect/root")
         self.n = 0
         self.effects: dict[str, tuple[str, tuple]] = {}
 
@@ -101,10 +103,12 @@ class Fixture(unittest.TestCase):
                               body=json.dumps(self.specs_content))
         self.protocol = self.doc(self.rld, "project/protocol.v1.json", "protocol",
                                  body=json.dumps(self.protocol_content))
-        self.rld.create_project("P-test", "test", setup, "acc", "higher", True, SECONDARY, SEEDS,
+        self.rld.create_project("P-test", "test", setup, "acc", "higher", SECONDARY, SEEDS,
                                 repo_path=str(self.repo), metric_spec_doc_id=self.specs,
-                                protocol_doc_id=self.protocol)
-        self.rld.update_project(harness_ref=self.harness, harness_paths=["harness"])
+                                protocol_doc_id=self.protocol, screen_seeds=3)
+        self.rld.assign_architect()
+        goal = self.doc(self.rld, "project/goal-initial.v1.md", "goal", body=ANCHOR)
+        self.rld.update_project(goal_doc_id=goal, harness_ref=self.harness, harness_paths=["harness"])
         self.literature = [self.doc(self.worker, f"literature/LIT-{i}.v1.md", "literature") for i in range(3)]
         self.sota = self.baseline(self.sota_nodes, self.sota_walltime_s)
         self.rld.update_project(sota_experiment_id=self.sota)
@@ -124,7 +128,7 @@ class Fixture(unittest.TestCase):
             (self.repo / path).parent.mkdir(parents=True, exist_ok=True)
             (self.repo / path).write_text(text, encoding="utf-8")
         self.git("add", "-A")
-        self.git("-c", "user.email=t@t", "-c", "user.name=t", "commit", "-q", "-m", f"c{self.n}")
+        self.git("-c", "user.email=test@example.invalid", "-c", "user.name=Research Tree Test", "commit", "-q", "-m", f"c{self.n}")
         return self.git("rev-parse", "HEAD")
 
     def doc(self, actor: ResearchDB, path: str, doc_type: str, current: bool = True,
@@ -132,6 +136,8 @@ class Fixture(unittest.TestCase):
         self.n += 1
         file = self.root / "docs" / path
         file.parent.mkdir(parents=True, exist_ok=True)
+        if body is None and doc_type in ("hypothesis", "experiment_design"):
+            body = screening_body() + (DESIGN_BODY if doc_type == "experiment_design" else "")
         if body is None:
             body = f"doc {self.n}\n\n" + "".join(f"## {name}\n\n未知\n\n" for name in rdb.TASK_SECTIONS.get(doc_type, ()))
         file.write_text(body, encoding="utf-8")
@@ -168,7 +174,26 @@ class Fixture(unittest.TestCase):
                 claims.append({"id": f"acc-s{seed}", "value": str(run["metric_value"]),
                                "source": run["evidence_paths"][0]})
         body = f"result {self.n}\n\n```evidence\n{json.dumps(claims + (extra or []))}\n```\n"
-        return self.doc(actor or self.worker, f"results/r{self.n}.v1.md", "experiment_result", body=body)
+        return self.doc(actor or (self.owner_for(exp) if exp else self.worker), f"results/r{self.n}.v1.md", "experiment_result", body=body)
+
+    def numeric_result(self, exp: str, mean=None, delta=None, *, metric="acc", sd=None) -> str:
+        """Named numeric claims must agree with recomputed statistics, including null single-seed SD."""
+        self.n += 1
+        preview = self.rld.preview_evaluation(exp)
+        mean = preview["metrics"]["acc"]["mean"] if mean is None else mean
+        values = {"mean": mean}
+        source = f"outputs/reported-{self.n}.json"
+        claims = [{"id": "mean:acc", "value": str(mean), "source": source}]
+        if delta is not None:
+            values["delta"] = delta
+            claims.append({"id": f"delta:sota:{metric}", "value": str(delta), "source": source})
+        if sd is not None:
+            values["sd"] = sd
+            claims.append({"id": f"sd:{metric}", "value": str(sd), "source": source})
+        (self.root / "outputs").mkdir(exist_ok=True)
+        (self.root / source).write_text(json.dumps(values))
+        return self.doc(self.owner_for(exp), f"results/reported-{self.n}.v1.md", "experiment_result",
+                        body="```evidence\n" + json.dumps(claims) + "\n```\n")
 
     def report_doc(self, name: str) -> str:
         """A GO / NOT GO report: it cites the numbers it rests on and accounts for every kind of open end."""
@@ -178,7 +203,7 @@ class Fixture(unittest.TestCase):
         source.write_text(json.dumps({"delta": 0.3}), encoding="utf-8")
         body = (f"report {self.n}\n\n```evidence\n"
                 f'[{{"id": "delta", "value": "0.3", "source": "outputs/evidence/report{self.n}.json"}}]\n```\n'
-                + "".join(f"\n## {s}\n\n无\n" for s in rdb.NOT_GO_SECTIONS + ("未经独立确认",)))
+                + "".join(f"\n## {s}\n\n无\n" for s in rdb.NOT_GO_SECTIONS))
         return self.doc(self.rld, f"reports/{name}-{self.n}.v1.md", "report", body=body)
 
     def values_for(self, exp: str) -> dict:
@@ -194,6 +219,7 @@ class Fixture(unittest.TestCase):
                     metric_value: float | None = None, effect: tuple | None = None) -> None:
         if effect is not None:
             self.effects[exp] = effect
+        actor = self.owner_for(exp) if actor.role in ("worker", "architect") else actor
         values = self.values_for(exp)
         if metric_value is not None:
             values["acc"] = metric_value
@@ -211,20 +237,56 @@ class Fixture(unittest.TestCase):
 
     def baseline(self, nodes: int, walltime_s: int) -> str:
         self.n += 1
-        design = self.doc(self.worker, f"exp/b{self.n}/design.v1.md", "experiment_design")
-        exp = self.worker.create_experiment("baseline", "sota", design, self.harness, nodes, walltime_s, method_config={"lr": 0.05, "design": design}, estimated_node_h=1.0)
-        self.finish_runs(self.worker, exp, nodes, walltime_s)
-        self.worker.evaluate_experiment(exp, self.result_doc(exp=exp))
+        design = self.doc(self.architect, f"exp/b{self.n}/design.v1.md", "experiment_design")
+        exp = self.architect.create_experiment("baseline", "sota", design, self.harness, nodes, walltime_s, method_config={"lr": 0.05, "design": design}, estimated_node_h=1.0)
+        self.finish_runs(self.architect, exp, nodes, walltime_s)
+        self.architect.evaluate_experiment(exp, self.result_doc(actor=self.architect, exp=exp))
         return exp
 
     def hypothesis(self, parent: str | None = None) -> str:
         self.n += 1
         doc = self.doc(self.rld, f"h/{self.n}/hypothesis.v1.md", "hypothesis")
-        return self.rld.create_hypothesis("h", "s", doc, self.literature, parent)
+        return self.create_hypothesis("h", "s", doc, self.literature, parent)
+
+
+    def admit_candidate(self, doc_id: str, title: str | None = None) -> str:
+        import discovery
+        discovery.start(self.root, "fixture-model")
+        with self.rld.reader() as tx:
+            contract = self.rld._screening_contract(tx, doc_id)
+        values = contract["sections"]
+        pool = discovery.read_candidates(self.root)
+        item = {"title": title or f"Fixture candidate {self.n}", "origin": "user", "selected": True,
+                "prediction": values["可证伪预测"], "intervention": values["干预"],
+                "comparator": values["匹配对照"], "resource_ceiling": contract["resource_ceiling"],
+                "stop_conditions": values["停止与继续条件"]}
+        item = discovery.merge([], [item], pool)[0]
+        discovery.write_candidates(self.root, [*pool, item])
+        return item["id"]
+
+    def create_hypothesis(self, title: str, statement: str, doc_id: str, related_work: list[str],
+                          parent_id: str | None = None, **kwargs) -> str:
+        kwargs.setdefault("candidate_id", self.admit_candidate(doc_id))
+        kwargs.setdefault("direction", f"fixture-direction-{self.n}")
+        hyp = self.rld.create_hypothesis(title, statement, doc_id, related_work, parent_id, **kwargs)
+        worker = f"w{len(self.rld.find('hypothesis'))}"
+        self.rld.assign_worker(hyp, worker)
+        self.worker = ResearchDB(self.db, f"worker/{worker}")
+        return hyp
+
+    def worker_for(self, hyp: str) -> ResearchDB:
+        return ResearchDB(self.db, "worker/" + self.rld.get(hyp)["worker_id"])
+
+    def owner_for(self, exp: str) -> ResearchDB:
+        record = self.rld.get(exp)
+        return ResearchDB(self.db, ("worker/" if record.get("hypothesis_id") else "architect/") + record["owner"])
+
+    def owner_for_run(self, run_id: str) -> ResearchDB:
+        return self.owner_for(self.rld.get(run_id)["experiment_id"])
 
     def branch(self, hyp: str) -> str:
         return self.rld.create_branch(hyp, f"node/{hyp}", "main", self.harness,
-                                      str(Path(self.tmp.name) / "wt" / hyp), owner="w1")
+                                      str(Path(self.tmp.name) / "wt" / hyp), owner=self.rld.get(hyp)["worker_id"])
 
     def start(self, hyp: str) -> None:
         self.branch(hyp)
@@ -233,43 +295,33 @@ class Fixture(unittest.TestCase):
 
     def method(self, hyp: str, n_seeds: int | None = None, code_ref: str | None = None, walltime_s: int = 1800) -> str:
         """A node experiment with its runs not yet reported (evaluate or finish_runs reports them)."""
+        self.worker = self.worker_for(hyp)
         self.n += 1
         design = self.doc(self.worker, f"exp/m{self.n}/design.v1.md", "experiment_design")
         return self.worker.create_experiment("method", "m", design, code_ref or self.commit(), 1, walltime_s,
                                              hypothesis_id=hyp, n_seeds=n_seeds, method_config=METHOD_CONFIG, estimated_node_h=1.0)
 
-    def comparisons(self, exp: str, sota: tuple[float, float, float], parent=None) -> list[dict]:
-        """Claimed comparisons for record_verdict: sota (primary, final_loss, peak_mem_gb) deltas; parent:
-        (experiment, primary, ...); positive = better."""
-        seeds = set(self.rld.get(exp)["seeds"])
-        out = []
-        for role, target, deltas in (("sota", self.sota, sota), ("parent", parent and parent[0], parent and parent[1:])):
-            if target is None:
-                continue
-            paired = len(seeds & set(self.rld.get(target)["seeds"]))
-            out.append({"target_id": target, "role": role, "n_paired": paired, "delta_mean": deltas[0],
-                        "delta_sd": 0.0 if paired > 1 else None, "deltas": dict(zip(SECONDARY, deltas[1:]))})
-        return out
-
-    def evaluate(self, exp: str, verdict: str, sota=(0.3, 0.1, 0.1), parent=None) -> dict:
+    def evaluate(self, exp: str, *, sota=(0.3, 0.1, 0.1), parent=None) -> dict:
         """Report the runs not yet valid with the given effects (against SOTA, or (experiment, ...) against a
         parent's experiment), then evaluate: the interface computes every number."""
-        self.finish_runs(self.worker, exp, effect=(parent[0], tuple(parent[1:])) if parent else (self.sota, sota))
-        return self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), verdict)
+        actor = self.owner_for(exp)
+        self.finish_runs(actor, exp, effect=(parent[0], tuple(parent[1:])) if parent else (self.sota, sota))
+        return actor.evaluate_experiment(exp, self.result_doc(actor=actor, exp=exp))
 
-    def concluded(self, verdict: str, sota=(0.3, 0.1, 0.1), parent=None, hyp: str | None = None) -> tuple[str, str]:
+    def concluded(self, *, sota=(0.3, 0.1, 0.1), parent=None, hyp: str | None = None) -> tuple[str, str]:
         h = hyp or self.hypothesis()
         if hyp is None:
             self.start(h)
         exp = self.method(h)
-        self.evaluate(exp, verdict, sota=sota, parent=parent)
+        self.evaluate(exp, sota=sota, parent=parent)
         return h, exp
 
     def candidate(self) -> tuple[str, str]:
-        """A node eligible for GO: beats SOTA, rechecked."""
-        h, exp = self.concluded("beats_sota")
+        """A GO-eligible node with independent confirmation and all current review receipts."""
+        h, exp = self.concluded()
         self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
         self.recheck_pass(h, exp)
+        self.complete_confirmation(h, exp)
         self.assertEqual(self.rld.get_eligibility(h)["eligible"], True)
         return h, exp
 
@@ -280,12 +332,48 @@ class Fixture(unittest.TestCase):
         self.rld.decide(h, {"novelty_recheck": "pass", "theory_recheck": "pass"}, "rechecked",
                         based_on=[novelty, theory, exp])
 
+    def review_all(self, hyp: str, evaluation: str) -> None:
+        reviewer = ResearchDB(self.db, "reviewer/pi")
+        (self.root / "docs" / "reviews").mkdir(exist_ok=True)
+        for dimension in rdb.RECHECK_DIMENSIONS:
+            self.n += 1
+            session = f"RV-{80000 + self.n:06d}"
+            path = f"reviews/{session}.v1.md"
+            (self.root / "docs" / path).write_text("Fixture evidence review\n")
+            reviewer.register_review(path, dimension, "candidate_recheck", [hyp], "pass", session, "pi",
+                "openai/gpt-6-astra", 0.0, dimension=dimension, evaluation_id=evaluation,
+                basis=reviewer.review_basis(hyp, "candidate_recheck", dimension, evaluation),
+                payload=recheck_payload(self, dimension, "pass", evaluation))
+
+    def complete_confirmation(self, hyp: str, exp: str, *, review: bool = True) -> str:
+        candidate = self.rld.freeze_candidate(hyp, self.rld.get(exp)["evaluation_id"])
+        protocol = self.protocol_content
+        material = protocol.get("confirmation_materials", [{"name": "default"}])[0]["name"]
+        batch = self.rld.create_confirmation_batch([candidate], material)
+        self.n += 1
+        design = self.doc(self.architect, f"exp/confirm-base-{self.n}.v1.md", "experiment_design")
+        base = self.architect.create_experiment("baseline", "sota", design, self.harness, 1, 60,
+            stage="confirm", method_config=self.rld.get(self.sota)["effective_config"],
+            confirmation_batch_id=batch, confirmation_of=self.sota, estimated_node_h=0.1)
+        self.finish_runs(self.architect, base)
+        self.architect.evaluate_experiment(base, self.result_doc(actor=self.architect, exp=base))
+        actor = self.worker_for(hyp)
+        design = self.doc(actor, f"exp/confirm-method-{self.n}.v1.md", "experiment_design")
+        confirm = actor.create_experiment("method", "m", design, self.rld.get(exp)["code_ref"], 1, 60,
+            hypothesis_id=hyp, stage="confirm", method_config=self.rld.get(exp)["effective_config"],
+            candidate_spec_id=candidate, confirmation_batch_id=batch, estimated_node_h=0.1)
+        self.finish_runs(actor, confirm, effect=(base, (0.3, 0.1, 0.1)))
+        evaluation = actor.evaluate_experiment(confirm, self.result_doc(actor=actor, exp=confirm))["evaluation_id"]
+        if review:
+            self.review_all(hyp, evaluation)
+        return evaluation
+
     def clean_all(self) -> None:
         """Every due cleanup, as its owner; the first call copies the project's cleanup script."""
         if not (Path(self.tmp.name) / rdb.CLEANUP_SCRIPT).exists():
             shutil.copyfile(rdb.CLEANUP_TEMPLATE, Path(self.tmp.name) / rdb.CLEANUP_SCRIPT)
         for due in self.rld.cleanup_due():
-            ResearchDB(self.db, f"worker/{due['owner']}").run_cleanup(due["experiment_id"])
+            self.owner_for(due["experiment_id"]).run_cleanup(due["experiment_id"])
 
     def manifest(self, exp: str, run_seed: int, values: dict | None = None, attempt: int = 1, **extra) -> str:
         """What a runner writes for one attempt: metrics.json, a log and manifest.json (the path returned); extra
@@ -312,12 +400,12 @@ class Fixture(unittest.TestCase):
         for seed in self.rld.get(exp)["seeds"]:
             run = f"{exp}/s{seed}"
             if self.rld.get(run) is None:
-                self.worker.create_run(exp, seed)
-            self.worker.update_run(run, exec_status="submitted")
-            self.worker.update_run(run, exec_status="succeeded")
-            self.worker.import_run_result(run, 1, self.manifest(exp, seed, **extra))
+                self.owner_for(exp).create_run(exp, seed)
+            self.owner_for(exp).update_run(run, exec_status="submitted")
+            self.owner_for(exp).update_run(run, exec_status="succeeded")
+            self.owner_for(exp).import_run_result(run, 1, self.manifest(exp, seed, **extra))
             if accept:
-                self.worker.update_run(run, valid=True)
+                self.owner_for(exp).update_run(run, valid=True)
 
     def raw(self, entity_id: str, **props) -> None:
         """Change stored properties directly in LatticeDB, bypassing the interface (tampering, old records)."""
@@ -343,9 +431,11 @@ class SpecTest(unittest.TestCase):
     def test_spec_parsing(self):
         spec = rdb.SPEC
         self.assertEqual(spec["hypothesis"].columns["experiment_status"].enum,
-                         ("todo", "running", "no_gain", "beats_parent", "beats_sota", "inconclusive"))
-        self.assertEqual(spec["experiment"].columns["verdict"].enum[-1], "needs_rld")
-        self.assertFalse(spec["experiment"].columns["verdict"].required)
+                         ("todo", "running", "no_gain", "beats_sota", "inconclusive"))
+        self.assertNotIn("verdict", spec["experiment"].columns)
+        self.assertNotIn("verdict", spec["evaluation"].columns)
+        self.assertEqual(spec["evaluation"].columns["outcome"].enum,
+                         ("positive_signal", "negative_signal", "inconclusive", "invalid"))
         self.assertEqual(spec["project"].columns["secondary_metrics"].type, "TEXT_LIST")
         self.assertEqual(spec["rel_compared_with"].columns["deltas"].type, "JSON")
         self.assertEqual(spec["project"].columns["screen_budget_node_h"].default, 10.0)
@@ -361,7 +451,7 @@ class ProjectTest(Fixture):
         with self.assertRaisesRegex(ResearchDBError, "relative"):
             self.rld.update_project(harness_paths=["../outside"])
         design = self.doc(self.worker, "exp/x/design.v1.md", "experiment_design")
-        unevaluated = self.worker.create_experiment("baseline", "other", design, self.harness, 1, 60, method_config={"lr": 0.05, "design": design}, estimated_node_h=1.0)
+        unevaluated = self.architect.create_experiment("baseline", "other", design, self.harness, 1, 60, method_config={"lr": 0.05, "design": design}, estimated_node_h=1.0)
         with self.assertRaisesRegex(ResearchDBError, r"not evaluated yet: .*evaluate_experiment.*not yet valid: "
                                     rf"{unevaluated}/s\d+ \(no run\).*exec_status planned -> submitted"):
             self.rld.update_project(sota_experiment_id=unevaluated)
@@ -381,20 +471,20 @@ class ProjectTest(Fixture):
         (db.parent / "docs" / "s.v1.md").write_text("s", encoding="utf-8")
         setup = rld.register_document("s.v1.md", "min_setup", "s")
         with self.assertRaisesRegex(ResearchDBError, "PROTOCOL_CHANGE_REQUIRED: a new project registers"):
-            rld.create_project("P-x", "x", setup, "acc", "higher", True, SECONDARY, SEEDS)
+            rld.create_project("P-x", "x", setup, "acc", "higher", SECONDARY, SEEDS)
         docs = {}
         for kind, content in zip(("metric_spec", "protocol"), (SPECS, PROTOCOL)):
             (db.parent / "docs" / f"{kind}.v1.json").write_text(json.dumps(content))
             docs[f"{kind}_doc_id"] = rld.register_document(f"{kind}.v1.json", kind, kind)
             rld.set_document_current(docs[f"{kind}_doc_id"])
         with self.assertRaisesRegex(ResearchDBError, "3 distinct"):
-            rld.create_project("P-x", "x", setup, "acc", "higher", True, SECONDARY, [1, 1, 2], **docs)
+            rld.create_project("P-x", "x", setup, "acc", "higher", SECONDARY, [1, 1, 2], **docs)
         with self.assertRaisesRegex(ResearchDBError, "must not repeat the primary"):
-            rld.create_project("P-x", "x", setup, "acc", "higher", True, ["acc"], SEEDS, **docs)
+            rld.create_project("P-x", "x", setup, "acc", "higher", ["acc"], SEEDS, **docs)
         with self.assertRaisesRegex(ResearchDBError, "must not look like another record"):
-            rld.create_project("T-x", "x", setup, "acc", "higher", True, SECONDARY, SEEDS, **docs)
+            rld.create_project("T-x", "x", setup, "acc", "higher", SECONDARY, SEEDS, **docs)
         # A project named like its directory / uv project.
-        self.assertEqual(rld.create_project("my-study", "x", setup, "acc", "higher", True, SECONDARY, SEEDS, **docs), "my-study")
+        self.assertEqual(rld.create_project("my-study", "x", setup, "acc", "higher", SECONDARY, SEEDS, **docs), "my-study")
         self.assertEqual(rld.get("my-study")["title"], "x")
 
 
@@ -422,22 +512,20 @@ class HypothesisTest(Fixture):
                          ("pending", "todo", "pending", "P-test"))
         self.assertEqual(self.rld.children("P-test"), [h1, h2])
         self.assertEqual(self.rld.find("hypothesis", parent_id="P-test"), [rec, self.rld.get(h2)])
-        # per hypothesis: register + set current its document, then create = 3 writes
-        self.assertEqual(self.rld.export_snapshot()["meta"]["data_version"], before + 6)
+        # Per hypothesis: register + set current + create + assign its stable worker.
+        self.assertEqual(self.rld.export_snapshot()["meta"]["data_version"], before + 8)
 
-    def test_creation_needs_related_work(self):
+    def test_related_work_is_incremental_but_references_must_be_current(self):
         doc = self.doc(self.rld, "h/x/hypothesis.v1.md", "hypothesis")
-        with self.assertRaisesRegex(ResearchDBError, "at least 3 related-work"):
-            self.rld.create_hypothesis("h", "s", doc, self.literature[:2])
-        with self.assertRaisesRegex(ResearchDBError, "at least 3 related-work"):
-            self.rld.create_hypothesis("h", "s", doc, [self.literature[0]] * 3)
+        h0 = self.create_hypothesis("no citations yet", "s", doc, [])
+        self.assertEqual(self.rld.edges("rel_references", source_id=h0), [])
+        h2 = self.create_hypothesis("two focused citations", "s", doc, self.literature[:2])
+        self.assertEqual([e["target_id"] for e in self.rld.edges("rel_references", source_id=h2)], self.literature[:2])
         draft = self.doc(self.worker, "literature/draft.v1.md", "literature", current=False)
         with self.assertRaisesRegex(ResearchDBError, "current literature"):
-            self.rld.create_hypothesis("h", "s", doc, self.literature[:2] + [draft])
+            self.create_hypothesis("h", "s", doc, [draft])
         with self.assertRaises(PermissionDenied):
             self.worker.create_hypothesis("h", "s", doc, self.literature)
-        h = self.rld.create_hypothesis("h", "s", doc, self.literature)
-        self.assertEqual([e["target_id"] for e in self.rld.edges("rel_references", source_id=h)], self.literature)
 
     def test_start_needs_branch_and_running(self):
         h = self.hypothesis()
@@ -492,8 +580,8 @@ class ExperimentTest(Fixture):
         with self.assertRaisesRegex(ResearchDBError, "reached alert_node_h 1.5"):
             self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h, method_config=METHOD_CONFIG, estimated_node_h=1.0)
         with self.assertRaisesRegex(ResearchDBError, "reached alert_node_h"):
-            self.worker.extend_seeds(exp, 2)
-        self.worker.create_run(exp, SEEDS[0])  # runs of an experiment already registered go on
+            self.owner_for(exp).extend_seeds(exp, 2)
+        self.owner_for(exp).create_run(exp, SEEDS[0])  # runs of an experiment already registered go on
         with self.assertRaisesRegex(ResearchDBError, "BUDGET_EXCEEDED: raising alert_node_h is the user's decision"):
             self.rld.update_project(alert_node_h=None)
         user = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0900.v1.md", "user_instruction")
@@ -506,46 +594,46 @@ class ExperimentTest(Fixture):
         design = self.doc(self.worker, "exp/d.v1.md", "experiment_design")
         exp = self.worker.create_experiment("method", "m", design, self.commit(), 1, 600, hypothesis_id=h, n_seeds=1, method_config=METHOD_CONFIG, estimated_node_h=1.0)
         with self.assertRaisesRegex(ResearchDBError, "not one of"):
-            self.worker.create_run(exp, 43)
-        run = self.worker.create_run(exp, 42)
+            self.owner_for(exp).create_run(exp, 43)
+        run = self.owner_for(exp).create_run(exp, 42)
         # A planned run: the errors name the field and the next states, so no caller needs the source.
         with self.assertRaisesRegex(ResearchDBError, "does not take status; it takes .*exec_status"):
             self.rld.update_run(run, status="succeeded")
         with self.assertRaisesRegex(ResearchDBError, "planned -> succeeded is not allowed; from planned: submitted, cancelled"):
-            self.worker.update_run(run, exec_status="succeeded")
+            self.owner_for_run(run).update_run(run, exec_status="succeeded")
         with self.assertRaisesRegex(ResearchDBError, "succeeded run's results"):
-            self.worker.update_run(run, metric_value=1.0, secondary={"final_loss": 1.0, "peak_mem_gb": 2.0})
+            self.owner_for_run(run).update_run(run, metric_value=1.0, secondary={"final_loss": 1.0, "peak_mem_gb": 2.0})
         with self.assertRaises(PermissionDenied):
             ResearchDB(self.db, "worker/w2").update_run(run, exec_status="submitted")
-        self.worker.update_run(run, exec_status="submitted")
+        self.owner_for_run(run).update_run(run, exec_status="submitted")
         with self.assertRaisesRegex(ResearchDBError, "record secondary"):
-            self.worker.update_run(run, exec_status="succeeded", valid=True, metric_value=1.0, nodes_used=1,
+            self.owner_for_run(run).update_run(run, exec_status="succeeded", valid=True, metric_value=1.0, nodes_used=1,
                                    walltime_used_s=10)
         with self.assertRaisesRegex(ResearchDBError, "a number for each"):
-            self.worker.update_run(run, exec_status="succeeded", valid=True, metric_value=1.0, nodes_used=1,
+            self.owner_for_run(run).update_run(run, exec_status="succeeded", valid=True, metric_value=1.0, nodes_used=1,
                                    walltime_used_s=10, secondary={"final_loss": 1.0}, log_path="outputs/a1.log")
         with self.assertRaisesRegex(ResearchDBError, "resubmit only a finished attempt"):
-            self.worker.update_run(run, attempt=2, exec_status="submitted")
+            self.owner_for_run(run).update_run(run, attempt=2, exec_status="submitted")
         ok = dict(metric_value=1.0, nodes_used=1, walltime_used_s=3600, secondary={"final_loss": 1.0, "peak_mem_gb": 2.0})
         with self.assertRaisesRegex(ResearchDBError, "log_path or output_path"):
-            self.worker.update_run(run, exec_status="succeeded", valid=True, **ok)
-        self.worker.update_run(run, exec_status="succeeded", **ok)
+            self.owner_for_run(run).update_run(run, exec_status="succeeded", valid=True, **ok)
+        self.owner_for_run(run).update_run(run, exec_status="succeeded", **ok)
         # A succeeded seed is not rerun to replace its result unless it failed acceptance, with a reason.
         with self.assertRaisesRegex(ResearchDBError, "needs valid=false with invalid_reason"):
-            self.worker.update_run(run, attempt=2, exec_status="submitted")
+            self.owner_for_run(run).update_run(run, attempt=2, exec_status="submitted")
         with self.assertRaisesRegex(ResearchDBError, "valid=false needs invalid_reason"):
-            self.worker.update_run(run, valid=False)
-        self.worker.update_run(run, valid=False, invalid_reason="loss NaN at step 120 (outputs/a1.log)")
-        self.worker.update_run(run, attempt=2, exec_status="submitted")
+            self.owner_for_run(run).update_run(run, valid=False)
+        self.owner_for_run(run).update_run(run, valid=False, invalid_reason="loss NaN at step 120 (outputs/a1.log)")
+        self.owner_for_run(run).update_run(run, attempt=2, exec_status="submitted")
         resubmitted = self.rld.get(run)
         self.assertEqual(resubmitted["attempts"]["1"]["invalid_reason"], "loss NaN at step 120 (outputs/a1.log)")
         self.assertEqual(resubmitted["attempts"]["1"]["metric_value"], 1.0)
         self.assertNotIn("metric_value", resubmitted)
         self.assertEqual(rdb.node_hours([resubmitted]), 1.0)  # the first attempt's usage still counts
-        self.worker.update_run(run, exec_status="succeeded", valid=True, log_path="outputs/a2.log", **ok)
+        self.owner_for_run(run).update_run(run, exec_status="succeeded", valid=True, log_path="outputs/a2.log", **ok)
         self.assertEqual(rdb.node_hours([self.rld.get(run)]), 2.0)
         with self.assertRaisesRegex(ResearchDBError, "frozen"):
-            self.worker.update_run(run, metric_value=2.0)
+            self.owner_for_run(run).update_run(run, metric_value=2.0)
 
 
 class VerdictTest(Fixture):
@@ -558,98 +646,83 @@ class VerdictTest(Fixture):
         tampered = self.commit({"harness/stats.py": "tweaked\n"})
         exp = self.method(self.h, code_ref=tampered)
         with self.assertRaisesRegex(ResearchDBError, "differ from the frozen harness"):
-            self.evaluate(exp, "beats_sota")
+            self.evaluate(exp)
         # Equal code is not enough to call an intervention unchanged: preserve the comparator's scientific config.
         unchanged = self.worker.create_experiment("method", "unchanged", self.doc(self.worker, "exp/noop.v1.md", "experiment_design"),
             self.harness, 1, 1800, hypothesis_id=self.h,
             method_config=self.rld.get(self.sota)["effective_config"], estimated_node_h=1.0)
         with self.assertRaisesRegex(ResearchDBError, "needs a code change"):
-            self.evaluate(unchanged, "beats_sota")
+            self.evaluate(unchanged)
         design = self.doc(self.worker, "exp/p.v1.md", "experiment_design")
         partial = self.worker.create_experiment("method", "m", design, self.commit({"m.txt": "x"}), 1, 60,
                                                 hypothesis_id=self.h, method_config=METHOD_CONFIG, estimated_node_h=1.0)
-        self.worker.create_run(partial, SEEDS[0])
+        self.owner_for(partial).create_run(partial, SEEDS[0])
         with self.assertRaisesRegex(ResearchDBError, "needs a valid run for every seed"):
-            self.worker.evaluate_experiment(partial, self.result_doc(exp=partial), "beats_sota")
+            self.owner_for(partial).evaluate_experiment(partial, self.result_doc(exp=partial))
 
-    def test_verdict_consistency(self):
-        cases = [
-            ("no_gain", (0.3, 0.1, 0.1), "exactly when no metric is better"),
-            ("beats_parent", (-0.1, -0.1, -0.1), "exactly when no metric is better"),
-            ("beats_parent", (0.3, 0.0, 0.0), "the SOTA gate is passed"),
-            ("beats_sota", (0.05, 0.0, 0.0), "primary lead over the minimum practical gain"),  # equal is no lead
-            ("beats_parent", (0.0, 0.5, 0.0), "positive primary-metric difference"),
-        ]
-        for verdict, sota, message in cases:
+    def test_outcomes_are_computed_and_caller_verdicts_are_rejected(self):
+        for delta, expected in ((-0.1, "negative_signal"), (0.01, "inconclusive"), (0.3, "positive_signal")):
             exp = self.method(self.h)
-            with self.subTest(verdict=verdict, sota=sota), self.assertRaisesRegex(ResearchDBError, message):
-                self.evaluate(exp, verdict, sota=sota)
-            self.assertIsNone(self.rld.get(exp).get("evaluated_at"))
-        three = self.method(self.h)
-        self.finish_runs(self.worker, three, effect=(self.sota, (0.0501, 0.0, -0.2)))
-        with self.assertRaisesRegex(ResearchDBError, "comparisons must be exactly"):
-            self.worker.record_verdict(three, self.result_doc(exp=three), None, None, "beats_sota",
-                                       self.comparisons(three, (0.0501, 0.0, -0.2), parent=(self.sota, 0, 0, 0)))
-        bad = self.comparisons(three, (0.0501, 0.0, -0.2))
-        bad[0]["n_paired"] = 2
-        with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH: .*sota pairs 3 seeds, not 2"):
-            self.worker.record_verdict(three, self.result_doc(exp=three), 70.0501, None, "beats_sota", bad)
-        result = self.worker.record_verdict(three, self.result_doc(exp=three), 70.0501, 0.0, "beats_sota",
-                                            self.comparisons(three, (0.0501, 0.0, -0.2)))
-        edge = self.rld.edges("rel_compared_with", source_id=three)[0]
-        self.assertEqual((edge["role"], edge["passes_gate"], edge["n_paired"]), ("sota", True, 3))
-        self.assertAlmostEqual(edge["delta_mean"], 0.0501, places=9)
-        self.assertAlmostEqual(edge["deltas"]["final_loss"], 0.0, places=9)
-        self.assertAlmostEqual(edge["deltas"]["peak_mem_gb"], -0.2, places=9)
-        self.assertTrue(result["created"])
-        with self.assertRaisesRegex(ResearchDBError, "already evaluated with these runs"):
-            self.worker.evaluate_experiment(three, self.result_doc(exp=three), "needs_rld")
+            result = self.evaluate(exp, sota=(delta, 0.0, 0.0))
+            self.assertEqual(result["outcome"], expected)
+            self.assertNotIn("verdict", self.rld.get(exp))
+            self.assertNotIn("verdict", self.rld.get(result["evaluation_id"]))
+        exp = self.method(self.h)
+        self.finish_runs(self.worker, exp)
+        with self.assertRaises(TypeError):
+            self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp), verdict="beats_sota")
+        self.assertFalse(hasattr(self.worker, "record_verdict"))
 
-    def test_fewer_seeds_cannot_beat_sota_and_extension(self):
+    def test_fewer_seeds_are_only_a_signal_and_replication_preserves_history(self):
         one = self.method(self.h, n_seeds=1)
-        with self.assertRaisesRegex(ResearchDBError, "primary lead"):
-            self.evaluate(one, "beats_sota", sota=(1.0, 0.0, 0.0))
-        self.evaluate(one, "beats_parent", sota=(1.0, 0.0, 0.0))
-        self.assertIsNone(self.rld.get(one).get("metric_sd"))  # n=1: no SD, not 0
-        with self.assertRaisesRegex(ResearchDBError, "extend to at most 3"):
-            self.worker.extend_seeds(one, 4)
-        self.worker.extend_seeds(one, 3)  # within the screening budget (3 seeds fit)
-        record = self.rld.get(one)
-        self.assertEqual((record["seeds"], record.get("verdict"), record.get("evaluation_id")), (SEEDS, None, None))
+        result = self.evaluate(one, sota=(1.0, 0.0, 0.0))
+        self.assertEqual(result["outcome"], "positive_signal")
+        self.assertFalse(result["gate_passed"])
+        self.assertIsNone(result["metric_sd"])
+        with self.assertRaisesRegex(ResearchDBError, "independent paired repeats"):
+            self.rld.decide(self.h, {"experiment_status": "beats_sota"}, "too early", based_on=[one])
+        with self.assertRaisesRegex(ResearchDBError, "at most 3"):
+            self.owner_for(one).extend_seeds(one, 4)
+        self.owner_for(one).extend_seeds(one, 3)
+        self.assertIsNone(self.rld.get(one).get("evaluation_id"))
         self.assertEqual(self.rld.edges("rel_compared_with", source_id=one), [])
         self.finish_runs(self.worker, one)
-        self.evaluate(one, "beats_sota")
-        self.assertEqual(self.rld.latest_result(self.h)["id"], one)
+        result = self.evaluate(one)
+        self.assertTrue(result["gate_passed"])
         history = self.rld.evaluations(experiment_id=one)
-        self.assertEqual([e["result_revision"] for e in history], [1, 2])  # the 1-seed evaluation is kept
+        self.assertEqual([e["result_revision"] for e in history], [1, 2])
         self.assertEqual(history[1]["supersedes_evaluation_id"], history[0]["id"])
 
 
 class TightBudgetTest(Fixture):
     sota_nodes, sota_walltime_s = 4, 3600  # 4 node-hours per seed: screening runs 2 seeds
 
-    def test_extension_beyond_budget_needs_close(self):
+    def test_extension_beyond_screening_needs_current_positive_signal(self):
         h = self.hypothesis()
         self.start(h)
-        exp = self.method(h)
-        self.assertEqual(self.rld.get(exp)["seeds"], SEEDS[:2])
-        self.evaluate(exp, "no_gain", sota=(-0.1, -0.1, 0.0))
-        with self.assertRaisesRegex(ResearchDBError, "close or beats_parent"):
-            self.worker.extend_seeds(exp, 3)
-        close = self.method(h)
-        self.evaluate(close, "close", sota=(0.01, 0.0, 0.0))
-        self.worker.extend_seeds(close, 3)
-        self.finish_runs(self.worker, close)
-        self.evaluate(close, "beats_parent")  # 0.01 is below the minimum practical gain of 0.05
+        for delta in (-0.1, 0.01):
+            h = self.hypothesis()
+            self.start(h)
+            exp = self.method(h)
+            self.assertEqual(self.rld.get(exp)["seeds"], SEEDS[:2])
+            self.evaluate(exp, sota=(delta, 0.0, 0.0))
+            with self.assertRaisesRegex(ResearchDBError, "current positive_signal"):
+                self.owner_for(exp).extend_seeds(exp, 3)
+        h = self.hypothesis()
+        self.start(h)
+        positive = self.method(h)
+        self.evaluate(positive, sota=(0.3, 0.0, 0.0))
+        self.owner_for(positive).extend_seeds(positive, 3)
+        self.assertEqual(self.rld.get(positive)["seeds"], SEEDS)
 
 
 class DecisionTest(Fixture):
     def test_status_follows_latest_verdict(self):
-        h, exp = self.concluded("no_gain", sota=(-0.1, -0.1, -0.1))
+        h, exp = self.concluded(sota=(-0.1, -0.1, -0.1))
         with self.assertRaisesRegex(ResearchDBError, "needs based_on the latest evaluated experiment"):
             self.rld.decide(h, {"experiment_status": "no_gain", "status": "prunable"}, "x", doc_id=self.decision_doc(), reconsider_when="new evidence on the mechanism")
-        with self.assertRaisesRegex(ResearchDBError, "verdict no_gain"):
-            self.rld.decide(h, {"experiment_status": "beats_parent"}, "x", based_on=[exp])
+        with self.assertRaisesRegex(ResearchDBError, "independent paired repeats"):
+            self.rld.decide(h, {"experiment_status": "beats_sota"}, "x", based_on=[exp])
         # F03: a node without gain is not forced out; retiring it is a separate, reasoned decision
         self.rld.decide(h, {"experiment_status": "no_gain"}, "no gain", based_on=[exp])
         self.assertEqual(self.rld.get(h)["status"], "verifying")
@@ -667,7 +740,7 @@ class DecisionTest(Fixture):
             self.assertEqual([self.rld.get(h).get(k) for k in keys], [None] * 5)
             self.start(h)
             exp = self.method(h)
-            self.evaluate(exp, "no_gain", sota=(-0.1, -0.1, -0.1))
+            self.evaluate(exp, sota=(-0.1, -0.1, -0.1))
             self.rld.decide(h, {"experiment_status": "no_gain", "status": "prunable"}, "no gain",
                             doc_id=self.decision_doc(), based_on=[exp], reconsider_when="new evidence on the mechanism")
             first = self.rld.get(h)
@@ -687,7 +760,7 @@ class DecisionTest(Fixture):
                             doc_id=self.decision_doc())
             self.assertIsNone(self.rld.get(h).get("concluded_at"))
             exp2 = self.method(h)
-            self.evaluate(exp2, "beats_sota")
+            self.evaluate(exp2)
             self.rld.decide(h, {"experiment_status": "beats_sota", "status": "expandable"}, "gate",
                             doc_id=self.decision_doc(), based_on=[exp2])
             final = self.rld.get(h)
@@ -708,63 +781,63 @@ class DecisionTest(Fixture):
         self.assertIsNotNone(record.get("concluded_at"))
         self.assertIsNone(record.get("started_at"))
 
-    def test_needs_rld(self):
-        h, exp = self.concluded("beats_parent", sota=(0.02, 0.0, 0.0))
-        self.rld.decide(h, {"experiment_status": "beats_parent", "status": "expandable"}, "better",
+    def test_legacy_conclusions_are_rejected_and_inconclusive_needs_evidence(self):
+        h, exp = self.concluded(sota=(0.02, 0.0, 0.0))
+        for legacy in ("beats_parent", "needs_rld", "close"):
+            with self.subTest(legacy=legacy), self.assertRaisesRegex(ResearchDBError, "must be one of"):
+                self.rld.decide(h, {"experiment_status": legacy}, "old conclusion", based_on=[exp])
+        with self.assertRaisesRegex(ResearchDBError, "independent paired repeats"):
+            self.rld.decide(h, {"experiment_status": "beats_sota"}, "too weak", based_on=[exp])
+        with self.assertRaisesRegex(ResearchDBError, "decision document"):
+            self.rld.decide(h, {"experiment_status": "inconclusive"}, "needs evidence", based_on=[exp])
+        self.rld.decide(h, {"experiment_status": "inconclusive"}, "next evidence stated",
                         doc_id=self.decision_doc(), based_on=[exp])
-        h2, latest = self.concluded("needs_rld", sota=(0.0, 0.0, 0.3))
-        with self.assertRaisesRegex(ResearchDBError, "must beat its parent"):
-            self.rld.decide(h2, {"status": "expandable"}, "x", doc_id=self.decision_doc())
-        with self.assertRaisesRegex(ResearchDBError, "needs a decision document"):
-            self.rld.decide(h2, {"experiment_status": "beats_parent"}, "x", based_on=[latest])
-        with self.assertRaisesRegex(ResearchDBError, "to pass the SOTA gate"):
-            self.rld.decide(h2, {"experiment_status": "beats_sota"}, "x", doc_id=self.decision_doc(), based_on=[latest])
-        self.rld.decide(h2, {"experiment_status": "beats_parent", "status": "expandable"}, "memory win is worth it",
-                        doc_id=self.decision_doc(), based_on=[latest])
+        self.assertEqual(self.rld.get(h)["experiment_status"], "inconclusive")
 
-    def test_close_must_be_extended(self):
-        h, exp = self.concluded("beats_parent", sota=(0.02, 0.0, 0.0))
+    def test_positive_signal_needs_independent_repeats_before_a_conclusion(self):
+        h = self.hypothesis()
+        self.start(h)
         one = self.method(h, n_seeds=1)
-        self.evaluate(one, "close", sota=(0.01, 0.0, 0.0))
-        with self.assertRaisesRegex(ResearchDBError, "extend its seeds first"):
-            self.rld.decide(h, {"experiment_status": "beats_parent"}, "x", based_on=[one])
+        self.assertEqual(self.evaluate(one)["outcome"], "positive_signal")
+        with self.assertRaisesRegex(ResearchDBError, "independent paired repeats"):
+            self.rld.decide(h, {"experiment_status": "beats_sota"}, "premature", based_on=[one])
+        self.owner_for(one).extend_seeds(one, 3)
+        self.evaluate(one)
+        self.rld.decide(h, {"experiment_status": "beats_sota"}, "replicated", based_on=[one])
+        self.assertIn("CONFIRMATION_REQUIRED", self.rld.get_eligibility(h)["reasons"])
 
-    def test_children_only_below_expandable_nodes(self):
+    def test_ancestry_does_not_require_a_winning_parent(self):
         pending = self.hypothesis()
-        with self.assertRaisesRegex(ResearchDBError, "is pending: new nodes go below the root"):
-            self.hypothesis(parent=pending)
-        h, exp = self.concluded("beats_parent", sota=(0.02, 0.0, 0.0))
-        with self.assertRaisesRegex(ResearchDBError, "is verifying"):
-            self.hypothesis(parent=h)
-        self.rld.decide(h, {"experiment_status": "beats_parent", "status": "expandable"}, "keep",
-                        doc_id=self.decision_doc(), based_on=[exp])
-        child = self.hypothesis(parent=h)
-        self.assertEqual(self.rld.children(h), [child])
-        self.assertEqual(self.rld.get(self.hypothesis(parent="P-test"))["parent_id"], "P-test")  # the root by name
+        child = self.hypothesis(parent=pending)
+        self.assertEqual(self.rld.get(child)["parent_id"], pending)
+        self.assertEqual(self.rld.get(child)["comparator_experiment_id"], self.sota)
+        h, exp = self.concluded(sota=(-0.1, 0.0, 0.0))
+        other = self.hypothesis(parent=h)
+        self.assertEqual(self.rld.children(h), [other])
+        self.assertEqual(self.rld.get(other)["comparator_experiment_id"], self.sota)
+        self.assertEqual(self.rld.get(self.hypothesis(parent="P-test"))["parent_id"], "P-test")
 
-    def test_child_compares_with_parent_result(self):  # E06
-        parent, parent_exp = self.concluded("beats_parent", sota=(0.02, 0.0, 0.0))
-        self.rld.decide(parent, {"experiment_status": "beats_parent", "status": "expandable"}, "keep",
-                        doc_id=self.decision_doc(), based_on=[parent_exp])
-        child = self.hypothesis(parent=parent)
+    def test_explicit_comparator_stays_bound_when_ancestral_results_change(self):
+        parent, parent_exp = self.concluded(sota=(0.02, 0.0, 0.0))
+        doc = self.doc(self.rld, "h/child/hypothesis.v1.md", "hypothesis")
+        child = self.create_hypothesis("child", "s", doc, self.literature, parent,
+                                       comparator_experiment_id=parent_exp)
         self.start(child)
         exp = self.method(child)
         self.assertEqual((self.rld.get(exp)["parent_experiment_id"], self.rld.get(exp)["baseline_experiment_id"]),
                          (parent_exp, self.sota))
-        # The parent's later experiment does not move the child's reference.
         later = self.method(parent)
-        self.evaluate(later, "beats_parent", sota=(0.04, 0.0, 0.0))
-        # better than SOTA on the primary metric, but no metric better than the parent: no gain
-        with self.assertRaisesRegex(ResearchDBError, "exactly when no metric is better"):
-            self.evaluate(exp, "beats_parent", parent=(parent_exp, -0.01, 0.0, -0.1))
-        self.evaluate(exp, "no_gain", parent=(parent_exp, -0.01, 0.0, -0.1))
+        self.evaluate(later, sota=(0.04, 0.0, 0.0))
+        self.evaluate(exp, parent=(parent_exp, -0.01, 0.0, -0.1))
         edges = {e["role"]: e for e in self.rld.edges("rel_compared_with", source_id=exp)}
         self.assertEqual({r: e["target_id"] for r, e in edges.items()}, {"sota": self.sota, "parent": parent_exp})
         self.assertAlmostEqual(edges["parent"]["delta_mean"], -0.01, places=9)
         self.assertAlmostEqual(edges["sota"]["delta_mean"], 0.01, places=9)
+        self.rld.decide(child, {"experiment_status": "no_gain"}, "no gain over the declared comparator",
+                    doc_id=self.decision_doc(), based_on=[exp])
 
     def test_recheck_and_go(self):
-        h, exp = self.concluded("beats_sota")
+        h, exp = self.concluded()
         other = self.hypothesis()
         novelty = self.doc(self.rld, f"h/{h}/novelty.v1.md", "novelty", about=(h,))
         with self.assertRaisesRegex(ResearchDBError, "only after the node beats SOTA"):
@@ -781,13 +854,15 @@ class DecisionTest(Fixture):
                             based_on=[novelty, theory])
         self.rld.decide(h, {"novelty_recheck": "pass", "theory_recheck": "pass"}, "rechecked",
                         based_on=[novelty, theory, exp])
+        self.assertIn("CONFIRMATION_REQUIRED", self.rld.get_eligibility(h)["reasons"])
+        self.complete_confirmation(h, exp)
         self.assertEqual(self.rld.go_candidates(), [h])
         self.assertTrue(self.rld.get_eligibility(h)["eligible"])
         self.rld.decide("P-test", {"status": "go"}, "GO", doc_id=self.report_doc("go"))
         self.assertEqual((self.rld.get("P-test")["status"], self.rld.get(other)["status"]), ("go", "pending"))
 
     def test_recheck_failure_prunes(self):
-        h, exp = self.concluded("beats_sota")
+        h, exp = self.concluded()
         self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
         prior = self.doc(self.rld, f"h/{h}/novelty.v1.md", "novelty", about=(h,))
         with self.assertRaisesRegex(ResearchDBError, "retiring a node .* needs based_on its evidence"):
@@ -797,7 +872,7 @@ class DecisionTest(Fixture):
         self.assertEqual(self.rld.go_candidates(), [])
 
     def test_not_go(self):  # 06 §3.3: no active node, a report that accounts for the open ends
-        h, exp = self.concluded("no_gain", sota=(-0.1, -0.1, -0.1))
+        h, exp = self.concluded(sota=(-0.1, -0.1, -0.1))
         self.rld.decide(h, {"experiment_status": "no_gain", "status": "prunable"}, "no gain",
                         doc_id=self.decision_doc(), based_on=[exp], reconsider_when="new evidence on the mechanism")
         h2 = self.hypothesis()
@@ -831,13 +906,13 @@ class DecisionTest(Fixture):
         self.rld.decide("P-test", {"status": "stopped"}, "user stop", doc_id=self.decision_doc(), based_on=[stop])
         design = self.doc(self.worker, "exp/stopped.v1.md", "experiment_design")
         req = self.doc(self.rld, "tasks/stopped/request.v1.md", "task_request")
-        for start in (lambda: self.rld.create_hypothesis("h", "s", self.rld.get(h)["doc_id"], self.literature),
-                      lambda: self.worker.create_experiment("baseline", "b", design, self.harness, 1, 60, method_config={"lr": 0.05, "design": design}, estimated_node_h=1.0),
-                      lambda: self.worker.create_run(self.sota, SEEDS[0]),
+        for start in (lambda: self.create_hypothesis("h", "s", self.rld.get(h)["doc_id"], self.literature),
+                      lambda: self.architect.create_experiment("baseline", "b", design, self.harness, 1, 60, method_config={"lr": 0.05, "design": design}, estimated_node_h=1.0),
+                      lambda: self.owner_for(self.sota).create_run(self.sota, SEEDS[0]),
                       lambda: self.rld.create_task("experiment", "worker", req, target_id=h)):
             with self.assertRaisesRegex(ResearchDBError, "is stopped: no new research work"):
                 start()
-        self.rld.create_task("web_build", "web_builder", req)  # the page is still kept up to date
+        self.rld.create_task("other", "analyst", req)  # read-only reporting can continue
         resume = self.doc(self.rld, "instructions/resume.v1.md", "user_instruction")
         self.rld.decide("P-test", {"status": "active"}, "user resumes", doc_id=self.decision_doc(), based_on=[resume])
         self.rld.create_task("experiment", "worker", req, target_id=h)
@@ -847,40 +922,27 @@ class KnownDefectTest(Fixture):
     """F01 and F02 (plans/design/00 §2.3), pinned as expected failures in M0 and fixed in M1: the numbers are
     recomputed from the runs, and GO eligibility is bound to current evidence."""
 
-    def test_f01_summary_must_match_the_runs(self):  # M01
-        design = self.doc(self.worker, "exp/f01/design.v1.md", "experiment_design")
-        exp = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 60, method_config={"lr": 0.05, "design": design}, estimated_node_h=1.0)
-        self.finish_runs(self.worker, exp)  # every run 70.0
+    def test_f01_summary_must_match_the_runs(self):
+        design = self.doc(self.architect, "exp/f01/design.v1.md", "experiment_design")
+        exp = self.architect.create_experiment("baseline", "sota", design, self.harness, 1, 60,
+                method_config={"lr": 0.05, "design": design}, estimated_node_h=1.0)
+        self.finish_runs(self.architect, exp)
         with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH"):
-            self.worker.record_verdict(exp, self.result_doc(exp=exp), 70.3, 0.0)  # the SD (0) is true
-        self.assertIsNone(self.rld.get(exp).get("evaluated_at"))
+            self.architect.evaluate_experiment(exp, self.numeric_result(exp, mean=70.3))
+        self.assertIsNone(self.rld.get(exp).get("evaluation_id"))
 
-    def test_f01_comparison_must_match_the_runs(self):  # M02
+    def test_f01_comparison_must_match_the_runs(self):
         h = self.hypothesis()
         self.start(h)
         exp = self.method(h)
-        self.finish_runs(self.worker, exp)  # every run 70.0, like the SOTA baseline's
-        claimed = self.comparisons(exp, (0.3, 0.0, 0.0))
-        claimed[0]["delta_sd"] = 0.0  # true, like the secondary deltas: only delta_mean is false
+        self.finish_runs(self.worker, exp)
         with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH"):
-            self.worker.record_verdict(exp, self.result_doc(exp=exp), 70.0, 0.0, "beats_sota", claimed)
-        self.assertIsNone(self.rld.get(exp).get("evaluated_at"))
+            self.worker.evaluate_experiment(exp, self.numeric_result(exp, delta=0.3))
+        self.assertIsNone(self.rld.get(exp).get("evaluation_id"))
         self.assertEqual(self.rld.edges("rel_compared_with", source_id=exp), [])
 
     def go_candidate(self, new_harness: bool = True) -> str:
-        """A node that beats SOTA with numbers consistent with its runs (70.3 against 70.0 on every seed),
-        rechecked, then (new_harness) a new harness."""
-        h = self.hypothesis()
-        self.start(h)
-        self.n += 1
-        design = self.doc(self.worker, f"exp/m{self.n}/design.v1.md", "experiment_design")
-        exp = self.worker.create_experiment("method", "m", design, self.commit(), 1, 1800, hypothesis_id=h, method_config=METHOD_CONFIG, estimated_node_h=1.0)
-        self.finish_runs(self.worker, exp, metric_value=70.3)
-        claimed = self.comparisons(exp, (0.3, 0.0, 0.0))
-        claimed[0]["delta_sd"] = 0.0
-        self.worker.record_verdict(exp, self.result_doc(exp=exp), 70.3, 0.0, "beats_sota", claimed)
-        self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
-        self.recheck_pass(h, exp)
+        h, exp = self.candidate()
         if new_harness:
             self.rld.update_project(harness_ref=self.commit({"harness/stats.py": "stats v2\n"}))
         return h
@@ -911,107 +973,109 @@ class NumbersTest(Fixture):
     def test_m02_authoritative_delta_from_identical_runs(self):
         exp = self.method(self.h)
         self.finish_runs(self.worker, exp)  # identical to SOTA
-        result = self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "no_gain")
+        result = self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp))
         self.assertEqual(result["comparisons"]["sota"]["delta_mean"], 0.0)
         self.assertEqual(result["verification_level"], "record_recomputed")
 
     def test_m03_lower_is_better_is_oriented_by_the_spec(self):
         exp = self.method(self.h)
-        self.finish_runs(self.worker, exp, effect=(self.sota, (0.3, 0.1, 0.0)))  # final_loss 0.9 < 1.0: better
-        claimed = self.comparisons(exp, (0.3, -0.1, 0.0))  # the opposite orientation
-        with self.assertRaisesRegex(ResearchDBError, r"STAT_MISMATCH: .*deltas.final_loss -0.1"):
-            self.worker.record_verdict(exp, self.result_doc(exp=exp), None, None, "beats_sota", claimed)
-        result = self.worker.record_verdict(exp, self.result_doc(exp=exp), None, None, "beats_sota",
-                                            self.comparisons(exp, (0.3, 0.1, 0.0)))
+        self.finish_runs(self.worker, exp, effect=(self.sota, (0.3, 0.1, 0.0)))
+        with self.assertRaisesRegex(ResearchDBError, r"STAT_MISMATCH: .*delta:sota:final_loss '-0.1'"):
+            self.worker.evaluate_experiment(exp, self.numeric_result(exp, delta=-0.1, metric="final_loss"))
+        self.assertIsNone(self.rld.get(exp).get("evaluation_id"))
+        result = self.worker.evaluate_experiment(exp, self.numeric_result(exp, delta=0.1, metric="final_loss"))
         self.assertAlmostEqual(result["comparisons"]["sota"]["deltas"]["final_loss"], 0.1, places=9)
 
     def test_m06_one_seed_has_no_sd(self):
         one = self.method(self.h, n_seeds=1)
-        result = self.evaluate(one, "beats_parent", sota=(0.2, 0.0, 0.0))
+        result = self.evaluate(one, sota=(0.2, 0.0, 0.0))
         self.assertIsNone(result["comparisons"]["sota"]["delta_sd"])
         ev = self.rld.evaluations(experiment_id=one)[0]
         self.assertEqual(ev["metrics"]["acc"]["sd_missing"], "n=1: no standard deviation")
         self.assertIn("n=1: no standard deviation", ev["limitations"])
         claimed_sd = self.method(self.h, n_seeds=1)
         self.finish_runs(self.worker, claimed_sd, effect=(self.sota, (0.2, 0.0, 0.0)))
-        with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH: .*metric_sd 0.0"):
-            self.worker.record_verdict(claimed_sd, self.result_doc(exp=claimed_sd), None, 0.0, "beats_parent")
+        with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH: .*sd:acc '0.0'"):
+            self.worker.evaluate_experiment(claimed_sd, self.numeric_result(claimed_sd, sd=0.0))
 
     def test_m07_nonfinite_and_out_of_range_values(self):
         exp = self.method(self.h, n_seeds=1)
         run = f"{exp}/s42"
-        self.worker.create_run(exp, 42)
-        self.worker.update_run(run, exec_status="submitted")
+        self.owner_for(exp).create_run(exp, 42)
+        self.owner_for_run(run).update_run(run, exec_status="submitted")
         common = dict(exec_status="succeeded", valid=True, secondary={"final_loss": 1.0, "peak_mem_gb": 40.0},
                       nodes_used=1, walltime_used_s=60, log_path="outputs/x.log")
         for value, code in ((float("nan"), "NONFINITE_METRIC"), (float("inf"), "NONFINITE_METRIC"),
                             (170.0, "METRIC_UNIT_MISMATCH")):
             with self.subTest(value=value), self.assertRaisesRegex(ResearchDBError, code):
-                self.worker.update_run(run, metric_value=value, **common)
+                self.owner_for_run(run).update_run(run, metric_value=value, **common)
         self.assertIsNone(self.rld.get(run).get("valid"))
 
     def test_m08_m12_pairing_and_protocol_fields(self):
         protocol = self.doc(self.rld, "project/protocol.v2.json", "protocol", body=json.dumps(
-            {"version": 1, "eval_type": "real_gt", "pair_fields": ["seed", "data_version"], "profile": "screening",
+            {"version": 1, "eval_type": "real_gt", "pair_fields": ["seed", "data_version"], "profile": "stage1_confirmed", "confirmation_seeds": [1042, 1043, 1044],
              "match": {"epochs": 30}, "required_counts": {"n_val": 400}}))
         design = self.doc(self.worker, "exp/pb.v1.md", "experiment_design")
         instruction = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0100.v1.md", "user_instruction")
         with self.assertRaisesRegex(ResearchDBError, "PROTOCOL_CHANGE_REQUIRED"):
             self.rld.update_project(protocol_doc_id=protocol)
         self.rld.update_project(protocol_doc_id=protocol, user_instruction_doc_id=instruction)
-        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, method_config={"lr": 0.05, "design": design}, estimated_node_h=1.0)
+        base = self.architect.create_experiment("baseline", "sota", design, self.harness, 1, 1800, method_config={"lr": 0.05, "design": design}, estimated_node_h=1.0)
         self.imported(base, epochs=30)
-        self.worker.evaluate_experiment(base, self.result_doc(exp=base))
+        self.owner_for(base).evaluate_experiment(base, self.result_doc(exp=base))
         self.rld.update_project(sota_experiment_id=base)
+        # A new node binds the current protocol and baseline; old identities are never reinterpreted.
+        self.h = self.hypothesis()
+        self.start(self.h)
         # M12: a run trained with other settings does not join the comparison
         exp = self.method(self.h, n_seeds=1)
-        self.worker.create_run(exp, 42)
-        self.worker.update_run(f"{exp}/s42", exec_status="submitted")
-        self.worker.update_run(f"{exp}/s42", exec_status="succeeded")
+        self.owner_for(exp).create_run(exp, 42)
+        self.owner_for_run(f"{exp}/s42").update_run(f"{exp}/s42", exec_status="submitted")
+        self.owner_for_run(f"{exp}/s42").update_run(f"{exp}/s42", exec_status="succeeded")
         with self.assertRaisesRegex(ResearchDBError, "PAIRING_MISMATCH: .*epochs is 10"):
-            self.worker.import_run_result(f"{exp}/s42", 1, self.manifest(exp, 42, epochs=10))
+            self.owner_for_run(f"{exp}/s42").import_run_result(f"{exp}/s42", 1, self.manifest(exp, 42, epochs=10))
         with self.assertRaisesRegex(ResearchDBError, "PAIRING_MISMATCH: .*counts.n_val is 100"):
-            self.worker.import_run_result(f"{exp}/s42", 1, self.manifest(exp, 42, epochs=30, counts={"n_val": 100}))
+            self.owner_for_run(f"{exp}/s42").import_run_result(f"{exp}/s42", 1, self.manifest(exp, 42, epochs=30, counts={"n_val": 100}))
         # M08: the same seed on another data split is not a pair
-        self.worker.import_run_result(f"{exp}/s42", 1, self.manifest(exp, 42, epochs=30, data_version="toy-v2"))
-        self.worker.update_run(f"{exp}/s42", valid=True)
+        self.owner_for_run(f"{exp}/s42").import_run_result(f"{exp}/s42", 1, self.manifest(exp, 42, epochs=30, data_version="toy-v2"))
+        self.owner_for_run(f"{exp}/s42").update_run(f"{exp}/s42", valid=True)
         with self.assertRaisesRegex(ResearchDBError, r"PAIRING_MISMATCH: .*share seeds \[42\]"):
-            self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_parent")
+            self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp))
 
     def test_m10_m11_imports_and_evaluations_are_idempotent(self):
         exp = self.method(self.h, n_seeds=1)
         self.effects[exp] = (self.sota, (0.3, 0.1, 0.1))
         run = f"{exp}/s42"
-        self.worker.create_run(exp, 42)
-        self.worker.update_run(run, exec_status="submitted")
+        self.owner_for(exp).create_run(exp, 42)
+        self.owner_for_run(run).update_run(run, exec_status="submitted")
         with self.assertRaisesRegex(ResearchDBError, "report exec_status succeeded"):
-            self.worker.import_run_result(run, 1, self.manifest(exp, 42))
-        self.worker.update_run(run, exec_status="succeeded")
-        first = self.worker.import_run_result(run, 1, self.manifest(exp, 42))
+            self.owner_for_run(run).import_run_result(run, 1, self.manifest(exp, 42))
+        self.owner_for_run(run).update_run(run, exec_status="succeeded")
+        first = self.owner_for_run(run).import_run_result(run, 1, self.manifest(exp, 42))
         self.assertTrue(first["imported"])
-        self.assertFalse(self.worker.import_run_result(run, 1, self.manifest(exp, 42))["imported"])  # M10
+        self.assertFalse(self.owner_for_run(run).import_run_result(run, 1, self.manifest(exp, 42))["imported"])  # M10
         with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_CHANGED"):
-            self.worker.import_run_result(run, 1, self.manifest(exp, 42, values={**self.values_for(exp), "acc": 71}))
+            self.owner_for_run(run).import_run_result(run, 1, self.manifest(exp, 42, values={**self.values_for(exp), "acc": 71}))
         self.manifest(exp, 42)  # the original files again
         with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH: .*was imported"):
-            self.worker.update_run(run, metric_value=99.0)
-        self.worker.update_run(run, valid=True)
+            self.owner_for_run(run).update_run(run, metric_value=99.0)
+        self.owner_for_run(run).update_run(run, valid=True)
         record = self.rld.get(run)
         self.assertEqual((record["metric_value"], record["manifest_path"]), (70.3, f"outputs/{exp}/s42/manifest.json"))
         self.assertIn(f"outputs/{exp}/s42/metrics.json", record["evidence_paths"])
         with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH: .*metrics.json is not cited"):
-            self.worker.evaluate_experiment(exp, self.result_doc(exp=exp, cite_runs=False), "beats_parent")
+            self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp, cite_runs=False))
         with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH: .*states no mean:acc"):
-            self.worker.evaluate_experiment(exp, self.result_doc(), "beats_parent")
+            self.owner_for(exp).evaluate_experiment(exp, self.result_doc())
         stats = self.root / "outputs" / exp / "stats.json"  # the worker's own statistics output, mistaken
         stats.write_text(json.dumps({"mean": 70.4}))
         with self.assertRaisesRegex(ResearchDBError, r"STAT_MISMATCH: .*mean:acc '70.4' \(recomputed 70.3"):
-            self.worker.evaluate_experiment(exp, self.result_doc(exp=exp, extra=[
-                {"id": "mean:acc", "value": "70.4", "source": f"outputs/{exp}/stats.json"}]), "beats_parent")
+            self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp, extra=[
+                {"id": "mean:acc", "value": "70.4", "source": f"outputs/{exp}/stats.json"}]))
         doc = self.result_doc(exp=exp, extra=[{"id": "mean:acc", "value": "70.3",
                                                "source": f"outputs/{exp}/s42/metrics.json"}])
-        a = self.worker.evaluate_experiment(exp, doc, "beats_parent")
-        b = self.worker.evaluate_experiment(exp, doc, "beats_parent")  # M11
+        a = self.owner_for(exp).evaluate_experiment(exp, doc)
+        b = self.owner_for(exp).evaluate_experiment(exp, doc)  # M11
         self.assertEqual((a["evaluation_id"], a["created"], b["evaluation_id"], b["created"]),
                          (a["evaluation_id"], True, a["evaluation_id"], False))
         self.assertEqual(len(self.rld.evaluations(experiment_id=exp)), 1)
@@ -1021,17 +1085,17 @@ class NumbersTest(Fixture):
     def test_import_checks_identity(self):
         exp = self.method(self.h, n_seeds=1)
         run = f"{exp}/s42"
-        self.worker.create_run(exp, 42)
-        self.worker.update_run(run, exec_status="submitted")
-        self.worker.update_run(run, exec_status="succeeded")
+        self.owner_for(exp).create_run(exp, 42)
+        self.owner_for_run(run).update_run(run, exec_status="submitted")
+        self.owner_for_run(run).update_run(run, exec_status="succeeded")
         for extra, message in (({"seed": 43}, "seed is 43"), ({"exit_status": 1}, "exit_status is 1"),
                                ({"code_ref": self.harness}, "is not the experiment's code"),
                                ({"counts": {}}, "counts must give"), ({"metrics_path": "../../../../x.json"},
                                                                      "outside the project directory|does not exist")):
             with self.subTest(extra=extra), self.assertRaisesRegex(ResearchDBError, message):
-                self.worker.import_run_result(run, 1, self.manifest(exp, 42, **extra))
+                self.owner_for_run(run).import_run_result(run, 1, self.manifest(exp, 42, **extra))
         with self.assertRaisesRegex(ResearchDBError, "outside the project directory"):
-            self.worker.import_run_result(run, 1, "/etc/hostname")
+            self.owner_for_run(run).import_run_result(run, 1, "/etc/hostname")
         with self.assertRaises(PermissionDenied):
             ResearchDB(self.db, "worker/w2").import_run_result(run, 1, self.manifest(exp, 42))
 
@@ -1050,6 +1114,7 @@ class UnitsTest(Fixture):
         self.db = self.root / "research_tree.db"
         create_db.create_db(self.db)
         self.rld, self.worker, self.n, self.effects = ResearchDB(self.db, "rld/main"), ResearchDB(self.db, "worker/w1"), 0, {}
+        self.architect = ResearchDB(self.db, "architect/root")
         self.repo = Path(self.tmp.name) / "code"
         (self.repo / "harness").mkdir(parents=True)
         self.git("init", "-q", "-b", "main")
@@ -1058,29 +1123,31 @@ class UnitsTest(Fixture):
         specs = self.doc(self.rld, "project/metric-spec.v1.json", "metric_spec", body=json.dumps(self.specs_content))
         protocol = self.doc(self.rld, "project/protocol.v1.json", "protocol", body=json.dumps(PROTOCOL))
         with self.assertRaisesRegex(ResearchDBError, "missing protocol_doc_id"):
-            self.rld.create_project("P-test", "test", setup, "acc", "higher", False, SECONDARY, SEEDS,
+            self.rld.create_project("P-test", "test", setup, "acc", "higher", SECONDARY, SEEDS,
                                     repo_path=str(self.repo), metric_spec_doc_id=specs, go_margin=0.1)
         with self.assertRaisesRegex(ResearchDBError, "must equal the project's go_margin 0.05"):
-            self.rld.create_project("P-test", "test", setup, "acc", "higher", False, SECONDARY, SEEDS,
+            self.rld.create_project("P-test", "test", setup, "acc", "higher", SECONDARY, SEEDS,
                                     repo_path=str(self.repo), metric_spec_doc_id=specs, protocol_doc_id=protocol)
-        self.rld.create_project("P-test", "test", setup, "acc", "higher", False, SECONDARY, SEEDS,
+        self.rld.create_project("P-test", "test", setup, "acc", "higher", SECONDARY, SEEDS,
                                 repo_path=str(self.repo), metric_spec_doc_id=specs, protocol_doc_id=protocol,
                                 go_margin=0.1)
-        self.rld.update_project(harness_ref=self.harness, harness_paths=["harness"])
+        self.rld.assign_architect()
+        goal = self.doc(self.rld, "project/goal.v1.md", "goal", body=ANCHOR)
+        self.rld.update_project(goal_doc_id=goal, harness_ref=self.harness, harness_paths=["harness"])
         self.literature = [self.doc(self.worker, f"literature/LIT-{i}.v1.md", "literature") for i in range(3)]
 
     def test_m04_m05(self):
         design = self.doc(self.worker, "exp/b.v1.md", "experiment_design")
-        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 600, method_config={"lr": 0.05, "design": design}, estimated_node_h=1.0)
+        base = self.architect.create_experiment("baseline", "sota", design, self.harness, 1, 600, method_config={"lr": 0.05, "design": design}, estimated_node_h=1.0)
         self.finish_runs(self.worker, base, metric_value=0.699)
-        self.worker.evaluate_experiment(base, self.result_doc(exp=base))
+        self.owner_for(base).evaluate_experiment(base, self.result_doc(exp=base))
         self.rld.update_project(sota_experiment_id=base)
         self.assertAlmostEqual(self.rld.get(base)["metric_mean"], 69.9, places=9)  # canonical: percent
         h = self.hypothesis()
         self.start(h)
         exp = self.method(h)
         self.finish_runs(self.worker, exp, metric_value=0.701)
-        result = self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_sota")
+        result = self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp))
         self.assertAlmostEqual(result["comparisons"]["sota"]["delta_mean"], 0.2, places=9)  # M04: 0.2 points
         mixed = self.method(h, n_seeds=1)
         with self.assertRaisesRegex(ResearchDBError, "METRIC_UNIT_MISMATCH: .*70.1 is outside its valid range"):
@@ -1100,16 +1167,16 @@ class RelativeTest(Fixture):
 
     def test_m09(self):
         design = self.doc(self.worker, "exp/z.v1.md", "experiment_design")
-        zero = self.worker.create_experiment("baseline", "zero", design, self.harness, 1, 600, method_config={"lr": 0.05, "design": design}, estimated_node_h=1.0)
+        zero = self.architect.create_experiment("baseline", "zero", design, self.harness, 1, 600, method_config={"lr": 0.05, "design": design}, estimated_node_h=1.0)
         self.finish_runs(self.worker, zero, metric_value=0.5)
-        self.worker.evaluate_experiment(zero, self.result_doc(exp=zero))
+        self.owner_for(zero).evaluate_experiment(zero, self.result_doc(exp=zero))
         self.rld.update_project(sota_experiment_id=zero)
         h = self.hypothesis()
         self.start(h)
         exp = self.method(h)
         self.finish_runs(self.worker, exp, metric_value=0.4)
         with self.assertRaisesRegex(ResearchDBError, "RELATIVE_EFFECT_UNDEFINED: .*below relative_min_denominator"):
-            self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "no_gain")
+            self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp))
         self.assertEqual(len(self.rld.get(exp)["seeds"]), 3)  # nothing dropped; no result recorded
         self.assertIsNone(self.rld.get(exp).get("evaluated_at"))
 
@@ -1137,10 +1204,11 @@ class EligibilityTest(Fixture):
         self.rld.update_project(sota_experiment_id=tuned)
         self.assertIn("BASELINE_CHANGED", self.rld.get_eligibility(h)["reasons"])
         with self.assertRaisesRegex(ResearchDBError, "rescoring is against the current SOTA"):
-            self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_sota", baseline_experiment_id=self.sota)
-        self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_sota", baseline_experiment_id=tuned)
+            self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp), baseline_experiment_id=self.sota)
+        self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp), baseline_experiment_id=tuned)
         result = self.rld.get_eligibility(h)
-        self.assertTrue(result["eligible"], result)
+        self.assertFalse(result["eligible"], result)
+        self.assertIn("CONFIRMATION_STALE", result["reasons"])
         self.assertNotEqual(result["basis_evaluation_id"], old)
         self.assertEqual([e["baseline_experiment_id"] for e in self.rld.evaluations(experiment_id=exp)],
                          [self.sota, tuned])  # the earlier comparison is kept
@@ -1148,8 +1216,9 @@ class EligibilityTest(Fixture):
     def test_e03_code_change_needs_new_rechecks(self):
         h, exp = self.candidate()
         newer = self.method(h)
-        self.evaluate(newer, "beats_sota", sota=(0.4, 0.1, 0.1))
-        self.assertEqual(self.rld.get_eligibility(h)["reasons"], ["RECHECK_STALE"])
+        self.evaluate(newer, sota=(0.4, 0.1, 0.1))
+        self.assertEqual(self.rld.get_eligibility(h)["reasons"],
+                         ["RECHECK_STALE", "CONFIRMATION_IDENTITY_UNVERIFIED"])
         # a recheck of the new code is a new review: fail, then pass bound to the new experiment
         novelty = self.doc(self.rld, f"h/{h}/novelty-b.v1.md", "novelty", about=(h,))
         theory = self.doc(self.rld, f"h/{h}/theory-b.v1.md", "theory", about=(h,))
@@ -1157,19 +1226,21 @@ class EligibilityTest(Fixture):
             self.rld.decide(h, {"novelty_recheck": "pass"}, "again", based_on=[novelty, exp])
         self.rld.decide(h, {"novelty_recheck": "pass", "theory_recheck": "pass"}, "rechecked the new code",
                         based_on=[novelty, theory, newer])
-        self.assertTrue(self.rld.get_eligibility(h)["eligible"])
+        self.assertFalse(self.rld.get_eligibility(h)["eligible"])
+        self.assertIn("CONFIRMATION_IDENTITY_UNVERIFIED", self.rld.get_eligibility(h)["reasons"])
 
     def test_e03_more_seeds_keep_the_rechecks(self):
         h = self.hypothesis()
         self.start(h)
         exp = self.method(h, n_seeds=1)
-        self.evaluate(exp, "beats_parent", sota=(0.3, 0.1, 0.1))
-        self.worker.extend_seeds(exp, 3)
+        self.evaluate(exp, sota=(0.3, 0.1, 0.1))
+        self.owner_for(exp).extend_seeds(exp, 3)
         self.assertIn("RESULT_REVISION_PENDING", self.rld.get_eligibility(h)["reasons"])
         self.finish_runs(self.worker, exp)
-        self.evaluate(exp, "beats_sota")
+        self.evaluate(exp)
         self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
         self.recheck_pass(h, exp)
+        self.complete_confirmation(h, exp)
         self.assertTrue(self.rld.get_eligibility(h)["eligible"])
 
     def test_e04_retracted_run(self):
@@ -1184,9 +1255,9 @@ class EligibilityTest(Fixture):
         self.assertEqual((run["valid"], run["metric_value"]), (False, 70.3))  # kept, no longer valid
         self.assertEqual(self.rld.go_candidates(), [])
         # resubmitted as a new attempt and evaluated again: current once more
-        self.worker.update_run(f"{exp}/s43", attempt=2, exec_status="planned")
+        self.owner_for_run(f"{exp}/s43").update_run(f"{exp}/s43", attempt=2, exec_status="planned")
         self.finish_runs(self.worker, exp)
-        self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_sota")
+        self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp))
         self.assertTrue(self.rld.get_eligibility(h)["eligible"])
 
     def test_e05_unrelated_changes_keep_eligibility(self):
@@ -1204,7 +1275,7 @@ class EligibilityTest(Fixture):
         self.finish_runs(self.worker, exp, effect=(self.sota, (0.3, 0.1, 0.1)))
         worker = ResearchDB(self.db, "worker/w1")
         worker._after_compute = lambda: self.rld.update_hypothesis(other, title="unrelated")  # E08
-        worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_sota")
+        worker.evaluate_experiment(exp, self.result_doc(exp=exp))
         exp2 = self.method(h)
         self.finish_runs(self.worker, exp2, effect=(self.sota, (0.3, 0.1, 0.1)))
         protocol = self.doc(self.rld, "project/protocol.v3.json", "protocol",
@@ -1213,7 +1284,7 @@ class EligibilityTest(Fixture):
         worker._after_compute = lambda: self.rld.update_project(protocol_doc_id=protocol,
                                                                 user_instruction_doc_id=instruction)  # E07
         with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_CHANGED"):
-            worker.evaluate_experiment(exp2, self.result_doc(exp=exp2), "beats_sota")
+            worker.evaluate_experiment(exp2, self.result_doc(exp=exp2))
         self.assertIsNone(self.rld.get(exp2).get("evaluated_at"))
 
     def test_e09_cached_labels_do_not_make_a_candidate(self):
@@ -1243,14 +1314,15 @@ class EligibilityTest(Fixture):
         instruction = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0300.v1.md", "user_instruction")
         self.rld.update_project(metric_spec_doc_id=doc, user_instruction_doc_id=instruction)
         with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_STALE: the sota reference"):
-            self.concluded("beats_sota", sota=(0.3, 0.1, -2.0))
-        self.worker.evaluate_experiment(self.sota, self.result_doc(exp=self.sota))  # the baseline under the new specification
-        h, exp = self.concluded("beats_sota", sota=(0.3, 0.1, -2.0))  # +2 GiB
+            self.concluded(sota=(0.3, 0.1, -2.0))
+        self.owner_for(self.sota).evaluate_experiment(self.sota, self.result_doc(exp=self.sota))  # the baseline under the new specification
+        h, exp = self.concluded(sota=(0.3, 0.1, -2.0))  # +2 GiB
         ev = self.rld.evaluations(experiment_id=exp)[-1]
         self.assertEqual((ev["gate_passed"], ev["guardrails_passed"]), (True, False))
         self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
         self.recheck_pass(h, exp)
-        self.assertEqual(self.rld.get_eligibility(h)["reasons"], ["GUARDRAIL_FAILED"])
+        self.assertFalse(self.rld.get_eligibility(h)["eligible"])
+        self.assertIn("GUARDRAIL_FAILED", self.rld.get_eligibility(h)["reasons"])
 
 
 class ReviewFixesTest(Fixture):
@@ -1265,9 +1337,9 @@ class ReviewFixesTest(Fixture):
         self.assertIn("PROTOCOL_CHANGED", self.rld.get_eligibility(h)["reasons"])
         # the old runs carry no manifest with the newly fixed setting: no evaluation of them under it
         with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_STALE: the sota reference"):
-            self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_sota")
-        with self.assertRaisesRegex(ResearchDBError, "PAIRING_MISMATCH: .*has no imported manifest"):
-            self.worker.evaluate_experiment(self.sota, self.result_doc(exp=self.sota))
+            self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp))
+        with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_STALE: baseline method identity"):
+            self.owner_for(self.sota).evaluate_experiment(self.sota, self.result_doc(exp=self.sota))
         self.assertFalse(self.rld.get_eligibility(h)["eligible"])
         self.assertEqual(self.rld.go_candidates(), [])
 
@@ -1275,20 +1347,20 @@ class ReviewFixesTest(Fixture):
         h = self.hypothesis()
         self.start(h)
         one = self.method(h, n_seeds=1)
-        self.evaluate(one, "beats_parent", sota=(0.3, 0.1, 0.1))
+        self.evaluate(one, sota=(0.3, 0.1, 0.1))
         tuned = self.baseline(1, 1800)
         self.rld.update_project(sota_experiment_id=tuned)
-        self.worker.evaluate_experiment(one, self.result_doc(exp=one), "beats_parent", baseline_experiment_id=tuned)
-        self.worker.extend_seeds(one, 3)
+        self.owner_for(one).evaluate_experiment(one, self.result_doc(exp=one), baseline_experiment_id=tuned)
+        self.owner_for(one).extend_seeds(one, 3)
         self.finish_runs(self.worker, one)
-        self.worker.evaluate_experiment(one, self.result_doc(exp=one), "beats_sota")  # no baseline argument
+        self.owner_for(one).evaluate_experiment(one, self.result_doc(exp=one))  # no baseline argument
         self.assertEqual(self.rld.evaluations(experiment_id=one)[-1]["baseline_experiment_id"], tuned)
         # the basis is the node's latest experiment's current evaluation, not the newest evaluation id
         newer = self.method(h)
-        self.evaluate(newer, "beats_sota", sota=(0.4, 0.1, 0.1))
+        self.evaluate(newer, sota=(0.4, 0.1, 0.1))
         again = self.baseline(1, 1800)
         self.rld.update_project(sota_experiment_id=again)
-        self.worker.evaluate_experiment(one, self.result_doc(exp=one), "beats_sota", baseline_experiment_id=again)
+        self.owner_for(one).evaluate_experiment(one, self.result_doc(exp=one), baseline_experiment_id=again)
         self.assertEqual(self.rld.get_eligibility(h)["experiment_id"], newer)
 
     def test_retraction_is_a_decision(self):
@@ -1307,16 +1379,20 @@ class ReviewFixesTest(Fixture):
         self.finish_runs(self.worker, exp, effect=(self.sota, (0.3, 0.1, 0.1)))
         doc = self.result_doc(exp=exp)
         first = ResearchDB(self.db, "worker/w1")
-        first._after_compute = lambda: ResearchDB(self.db, "worker/w1").evaluate_experiment(exp, doc, "beats_sota")
-        self.assertFalse(first.evaluate_experiment(exp, doc, "beats_sota")["created"])
+        first._after_compute = lambda: ResearchDB(self.db, "worker/w1").evaluate_experiment(exp, doc)
+        self.assertFalse(first.evaluate_experiment(exp, doc)["created"])
         self.assertEqual(len(self.rld.evaluations(experiment_id=exp)), 1)
 
-    def test_eval_type_missing(self):
+    def test_missing_protocol_cannot_be_implicitly_evaluated(self):
         h, exp = self.candidate()
-        self.raw("P-test", protocol_doc_id=None)  # a project that lost its protocol
-        self.worker.evaluate_experiment(self.sota, self.result_doc(exp=self.sota))
-        self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_sota", baseline_experiment_id=self.sota)
-        self.assertIn("EVAL_TYPE_MISSING", self.rld.get_eligibility(h)["reasons"])
+        result_doc = self.result_doc(exp=self.sota)
+        old_evaluations = self.rld.evaluations(experiment_id=self.sota)
+        self.raw("P-test", protocol_doc_id=None)
+        with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_STALE"):
+            self.owner_for(self.sota).evaluate_experiment(self.sota, result_doc)
+        self.assertEqual(self.rld.evaluations(experiment_id=self.sota), old_evaluations)
+        with self.assertRaisesRegex(ResearchDBError, "PROTOCOL_CHANGE_REQUIRED"):
+            self.rld.get_eligibility(h)
 
     def test_no_self_citation(self):
         path = self.root / "docs" / "results" / "self.v1.md"
@@ -1332,15 +1408,15 @@ class ArtifactImportTest(Fixture):
 
     def test_artifact_level(self):
         design = self.doc(self.worker, "exp/ai.v1.md", "experiment_design")
-        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, method_config={"lr": 0.05, "design": design}, estimated_node_h=1.0)
+        base = self.architect.create_experiment("baseline", "sota", design, self.harness, 1, 1800, method_config={"lr": 0.05, "design": design}, estimated_node_h=1.0)
         self.imported(base)
-        self.worker.evaluate_experiment(base, self.result_doc(exp=base))
+        self.owner_for(base).evaluate_experiment(base, self.result_doc(exp=base))
         self.rld.update_project(sota_experiment_id=base)
         h = self.hypothesis()
         self.start(h)
         exp = self.method(h)
         self.imported(exp, effect=(base, (0.3, 0.1, 0.1)))
-        result = self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_sota")
+        result = self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp))
         self.assertEqual(result["verification_level"], "artifact_imported")
         ev = self.rld.evaluations(experiment_id=exp)[-1]
         self.assertEqual(ev["parser_version"], metrics_mod.PARSER_VERSION)
@@ -1352,17 +1428,22 @@ class ArtifactImportTest(Fixture):
                             body=json.dumps({**PROTOCOL, "require_artifact_import": True}))
         instruction = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0700.v1.md", "user_instruction")
         self.rld.update_project(protocol_doc_id=protocol, user_instruction_doc_id=instruction)
+        with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_STALE"):
+            self.owner_for(self.sota).evaluate_experiment(self.sota, self.result_doc(exp=self.sota))
+        design = self.doc(self.architect, "exp/required-base.v1.md", "experiment_design")
+        base = self.architect.create_experiment("baseline", "sota", design, self.harness, 1, 1800,
+                                               method_config=METHOD_CONFIG, estimated_node_h=1.0)
+        self.imported(base)
+        self.architect.evaluate_experiment(base, self.result_doc(exp=base))
+        self.rld.update_project(sota_experiment_id=base)
         h = self.hypothesis()
         self.start(h)
         exp = self.method(h, n_seeds=1)
         with self.assertRaisesRegex(ResearchDBError, "the protocol requires imported results"):
             self.finish_runs(self.worker, exp)
-        self.imported(exp, effect=(self.sota, (0.3, 0.1, 0.1)))
-        # the SOTA's runs were reported, not imported: no comparison with them under this protocol
-        with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_STALE|PROTOCOL_CHANGE_REQUIRED: the protocol requires imported"):
-            self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_parent")
-        with self.assertRaisesRegex(ResearchDBError, "PROTOCOL_CHANGE_REQUIRED: the protocol requires imported"):
-            self.worker.evaluate_experiment(self.sota, self.result_doc(exp=self.sota))
+        self.imported(exp, effect=(base, (0.3, 0.1, 0.1)))
+        result = self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp))
+        self.assertEqual(result["verification_level"], "artifact_imported")
 
 
 class GateTieTest(Fixture):
@@ -1393,12 +1474,12 @@ class ReportAndRetractionTest(Fixture):
         h, exp = self.candidate()
         self.rld.retract_run(f"{exp}/s42", "wrong split", self.decision_doc())
         with self.assertRaisesRegex(ResearchDBError, "was retracted"):
-            self.worker.update_run(f"{exp}/s42", valid=True)
-        self.worker.update_run(f"{exp}/s42", attempt=2, exec_status="planned")
+            self.owner_for_run(f"{exp}/s42").update_run(f"{exp}/s42", valid=True)
+        self.owner_for_run(f"{exp}/s42").update_run(f"{exp}/s42", attempt=2, exec_status="planned")
 
 
 class FinalReviewTest(Fixture):
-    """M1 final review: gate stated once, preview, statistics version, manifest reuse, retraction links."""
+    """Gate stated once, preview, statistics version, immutable protocol identity, and retraction links."""
 
     def test_preview_matches_the_evaluation(self):
         h = self.hypothesis()
@@ -1420,22 +1501,31 @@ class FinalReviewTest(Fixture):
         finally:
             rdb.metrics.STATISTICS_VERSION = saved
 
-    def test_imported_runs_meet_a_later_protocol(self):
-        design = self.doc(self.worker, "exp/mr.v1.md", "experiment_design")
-        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, method_config={"lr": 0.05, "design": design}, estimated_node_h=1.0)
+    def test_protocol_changes_require_new_method_identities_even_with_matching_manifests(self):
+        design = self.doc(self.architect, "exp/mr.v1.md", "experiment_design")
+        base = self.architect.create_experiment("baseline", "sota", design, self.harness, 1, 1800,
+                                               method_config=METHOD_CONFIG, estimated_node_h=1.0)
         self.imported(base, epochs=30)
-        self.worker.evaluate_experiment(base, self.result_doc(exp=base))
-        self.rld.update_project(sota_experiment_id=base)
-        h = self.hypothesis()
-        self.start(h)
-        exp = self.method(h)
-        self.imported(exp, effect=(base, (0.3, 0.1, 0.1)), epochs=30)
+        self.architect.evaluate_experiment(base, self.result_doc(exp=base))
+        old = self.rld.evaluations(experiment_id=base)
         protocol = self.doc(self.rld, "project/protocol.v8.json", "protocol",
                             body=json.dumps({**PROTOCOL, "match": {"epochs": 30}}))
         instruction = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0800.v1.md", "user_instruction")
         self.rld.update_project(protocol_doc_id=protocol, user_instruction_doc_id=instruction)
-        self.worker.evaluate_experiment(base, self.result_doc(exp=base))  # no re-run: the manifests record epochs
-        result = self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_sota")
+        with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_STALE: baseline method identity"):
+            self.architect.evaluate_experiment(base, self.result_doc(exp=base))
+        self.assertEqual(self.rld.evaluations(experiment_id=base), old)
+        current = self.architect.create_experiment("baseline", "sota", design, self.harness, 1, 1800,
+                                                  method_config=METHOD_CONFIG, estimated_node_h=1.0)
+        self.assertNotEqual(current, base)
+        self.imported(current, epochs=30)
+        self.architect.evaluate_experiment(current, self.result_doc(exp=current))
+        self.rld.update_project(sota_experiment_id=current)
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h)
+        self.imported(exp, effect=(current, (0.3, 0.1, 0.1)), epochs=30)
+        result = self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp))
         self.assertTrue(result["gate_passed"])
 
     def test_retracting_a_baseline_run_links_the_node_evaluations(self):
@@ -1466,7 +1556,7 @@ class FrozenSetTest(Fixture):
         path = self.root / "docs" / self.rld.get(doc)["path"]
         path.write_text(path.read_text() + "\nedited after it became current\n")
         with self.assertRaisesRegex(ResearchDBError, "no longer matches its recorded hash"):
-            self.worker.evaluate_experiment(exp, doc, "beats_sota")
+            self.owner_for(exp).evaluate_experiment(exp, doc)
 
     def test_glob_sources_name_files(self):
         (self.root / "outputs" / "a").mkdir(parents=True, exist_ok=True)
@@ -1490,13 +1580,13 @@ class UnitMixTest(Fixture):
         self.start(h)
         exp = self.method(h, n_seeds=1)
         self.finish_runs(self.worker, exp, metric_value=0.703)  # inside [0, 100]: a legal percentage (S3 §7.1)
-        self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "no_gain")  # scale alone is no unit error
+        self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp))  # scale alone is no unit error
         other = self.method(h, n_seeds=1)
-        self.worker.create_run(other, 42)
-        self.worker.update_run(f"{other}/s42", exec_status="submitted")
-        self.worker.update_run(f"{other}/s42", exec_status="succeeded")
+        self.owner_for(other).create_run(other, 42)
+        self.owner_for_run(f"{other}/s42").update_run(f"{other}/s42", exec_status="submitted")
+        self.owner_for_run(f"{other}/s42").update_run(f"{other}/s42", exec_status="succeeded")
         with self.assertRaisesRegex(ResearchDBError, "METRIC_UNIT_MISMATCH: .*declares units"):
-            self.worker.import_run_result(f"{other}/s42", 1, self.manifest(other, 42, units={"acc": "fraction"}))
+            self.owner_for_run(f"{other}/s42").import_run_result(f"{other}/s42", 1, self.manifest(other, 42, units={"acc": "fraction"}))
         self.assertTrue(metrics_mod.passes(-0.0, 0.0, ">="))
         self.assertFalse(metrics_mod.passes(-4e-10, 0.0, ">="))  # no absolute rounding at the gate
 
@@ -1504,14 +1594,14 @@ class UnitMixTest(Fixture):
 class ReviewSixTest(Fixture):
     def test_one_fraction_among_percentages(self):
         design = self.doc(self.worker, "exp/mix.v1.md", "experiment_design")
-        mixed = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, method_config={"lr": 0.05, "design": design}, estimated_node_h=1.0)
+        mixed = self.architect.create_experiment("baseline", "sota", design, self.harness, 1, 1800, method_config={"lr": 0.05, "design": design}, estimated_node_h=1.0)
         for seed, value in zip(SEEDS, (69.9, 69.9, 0.699)):
-            self.worker.create_run(mixed, seed)
-            self.worker.update_run(f"{mixed}/s{seed}", exec_status="submitted")
-            self.worker.update_run(f"{mixed}/s{seed}", exec_status="succeeded", valid=True, metric_value=value,
+            self.owner_for(mixed).create_run(mixed, seed)
+            self.owner_for_run(f"{mixed}/s{seed}").update_run(f"{mixed}/s{seed}", exec_status="submitted")
+            self.owner_for_run(f"{mixed}/s{seed}").update_run(f"{mixed}/s{seed}", exec_status="succeeded", valid=True, metric_value=value,
                                    secondary={"final_loss": 1.0, "peak_mem_gb": 40.0}, nodes_used=1,
                                    walltime_used_s=60, log_path="x.log")
-        self.worker.evaluate_experiment(mixed, self.result_doc(exp=mixed))  # S3 §7.1: a review hint, not a refusal
+        self.owner_for(mixed).evaluate_experiment(mixed, self.result_doc(exp=mixed))  # S3 §7.1: a review hint, not a refusal
         ev = self.rld.evaluations(experiment_id=mixed)[-1]
         self.assertTrue(any("E-0002: acc values range from 0.699 to 69.9" in x for x in ev["limitations"]))
 
@@ -1520,8 +1610,10 @@ class ReviewSixTest(Fixture):
                             body=json.dumps({**PROTOCOL, "eval_type": "synthetic_proxy"}))
         instruction = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0900.v1.md", "user_instruction")
         self.rld.update_project(protocol_doc_id=protocol, user_instruction_doc_id=instruction)
-        self.worker.evaluate_experiment(self.sota, self.result_doc(exp=self.sota))
-        ev = self.rld.evaluations(experiment_id=self.sota)[-1]
+        with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_STALE"):
+            self.owner_for(self.sota).evaluate_experiment(self.sota, self.result_doc(exp=self.sota))
+        current = self.baseline(1, 1800)
+        ev = self.rld.evaluations(experiment_id=current)[-1]
         self.assertEqual(ev["eval_type"], "synthetic_proxy")
         self.assertTrue(any("proxy agreement only" in x for x in ev["limitations"]))
 
@@ -1545,7 +1637,7 @@ class GateStatedOnceTest(unittest.TestCase):
                 (root / "docs" / f"{kind}.v1.json").write_text(json.dumps(content))
                 docs[f"{kind}_doc_id"] = rld.register_document(f"{kind}.v1.json", kind, kind)
                 rld.set_document_current(docs[f"{kind}_doc_id"])
-            rld.create_project("P-g", "g", setup, "acc", "higher", True, SECONDARY, SEEDS, **docs)
+            rld.create_project("P-g", "g", setup, "acc", "higher", SECONDARY, SEEDS, **docs)
             with self.assertRaisesRegex(ResearchDBError, "METRIC_UNIT_MISMATCH: .*must equal the project's go_margin 0.1"):
                 rld.update_project(go_margin=0.1)  # e.g. config apply at confirmation
             with self.assertRaisesRegex(ResearchDBError, "METRIC_UNIT_MISMATCH: .*must equal the project's go_margin 0.2"):
@@ -1559,7 +1651,7 @@ class UncertaintyTest(Fixture):
         h = self.hypothesis()
         self.start(h)
         exp = self.method(h, n_seeds=1)
-        result = self.evaluate(exp, None, sota=(-0.03, 0.0, 0.0))
+        result = self.evaluate(exp, sota=(-0.03, 0.0, 0.0))
         self.assertEqual(result["outcome"], "inconclusive")
         self.rld.decide(h, {"experiment_status": "inconclusive"}, "one seed", based_on=[exp],
                         doc_id=self.decision_doc())
@@ -1569,19 +1661,19 @@ class UncertaintyTest(Fixture):
         h = self.hypothesis()
         self.start(h)
         exp = self.method(h)  # all 3 seeds
-        self.assertEqual(self.evaluate(exp, "close", sota=(0.02, 0.0, 0.0))["outcome"], "inconclusive")
+        self.assertEqual(self.evaluate(exp, sota=(0.02, 0.0, 0.0))["outcome"], "inconclusive")
         neg = self.method(h)
-        self.assertEqual(self.evaluate(neg, None, sota=(-0.2, 0.0, 0.0))["outcome"], "negative_signal")
+        self.assertEqual(self.evaluate(neg, sota=(-0.2, 0.0, 0.0))["outcome"], "negative_signal")
         pos = self.method(h)
-        self.assertEqual(self.evaluate(pos, None, sota=(0.2, 0.0, 0.0))["outcome"], "positive_signal")
+        self.assertEqual(self.evaluate(pos, sota=(0.2, 0.0, 0.0))["outcome"], "positive_signal")
 
     def test_u03_engineering_failure_is_no_negative_evidence(self):
         h = self.hypothesis()
         self.start(h)
         exp = self.method(h, n_seeds=1)
-        self.worker.create_run(exp, 42)
-        self.worker.update_run(f"{exp}/s42", exec_status="submitted")
-        self.worker.update_run(f"{exp}/s42", exec_status="failed")
+        self.owner_for(exp).create_run(exp, 42)
+        self.owner_for_run(f"{exp}/s42").update_run(f"{exp}/s42", exec_status="submitted")
+        self.owner_for_run(f"{exp}/s42").update_run(f"{exp}/s42", exec_status="failed")
         self.assertEqual(self.rld.evaluations(experiment_id=exp), [])
         self.assertEqual(self.rld.get_eligibility(h)["reasons"], ["NO_EVALUATION"])
         with self.assertRaisesRegex(ResearchDBError, "retiring a node .* needs based_on"):
@@ -1591,12 +1683,12 @@ class UncertaintyTest(Fixture):
         h = self.hypothesis()
         self.start(h)
         exp = self.method(h, n_seeds=1)
-        self.evaluate(exp, None, sota=(0.01, 0.0, 0.0))
+        self.evaluate(exp, sota=(0.01, 0.0, 0.0))
         bare = self.doc(self.rld, "decisions/bare.v1.md", "decision", body="x\n")
         with self.assertRaisesRegex(ResearchDBError, "inconclusive: .*missing 缺失证据, 下一实验"):
             self.rld.decide(h, {"experiment_status": "inconclusive"}, "x", based_on=[exp], doc_id=bare)
         second = self.method(h, n_seeds=1)
-        self.evaluate(second, None, sota=(0.0, 0.01, 0.0))
+        self.evaluate(second, sota=(0.0, 0.01, 0.0))
         with self.assertRaisesRegex(ResearchDBError, "last two results were inconclusive"):
             self.method(h)
         design = self.doc(self.worker, "exp/why.v1.md", "experiment_design")
@@ -1620,17 +1712,18 @@ class ConfirmationTest(Fixture):
 
     def confirm_baseline(self, batch: str | None = None, walltime_s: int = 1800) -> str:
         batch = batch or self.batch_id
-        design = self.doc(self.worker, f"exp/cb{self.n}.v1.md", "experiment_design")
-        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, walltime_s, stage="confirm",
+        design = self.doc(self.architect, f"exp/cb{self.n}.v1.md", "experiment_design")
+        base = self.architect.create_experiment("baseline", "sota", design, self.harness, 1, walltime_s, stage="confirm",
                                              method_config=self.rld.get(self.sota)["effective_config"],
                                              confirmation_batch_id=batch, confirmation_of=self.sota,
                                              estimated_node_h=1.0)
         self.assertEqual(self.rld.get(base)["seeds"], self.rld.get(base)["seeds"][:3])
-        self.finish_runs(self.worker, base)
-        self.worker.evaluate_experiment(base, self.result_doc(exp=base))
+        self.finish_runs(self.architect, base)
+        self.architect.evaluate_experiment(base, self.result_doc(actor=self.architect, exp=base))
         return base
 
     def confirm(self, h: str, exp: str, batch: str | None = None, code: str | None = None, **kw) -> str:
+        self.worker = self.worker_for(h)
         batch = batch or self.batch_id
         cand = next(c for c in self._batch(batch)["candidates"]
                     if self._cand(c)["hypothesis_id"] == h)
@@ -1648,8 +1741,8 @@ class ConfirmationTest(Fixture):
     def test_u04_u05(self):
         h, exp = self.candidate_ready()
         result = self.rld.get_eligibility(h)
-        self.assertEqual((result["stage"], result["reasons"]), ("candidate_ready", ["CONFIRMATION_REQUIRED"]))
-        with self.assertRaisesRegex(ResearchDBError, "CONFIRMATION_REQUIRED: GO needs"):
+        self.assertEqual((result["stage"], result["reasons"]), ("candidate_ready", ["CONFIRMATION_REQUIRED", "RECHECK_PENDING"]))
+        with self.assertRaisesRegex(ResearchDBError, "GO needs .*CONFIRMATION_REQUIRED"):
             self.rld.decide("P-test", {"status": "go"}, "GO", doc_id=self.report_doc("go"))
         design = self.doc(self.worker, "exp/c1.v1.md", "experiment_design")
         with self.assertRaisesRegex(ResearchDBError, "CONFIRMATION_IDENTITY_UNVERIFIED: a confirmation names"):
@@ -1664,12 +1757,14 @@ class ConfirmationTest(Fixture):
             self.confirm(h, exp, code=self.commit())
         conf = self.confirm(h, exp)
         self.assertEqual(self.rld.get(conf)["seeds"], [1042, 1043, 1044])
-        self.evaluate(conf, None, sota=(0.3, 0.1, 0.1))
+        confirmation = self.evaluate(conf, sota=(0.3, 0.1, 0.1))
+        self.assertFalse(self.rld.get_eligibility(h)["eligible"])
+        self.review_all(h, confirmation["evaluation_id"])
         result = self.rld.get_eligibility(h)
         self.assertEqual((result["eligible"], result["stage"]), (True, "confirmed"), result)
         # U05: the confirmation's feedback changes the code: a new candidate cannot reuse c1
         newer = self.method(h)
-        self.evaluate(newer, "beats_sota", sota=(0.4, 0.1, 0.1))
+        self.evaluate(newer, sota=(0.4, 0.1, 0.1))
         self.recheck_pass(h, newer)
         cand = self.rld.freeze_candidate(h, self.rld.get_eligibility(h)["basis_evaluation_id"])
         with self.assertRaisesRegex(ResearchDBError, "CONFIRMATION_MATERIAL_REUSED"):
@@ -1678,7 +1773,9 @@ class ConfirmationTest(Fixture):
         self.confirm_baseline()
         conf2 = self.confirm(h, newer)
         self.assertEqual(self.rld.get(conf2)["seeds"], [2042, 2043, 2044])
-        self.evaluate(conf2, None, sota=(0.4, 0.1, 0.1))
+        confirmation = self.evaluate(conf2, sota=(0.4, 0.1, 0.1))
+        self.review_all(h, confirmation["evaluation_id"])
+        self.assertTrue(self.rld.get_eligibility(h)["eligible"])
         self.assertEqual(self.rld.get_eligibility(h)["stage"], "confirmed")
         # a third distinct method exceeds max_confirmation_candidates (2), whatever node it is on
         h2, exp2 = self.candidate_ready()
@@ -1688,7 +1785,7 @@ class ConfirmationTest(Fixture):
 
     def test_rechecks_bind_to_the_confirmation_the_go_rests_on(self):
         h, exp = self.candidate_ready()
-        self.rld.update_project(recheck_required=True)
+        self.rld.update_project()
         search_ev = self.rld.get_eligibility(h)["basis_evaluation_id"]
         reviewer = ResearchDB(self.db, "reviewer/pi")
         (reviewer.docs_root / "reviews").mkdir(exist_ok=True)
@@ -1705,7 +1802,7 @@ class ConfirmationTest(Fixture):
         self.batch_id = self.batch(h)
         self.confirm_baseline()
         conf = self.confirm(h, exp)
-        self.evaluate(conf, None, sota=(0.3, 0.1, 0.1))
+        self.evaluate(conf, sota=(0.3, 0.1, 0.1))
         result = self.rld.get_eligibility(h)
         self.assertEqual(result["recheck_evaluation_id"], result["confirmation_evaluation_id"])
         self.assertFalse(result["eligible"])  # the search EV's numbers rechecks do not cover the confirmation
@@ -1715,7 +1812,7 @@ class ConfirmationTest(Fixture):
         self.assertTrue(self.rld.get_eligibility(h)["eligible"])
 
     def candidate_ready(self) -> tuple[str, str]:
-        h, exp = self.concluded("beats_sota")
+        h, exp = self.concluded()
         self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
         self.recheck_pass(h, exp)
         return h, exp
@@ -1728,15 +1825,15 @@ class IndependenceTest(Fixture):
 
     def test_u10(self):
         design = self.doc(self.worker, "exp/ib.v1.md", "experiment_design")
-        base = self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 1800, method_config={"lr": 0.05, "design": design}, estimated_node_h=1.0)
+        base = self.architect.create_experiment("baseline", "sota", design, self.harness, 1, 1800, method_config={"lr": 0.05, "design": design}, estimated_node_h=1.0)
         self.imported(base, data_order="fixed")
-        self.worker.evaluate_experiment(base, self.result_doc(exp=base))
+        self.owner_for(base).evaluate_experiment(base, self.result_doc(exp=base))
         self.rld.update_project(sota_experiment_id=base)
         h = self.hypothesis()
         self.start(h)
         exp = self.method(h)
         self.imported(exp, effect=(base, (0.3, 0.1, 0.1)), data_order="fixed")
-        result = self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), None)
+        result = self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp))
         self.assertFalse(result["gate_passed"])  # 3 pairs, 1 independent repeat
         ev = self.rld.evaluations(experiment_id=exp)[-1]
         self.assertEqual(ev["comparisons"]["sota"]["n_independent"], 1)
@@ -1782,14 +1879,14 @@ class LedgerTest(Fixture):
         h = self.hypothesis()
         self.start(h)
         exp = self.method(h)
-        self.finish_runs(self.worker, exp, effect=(self.sota, (0.3, 0.1, 0.1)))
+        self.finish_runs(self.worker, exp)
+        report = self.numeric_result(exp, delta=0.3)
         for _ in range(2):
             with self.assertRaisesRegex(ResearchDBError, "STAT_MISMATCH"):
-                self.worker.record_verdict(exp, self.result_doc(exp=exp), 71.0, None, "beats_sota")
-        obs = self.rld.obligations(about=exp)
-        self.assertEqual([(o["source"], o["status"]) for o in obs], [("STAT_MISMATCH:interface", "OPEN")])  # once
-        result = self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_sota")
-        self.rld.resolve_obligation(obs[0]["id"], "re_evaluated", result["evaluation_id"])
+                self.worker.evaluate_experiment(exp, report)
+        obligations = self.rld.obligations(about=exp)
+        self.assertEqual(len(obligations), 1)
+        self.assertEqual((obligations[0]["status"], obligations[0]["severity"]), ("OPEN", "MAJOR"))
 
 
 class StallTest(Fixture):
@@ -1818,23 +1915,24 @@ class StallTest(Fixture):
         self.assertEqual(self.rld.get(root)["new_findings_streak"], 2)
 
     def test_t01_t02(self):
-        root = self.hypothesis()
+        doc = self.doc(self.rld, "h/stall-root/hypothesis.v1.md", "hypothesis")
+        root = self.create_hypothesis("root", "s", doc, self.literature, direction="optimizer-state")
         self.rld.update_hypothesis(root, title="root of the subtree")
         self.rld.note_findings(root, 1, doc_id=self.decision_doc(), direction="optimizer-state", finding_ids=[self.fact()])
         first = self.rld.note_findings(root, 0, doc_id=self.decision_doc())
         self.assertEqual((first["streak"], first["stall_state"]), (1, "none"))
         second = self.rld.note_findings(root, 0, doc_id=self.decision_doc())
         self.assertEqual(second["stall_state"], "structural")
-        self.start(root)  # the subtree root must be expandable for children: make it so
-        self.evaluate(self.method(root), None, sota=(0.3, 0.1, 0.1))
+        self.start(root)  # a positive result does not reset a stalled direction by itself
+        self.evaluate(self.method(root), sota=(0.3, 0.1, 0.1))
         self.rld.decide(root, {"experiment_status": "beats_sota", "status": "expandable"}, "gate",
                         doc_id=self.decision_doc(), based_on=[self.rld.latest_result(root)["id"]])
         doc = self.doc(self.rld, "h/stall/hypothesis.v1.md", "hypothesis")
         with self.assertRaisesRegex(ResearchDBError, "STALL_STRUCTURAL"):
-            self.rld.create_hypothesis("same", "s", doc, self.literature, root, direction="optimizer-state")
+            self.create_hypothesis("same", "s", doc, self.literature, root, direction="optimizer-state")
         with self.assertRaisesRegex(ResearchDBError, "STALL_STRUCTURAL"):
-            self.rld.create_hypothesis("unnamed", "s", doc, self.literature, root)
-        self.rld.create_hypothesis("other", "s", doc, self.literature, root, direction="data-order control")
+            self.create_hypothesis("unnamed", "s", doc, self.literature, root, direction=None)
+        self.create_hypothesis("other", "s", doc, self.literature, root, direction="data-order control")
         self.rld.note_findings(root, 0, doc_id=self.decision_doc())
         human = self.rld.note_findings(root, 0, doc_id=self.decision_doc())
         self.assertEqual((human["stall_state"], human["report_to_user"]), ("human", True))
@@ -1856,78 +1954,69 @@ class StallTest(Fixture):
 
 
 class StateMigrationTest(Fixture):
-    def test_old_states(self):
-        h, exp = self.concluded("no_gain", sota=(-0.1, -0.1, -0.1))
-        self.rld.decide(h, {"experiment_status": "no_gain", "status": "prunable"}, "no gain",
-                        doc_id=self.decision_doc(), based_on=[exp], reconsider_when="new evidence on the mechanism")
-        h2 = self.hypothesis()
-        for node in (h, h2):
-            self.raw(node, disposition=None)  # as an old project left them
-        report = self.rld.migrate_states()
-        self.assertEqual({n["hypothesis_id"]: (n["lifecycle"], n["disposition"]) for n in report["nodes"]},
-                         {h: ("assessed", "retired"), h2: ("pending", "active")})
-        self.assertIsNone(self.rld.get(h2).get("disposition"))  # dry run
-        self.rld.migrate_states(dry_run=False)
-        self.assertEqual((self.rld.get(h)["disposition"], self.rld.get(h2)["disposition"]), ("retired", "active"))
-
-    def test_resume_point(self):
-        req = self.doc(self.rld, "tasks/r/request.v1.md", "task_request")
-        first = self.rld.create_task("harness", "worker", req, target_id="P-test", assignee_id="w1")
-        self.rld.create_task("analysis", "worker", req, target_id="P-test", assignee_id="w1")
-        self.assertEqual(self.rld.resume_package("P-test")["first_unaccepted_task"], first)
+    def test_state_migration_is_removed_and_resume_keeps_current_root_role(self):
+        self.assertFalse(hasattr(self.rld, "migrate_states"))
+        req = self.doc(self.rld, "tasks/root/request.v1.md", "task_request")
+        task = self.rld.create_task("harness", "architect", req, target_id="P-test", assignee_id="root")
+        self.rld.bind_architect_session("fixture-session")
+        package = self.rld.resume_package("P-test")
+        self.assertEqual((package["actor"], package["agent_id"], package["first_unaccepted_task"]),
+                         ("architect/root", "fixture-session", task))
+        self.assertNotIn("worker", package)
 
 
 class M2ReviewTest(Fixture):
-    """M2 review: admission follows disposition; candidate_ready before confirmation; project obligations; the
-    screening GO disclaimer; invalid outcome; closed branches; never-tested nodes migrate as pending."""
+    """Admission follows disposition; confirmation and project obligations remain mandatory.
+    Disclaimers cannot grant GO, engineering failures stay distinct, and historical migrations are absent."""
 
     def test_paused_nodes_take_no_new_work(self):
         h = self.hypothesis()
         self.start(h)
         exp = self.method(h, n_seeds=1)
-        self.evaluate(exp, None, sota=(0.01, 0.0, 0.0))
+        self.evaluate(exp, sota=(0.01, 0.0, 0.0))
         self.rld.decide_disposition(h, "paused", "budget held for H-other", [exp], reconsider_when="budget frees up")
         with self.assertRaisesRegex(ResearchDBError, "is paused .*no new experiments"):
             self.method(h)
         with self.assertRaisesRegex(ResearchDBError, "not active: no seed extensions"):
-            self.worker.extend_seeds(exp, 3)
+            self.owner_for(exp).extend_seeds(exp, 3)
         self.rld.decide_disposition(h, "active", "budget freed", [exp])
         self.method(h)
 
     def test_confirmation_after_candidate_ready_and_project_obligations(self):
-        self.rld.update_project(protocol_doc_id=self.doc(self.rld, "project/protocol.v20.json", "protocol", body=json.dumps(
-            {**PROTOCOL, "confirmation_seeds": [1042, 1043, 1044]})), user_instruction_doc_id=self.doc(
-            ResearchDB(self.db, "ui/ui"), "instructions/UI-1999.v1.md", "user_instruction"))
-        self.worker.evaluate_experiment(self.sota, self.result_doc(exp=self.sota))
-        h, exp = self.candidate()
+        h, exp = self.concluded()
+        self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
+        self.recheck_pass(h, exp)
         self.rld.add_obligation(h, "code_review:RV-0001", "seed_config", "seeds differ from the protocol", "MAJOR")
-        with self.assertRaisesRegex(ResearchDBError, "OBLIGATION_OPEN: .* not ready to freeze"):  # S2: before confirmation
+        with self.assertRaisesRegex(ResearchDBError, "OBLIGATION_OPEN: .* not ready to freeze"):
             self.rld.freeze_candidate(h, self.rld.get_eligibility(h)["basis_evaluation_id"])
         user = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-2000.v1.md", "user_instruction")
         self.rld.waive_obligation(self.rld.obligations(about=h)[0]["id"], user)
+        self.complete_confirmation(h, exp)
         self.rld.add_obligation("P-test", "audit:A1", "scope", "the harness reads the wrong split", "CRITICAL")
         with self.assertRaisesRegex(ResearchDBError, "OBLIGATION_OPEN: open obligations about the project"):
             self.rld.decide("P-test", {"status": "go"}, "GO", doc_id=self.report_doc("go"))
 
-    def test_screening_go_says_it_is_unconfirmed(self):
-        h, exp = self.candidate()
-        path = self.root / "docs" / "reports" / "go-bare.v1.md"
-        path.parent.mkdir(parents=True, exist_ok=True)
-        (self.root / "outputs" / "evidence").mkdir(parents=True, exist_ok=True)
-        (self.root / "outputs" / "evidence" / "g.json").write_text('{"d": 0.3}')
-        path.write_text('```evidence\n[{"id": "d", "value": "0.3", "source": "outputs/evidence/g.json"}]\n```\n')
-        doc = self.rld.register_document("reports/go-bare.v1.md", "report", "go")
-        self.rld.set_document_current(doc)
-        with self.assertRaisesRegex(ResearchDBError, "screening profile: .*missing 未经独立确认"):
-            self.rld.decide("P-test", {"status": "go"}, "GO", doc_id=doc)
+    def test_a_disclaimer_never_substitutes_for_independent_confirmation(self):
+        h, exp = self.concluded()
+        self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
+        self.recheck_pass(h, exp)
+        self.review_all(h, self.rld.get(exp)["evaluation_id"])
+        report = self.report_doc("screening-only")
+        with self.assertRaisesRegex(ResearchDBError, "CONFIRMATION_REQUIRED"):
+            self.rld.decide("P-test", {"status": "go"}, "screening signal", doc_id=report)
+        disclaimer = self.doc(self.rld, "reports/disclaimer.v1.md", "report", body=
+            (self.root / "docs" / self.rld.get(report)["path"]).read_text() + "\n## 未经独立确认\n明确注明\n")
+        with self.assertRaisesRegex(ResearchDBError, "CONFIRMATION_REQUIRED"):
+            self.rld.decide("P-test", {"status": "go"}, "with disclaimer", doc_id=disclaimer)
+        self.assertEqual(self.rld.get("P-test")["status"], "active")
 
     def test_invalid_outcome_and_closed_branch(self):
         h = self.hypothesis()
         self.start(h)
         exp = self.method(h, n_seeds=1)
-        self.worker.create_run(exp, 42)
-        self.worker.update_run(f"{exp}/s42", exec_status="submitted")
-        self.worker.update_run(f"{exp}/s42", exec_status="failed")
+        self.owner_for(exp).create_run(exp, 42)
+        self.owner_for_run(f"{exp}/s42").update_run(f"{exp}/s42", exec_status="submitted")
+        self.owner_for_run(f"{exp}/s42").update_run(f"{exp}/s42", exec_status="failed")
         self.assertEqual(self.rld.get_eligibility(h)["outcome"], "invalid")
         br = self.rld.find("branch", hypothesis_id=h)[0]["id"]
         self.git("tag", f"exp/{exp}", self.rld.get(exp)["code_ref"])
@@ -1936,14 +2025,17 @@ class M2ReviewTest(Fixture):
         with self.assertRaisesRegex(ResearchDBError, "is deleted"):
             self.method(h)
 
-    def test_never_tested_prunable_migrates_as_pending(self):
+    def test_never_tested_retirement_preserves_pending_lifecycle_and_history(self):
         h = self.hypothesis()
         declined = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-2100.v1.md", "user_instruction", about=(h,))
         self.rld.decide(h, {"status": "prunable"}, "user declined", doc_id=self.decision_doc(), based_on=[declined],
                         reconsider_when="the user asks again")
-        self.raw(h, disposition=None)
-        node = self.rld.migrate_states()["nodes"][0]
-        self.assertEqual((node["lifecycle"], node["disposition"]), ("pending", "retired"))
+        node = self.rld.get(h)
+        self.assertEqual((node["experiment_status"], node["disposition"]), ("todo", "retired"))
+        self.assertIsNone(node.get("started_at"))
+        before = self.rld.history(h)
+        self.assertFalse(hasattr(self.rld, "migrate_states"))
+        self.assertEqual(self.rld.history(h), before)
 
 
 class BudgetTest(Fixture):
@@ -1956,11 +2048,11 @@ class BudgetTest(Fixture):
         self.h = self.hypothesis()
         self.start(self.h)
 
-    def planned(self, n_seeds: int = 1) -> tuple[str, list[str]]:
-        exp = self.method(self.h, n_seeds=n_seeds, walltime_s=100)
+    def planned(self, n_seeds: int = 1, walltime_s: int = 100) -> tuple[str, list[str]]:
+        exp = self.method(self.h, n_seeds=n_seeds, walltime_s=walltime_s)
         refs = []
         for seed in self.rld.get(exp)["seeds"]:
-            self.worker.create_run(exp, seed)
+            self.owner_for(exp).create_run(exp, seed)
             refs.append(f"{exp}/s{seed}@1")
         return exp, refs
 
@@ -1972,27 +2064,27 @@ class BudgetTest(Fixture):
 
     def test_b02_b10_one_key_one_reservation_per_allocation(self):
         exp, refs = self.planned(3)
-        r = self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 1000})
-        self.assertEqual((r["reserved_units"], r["budget_pool"], r["created"]), (1000, "search", True))  # B10
-        again = self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 1000})
+        r = self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 300})
+        self.assertEqual((r["reserved_units"], r["budget_pool"], r["created"]), (300, "search", True))  # B10
+        again = self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 300})
         self.assertEqual((again["reservation_id"], again["created"]), (r["reservation_id"], False))  # B02
         with self.assertRaisesRegex(ResearchDBError, "SUBMISSION_AMBIGUOUS: .*under k1"):
             self.worker.reserve_submission("k2", refs[:1], {"nodes": 1, "walltime_s": 100})
 
     def test_submission_protocol_b03_b05_b06(self):
-        exp, refs = self.planned(1)
+        exp, refs = self.planned(1, 1000)
         run = refs[0].rpartition("@")[0]
         with self.assertRaisesRegex(ResearchDBError, "BUDGET_EXCEEDED: .*only under a reservation"):
-            self.worker.update_run(run, exec_status="submitted")
+            self.owner_for_run(run).update_run(run, exec_status="submitted")
         self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 1000})
         with self.assertRaisesRegex(ResearchDBError, "only under a reservation"):  # intent, not yet claimed
-            self.worker.update_run(run, exec_status="submitted")
+            self.owner_for_run(run).update_run(run, exec_status="submitted")
         gen = self.worker.claim_submission("k1")["claim_generation"]
         with self.assertRaisesRegex(ResearchDBError, "SUBMISSION_AMBIGUOUS: .*is claimed"):  # no second submitter
             self.worker.claim_submission("k1")
-        self.worker.update_run(run, exec_status="submitted")
+        self.owner_for_run(run).update_run(run, exec_status="submitted")
         # B03: the scheduler took it but the answer was lost: held, never resubmitted blindly
-        self.worker.update_run(run, exec_status="unknown")
+        self.owner_for_run(run).update_run(run, exec_status="unknown")
         self.assertEqual(self.worker.reconcile_submission("k1")["accounting_status"], "held_unknown")
         self.assertIn("SUBMISSION_AMBIGUOUS", self.worker.reconcile_submission("k1")["next"])
         # B05: found again by the key: attach the original job, no second job
@@ -2000,7 +2092,7 @@ class BudgetTest(Fixture):
         self.assertEqual(self.rld.get(run)["job_id"], "job-17")
         with self.assertRaisesRegex(ResearchDBError, "SUBMISSION_AMBIGUOUS: .*is job job-17"):
             self.worker.attach_job("k1", "job-18", gen)
-        self.worker.update_run(run, exec_status="succeeded")
+        self.owner_for_run(run).update_run(run, exec_status="succeeded")
         res = self.worker.reconcile_submission("k1")["reservation_id"]
         settled = self.worker.settle_reservation(res, self.accounting("a1", "job-17", 900))
         self.assertEqual((settled["accounting_status"], settled["actual_units"], settled["overrun"]), ("settled", 900, False))
@@ -2009,8 +2101,8 @@ class BudgetTest(Fixture):
             self.worker.settle_reservation(res, self.accounting("a2", "job-17", 950))
 
     def test_b01_last_quota_admits_one(self):
-        e1, r1 = self.planned(1)
-        e2, r2 = self.planned(1)
+        e1, r1 = self.planned(1, 3000)
+        e2, r2 = self.planned(1, 3000)
         # 9000 search limit, 5400 committed: room for one 3000 node-s allocation, not two
         results = []
         def go(key, refs):
@@ -2028,7 +2120,7 @@ class BudgetTest(Fixture):
         self.assertTrue(any(isinstance(r, ResearchDBError) and "BUDGET_EXCEEDED" in str(r) for r in results))
 
     def test_b04_b07_release_rules(self):
-        _, refs = self.planned(1)
+        _, refs = self.planned(1, 500)
         self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 500})
         self.worker.release_reservation("k1", "decided not to run")  # never claimed: safe
         self.worker.reserve_submission("k2", refs, {"nodes": 1, "walltime_s": 500})
@@ -2042,13 +2134,13 @@ class BudgetTest(Fixture):
         self.assertEqual(self.rld.budget_status()["open_reservations"], [])
 
     def test_b08_b09_overrun_is_recorded_and_pauses_admission(self):
-        _, refs = self.planned(1)
+        _, refs = self.planned(1, 600)
         run = refs[0].rpartition("@")[0]
         self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 600})
         gen = self.worker.claim_submission("k1")["claim_generation"]
-        self.worker.update_run(run, exec_status="submitted")
+        self.owner_for_run(run).update_run(run, exec_status="submitted")
         self.worker.attach_job("k1", "job-1", gen)
-        self.worker.update_run(run, exec_status="failed")  # B09: a failure costs too
+        self.owner_for_run(run).update_run(run, exec_status="failed")  # B09: a failure costs too
         res = self.worker.reconcile_submission("k1")["reservation_id"]
         settled = self.worker.settle_reservation(res, self.accounting("o1", "job-1", 2000))
         self.assertEqual((settled["actual_units"], settled["overrun"]), (2000, True))
@@ -2063,17 +2155,17 @@ class BudgetTest(Fixture):
         self.worker.reserve_submission("k2", refs2, {"nodes": 1, "walltime_s": 100})
 
     def test_b12_settlement_waits_for_the_job_and_b14_pools(self):
-        _, refs = self.planned(1)
+        _, refs = self.planned(1, 3500)
         run = refs[0].rpartition("@")[0]
         self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 3500})
         gen = self.worker.claim_submission("k1")["claim_generation"]
-        self.worker.update_run(run, exec_status="submitted")
+        self.owner_for_run(run).update_run(run, exec_status="submitted")
         self.worker.attach_job("k1", "job-9", gen)
         res = self.worker.reconcile_submission("k1")["reservation_id"]
         with self.assertRaisesRegex(ResearchDBError, "runs not final yet"):  # B12: no zero-cost settlement
             self.worker.settle_reservation(res, self.accounting("b", "job-9", 10))
         # B14: the search budget is spent (5400 + 3500 of 9000); the confirmation part is still there
-        _, refs2 = self.planned(1)
+        _, refs2 = self.planned(1, 200)
         with self.assertRaisesRegex(ResearchDBError, "BUDGET_EXCEEDED: .*search budget"):
             self.worker.reserve_submission("k2", refs2, {"nodes": 1, "walltime_s": 200})
         # S6 §10.1: a search run cannot be moved into the confirmation pool by asking; nothing is reserved
@@ -2101,9 +2193,9 @@ class BudgetTest(Fixture):
         run = refs[0].rpartition("@")[0]
         self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 100})
         with self.assertRaisesRegex(ResearchDBError, "only under a reservation"):  # intent: nothing was submitted
-            self.worker.update_run(run, exec_status="unknown")
+            self.owner_for_run(run).update_run(run, exec_status="unknown")
         self.worker.claim_submission("k1")
-        self.worker.update_run(run, exec_status="unknown")  # the submit call timed out: maybe the scheduler has it
+        self.owner_for_run(run).update_run(run, exec_status="unknown")  # the submit call timed out: maybe the scheduler has it
         self.assertEqual(self.worker.reconcile_submission("k1")["accounting_status"], "held_unknown")
 
     def test_released_reservation_does_not_hide_usage(self):
@@ -2111,15 +2203,15 @@ class BudgetTest(Fixture):
         self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 100})
         self.worker.release_reservation("k1", "decided not to run")
         before = self.rld.budget_status()["committed"]["total"]
-        self.worker.update_run(refs[0].rpartition("@")[0], nodes_used=1, walltime_used_s=50)
+        self.owner_for_run(refs[0].rpartition("@")[0]).update_run(refs[0].rpartition("@")[0], nodes_used=1, walltime_used_s=50)
         self.assertEqual(self.rld.budget_status()["committed"]["total"], before + 50)
 
     def test_b11_session_restart_keeps_the_attempt(self):
-        _, refs = self.planned(1)
+        _, refs = self.planned(1, 500)
         run = refs[0].rpartition("@")[0]
         self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 500})
         self.worker.claim_submission("k1")
-        self.worker.update_run(run, exec_status="submitted")
+        self.owner_for_run(run).update_run(run, exec_status="submitted")
         # a new session of the same worker reads the run: same attempt, same key, nothing to resubmit
         again = ResearchDB(self.db, "worker/w1").reconcile_submission("k1")
         self.assertEqual((self.rld.get(run)["attempt"], again["submission_phase"]), (1, "claimed"))
@@ -2140,13 +2232,14 @@ class CostEstimateTest(Fixture):
                                               method_config=METHOD_CONFIG, estimated_node_h=0.1)
         other = self.worker.create_experiment("method", "m", design, code, 1, 90, hypothesis_id=h, n_seeds=1,
                                               method_config=METHOD_CONFIG, estimated_node_h=0.1)
-        self.assertEqual((again, other != first), (first, True))
+        self.assertEqual((again, other), (first, first))
+        self.assertEqual(self.rld.get(first)["walltime_s"], 60)  # no hidden resource-scope rewrite
 
     def test_configured_screening_seeds_cap_the_screen(self):
         h = self.hypothesis()
         self.start(h)
         self.assertEqual(len(self.rld.get(self.method(h))["seeds"]), 3)  # the budget allows 3
-        self.rld.update_project(screen_seeds=1)  # version 2: verification.screening_seeds has one seed
+        self.rld.update_project(screen_seeds=1)  # the explicit screening seed tier has one seed
         self.assertEqual(len(self.rld.get(self.method(h))["seeds"]), 1)
 
     def test_seed_extension_keeps_experiment_creation_idempotent(self):
@@ -2195,60 +2288,32 @@ class CostEstimateTest(Fixture):
 
 
 class SchemaUpgradeTest(unittest.TestCase):
-    """10 §2.5: a database of the previous schema is refused for writing until upgraded; reads still work."""
-
-    def test_v6_database(self):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp) / "research" / "P-old"
-            (root / "docs").mkdir(parents=True)
-            db = root / "research_tree.db"
-            create_db.create_db(db)
-            with Database(db) as d, d.write() as txn:  # what version 6 wrote
-                txn.set_property(txn.get_nodes_by_label("Meta")[0], "schema_version", 6)
-                txn.commit()
-            rld = ResearchDB(db, "rld/main")
-            self.assertEqual(rld.find("project"), [])
-            setup = root / "docs" / "s.v1.md"
-            setup.write_text("x")
-            with self.assertRaisesRegex(ResearchDBError, "schema_version 6.*--upgrade"):
-                rld.register_document("s.v1.md", "min_setup", "s")
-            self.assertEqual(create_db.upgrade_db(db), 6)
-            rld.register_document("s.v1.md", "min_setup", "s")
-            self.assertEqual(create_db.upgrade_db(db), create_db.SCHEMA_VERSION)  # nothing more to do
-            self.assertEqual(rdb.SCHEMA_VERSION, create_db.SCHEMA_VERSION)
+    """Every older schema is rejected before opening it for writes; history stays byte-for-byte intact."""
+    def test_old_schemas_are_not_upgraded_or_written(self):
+        for version in (1, 6, 14, 21, 22, 24):
+            with self.subTest(version=version), tempfile.TemporaryDirectory() as tmp:
+                path = Path(tmp) / "research_tree.db"
+                create_db.create_db(path)
+                with Database(path) as db, db.write() as tx:
+                    tx.set_property(tx.get_nodes_by_label("Meta")[0], "schema_version", version)
+                    tx.commit()
+                before = {p.name: p.read_bytes() for p in path.parent.iterdir() if p.is_file()}
+                db = ResearchDB(path, "rld/main")
+                with self.assertRaisesRegex(ResearchDBError, "Migration notice: keep the historical"):
+                    db.find("project")
+                with self.assertRaisesRegex(ResearchDBError, "requires schema_version 23"):
+                    db.update_project(title="must not write")
+                self.assertEqual(before, {p.name: p.read_bytes() for p in path.parent.iterdir() if p.is_file()})
+        self.assertFalse(hasattr(create_db, "upgrade_db"))
 
 
 class V6MigrationTest(Fixture):
-    """10 §2: a database shaped like schema 6 (evaluated experiments, no evaluations, no specification), upgraded
-    and migrated."""
-
-    def test_upgrade_and_migrate(self):
-        h = self.hypothesis()
-        self.start(h)
-        exp = self.method(h)
-        self.evaluate(exp, "beats_sota")
-        with Database(self.db) as d, d.write() as txn:  # what version 6 left behind
-            for ev in txn.get_nodes_by_label("Evaluation"):
-                for edge in txn.get_outgoing_edges(ev):
-                    txn.delete_edge(ev, edge.target_id, edge.edge_type)
-                txn.delete_node(ev)
-            tx = rdb._Tx(txn)
-            for e in (exp, self.sota):
-                txn.set_property(tx.node_id(e), "evaluation_id", None)
-            txn.set_property(tx.node_id("P-test"), "metric_spec_doc_id", None)
-            txn.set_property(tx.node_id("P-test"), "protocol_doc_id", None)
-            txn.set_property(txn.get_nodes_by_label("Meta")[0], "schema_version", 6)
-            txn.commit()
-        with self.assertRaisesRegex(ResearchDBError, "schema_version 6"):
-            self.rld.migrate_evaluations(dry_run=False)
-        self.assertEqual(create_db.upgrade_db(self.db), 6)
-        report = self.rld.migrate_evaluations(dry_run=False)
-        self.assertEqual(sorted(r["experiment_id"] for r in report["recorded"]), sorted([exp, self.sota]))
-        ev = self.rld.evaluations(experiment_id=exp)[-1]
-        self.assertEqual((ev["verification_level"], ev["migrated"]), ("legacy_unverified", True))
-        self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
-        self.recheck_pass(h, exp)
-        self.assertIn("LEGACY_RESULT_UNVERIFIED", self.rld.get_eligibility(h)["reasons"])
+    def test_record_migration_commands_do_not_exist(self):
+        before = self.rld.export_snapshot()
+        for name in ("migrate_evaluations", "migrate_identity", "migrate_units", "migrate_reviews",
+                     "migrate_memory", "migrate_budget", "migrate_states", "record_verdict"):
+            self.assertFalse(hasattr(self.rld, name), name)
+        self.assertEqual(before, self.rld.export_snapshot())
 
 
 class DocumentNumbersTest(Fixture):
@@ -2309,61 +2374,26 @@ class DocumentNumbersTest(Fixture):
 
 
 class LegacyTest(Fixture):
-    """10 §2: a project without a metric specification, and evaluations recorded before evaluations existed."""
-
-    def test_legacy_project_and_migration(self):
-        project = self.rld.get("P-test")
-        self.raw("P-test", metric_spec_doc_id=None, protocol_doc_id=None)  # an old project: no documents
-        self.worker.evaluate_experiment(self.sota, self.result_doc(exp=self.sota))  # its baseline, evaluated the old way
+    def test_no_metric_or_protocol_fallback(self):
         h = self.hypothesis()
         self.start(h)
         exp = self.method(h)
-        self.finish_runs(self.worker, exp, effect=(self.sota, (0.3, 0.1, 0.1)))
-        with self.assertRaisesRegex(ResearchDBError, "deltas must give a number for each of"):
-            self.worker.record_verdict(exp, self.result_doc(exp=exp), None, None, "beats_sota",
-                                       [{**self.comparisons(exp, (0.3, 0.1, 0.1))[0], "deltas": {"final_loss": 0.1}}])
-        self.worker.record_verdict(exp, self.result_doc(exp=exp), None, None, "beats_sota", self.comparisons(exp, (0.3, 9.0, 9.0)))
-        ev = self.rld.evaluations(experiment_id=exp)[-1]
-        self.assertEqual(ev["verification_level"], "legacy_unverified")
-        self.assertEqual(self.rld.edges("rel_compared_with", source_id=exp)[0]["deltas"],
-                         {"final_loss": 9.0, "peak_mem_gb": 9.0})  # the caller's: no direction is known
-        self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
-        self.recheck_pass(h, exp)
-        self.assertEqual(self.rld.get_eligibility(h)["reasons"], ["LEGACY_RESULT_UNVERIFIED"])
-        self.assertTrue(project["metric_spec_doc_id"])  # what the raw change removed
+        self.finish_runs(self.worker, exp)
+        self.raw("P-test", metric_spec_doc_id=None)
+        with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_STALE|metric_spec_doc_id is required"):
+            self.rld.preview_evaluation(exp)
+        self.raw("P-test", metric_spec_doc_id=self.specs, protocol_doc_id=None)
+        with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_STALE|protocol_doc_id is required"):
+            self.rld.preview_evaluation(exp)
 
-    def test_shadow_migration(self):
-        h = self.hypothesis()
-        self.start(h)
-        exp = self.method(h)
-        self.evaluate(exp, "beats_sota")
-        h2 = self.hypothesis()
-        self.start(h2)
-        bad = self.method(h2)
-        self.evaluate(bad, "beats_sota")
-        # Records written before evaluations existed: no evaluation, and one with a summary its runs do not give.
-        for e in (exp, bad, self.sota):
-            self.raw(e, evaluation_id=None)
-        self.raw(bad, metric_mean=71.5)
-        report = self.rld.migrate_evaluations()
-        self.assertEqual(sorted(report["consistent"]), sorted([exp, self.sota]))
-        self.assertEqual([m["experiment_id"] for m in report["mismatched"]], [bad])
-        self.assertIn("STAT_MISMATCH", report["mismatched"][0]["error"])
-        self.assertEqual(report["recorded"], [])  # dry run
-        done = self.rld.migrate_evaluations(dry_run=False)
-        self.assertEqual(sorted(r["experiment_id"] for r in done["recorded"]), sorted([exp, self.sota]))
-        self.assertEqual(self.rld.get(bad)["metric_mean"], 71.5)  # nothing recorded for it, nothing changed
-        self.assertTrue(self.rld.get(exp)["evaluation_id"].startswith("EV-"))
-        migrated = self.rld.evaluations(experiment_id=exp)[-1]
-        self.assertEqual(migrated["baseline_evaluation_id"], self.rld.get(self.sota)["evaluation_id"])  # in order
-        self.assertTrue(migrated["migrated"])
-        reasons = self.rld.get_eligibility(h)["reasons"]
-        self.assertIn("LEGACY_RESULT_UNVERIFIED", reasons)
-        self.assertNotIn("BASELINE_CHANGED", reasons)
-        self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_sota")  # evaluated again under the new rules
-        self.assertNotIn("LEGACY_RESULT_UNVERIFIED", self.rld.get_eligibility(h)["reasons"])
-        with self.assertRaises(PermissionDenied):
-            self.worker.migrate_evaluations()
+    def test_removed_project_controls_are_rejected(self):
+        before = self.rld.export_snapshot()
+        for field, value in (("workflow_mode", "strict"), ("discovery_mode", "full"), ("metric_is_percent", True),
+                             ("min_related_work", 3), ("design_required", False), ("recheck_required", False),
+                             ("require_precheck", False), ("literature_verification", False)):
+            with self.subTest(field=field), self.assertRaisesRegex(ResearchDBError, "does not take"):
+                self.rld.update_project(**{field: value})
+        self.assertEqual(before, self.rld.export_snapshot())
 
 
 class EvidenceCleanupTest(Fixture):
@@ -2375,7 +2405,7 @@ class EvidenceCleanupTest(Fixture):
         exp = self.method(h, n_seeds=1)
         self.imported(exp, effect=(self.sota, (0.3, 0.1, 0.1)), evidence_paths=["predictions.jsonl"])
         run_dir = self.root / "outputs" / exp / "s42"
-        self.worker.evaluate_experiment(exp, self.result_doc(exp=exp), "beats_parent")
+        self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp))
         shutil.copyfile(rdb.CLEANUP_TEMPLATE, Path(self.tmp.name) / rdb.CLEANUP_SCRIPT)
         script = Path(self.tmp.name) / rdb.CLEANUP_SCRIPT
         for name in ("predictions.jsonl", "metrics.json", "manifest.json"):
@@ -2387,7 +2417,7 @@ class EvidenceCleanupTest(Fixture):
                 print(json.dumps({{"items": items if sys.argv[1] == "plan" else []}}))
                 """))
             with self.subTest(name=name), self.assertRaisesRegex(ResearchDBError, "holds evidence"):
-                self.worker.run_cleanup(exp)
+                self.owner_for(exp).run_cleanup(exp)
         self.assertTrue((run_dir / "predictions.jsonl").exists())
 
     def test_cited_sources_are_evidence(self):
@@ -2399,9 +2429,9 @@ class EvidenceCleanupTest(Fixture):
         run_dir.mkdir(parents=True, exist_ok=True)
         (run_dir / "scores.tmp").write_text('{"acc": 70.3}')  # a statistics output named like scratch
         doc = self.result_doc(exp=exp, extra=[{"id": "acc-s42", "value": "70.3", "source": f"outputs/{exp}/s42/scores.tmp"}])
-        self.worker.evaluate_experiment(exp, doc, "beats_parent")
+        self.owner_for(exp).evaluate_experiment(exp, doc)
         shutil.copyfile(rdb.CLEANUP_TEMPLATE, Path(self.tmp.name) / rdb.CLEANUP_SCRIPT)
-        self.assertEqual(self.worker.run_cleanup(exp, dry_run=True)["items"], [])  # the template leaves it
+        self.assertEqual(self.owner_for(exp).run_cleanup(exp, dry_run=True)["items"], [])  # the template leaves it
         (Path(self.tmp.name) / rdb.CLEANUP_SCRIPT).write_text(textwrap.dedent("""\
             import json, sys
             request = json.load(sys.stdin)
@@ -2410,7 +2440,7 @@ class EvidenceCleanupTest(Fixture):
             print(json.dumps({"items": items if sys.argv[1] == "plan" else []}))
             """))
         with self.assertRaisesRegex(ResearchDBError, "holds evidence"):
-            self.worker.run_cleanup(exp)
+            self.owner_for(exp).run_cleanup(exp)
         self.assertTrue((run_dir / "scores.tmp").exists())
 
 
@@ -2425,25 +2455,25 @@ class CleanupTest(Fixture):
         exp = self.method(self.h)
         self.outputs(exp)
         with self.assertRaisesRegex(ResearchDBError, "no cleanup due"):
-            self.worker.run_cleanup(exp)
+            self.owner_for(exp).run_cleanup(exp)
         task = self.rld.create_task("experiment", "worker", self.doc(self.rld, "tasks/c/request.v1.md", "task_request"),
                                     target_id=self.h, assignee_id="w1")
         self.worker.update_task(task, status="in_progress")
-        self.evaluate(exp, "beats_parent", sota=(0.01, 0.0, 0.0))
+        self.evaluate(exp, sota=(0.01, 0.0, 0.0))
         self.assertEqual([d["experiment_id"] for d in self.rld.cleanup_due(self.h)], [exp])
         delivery = self.doc(self.worker, "tasks/c/delivery.v1.md", "task_delivery")
         with self.assertRaisesRegex(ResearchDBError, f"clean up first: {exp}"):
             self.worker.update_task(task, status="delivered", delivery_doc_id=delivery)
         with self.assertRaisesRegex(ResearchDBError, "copied the cleanup template"):
-            self.worker.run_cleanup(exp)
+            self.owner_for(exp).run_cleanup(exp)
         self.assertEqual(self.script.read_text(), rdb.CLEANUP_TEMPLATE.read_text())  # the project's copy from now on
         with self.assertRaises(PermissionDenied):
             ResearchDB(self.db, "worker/w2").run_cleanup(exp)
         run_dir = self.root / "outputs" / exp / "s42"
-        preview = self.worker.run_cleanup(exp, dry_run=True)
+        preview = self.owner_for(exp).run_cleanup(exp, dry_run=True)
         self.assertEqual(sorted({i["class"] for i in preview["items"]}), ["final_weights", "optimizer_state", "periodic_ckpt"])
         self.assertTrue((run_dir / "model.safetensors").exists())  # a preview deletes nothing
-        done = self.worker.run_cleanup(exp)
+        done = self.owner_for(exp).run_cleanup(exp)
         self.assertEqual(sorted(p.name for p in run_dir.iterdir()), ["metrics.json", "train.log"])
         self.assertEqual(done["freed_bytes"], 3 * 160)
         ledger = self.rld.get(exp)["cleanup"]
@@ -2453,12 +2483,12 @@ class CleanupTest(Fixture):
 
     def test_new_seeds_are_due_again_however_soon_they_are_evaluated(self):
         exp = self.method(self.h, n_seeds=1)
-        self.evaluate(exp, "close", sota=(0.01, 0.0, 0.0))
+        self.evaluate(exp, sota=(0.01, 0.0, 0.0))
         self.clean_all()
         self.assertEqual(self.rld.cleanup_due(self.h), [])
-        self.worker.extend_seeds(exp, 3)
+        self.owner_for(exp).extend_seeds(exp, 3)
         self.finish_runs(self.worker, exp)
-        self.evaluate(exp, "beats_parent", sota=(0.01, 0.0, 0.0))  # within the same second as the first cleanup
+        self.evaluate(exp, sota=(0.01, 0.0, 0.0))  # within the same second as the first cleanup
         self.assertEqual([d["experiment_id"] for d in self.rld.cleanup_due(self.h)], [exp])
         self.clean_all()
         self.assertEqual(self.rld.get(exp)["cleanup"]["2"]["covered"], [f"{exp}/s{s}@1" for s in SEEDS])
@@ -2467,7 +2497,7 @@ class CleanupTest(Fixture):
     def test_the_project_script_may_not_touch_evidence_or_leave_the_run(self):
         exp = self.method(self.h, n_seeds=1)
         self.outputs(exp)
-        self.evaluate(exp, "beats_parent", sota=(0.01, 0.0, 0.0))
+        self.evaluate(exp, sota=(0.01, 0.0, 0.0))
         # The project may rewrite its script; whatever it plans is checked before anything is deleted.
         for planned, problem in (("{d}/train.log", "holds evidence"), ("{d}", "outside the run's output directory"),
                                  ("/etc/passwd", "outside the run's output directory")):
@@ -2480,7 +2510,7 @@ class CleanupTest(Fixture):
                 print(json.dumps({{"items": items if sys.argv[1] == "plan" else []}}))
                 """))
             with self.subTest(planned=planned), self.assertRaisesRegex(ResearchDBError, f"which is {problem}"):
-                self.worker.run_cleanup(exp)
+                self.owner_for(exp).run_cleanup(exp)
         self.assertTrue((self.root / "outputs" / exp / "s42" / "train.log").exists())
 
     def test_kept_outputs_wait_until_the_node_is_pruned_and_their_users_are_evaluated(self):
@@ -2492,14 +2522,14 @@ class CleanupTest(Fixture):
                                             keep=["final_weights"], keep_reason="the next experiment trains on from them", method_config=METHOD_CONFIG, estimated_node_h=1.0)
         self.finish_runs(self.worker, exp)
         self.outputs(exp)
-        self.evaluate(exp, "no_gain", sota=(-0.1, -0.1, -0.1))
+        self.evaluate(exp, sota=(-0.1, -0.1, -0.1))
         self.clean_all()
         weights = self.root / "outputs" / exp / "s42" / "model.safetensors"
         self.assertTrue(weights.exists())
         self.assertFalse((self.root / "outputs" / exp / "s42" / "optimizer.pt").exists())
         user = self.method(self.h)
         self.worker.link("rel_depends_on", user, exp, artifact="final_weights")
-        self.evaluate(user, "no_gain", sota=(-0.1, -0.1, -0.1))
+        self.evaluate(user, sota=(-0.1, -0.1, -0.1))
         self.rld.decide(self.h, {"experiment_status": "no_gain", "status": "prunable"}, "no gain",
                         doc_id=self.decision_doc(), based_on=[user], reconsider_when="new evidence on the mechanism")
         due = {d["experiment_id"]: d["reason"] for d in self.rld.cleanup_due(self.h)}
@@ -2512,21 +2542,26 @@ class CleanupTest(Fixture):
 class WorkerTest(Fixture):
     def test_assignment(self):
         h = self.hypothesis()
+        self.raw(h, worker_id=None)
         self.assertEqual(self.rld.assign_worker(h), h.replace("-", "").lower())
         self.assertEqual(self.rld.assign_worker(h), "h0001")  # idempotent
         with self.assertRaisesRegex(ResearchDBError, "already belongs to worker/h0001"):
             self.rld.assign_worker(h, "other")
-        self.assertEqual(self.rld.assign_worker("P-test"), "root")
+        self.assertEqual(self.rld.assign_architect(), "root")
+        with self.assertRaises(ResearchDBError):
+            self.rld.assign_worker("P-test")
         h2 = self.hypothesis()
+        self.raw(h2, worker_id=None)
         with self.assertRaisesRegex(ResearchDBError, "already works on"):
             self.rld.assign_worker(h2, "h0001")
-        with self.assertRaisesRegex(ResearchDBError, "letters, digits"):
+        with self.assertRaisesRegex(ResearchDBError, "worker id must be a hypothesis identity"):
             self.rld.assign_worker(h2, "bad/id")
         with self.assertRaises(PermissionDenied):
             self.worker.assign_worker(h2)
 
     def test_sessions_and_ownership(self):
         h = self.hypothesis()
+        self.raw(h, worker_id=None)
         with self.assertRaisesRegex(ResearchDBError, "assign H-0001 a worker"):
             self.rld.bind_worker_session(h, "agent-1")
         wid = self.rld.assign_worker(h)
@@ -2541,7 +2576,7 @@ class WorkerTest(Fixture):
         self.rld.decide(h, {"experiment_status": "running", "status": "verifying"}, "start", doc_id=self.decision_doc())
         own = ResearchDB(self.db, f"worker/{wid}")
         design = self.doc(own, "exp/w/design.v1.md", "experiment_design")
-        with self.assertRaisesRegex(PermissionDenied, f"worker/{wid}'s node"):
+        with self.assertRaisesRegex(PermissionDenied, "must be assigned to worker/w1"):
             self.worker.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h, method_config=METHOD_CONFIG, estimated_node_h=1.0)
         exp = own.create_experiment("method", "m", design, self.commit(), 1, 60, hypothesis_id=h, method_config=METHOD_CONFIG, estimated_node_h=1.0)
         self.assertEqual(self.rld.get(exp)["owner"], wid)
@@ -2551,7 +2586,7 @@ class WorkerTest(Fixture):
         hyp_doc = self.rld.get(h)["doc_id"]
         self.assertEqual(self.rld.get(h)["resume_doc_ids"], [hyp_doc])
         self.assertEqual(self.rld.get("P-test")["resume_doc_ids"], ["D-0001"])  # the root starts with the setup
-        wid = self.rld.assign_worker(h)
+        wid = self.rld.get(h)["worker_id"]
         own = ResearchDB(self.db, f"worker/{wid}")
         req = self.doc(self.rld, "tasks/t/request.v1.md", "task_request")
         task = self.rld.create_task("experiment", "worker", req, target_id=h, assignee_id=wid)
@@ -2561,14 +2596,14 @@ class WorkerTest(Fixture):
         note = self.doc(own, "h/notes/n.v1.md", "experiment_design")
         own.add_resume_docs(h, [note])
         with self.assertRaises(PermissionDenied):
-            self.worker.add_resume_docs(h, [note])
+            ResearchDB(self.db, "worker/other").add_resume_docs(h, [note])
         self.assertEqual(self.rld.get(h)["resume_doc_ids"], [hyp_doc, req, delivery, note])
 
         # The package resolves a superseded document to its current version.
         new = self.doc(self.rld, f"h/{h}/hypothesis.v2.md", "hypothesis")
         self.rld.supersede_document(hyp_doc, new)
         package = self.rld.resume_package(h)
-        self.assertEqual(package["worker"], f"worker/{wid}")
+        self.assertEqual(package["actor"], f"worker/{wid}")
         self.assertEqual(package["documents"][0]["id"], new)
         self.assertEqual(package["documents"][0]["listed_as"], hyp_doc)
         self.assertEqual([d["id"] for d in package["documents"][1:]], [req, delivery, note])
@@ -2594,7 +2629,7 @@ class DocumentTest(Fixture):
         self.assertEqual(self.rld.get(doc)["version"], 1)
         with self.assertRaisesRegex(ResearchDBError, "already registered"):
             self.worker.register_document("h.v1.md", "literature", "t")
-        with self.assertRaises(PermissionDenied):
+        with self.assertRaises(ResearchDBError):
             ResearchDB(self.db, "assistant/a1").set_document_current(doc)
         self.worker.update_document(doc, summary="draft edit")
         self.worker.set_document_current(doc)
@@ -2648,6 +2683,7 @@ class TaskTest(Fixture):
         self.assertEqual(self.rld.find("task", target_id=h)[0]["status"], "accepted")
 
     def test_task_documents_have_their_sections(self):
+        h = self.hypothesis()
         def bare(path: str, doc_type: str, actor: ResearchDB, text: str) -> str:
             (self.root / "docs" / path).parent.mkdir(parents=True, exist_ok=True)
             (self.root / "docs" / path).write_text(text, encoding="utf-8")
@@ -2657,37 +2693,38 @@ class TaskTest(Fixture):
         partial = bare("tasks/s/request.v1.md", "task_request", self.rld, "## 任务与节点\n\nH-0001\n\n## 交付（位置）\n\nx\n")
         with self.assertRaisesRegex(ResearchDBError, "lacks the sections 问题与预测, 干预与对照, 范围与权限, 资源与预算, "
                                                      "验收与停止条件; a task_request"):
-            self.rld.create_task("analysis", "worker", partial, assignee_id="w1")
+            self.rld.create_task("analysis", "worker", partial, target_id=h, assignee_id="w1")
         task = self.rld.create_task("analysis", "worker", self.doc(self.rld, "tasks/s/request.v2.md", "task_request"),
-                                    assignee_id="w1")
+                                    target_id=h, assignee_id="w1")
         self.worker.update_task(task, status="in_progress")
         thin = bare("tasks/s/delivery.v1.md", "task_delivery", self.worker, "done\n")
         with self.assertRaisesRegex(ResearchDBError, "lacks the sections 实际改动与版本"):
             self.worker.update_task(task, status="delivered", delivery_doc_id=thin)
 
     def test_parallel_workers(self):
+        hypotheses = [self.hypothesis() for _ in range(4)]
         req = self.doc(self.rld, "tasks/t/request.v1.md", "task_request")
         with self.assertRaisesRegex(ResearchDBError, "positive or null"):
             self.rld.update_project(max_parallel_workers=0)
         self.rld.update_project(max_parallel_workers=2)
-        self.rld.create_task("experiment", "worker", req, assignee_id="w1")
-        self.rld.create_task("experiment", "worker", req, assignee_id="w2")
-        self.rld.create_task("analysis", "worker", req, assignee_id="w1")  # w1 already has a task in hand
-        self.rld.create_task("web_build", "web_builder", req, assignee_id="site")  # only workers count
+        self.rld.create_task("experiment", "worker", req, target_id=hypotheses[0], assignee_id="w1")
+        self.rld.create_task("experiment", "worker", req, target_id=hypotheses[1], assignee_id="w2")
+        self.rld.create_task("analysis", "worker", req, target_id=hypotheses[0], assignee_id="w1")
+        self.rld.create_task("other", "analyst", req, assignee_id="reader")
         with self.assertRaisesRegex(ResearchDBError, "max_parallel_workers is 2"):
-            self.rld.create_task("experiment", "worker", req, assignee_id="w3")
-        waiting = self.rld.create_task("experiment", "worker", req)
+            self.rld.create_task("experiment", "worker", req, target_id=hypotheses[2], assignee_id="w3")
+        waiting = self.rld.create_task("experiment", "worker", req, target_id=hypotheses[2])
         with self.assertRaisesRegex(ResearchDBError, "max_parallel_workers is 2"):
             self.rld.update_task(waiting, assignee_id="w3")
-        # A delivery frees w1 only once it has nothing else in hand; clearing the limit lifts it.
+        worker = self.worker_for(hypotheses[0])
         for task in self.rld.find("task", assignee_id="w1"):
-            self.worker.update_task(task["id"], status="in_progress")
-            self.worker.update_task(task["id"], status="delivered",
-                                    delivery_doc_id=self.doc(self.worker, f"tasks/{task['id']}/delivery.v1.md", "task_delivery"))
+            worker.update_task(task["id"], status="in_progress")
+            worker.update_task(task["id"], status="delivered",
+                              delivery_doc_id=self.doc(worker, f"tasks/{task['id']}/delivery.v1.md", "task_delivery"))
         self.rld.update_task(waiting, assignee_id="w3")
         self.rld.update_project(max_parallel_workers=None)
         self.assertIsNone(self.rld.get("P-test").get("max_parallel_workers"))
-        self.rld.create_task("experiment", "worker", req, assignee_id="w4")
+        self.rld.create_task("experiment", "worker", req, target_id=hypotheses[3], assignee_id="w4")
 
 
 class BranchTest(Fixture):
@@ -2742,7 +2779,8 @@ class SessionTest(Fixture):
     def test_cli(self):
         doc = self.doc(self.rld, "h/cli/hypothesis.v1.md", "hypothesis")
         cmd = [sys.executable, str(REPO / "tools" / "research_db.py"), "--db", str(self.db), "--actor", "rld/main"]
-        args = json.dumps({"title": "t", "statement": "s", "doc_id": doc, "related_work": self.literature})
+        args = json.dumps({"title": "t", "statement": "s", "doc_id": doc, "related_work": self.literature,
+                           "candidate_id": self.admit_candidate(doc)})
         out = subprocess.run(cmd + ["create_hypothesis", args], capture_output=True, text=True)
         self.assertEqual((out.returncode, json.loads(out.stdout)), (0, {"ok": True, "result": "H-0001"}))
         out = subprocess.run(cmd[:-1] + ["worker/w1", "create_hypothesis", args], capture_output=True, text=True)
@@ -2774,7 +2812,7 @@ if __name__ == "__main__":
 
 
 class CandidateRecheckTest(Fixture):
-    """07 §2–§3, 09 candidate_recheck: with recheck_required a GO candidate needs a current cross-model review per
+    """A GO candidate always needs a current cross-model review per
     dimension, bound to its evaluation (numbers, protocol) or code (method_code, novelty, theory)."""
 
     def review(self, h: str, dimension: str, result: str, evaluation: str) -> str:
@@ -2790,13 +2828,15 @@ class CandidateRecheckTest(Fixture):
                                    payload=recheck_payload(self, dimension, result, evaluation))
 
     def test_go_needs_bound_cross_model_rechecks(self):
-        h, exp = self.candidate()
-        self.rld.update_project(recheck_required=True)
+        h, exp = self.concluded()
+        self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
+        self.recheck_pass(h, exp)
+        self.complete_confirmation(h, exp, review=False)
         state = self.rld.get_eligibility(h)
         self.assertFalse(state["eligible"])
         self.assertIn("RECHECK_PENDING", state["reasons"])
         self.assertEqual({r["state"] for r in state["rechecks"]}, {"missing"})
-        basis = state["basis_evaluation_id"]
+        basis = state["recheck_evaluation_id"]
         for dimension in ("numbers", "protocol", "method_code", "novelty"):
             self.review(h, dimension, "pass", basis)
         self.review(h, "theory", "not_applicable", basis)  # S4: no protocol exemption, so N/A is uncertain
@@ -2821,30 +2861,32 @@ class CandidateRecheckTest(Fixture):
         self.assertEqual(self.rld.get("P-test")["review_cost_usd"], 0.09)  # nine registered receipts
 
     def test_completed_cross_model_reviews_explain_pending_rld_decisions(self):
-        h, exp = self.concluded("beats_sota")
+        h, exp = self.concluded()
         self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
-        self.rld.update_project(recheck_required=True)
+        self.rld.update_project()
         basis = self.rld.get_eligibility(h)["basis_evaluation_id"]
         for dimension in ("numbers", "protocol", "method_code", "novelty", "theory"):
             self.review(h, dimension, "pass", basis)
         state = self.rld.get_eligibility(h)
         self.assertEqual({r["state"] for r in state["rechecks"]}, {"pass"})
-        self.assertEqual(state["reasons"], ["RECHECK_PENDING"])
+        self.assertEqual(set(state["reasons"]), {"RECHECK_PENDING", "CONFIRMATION_REQUIRED"})
         self.assertEqual(state["rld_rechecks"], {
             "novelty": {"status": "pending", "bound": False},
             "theory": {"status": "pending", "bound": False},
         })
         self.recheck_pass(h, exp)
         state = self.rld.get_eligibility(h)
-        self.assertTrue(state["eligible"], state)
+        self.assertFalse(state["eligible"], state)
+        self.assertEqual(state["reasons"], ["CONFIRMATION_REQUIRED"])
         self.assertEqual(state["rld_rechecks"], {
             "novelty": {"status": "pass", "bound": True},
             "theory": {"status": "pass", "bound": True},
         })
 
     def test_recheck_binding_and_permissions(self):
-        h, exp = self.candidate()
-        self.rld.update_project(recheck_required=True)
+        h, exp = self.concluded()
+        self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
+        self.recheck_pass(h, exp)
         basis = self.rld.get_eligibility(h)["basis_evaluation_id"]
         other = self.hypothesis()
         with self.assertRaisesRegex(ResearchDBError, "about the node of"):
@@ -2853,13 +2895,14 @@ class CandidateRecheckTest(Fixture):
         second = self.review(h, "protocol", "pass", basis)
         with self.assertRaises(PermissionDenied):  # reviews are versioned by review_call.py only
             self.rld.supersede_document(first, second)
-        with self.assertRaisesRegex(ResearchDBError, "BUDGET_EXCEEDED: raising recheck_required"):
+        with self.assertRaisesRegex(ResearchDBError, "does not take"):
             self.rld.update_project(recheck_required=False)
         # a later evaluation of the same code keeps the code-bound rechecks and makes the numbers stale
         for dimension in ("method_code", "novelty", "theory"):
             self.review(h, dimension, "pass", basis)
-        later = self.method(h, code_ref=self.rld.get(exp)["code_ref"], walltime_s=1700)  # same code, rerun
-        self.evaluate(later, "beats_sota")
+        self.rld.retract_run(f"{exp}/s42", "corrupted result requires a replacement attempt", self.decision_doc())
+        self.owner_for(exp).update_run(f"{exp}/s42", attempt=2, exec_status="planned")
+        self.evaluate(exp)  # a genuine corrected result revision, never a renamed duplicate experiment
         state = self.rld.get_eligibility(h)
         states = {r["dimension"]: r["state"] for r in state["rechecks"]}
         self.assertEqual(states, {"numbers": "stale", "protocol": "stale", "method_code": "pass", "novelty": "pass",
@@ -2869,6 +2912,13 @@ class CandidateRecheckTest(Fixture):
 
 ANCHOR = ("## 问题锚点\n\n- 底线问题：玩具优化器在相同轮数下的验证准确率\n- 必须解决的瓶颈：早期震荡\n"
           "- 非目标：不换模型\n- 约束：CPU、秒级\n- 成功条件：配对提升超过门槛\n\n")
+def screening_body(ceiling=None):
+    ceiling = ceiling or {"nodes": 8, "walltime_s": 3600, "n_seeds": 3}
+    return (ANCHOR + "## 可证伪预测\n配对指标改善\n## 干预\n改变更新规则\n## 匹配对照\n同一训练量的基线\n"
+            "## 资源上限\n```json\n" + json.dumps(ceiling) + "\n```\n"
+            "## 停止与继续条件\n正向补 seed；无效修复；负向暂停\n")
+
+
 DESIGN_BODY = "".join(f"## {name}\n\n内容\n\n" for name in rdb.EXPERIMENT_DESIGN_SECTIONS)
 
 
@@ -2878,41 +2928,25 @@ class DesignTest(Fixture):
     def setUp(self):
         super().setUp()
         goal = self.doc(self.rld, "project/goal.v1.md", "goal", body="# 目标\n\n" + ANCHOR)
-        self.rld.update_project(goal_doc_id=goal, design_required=True)
+        self.rld.update_project(goal_doc_id=goal, )
 
-    def hyp_doc(self, anchor: str = ANCHOR, claims: int = 1, blocks: tuple[str, ...] = ("成功判据：x\n失败解释：y",),
+    def hyp_doc(self, anchor: str = ANCHOR, claims: int = 1, blocks: tuple[str, ...] = (),
                 omit: tuple[str, ...] = ()) -> str:
-        parts = []
-        for name in rdb.HYPOTHESIS_SECTIONS:
-            if name in omit:
-                continue
-            if name == "问题锚点":
-                parts.append(anchor)
-            elif name == "Claim map":
-                rows = "".join(f"| C{i} | 重要 | 证据 | 反claim | B1 |\n" for i in range(claims))
-                parts.append("## Claim map\n\n| Claim | 为什么重要 | 最小证据 | 反 claim | 实验块 |\n|---|---|---|---|---|\n"
-                             + rows + "\n")
-            elif name == "实验块":
-                parts.append("## 实验块\n\n" + "".join(f"### B{i}\n{b}\n\n" for i, b in enumerate(blocks)))
-            else:
-                parts.append(f"## {name}\n\n内容\n\n")
-        return self.doc(self.rld, f"h/d{self.n}/hypothesis.v1.md", "hypothesis", body="".join(parts))
+        body = screening_body().replace(ANCHOR, anchor)
+        for name in omit:
+            body = re.sub(r"^## " + re.escape(name) + r"\n.*?(?=^## |\Z)", "", body, flags=re.M | re.S)
+        return self.doc(self.rld, f"h/d{self.n}/hypothesis.v1.md", "hypothesis", body=body)
 
     def create(self, doc: str) -> str:
-        return self.rld.create_hypothesis("h", "s", doc, self.literature)
+        return self.create_hypothesis("h", "s", doc, self.literature)
 
     def test_x01_x03_hypothesis_document_gates(self):
-        with self.assertRaisesRegex(ResearchDBError, "DESIGN_SECTION_MISSING: .*lacks the sections Claim map"):  # X01
-            self.create(self.hyp_doc(omit=("Claim map",)))
-        with self.assertRaisesRegex(ResearchDBError, "lacks 失败解释"):  # X01: a block without its interpretation
-            self.create(self.hyp_doc(blocks=("成功判据：x",)))
-        with self.assertRaisesRegex(ResearchDBError, "drift"):  # X02
+        for field in rdb.SCREENING_SECTIONS:
+            with self.subTest(field=field), self.assertRaisesRegex(ResearchDBError, "DESIGN_SECTION_MISSING"):
+                self.create(self.hyp_doc(omit=(field,)))
+        with self.assertRaisesRegex(ResearchDBError, "match the approved goal"):
             self.create(self.hyp_doc(anchor=ANCHOR.replace("早期震荡", "收敛慢")))
-        with self.assertRaisesRegex(ResearchDBError, "the claim map has 3 claims"):  # X03
-            self.create(self.hyp_doc(claims=3))
-        with self.assertRaisesRegex(ResearchDBError, "6 experiment blocks"):
-            self.create(self.hyp_doc(blocks=("成功判据 失败解释",) * 6))
-        self.assertTrue(self.create(self.hyp_doc(claims=2)).startswith("H-"))
+        self.assertTrue(self.create(self.hyp_doc()).startswith("H-"))
 
     def node(self) -> str:
         h = self.create(self.hyp_doc())
@@ -2920,12 +2954,15 @@ class DesignTest(Fixture):
         return h
 
     def design(self) -> str:
-        return self.doc(self.worker, f"exp/full{self.n}/design.v1.md", "experiment_design", body=DESIGN_BODY)
+        return self.doc(self.worker, f"exp/full{self.n}/design.v1.md", "experiment_design", body=screening_body() + DESIGN_BODY)
 
     def test_experiment_design_sections(self):
         h = self.node()
-        with self.assertRaisesRegex(ResearchDBError, "DESIGN_SECTION_MISSING: .*an experiment design has the"):
-            self.method(h)
+        missing = self.doc(self.worker, "exp/missing/design.v1.md", "experiment_design", body=DESIGN_BODY)
+        with self.assertRaisesRegex(ResearchDBError, "DESIGN_SECTION_MISSING: .*screening sections"):
+            self.worker.create_experiment("method", "m", missing, self.commit(), 1, 60, hypothesis_id=h,
+                                          method_config=METHOD_CONFIG, estimated_node_h=0.1)
+        self.assertTrue(self.method(h))
         self.worker.create_experiment("method", "m", self.design(), self.commit(), 1, 60, hypothesis_id=h,
                                       method_config=METHOD_CONFIG, estimated_node_h=0.1)
 
@@ -2939,28 +2976,35 @@ class DesignTest(Fixture):
         self.finish_runs(self.worker, sanity)
         self.assertEqual(self.rld.screen_seed_count(), before)
         with self.assertRaisesRegex(ResearchDBError, "sanity check"):
-            self.worker.evaluate_experiment(sanity, self.result_doc(exp=sanity))
+            self.owner_for(sanity).evaluate_experiment(sanity, self.result_doc(exp=sanity))
         with self.assertRaisesRegex(ResearchDBError, "not extended"):
-            self.worker.extend_seeds(sanity, 2)
+            self.owner_for(sanity).extend_seeds(sanity, 2)
         self.assertIsNone(self.rld.get_eligibility(h)["basis_evaluation_id"])
 
     def submit(self, exp: str) -> None:
         run = f"{exp}/s{self.rld.get(exp)['seeds'][0]}"
         if self.rld.get(run) is None:
-            self.worker.create_run(exp, self.rld.get(exp)["seeds"][0])
-        self.worker.update_run(run, exec_status="submitted")
+            self.owner_for(exp).create_run(exp, self.rld.get(exp)["seeds"][0])
+        self.owner_for_run(run).update_run(run, exec_status="submitted")
 
     def test_sanity_and_code_review_before_submission_x10(self):
         h = self.node()
         code = self.commit()
         self.rld.update_project(sanity_required=True, code_review_required=True)
-        exp = self.worker.create_experiment("method", "m", self.design(), code, 1, 60, hypothesis_id=h, n_seeds=1,
-                                            method_config=METHOD_CONFIG, estimated_node_h=0.1)
+        cheap = self.worker.create_experiment("method", "cheap", self.design(), code, 1, 60, hypothesis_id=h, n_seeds=1,
+                                              method_config=METHOD_CONFIG, estimated_node_h=0.1)
+        costly_config = {"lr": 0.1}
+        exp = self.worker.create_experiment("method", "costly", self.design(), code, 8, 3600, hypothesis_id=h, n_seeds=2,
+                                            method_config=costly_config, estimated_node_h=16.0)
         with self.assertRaisesRegex(ResearchDBError, "SANITY_REQUIRED"):
             self.submit(exp)
         sanity = self.worker.create_experiment("sanity", "smoke", self.design(), code, 1, 60, hypothesis_id=h,
                                                method_config=METHOD_CONFIG, estimated_node_h=0.01)
         self.finish_runs(self.worker, sanity)
+        self.submit(cheap)  # a fresh code review is deliberately not a prerequisite for bounded screening
+        costly_sanity = self.worker.create_experiment("sanity", "costly smoke", self.design(), code, 1, 60,
+            hypothesis_id=h, method_config=costly_config, estimated_node_h=0.01)
+        self.finish_runs(self.worker, costly_sanity)
         with self.assertRaisesRegex(ResearchDBError, "CODE_REVIEW_REQUIRED: .*is missing"):
             self.submit(exp)
         reviewer = ResearchDB(self.db, "reviewer/pi")
@@ -2977,8 +3021,8 @@ class DesignTest(Fixture):
         with self.assertRaisesRegex(ResearchDBError, "has blocking issues"):
             self.submit(exp)
         # X10: the reviewer is unavailable for other code: the Leader releases it with a decision record
-        other = self.worker.create_experiment("method", "m", self.design(), self.commit(), 1, 60, hypothesis_id=h,
-                                              n_seeds=1, method_config=METHOD_CONFIG, estimated_node_h=0.1, selection_rationale="x")
+        other = self.worker.create_experiment("method", "m", self.design(), self.commit(), 8, 3600, hypothesis_id=h,
+                                              n_seeds=2, method_config=METHOD_CONFIG, estimated_node_h=16.0, selection_rationale="x")
         self.rld.update_project(sanity_required=False, user_instruction_doc_id=self.doc(
             ResearchDB(self.db, "ui/ui"), "instructions/UI-0400.v1.md", "user_instruction"))
         with self.assertRaisesRegex(ResearchDBError, "CODE_REVIEW_REQUIRED"):
@@ -2992,8 +3036,8 @@ class DesignTest(Fixture):
         self.submit(other)
         # a waiver never overrides a review that found blocking issues; the latest review of a commit decides
         third_code = self.commit()
-        third = self.worker.create_experiment("method", "m", self.design(), third_code, 1, 60, hypothesis_id=h,
-                                              n_seeds=1, method_config=METHOD_CONFIG, estimated_node_h=0.1, selection_rationale="y")
+        third = self.worker.create_experiment("method", "m", self.design(), third_code, 8, 3600, hypothesis_id=h,
+                                              n_seeds=2, method_config=METHOD_CONFIG, estimated_node_h=16.0, selection_rationale="y")
         for n, result in ((3, "clear"), (4, "blocking")):
             (reviewer.docs_root / f"reviews/RV-{n:04d}.v1.md").write_text(result, encoding="utf-8")
             reviewer.register_review(f"reviews/RV-{n:04d}.v1.md", "cr", "code_review", [h], result, f"RV-{n:04d}",
@@ -3036,7 +3080,7 @@ class DesignTest(Fixture):
         (reviewer.docs_root / "reviews").mkdir(exist_ok=True)
         (reviewer.docs_root / "reviews/RV-0001.v1.md").write_text("plan", encoding="utf-8")
         plan = reviewer.register_review("reviews/RV-0001.v1.md", "ap", "ablation_plan", [h], "planned", "RV-0001",
-                                        "pi", "openai/gpt-6-astra", 0.0)
+                                        "pi", "openai/gpt-6-astra", 0.0, basis=reviewer.review_basis(h, "ablation_plan"))
         with self.assertRaisesRegex(ResearchDBError, "names source_review_id"):
             self.worker.create_experiment("ablation", "m", self.design(), code, 1, 60, hypothesis_id=h,
                                           ablation_of=base, method_config=METHOD_CONFIG, estimated_node_h=0.1)
@@ -3067,12 +3111,12 @@ class SearchRelationTest(Fixture):
     def node(self, **kw) -> str:
         self.n += 1
         doc = self.doc(self.rld, f"h/r{self.n}/hypothesis.v1.md", "hypothesis")
-        return self.rld.create_hypothesis(f"h{self.n}", "s", doc, self.literature, **kw)
+        return self.create_hypothesis(f"h{self.n}", "s", doc, self.literature, **kw)
 
     def negative(self, direction: str | None = None) -> str:
         h = self.node(direction=direction)
         self.start(h)
-        self.evaluate(self.method(h), None, sota=(-0.4, -0.1, -0.1))
+        self.evaluate(self.method(h), sota=(-0.4, -0.1, -0.1))
         return h
 
     def test_u06_combine_two_nodes_without_gain(self):
@@ -3107,7 +3151,7 @@ class SearchRelationTest(Fixture):
         self.assertEqual(len([r for r in self.rld.relations(c)["relations"] if r["kind"] == "combines"]), 2)
         self.start(c)
         exp = self.method(c, n_seeds=1, walltime_s=100)
-        self.worker.create_run(exp, self.rld.get(exp)["seeds"][0])
+        self.owner_for(exp).create_run(exp, self.rld.get(exp)["seeds"][0])
         self.rld.update_project(total_limit=20000)
         self.worker.reserve_submission("kc", [f"{exp}/s{self.rld.get(exp)['seeds'][0]}@1"], {"nodes": 1, "walltime_s": 100})
         derived = [r for r in self.rld.relations(a)["relations"] if r["kind"] in ("supports", "invalidates")]
@@ -3119,7 +3163,7 @@ class SearchRelationTest(Fixture):
         untested = self.node(direction="data order")
         self.raw(untested, disposition="retired")  # set aside by the user before any experiment
         user = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0800.v1.md", "user_instruction")
-        project = {**self.rld.get("P-test"), "design_required": True}
+        project = self.rld.get("P-test")
         with self.rld._writer() as tx:
             with self.assertRaisesRegex(ResearchDBError, "names its direction"):
                 self.rld._check_relations(tx, project, [], None, "renamed idea")
@@ -3150,16 +3194,16 @@ class SearchRelationTest(Fixture):
         tasks_before = len(self.rld.find("task"))
         current = self.node()
         self.start(current)
-        exp = self.method(current, n_seeds=1, walltime_s=100)
-        self.worker.create_run(exp, self.rld.get(exp)["seeds"][0])
+        exp = self.method(current, n_seeds=1, walltime_s=3000)
+        self.owner_for(exp).create_run(exp, self.rld.get(exp)["seeds"][0])
         # current directions may use 8000 of 10000; 5400 are recorded outside reservations (the SOTA)
         with self.assertRaisesRegex(ResearchDBError, "BUDGET_EXCEEDED: .*exploration share"):
             self.worker.reserve_submission("k1", [f"{exp}/s{self.rld.get(exp)['seeds'][0]}@1"],
                                            {"nodes": 1, "walltime_s": 3000})
         explore = self.node(exploration=True)
         self.start(explore)
-        e2 = self.method(explore, n_seeds=1, walltime_s=100)
-        self.worker.create_run(e2, self.rld.get(e2)["seeds"][0])
+        e2 = self.method(explore, n_seeds=1, walltime_s=2000)
+        self.owner_for(e2).create_run(e2, self.rld.get(e2)["seeds"][0])
         self.worker.reserve_submission("k2", [f"{e2}/s{self.rld.get(e2)['seeds'][0]}@1"],
                                        {"nodes": 1, "walltime_s": 2000})
         status = self.rld.budget_status()["exploration"]
@@ -3172,6 +3216,13 @@ class SanityScaleTest(Fixture):
     runs that join comparisons, not of it."""
 
     def test_minimal_sanity_run_is_imported_without_the_protocol_scale(self):
+        # Imported baseline evidence ensures the failure below belongs to the method's scale, not its comparator.
+        design = self.doc(self.architect, "exp/scaled-base.v1.md", "experiment_design")
+        base = self.architect.create_experiment("baseline", "sota", design, self.harness, 1, 1800,
+                                               method_config=METHOD_CONFIG, estimated_node_h=1.0)
+        self.imported(base)
+        self.architect.evaluate_experiment(base, self.result_doc(exp=base))
+        self.rld.update_project(sota_experiment_id=base)
         from unittest import mock
         h = self.hypothesis()
         self.start(h)
@@ -3199,6 +3250,7 @@ class HarnessSanityFirstTest(Fixture):
         create_db.create_db(self.db)
         self.rld = ResearchDB(self.db, "rld/main")
         self.worker = ResearchDB(self.db, "worker/w1")
+        self.architect = ResearchDB(self.db, "architect/root")
         self.n = 0
         self.effects = {}
         self.repo = Path(self.tmp.name) / "code"
@@ -3208,8 +3260,9 @@ class HarnessSanityFirstTest(Fixture):
         setup = self.doc(self.rld, "project/min-setup.v1.md", "min_setup")
         specs = self.doc(self.rld, "project/metric-spec.v1.json", "metric_spec", body=json.dumps(SPECS))
         protocol = self.doc(self.rld, "project/protocol.v1.json", "protocol", body=json.dumps(PROTOCOL))
-        self.rld.create_project("P-test", "test", setup, "acc", "higher", True, SECONDARY, SEEDS,
+        self.rld.create_project("P-test", "test", setup, "acc", "higher", SECONDARY, SEEDS,
                                 repo_path=str(self.repo), metric_spec_doc_id=specs, protocol_doc_id=protocol)
+        self.rld.assign_architect()
 
     def test_repo_path_can_be_corrected_before_the_freeze(self):
         """A project created with the wrong repository (e.g. the project root instead of code/) names the right one
@@ -3220,19 +3273,19 @@ class HarnessSanityFirstTest(Fixture):
         with self.assertRaisesRegex(ResearchDBError, "not a git repository with a commit"):
             self.rld.update_project(repo_path=str(other))
         self.rld.update_project(repo_path=str(self.repo))
-        design = self.doc(self.worker, "exp/s2/design.v1.md", "experiment_design")
-        self.worker.create_experiment("sanity", "sota", design, self.harness, 1, 60, method_config=METHOD_CONFIG, estimated_node_h=0.01)
+        design = self.doc(self.architect, "exp/s2/design.v1.md", "experiment_design")
+        self.architect.create_experiment("sanity", "sota", design, self.harness, 1, 60, method_config=METHOD_CONFIG, estimated_node_h=0.01)
         with self.assertRaisesRegex(ResearchDBError, "freezing the harness needs"):
             self.rld.update_project(repo_path=str(self.repo))
 
     def test_sanity_before_freeze_only(self):
-        design = self.doc(self.worker, "exp/s/design.v1.md", "experiment_design")
-        sanity = self.worker.create_experiment("sanity", "sota", design, self.harness, 1, 60, method_config=METHOD_CONFIG, estimated_node_h=0.01)
+        design = self.doc(self.architect, "exp/s/design.v1.md", "experiment_design")
+        sanity = self.architect.create_experiment("sanity", "sota", design, self.harness, 1, 60, method_config=METHOD_CONFIG, estimated_node_h=0.01)
         self.assertEqual(self.rld.get(sanity)["kind"], "sanity")
         with self.assertRaisesRegex(ResearchDBError, "freeze the harness"):
-            self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 60, method_config=METHOD_CONFIG, estimated_node_h=0.01)
+            self.architect.create_experiment("baseline", "sota", design, self.harness, 1, 60, method_config=METHOD_CONFIG, estimated_node_h=0.01)
         self.rld.update_project(harness_ref=self.harness, harness_paths=["harness"])
-        self.assertTrue(self.worker.create_experiment("baseline", "sota", design, self.harness, 1, 60,
+        self.assertTrue(self.architect.create_experiment("baseline", "sota", design, self.harness, 1, 60,
                                                       method_config=METHOD_CONFIG, estimated_node_h=0.01))
 
     def test_help_lists_optional_parameters(self):

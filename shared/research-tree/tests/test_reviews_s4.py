@@ -7,6 +7,7 @@ fixtures, not reviewer output."""
 from __future__ import annotations
 
 import json
+import re
 import sys
 import unittest
 from pathlib import Path
@@ -40,10 +41,10 @@ class S4Fixture(Fixture):
         self.k = 0
 
     def candidate_node(self) -> tuple[str, str, str]:
-        h, exp = self.concluded("beats_sota")
+        h, exp = self.concluded()
         self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
         self.recheck_pass(h, exp)
-        self.rld.update_project(recheck_required=True)
+        self.rld.update_project()
         return h, exp, self.rld.get_eligibility(h)["basis_evaluation_id"]
 
     def register(self, h: str, dimension: str, payload: dict, ev: str, session: str | None = None,
@@ -71,7 +72,9 @@ class S4Fixture(Fixture):
     def with_applicability(self, h: str, declared: dict | None) -> None:
         """A new hypothesis document whose '评审适用性' block declares the claim's own scope (a new claim)."""
         self.n += 1
-        body = f"doc {self.n}\n\n## Claim map\n\n| claim | evidence |\n|---|---|\n| faster | runs |\n\n"
+        original = (self.root / "docs" / self.rld.get(self.rld.get(h)["doc_id"])["path"]).read_text()
+        body = re.sub(r"^## (?:Claim map|评审适用性)\n.*?(?=^## |\Z)", "", original, flags=re.M | re.S)
+        body += "\n## Claim map\n\n| claim | evidence |\n|---|---|\n| faster | runs |\n\n"
         if declared is not None:
             body += f"## 评审适用性\n\n```json\n{json.dumps(declared)}\n```\n"
         doc = self.doc(self.rld, f"h/{h}/hypothesis.v{self.n}.md", "hypothesis", body=body)
@@ -93,7 +96,7 @@ class ChecklistTest(S4Fixture):
         self.assertEqual((finding["pattern"], finding["review_issue"]["item"]), ("numbers:C", "C"))
         self.all_pass(h, ev, skip=("numbers",))
         state = self.rld.get_eligibility(h)
-        self.assertEqual(sorted(state["reasons"]), ["OBLIGATION_OPEN", "RECHECK_FAILED"])
+        self.assertEqual(sorted(state["reasons"]), ["CONFIRMATION_REQUIRED", "OBLIGATION_OPEN", "RECHECK_FAILED"])
         with self.assertRaisesRegex(ResearchDBError, "OBLIGATION_OPEN|CONFIRMATION_REQUIRED|GO"):
             self.rld.decide("P-test", {"status": "go"}, "GO", doc_id=self.report_doc("go"))
 
@@ -133,7 +136,15 @@ class ChecklistTest(S4Fixture):
         rows = {r["dimension"]: r for r in self.rld.get_eligibility(h)["rechecks"]}
         self.assertEqual((rows["novelty"]["state"], rows["novelty"]["result"]), ("exempt", "not_applicable"))
         self.assertEqual(rows["numbers"]["applicability"]["required"], True)
-        self.assertTrue(self.rld.get_eligibility(h)["eligible"], self.rld.get_eligibility(h)["reasons"])
+        novelty_review = rows["novelty"]["review_id"]
+        confirmation = self.complete_confirmation(h, exp, review=False)
+        for dimension in ("numbers", "protocol"):
+            self.register(h, dimension, recheck_payload(self, dimension, "pass", confirmation), confirmation)
+        final = self.rld.get_eligibility(h)
+        self.assertTrue(final["eligible"], final["reasons"])
+        novelty = next(row for row in final["rechecks"] if row["dimension"] == "novelty")
+        self.assertEqual((novelty["state"], novelty["result"], novelty["review_id"]),
+                         ("exempt", "not_applicable", novelty_review))
         # a reviewer who finds an applicable problem in an exempted dimension is heard
         exempt = review_rules.applicability(self.protocol_content, {"novelty": {"required": False, "reason": "r"}})
         conflict = norm("novelty", receipt("novelty", "fail", {"H": "fail"}), exempt)
@@ -194,100 +205,81 @@ class FamilyTest(unittest.TestCase):
         self.assertEqual({m: review_rules.family(m) for m in aggregated}, aggregated)
         for unknown in ("openrouter/acme/foo-1", "azure/my-deployment", "", None):
             self.assertIsNone(review_rules.family(unknown))
-        import discovery
-        self.assertEqual(discovery.family("openrouter/anthropic/claude-haiku-5-5"), "anthropic")  # one table
+        import review_call
+        self.assertEqual(review_call.family("openrouter/anthropic/claude-haiku-5-5"), "anthropic")  # one table
 
 
 class NoveltyTest(S4Fixture):
-    def novelty(self, about: str, payload: dict, basis: dict | None, session: str | None = None, **kw) -> str:
-        self.k += 1
-        session = session or f"RV-{self.k:04d}"
-        version = 1 + sum(1 for d in self.rld.reviews() if d.get("review_session") == session)
-        path = f"reviews/{session}.v{version}.md"
-        (self.reviewer.docs_root / path).write_text(json.dumps(payload), encoding="utf-8")
-        return self.reviewer.register_review(path, "novelty", "novelty_precheck", [about], payload["verdict"], session,
-                                             "pi", "openai/gpt-6-astra", 0.02, basis=basis, payload=payload, **kw)
+    def novelty(self, about: str, payload: dict, basis: dict, evaluation: str, session=None, **kw) -> str:
+        return self.register(about, "novelty", payload, evaluation, session=session, basis=basis, **kw)
 
-    def paper(self, verified: bool) -> str:
-        body = ('---\ntitle: "A paper"\narxiv_id: "2401.00001"\nverification: verified\n---\n\n## 出处\n\nx\n')
-        doc = self.doc(self.worker, f"literature/LIT-9{self.n}.v1.md", "literature", body=body)
-        if verified:
-            self.raw(doc, literature_check="verified")  # as verify_literature records it
-        return doc
+    def subject(self):
+        h, exp = self.concluded()
+        ev = self.rld.get(exp)["evaluation_id"]
+        return h, ev, self.reviewer.review_basis(h, "candidate_recheck", "novelty", ev)
 
-    def abandon(self, lit: str, identifier: str) -> dict:
-        return {"verdict": "ABANDON", "score": 2, "delta_sentence": "none", "abandon_paper": "arXiv:2401.00001",
-                "closest_prior_work": [{"title": "A paper", "id": "arXiv:2401.00001", "overlap": "all", "difference": "none"}],
-                "abandon_evidence": {"literature_doc_id": lit, "identifier": identifier, "covered_claim": "the claim",
-                                     "location": "Section 3, Table 2", "explanation": "the same method and result"}}
+    def ask(self, queries):
+        return {**receipt("novelty", "uncertain", {"H": "uncertain"}), "requested_queries": queries}
 
-    def test_reg_s4_05_abandon_needs_a_verified_source_bound_to_the_claim(self):
-        h = self.hypothesis()
-        basis = self.reviewer.review_basis(h, "novelty_precheck")
-        invented = self.rld.get(self.novelty(h, self.abandon(self.paper(False), "arXiv:2401.00001"), basis))
-        self.assertEqual((invented["reported_result"], invented["review_result"]), ("ABANDON", "NEEDS_EVIDENCE"))
-        self.assertTrue(invented["normalization_warnings"][0].startswith("ABANDON_UNVERIFIED"))
-        lit = self.paper(True)
-        wrong_id = self.rld.get(self.novelty(h, self.abandon(lit, "arXiv:9999.99999"), basis))
-        self.assertEqual(wrong_id["review_result"], "NEEDS_EVIDENCE")
-        real = self.rld.get(self.novelty(h, self.abandon(lit, "2401.00001"), basis))
-        self.assertEqual(real["review_result"], "ABANDON")
-        self.rld.update_hypothesis(h, statement="a different claim")  # a new claim revision
+    def test_novelty_evidence_and_claim_identity_are_required_for_a_pass(self):
+        h, ev, basis = self.subject()
+        missing = self.rld.get(self.novelty(h, receipt("novelty", "pass", paths=["docs/missing-paper.md"]), basis, ev))
+        self.assertEqual((missing["reported_result"], missing["review_result"]), ("pass", "uncertain"))
+        self.assertTrue(any(w.startswith("EVIDENCE_UNVERIFIED") for w in missing["normalization_warnings"]))
+        bound = self.rld.get(self.novelty(h, receipt("novelty", "pass"), basis, ev))
+        self.assertEqual(bound["review_result"], "pass")
+        self.rld.update_hypothesis(h, statement="a different claim")
         with self.rld.reader() as tx:
-            self.assertFalse(self.rld._review_bound(tx, real, h))
+            self.assertFalse(self.rld._review_bound(tx, bound, h, "novelty", ev))
+        with self.assertRaisesRegex(ResearchDBError, "REVIEW_INVALID"):
+            self.novelty(h, {"verdict": "ABANDON", "score": 2}, basis, ev)
 
-    def test_reg_s4_06_follow_up_once_repeat_nothing(self):
-        h = self.hypothesis()
-        basis = self.reviewer.review_basis(h, "novelty_precheck")
-        ask = {"verdict": "NEEDS_EVIDENCE", "score": 5, "closest_prior_work": [], "delta_sentence": "unclear",
-               "abandon_paper": None, "requested_queries": ["heavy ball momentum fixed budget", "polyak momentum toy"]}
-        first = self.novelty(h, ask, basis, session="RV-0100")
+    def test_follow_up_once_repeats_neither_search_nor_model_cost(self):
+        h, ev, basis = self.subject()
+        ask = self.ask(["heavy ball momentum fixed budget", "polyak momentum toy"])
+        first = self.novelty(h, ask, basis, ev, session="RV-0100")
         cost = self.rld.get("P-test")["review_cost_usd"]
-        # the same receipt delivered again (the same file and content): the same review, no second cost
         path = self.rld.get(first)["path"]
-        again = self.reviewer.register_review(path, "novelty", "novelty_precheck", [h], "NEEDS_EVIDENCE", "RV-0100",
-                                              "pi", "openai/gpt-6-astra", 0.02, basis=basis, payload=ask)
+        again = self.reviewer.register_review(path, "novelty", "candidate_recheck", [h], "uncertain", "RV-0100",
+            "pi", "openai/gpt-6-astra", 0.01, dimension="novelty", evaluation_id=ev, basis=basis, payload=ask)
         self.assertEqual((again, self.rld.get("P-test")["review_cost_usd"]), (first, cost))
         calls = []
-
         def search(query, sources=None, limit=10):
             calls.append(query)
             return [{"title": f"found for {query}", "source": "arxiv"}]
         with mock.patch("literature.search", search):
             one = self.rld.literature_followup(first)
-            two = self.rld.literature_followup(first)  # a resumed session repeats the call
-        self.assertEqual(calls, ask["requested_queries"])  # each query run once
+            two = self.rld.literature_followup(first)
+        self.assertEqual(calls, ask["requested_queries"])
         self.assertEqual(one["sha256"], two["sha256"])
         self.assertTrue(all(e["reused"] for e in two["entries"]))
         manifest = json.loads((self.root / one["manifest"]).read_text())
         self.assertEqual([q["status"] for q in manifest["queries"]], ["done", "done"])
-        # the follow-up round, then no second automatic round
-        follow = self.novelty(h, {**ask, "requested_queries": ["one more"]}, basis, session="RV-0100",
-                              parent_review_id=first, evidence_set={"path": one["manifest"], "sha256": one["sha256"]})
+        follow = self.novelty(h, self.ask(["one more"]), basis, ev, session="RV-0100", parent_review_id=first,
+                              evidence_set={"path": one["manifest"], "sha256": one["sha256"]})
         self.assertEqual(self.rld.get(follow)["parent_review_id"], first)
         with self.assertRaisesRegex(ResearchDBError, "FOLLOWUP_LIMIT"):
             self.rld.literature_followup(follow)
 
-    def test_reg_s4_07_the_subject_is_fixed_during_follow_up(self):
+    def test_subject_remains_fixed_during_follow_up(self):
         import review_call
-        h = self.hypothesis()
-        basis = self.reviewer.review_basis(h, "novelty_precheck")
-        ask = {"verdict": "NEEDS_EVIDENCE", "score": 5, "closest_prior_work": [], "delta_sentence": "unclear",
-               "abandon_paper": None, "requested_queries": ["heavy ball momentum fixed budget"]}
-        first = self.novelty(h, ask, basis)
+        h, ev, basis = self.subject()
+        first = self.novelty(h, self.ask(["heavy ball momentum fixed budget"]), basis, ev)
         with mock.patch("literature.search", lambda q, s=None, limit=10: []):
             done = self.rld.literature_followup(first)
-        # literature added to the project meanwhile does not make the node's receipts stale
         self.doc(self.worker, "literature/LIT-unrelated.v1.md", "literature")
-        self.assertEqual(self.reviewer.review_basis(h, "novelty_precheck"), basis)
-        evidence = review_call.followup_evidence(self.root, self.db, done["manifest"], "novelty_precheck", h, basis)
+        self.assertEqual(self.reviewer.review_basis(h, "candidate_recheck", "novelty", ev), basis)
+        evidence = review_call.followup_evidence(self.root, self.db, done["manifest"], "candidate_recheck", h, basis)
         self.assertEqual(evidence["parent_review_id"], first)
+        with self.assertRaisesRegex(review_call.ReviewError, "not a candidate_recheck review of"):
+            review_call.followup_evidence(self.root, self.db, done["manifest"], "candidate_recheck", "H-9999", basis)
+
         self.rld.update_hypothesis(h, statement="changed during the follow-up")
-        now = self.reviewer.review_basis(h, "novelty_precheck")
+        current = self.reviewer.review_basis(h, "candidate_recheck", "novelty", ev)
         with self.assertRaisesRegex(review_call.ReviewError, "the subject changed"):
-            review_call.followup_evidence(self.root, self.db, done["manifest"], "novelty_precheck", h, now)
-        late = self.novelty(h, {**ask, "verdict": "PROCEED", "requested_queries": []}, basis, parent_review_id=first)
-        self.assertTrue(self.rld.get(late)["review_basis_changed"])  # history only
+            review_call.followup_evidence(self.root, self.db, done["manifest"], "candidate_recheck", h, current)
+        late = self.novelty(h, receipt("novelty", "pass"), basis, ev, parent_review_id=first)
+        self.assertTrue(self.rld.get(late)["review_basis_changed"])
 
 
 class ClosureTest(S4Fixture):
@@ -342,25 +334,34 @@ class ClosureTest(S4Fixture):
             self.rld.resolve_obligation(other["id"], "claim_narrowed", passing_protocol)
         self.rld.resolve_obligation(other["id"], "re_evaluated", passing_protocol)
         self.register(h, "numbers", recheck_payload(self, "numbers", "pass", ev), ev)
-        self.assertTrue(self.rld.get_eligibility(h)["eligible"], self.rld.get_eligibility(h))
+        code_bound = {r["dimension"]: r["review_id"] for r in self.rld.get_eligibility(h)["rechecks"]
+                      if r["dimension"] not in ("numbers", "protocol")}
+        confirmation = self.complete_confirmation(h, exp, review=False)
+        for dimension in ("numbers", "protocol"):
+            self.register(h, dimension, recheck_payload(self, dimension, "pass", confirmation), confirmation)
+        final = self.rld.get_eligibility(h)
+        self.assertTrue(final["eligible"], final)
+        self.assertEqual({r["dimension"]: r["review_id"] for r in final["rechecks"]
+                          if r["dimension"] in code_bound}, code_bound)
+        self.assertEqual(self.rld.get(ob["id"])["resolution"]["evidence_id"], fixed)
+        self.assertEqual(self.rld.get(other["id"])["resolution"]["evidence_id"], passing_protocol)
 
 
-class MigrationTest(S4Fixture):
-    def test_old_receipts_migrate_conservatively(self):
+class UnsupportedHistoryTest(S4Fixture):
+    def test_unbound_receipts_fail_closed_and_no_migration_api_exists(self):
         h, exp, ev = self.candidate_node()
-        self.all_pass(h, ev)
+        self.complete_confirmation(h, exp)
         self.assertTrue(self.rld.get_eligibility(h)["eligible"])
         docs = {d["review_dimension"]: d["id"] for d in self.rld.reviews(kind="candidate_recheck")}
-        for doc in docs.values():  # as registered before S4: no effective result
+        for doc in docs.values():
             self.raw(doc, effective_result=None)
         self.raw(docs["numbers"], review_result="fail")
-        report = self.rld.migrate_reviews(dry_run=True)
-        self.assertEqual(report["negative_kept_open"], [docs["numbers"]])
-        self.rld.migrate_reviews(dry_run=False)
-        self.rld.migrate_reviews(dry_run=False)
-        self.assertEqual(len(self.rld.obligations(about=h, status="OPEN")), 1)
+        before = self.rld.export_snapshot()
+        self.assertFalse(hasattr(self.rld, "migrate_reviews"))
         rows = {r["dimension"]: r for r in self.rld.get_eligibility(h)["rechecks"]}
         self.assertTrue(all(r["needs_recheck"] and r["state"] == "stale" for r in rows.values()))
+        self.assertFalse(self.rld.get_eligibility(h)["eligible"])
+        self.assertEqual(self.rld.export_snapshot(), before)
 
 
 if __name__ == "__main__":

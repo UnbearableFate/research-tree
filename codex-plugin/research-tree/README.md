@@ -8,7 +8,7 @@
 需要 POSIX 环境、Python 3、uv 和已登录的 Codex CLI。已验证 CLI 0.160.0；需支持插件、
 stdio MCP、`codex exec --json` / `exec resume`、`codex queue` 和生命周期 hooks。
 
-解压 `research-tree-codex-0.1.0.zip`，然后：
+解压 `research-tree-codex-0.2.0.zip`，然后：
 
 ```bash
 codex plugin marketplace add /absolute/path/to/research-tree-codex
@@ -23,11 +23,11 @@ codex plugin add research-tree@research-tree
 填写 `plan.md`（研究目标与初始假说必填，其余各节可留给 Leader 决定）、按需修改 `research-tree.yaml` 后，
 审阅并信任插件 hooks，再输入 `$research-tree init`（计划默认 `plan.md`，配置默认本目录的 `research-tree.yaml`）。
 
-主会话为 Research Leader。新模板显式使用 `workflow.mode: fast_screening` 与
-`discovery.mode: incremental`：先写目标、最小设定、协议/指标、资源上限和根节点框架任务，
+主会话为 Research Leader。本版仅接受 version 3 配置和 schema 23 数据库，固定运行快速筛选与增量发现，
+没有工作流或发现模式开关。先写目标、最小设定、协议/指标、资源上限和根节点框架任务，
 请用户确认最小范围。确认之前不能启动 Architect/Worker 或提交作业。候选与文献可以继续准备，
-无需等完整候选池才能确认和构建公共框架。旧配置未声明新模式时保持 strict/full；显式
-`strict`、`full`、`precheck` 保留相应严格/整批门，不会因升级静默放宽。
+无需等完整候选池才能确认和构建公共框架。旧项目、配置和数据库被拒绝并提示迁移，不自动升级或改写。
+保留旧项目备份，在新目录从 v3 模板重建计划、配置和证据登记，重新确认当前范围；不要复制旧库或只改版本号。
 
 UI 按需使用，不需要常驻 UI agent。`$research-tree pane` 生成当前研究树、结果对比和项目状态页面；
 需要独立对话窗口时执行 `$research-tree ui`，按返回命令在另一个终端打开。窗口中的
@@ -35,9 +35,9 @@ UI 按需使用，不需要常驻 UI agent。`$research-tree pane` 生成当前�
 `/config show` 查看生效配置，`/config apply` 应用用户修改后的配置，`/quit` 只关闭对话窗口。
 也可以在主会话直接下达有效指令，无需在 UI 重复授权。UI 不参与科学决策或实验准入，页面失败不回滚已成功的科学记录。
 
-## 默认快速研究循环
+## 快速研究循环
 
-1. 用户确认最小范围后，Experiment Architect 沿用根节点 worker 的身份、会话、任务所有权和锁，
+1. 用户确认最小范围后，根节点唯一执行者 Experiment Architect 使用固定 `architect/root` 身份，
    构建共享 harness、统计、baseline 与统一评测实现。框架 sanity 验收并由 Leader 冻结后开始正式运行
 2. Hypothesis Explorer 同时阅读文献、基础假说和负向/不确定发现，提出可证伪候选、变体、组合
 3. Leader 逐个接纳就绪候选：`discovery select --candidate CAND-编号`，再
@@ -50,12 +50,12 @@ UI 按需使用，不需要常驻 UI agent。`$research-tree pane` 生成当前�
 轻量候选有五项：`prediction`、`intervention`、`comparator`、
 `resource_ceiling: {nodes: 正整数, walltime_s: 正整数}`、`stop_conditions`（字符串）。
 必须在已确认范围和预算内；代码或科学配置都可构成干预，输出路径、walltime、seed 等执行字段不算。
-思想来源、代码起点、比较参照和投入状态分开：fast 模式的 `parent_id` 为思想祖先，
+思想来源、代码起点、比较参照和投入状态分开：`parent_id` 为思想祖先，
 `code_parent_id` 与 branch `base_commit` 指明代码起点，`comparator_experiment_id` 指明参照；
 未获胜基础假说也能提出并行变体。节点/实验设计采用五个精确章节：可证伪预测、干预、匹配对照、
 资源上限、停止与继续条件；节点额外复制已批准的问题锚点，资源上限节为 JSON。
 
-fast_screening 的普通筛选不等待每次新的模型代码审查，保留同方法 sanity、数据/指标有效性、
+普通廉价筛选不等待每次新的模型代码审查，保留同方法 sanity、数据/指标有效性、
 原始可追溯结果、身份、匹配对照、预算和防重复；当前真实泄漏/指标错误仍阻断有效比较。
 误读路径或协议时保留原异议、补证、复核并明确裁决，不靠反复换 reviewer 清空问题。
 有效 baseline 的一个匹配 seed 可支持首轮筛选，其余 seed 继续；部分参照不等于完整 SOTA 或 GO。
@@ -66,10 +66,11 @@ fast_screening 的普通筛选不等待每次新的模型代码审查，保留�
 
 Explorer/Analyst 由 `research_control(action="explorer"|"analyst", params={"task":...})` 启动，只读，
 不写文件/DB、不运行实验、不宣告 GO；返回真实文献/实验/评估/运行和版本化文件引用。
-Leader 保存其交付。Architect 用 `action="architect"` 与根节点 ID 启动，不能与 root worker 别名并发起第二个 writer。
+Leader 保存其交付。根节点先用 `assign_architect(architect_id="root")` 绑定，再用 `action="architect"` 与根节点 ID 启动。
+`assign_worker` 与 `action="worker"` 只接受假说节点。Architect 的身份、会话字段独立，不存在根 worker 别名或角色回退。
 
-`workflow.mode` 与 `discovery.mode` 分别控制实验路径和发现路径：`incremental + strict` 仍逐候选
-检查严格回执/文献；`full`/`precheck` 保留整批发现门，`off` 只跳过发现，不跳过实验有效性或用户授权。
+Explorer 实际提案放在 `cache/discovery/proposals/*.json`，每份为 `{source, candidates}`；`source`
+标明真实来源（如 `explorer/main`）。Leader 保存、合并并逐候选检查，不以整批报告或其他候选的结果替代准入。
 
 ## 与 Claude mod 的功能对应
 
@@ -79,7 +80,7 @@ Leader 保存其交付。Architect 用 `action="architect"` 与根节点 ID 启�
 | 主会话RLD | 当前Codex主会话，hooks记录会话ID和实际模型 |
 | 按需研究界面 | pane/build 生成页面；可选独立对话窗口每条用户消息启动临时只读 UI 会话 |
 | Explorer / Evidence Analyst | 只读建议会话，Leader 保存候选、证据与交付并作决定 |
-| Experiment Architect | 根节点 worker 的同一身份/锁，维护共享框架和基线 |
+| Experiment Architect | 独立的根节点身份、会话与锁，只维护共享框架和基线 |
 | worker子代理、SendMessage续接 | `codex exec` 独立会话，活跃时queue、空闲时按已绑定ID resume |
 | 节点worker绑定与恢复 | 同一共享数据库字段、恢复包和版本化文档；进程锁防重复启动 |
 | `research_db` 与权限/预算/科学门槛 | 调用同一份共享Python API；MCP角色由控制器固定 |
@@ -103,13 +104,11 @@ Leader 在 pending 期间继续独立工作，不把后台进程的超时上限�
 worker模型与effort来自现行配置。`inherit` 使用hooks记录的主会话模型；无法取得时明确失败，
 不擅自更换模型。平台技能名会写入worker指令，worker须实际读取可用技能；不存在时要报告缺失。
 Explorer/Analyst 的模型与 effort 来自对应角色配置，恢复时沿用其既有身份和会话；它们不继承执行角色的写权限。
-full discovery 的规划阶段用 `research_control lens` 启动只读候选助手，模型来自 models.lens_assistant。
-助手使用固定 assistant 身份，不写科学记录或文件，也不继承 worker 的 Full access；实际输出由控制器保存，Leader 核验后合并。
 worker在登记的checkout/worktree中运行，并允许写研究项目目录；默认使用workspace-write沙箱。
 用户在当前 CODEX_HOME/config.toml 明确设置 `sandbox_mode = "danger-full-access"` 时，worker 继承该 Full access 选择。
 插件 MCP 传递 CODEX_HOME，确保后台会话、登录、插件/hooks 与消息队列使用同一隔离配置目录。
 若启动 Codex 时设置了 `CLAUDE_CONFIG_DIR` 或 `PI_CODING_AGENT_DIR`，插件及后台 MCP 也传递这些配置目录，所选评审后端使用同一登录环境；未设置时保留各 CLI 的默认配置路径。
-UI、Explorer、Analyst 和 lens 使用 read-only 沙箱。后台exec不提供交互式权限提升，失败应交Leader处理，不自动关闭沙箱。
+UI、Explorer 和 Analyst 使用 read-only 沙箱。后台exec不提供交互式权限提升，失败应交Leader处理，不自动关闭沙箱。
 
 `research_control worker/architect/explorer/analyst` 返回的 starting 只表示已受理。`agents` 查看活跃锁、线程ID、退出码和运行路径；
 `cache/codex/runs/<id>/` 保存请求、JSONL事件、标准错误、最终回复与状态。
@@ -150,4 +149,4 @@ python3 scripts/build_plugins.py --target all
 [hooks文档](https://learn.chatgpt.com/docs/hooks)。
 
 
-发布包内的 `RELEASE.md` 区分模拟/传输夹具、真实宿主 CPU toy training 与未执行的 GPU/调度器科研训练，并保留完整 A/B/C benchmark 开放项。
+发布包内的 `RELEASE.md` 区分当前破坏性版本的验证与历史证据。使用本轮实际运行结果，不沿用旧测试总数；夹具、原生宿主、真实模型、GPU/调度器和科研效能验证分别记录。

@@ -1,3 +1,11 @@
+# 当前维护入口与历史档案说明
+
+当前接口只支持配置 version 3、数据库 schema 23，以及固定的快速筛选与增量发现。请以 [README](README.md)、[当前规则](shared/research-tree/rules/research-tree-rules.md) 和 [验证范围](shared/research-tree/RELEASE.md) 为准。
+
+下文是 2026-10-09 的历史交接记录，保留用于理解既有证据和未完成项，不是当前执行计划。旧 S0–S7 驱动、升级控制器及对应助手脚本已从活动代码中移除；其中的命令、配置、角色和旧数据库要求不适用于当前版本。不要据此恢复兼容模式或改写历史项目。当前仍可用的虚构测试底座见 [scripts/scenarios/README.md](scripts/scenarios/README.md)。
+
+---
+
 # 交接文档：research-tree 证据一致性改进轮（S0–S7）
 
 更新：2026-10-09。主分支 `bug-fix-1008`（起点 `253d50d`）。任务定义：

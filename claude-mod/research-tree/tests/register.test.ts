@@ -73,11 +73,11 @@ test('a subagent is never the RLD: a worker acts as itself, other helpers only r
   expect(internals.subagentCallBlock(calls.slice(1), 'worker/h0001')).toBeUndefined()
   expect(internals.subagentCallBlock(calls.slice(1), undefined)).toContain('未绑定身份')
   expect(internals.subagentCallBlock(calls, undefined)).toContain('未绑定身份')
-  for (const actor of ['rld/main', 'worker/h0001', 'assistant/lens']) {
+  for (const actor of ['rld/main', 'worker/h0001', 'explorer/main']) {
     expect(internals.subagentCallBlock(internals.researchCalls(`${db} --actor ${actor} context_pack '{}'`), undefined))
       .toContain('未绑定身份')
   }
-  expect(internals.subagentCallBlock(internals.researchCalls(`${db} --actor assistant/lens context_pack '{}'`), 'assistant/lens'))
+  expect(internals.subagentCallBlock(internals.researchCalls(`${db} --actor explorer/main context_pack '{}'`), 'explorer/main'))
     .toBeUndefined()
   expect(internals.subagentCallBlock(internals.researchCalls('python tools/research_tree.py phase --set confirmed'), 'worker/h0001'))
     .toContain('research_tree.py phase')
@@ -93,7 +93,7 @@ test('reviews go through research_review only: no direct pi or claude -p, no rev
   for (const command of ['claude --version', 'echo pi', 'python tools/review_call.py --kind code_review --brief b --about H-0001']) {
     expect(internals.reviewerBypass(command)).toBeUndefined()
   }
-  expect(internals.subagentCallBlock(internals.researchCalls('python tools/review_call.py --kind triage --brief b --about P'), 'worker/h0001'))
+  expect(internals.subagentCallBlock(internals.researchCalls('python tools/review_call.py --kind code_review --brief b --about P'), 'worker/h0001'))
     .toContain('不发起评审')
 })
 
@@ -178,7 +178,7 @@ test('the UI shell can query and write its outbox but cannot control or imperson
     "python tools/research_db.py --actor rld/main get '{}'",
     'python tools/research_tree.py phase --set confirmed',
     'python tools/research_tree.py config apply',
-    'python tools/review_call.py --kind triage --brief b --about P',
+    'python tools/review_call.py --kind code_review --brief b --about P',
   ]) {
     const result = await bash(host, { agentId: 'ui-run', command } as never, next)
     expect(result.deny).toBeDefined()
@@ -215,7 +215,7 @@ test('post_to_ui validates the character boundary before any UI side effect', as
 
 test('confirmation requests need document references before changing phase or notifying the UI', async () => {
   const { host, state, files, window } = uiHost({})
-  const project = { project_id: 'p', phase: 'planning', root: '/w/study/research/p', db: '/w/study/research/p/research_tree.db' }
+  const project = { format_version: 3, project_id: 'p', phase: 'planning', root: '/w/study/research/p', db: '/w/study/research/p/research_tree.db' }
   state.set('project', project)
   files.set('/w/study/.research-tree.json', JSON.stringify(project))
   const calls: string[][] = []
@@ -247,32 +247,32 @@ test('confirmation requests need document references before changing phase or no
   expect(window()[0]).toContain('project/reports/plan.v1.md')
 })
 
-test('a discovery refusal leaves no durable confirmation request or UI message', async () => {
+test('a failed scope preflight leaves no durable confirmation request or UI message', async () => {
   const { host, state, window } = uiHost({})
-  state.set('project', { project_id: 'p', phase: 'planning', root: '/w/study/research/p', db: '/w/study/research/p/research_tree.db' })
+  state.set('project', { format_version: 3, project_id: 'p', phase: 'planning', root: '/w/study/research/p', db: '/w/study/research/p/research_tree.db' })
   const calls: string[][] = []
   const processHost = host as unknown as { process: { run: (argv: string[]) => Promise<unknown> } }
   processHost.process.run = async argv => {
     calls.push(argv)
     return { exitCode: 0, stderr: '', stdout: argv[1]!.endsWith('send_message.py')
       ? '{"id":"rld-0001","type":"confirm_request"}'
-      : JSON.stringify({ ok: true, result: { blocked: 'Discovery incomplete' } }) }
+      : JSON.stringify({ ok: true, result: { blocked: 'Scope preflight unavailable' } }) }
   }
   const result = await registeredTool('mcp__research-tree__post_to_ui')(host, {
     type: 'confirm_request', text: 'Please confirm the plan.', docs: ['project/reports/plan.v1.md'],
   } as never)
   expect(result.isError).toBe(true)
-  expect(String(result.result)).toContain('Discovery incomplete')
+  expect(String(result.result)).toContain('Scope preflight unavailable')
   expect(calls).toHaveLength(1)
   expect(calls[0]![2]).toBe('discovery')
   expect((state.get('project') as { phase: string }).phase).toBe('planning')
   expect(window()).toEqual([])
 })
 
-test('lens runs record requested and observed models while their bound identity remains read only', async () => {
+test('Explorer runs record requested and observed models while their bound identity remains read only', async () => {
   const { host, state } = uiHost({})
-  state.set('project', { project_id: 'p', phase: 'planning', root: '/w/study/research/p', db: '/w/study/research/p/research_tree.db' })
-  const conf = { discovery: { mode: 'full', lenses: ['method-transfer'], seed_lenses: [] }, models: { lens_assistant: { model: 'inherit', effort: 'medium' } } }
+  state.set('project', { format_version: 3, project_id: 'p', phase: 'planning', root: '/w/study/research/p', db: '/w/study/research/p/research_tree.db' })
+  const conf = { version: 3, models: { explorer: { model: 'inherit', effort: 'medium' } } }
   const calls: string[][] = []
   const processHost = host as unknown as { process: { run: (argv: string[]) => Promise<unknown> } }
   processHost.process.run = async argv => {
@@ -285,15 +285,15 @@ test('lens runs record requested and observed models while their bound identity 
     if (event === 'agent.spawn') spawn = fn
     if (event === 'turn.complete') complete = fn
   }) as never, {})
-  const spawned = { agentId: 'lens-model-log-test', model: 'requested-lens-model' }
-  expect(await spawn!(host, { subagentType: 'research-tree:lens', prompt: 'lens=method-transfer Read the plan.' } as never, async () => spawned)).toEqual(spawned)
-  expect((state.get('agents') as Record<string, string> | undefined)?.[spawned.agentId]).toBe('assistant/lens_method_transfer')
-  await complete!(host, { agentId: spawned.agentId, usage: { model: 'observed-lens-model' } } as never, async () => ({}))
+  const spawned = { agentId: 'explorer-model-log-test', model: 'requested-explorer-model' }
+  expect(await spawn!(host, { subagentType: 'research-tree:explorer', prompt: 'Read the plan and propose a falsifiable candidate.' } as never, async () => spawned)).toEqual(spawned)
+  expect((state.get('agents') as Record<string, string> | undefined)?.[spawned.agentId]).toBe('explorer/main')
+  await complete!(host, { agentId: spawned.agentId, usage: { model: 'observed-explorer-model' } } as never, async () => ({}))
   const logs = calls.filter(argv => argv[2] === 'agent-log')
   expect(logs).toHaveLength(2)
-  for (const [index, event, model] of [[0, 'requested', spawned.model], [1, 'observed', 'observed-lens-model']] as const) {
+  for (const [index, event, model] of [[0, 'requested', spawned.model], [1, 'observed', 'observed-explorer-model']] as const) {
     const argv = logs[index]!
-    expect(argv[argv.indexOf('--actor') + 1]).toBe('assistant/lens_method_transfer')
+    expect(argv[argv.indexOf('--actor') + 1]).toBe('explorer/main')
     expect(argv[argv.indexOf('--agent') + 1]).toBe(spawned.agentId)
     expect(argv[argv.indexOf('--event') + 1]).toBe(event)
     expect(argv[argv.indexOf('--model') + 1]).toBe(model)
@@ -303,7 +303,7 @@ test('lens runs record requested and observed models while their bound identity 
   const denied = await registeredTool('mcp__research-tree__research_db')(host, { agentId: spawned.agentId, method: 'update_project', kwargs: { title: 'forged' } } as never)
   expect(denied.isError).toBe(true)
   expect(String(denied.result)).toContain('只读')
-  const bash = await registeredTool('Bash')(host, { agentId: spawned.agentId, command: "python tools/research_db.py --actor assistant/lens_method_transfer update_project '{}'" } as never, async () => ({ result: 'ran' }))
+  const bash = await registeredTool('Bash')(host, { agentId: spawned.agentId, command: "python tools/research_db.py --actor explorer/main update_project '{}'" } as never, async () => ({ result: 'ran' }))
   expect(bash.deny).toContain('只读')
   expect(calls).toHaveLength(before)
 })
@@ -370,43 +370,47 @@ test('the start-up rule follows the confirmation phase', () => {
   expect(internals.workerBlock({ ...project!, phase: 'confirmed' })).toBeUndefined()
 })
 
-test('lens starts only for configured full-discovery planning', () => {
-  const project = { phase: 'planning' } as Parameters<typeof internals.lensBlock>[0]
-  const conf = { discovery: { mode: 'full', lenses: ['method-transfer'], seed_lenses: ['variant'] },
-    models: { lens_assistant: { model: 'inherit', effort: 'medium' } } } as Parameters<typeof internals.lensBlock>[1]
-  expect(internals.lensBlock(null, conf, 'method-transfer')).toContain('planning')
-  expect(internals.lensBlock({ ...project!, phase: 'confirmed' }, conf, 'method-transfer')).toContain('planning')
-  expect(internals.lensBlock(project, { ...conf!, discovery: { ...conf!.discovery!, mode: 'off' } }, 'method-transfer')).toContain('full')
-  expect(internals.lensBlock(project, conf, 'unknown')).toContain('已配置')
-  expect(internals.lensBlock(project, conf, undefined)).toContain('已配置')
-  expect(internals.lensBlock(project, { ...conf!, models: { ...conf!.models, lens_assistant: undefined } }, 'method-transfer')).toContain('lens_assistant')
-  expect(internals.lensBlock(project, conf, 'method-transfer')).toBeUndefined()
-  expect(internals.lensBlock(project, conf, 'variant')).toBeUndefined()
+test('removed lens and unknown research roles are rejected before any spawn', async () => {
+  const { host, state } = uiHost({})
+  type Hook = (host: never, event: never, next: (event: never) => Promise<Record<string, unknown>>) => Promise<Record<string, unknown>>
+  let spawn: Hook | undefined
+  register(((event: string, fn: Hook) => { if (event === 'agent.spawn') spawn = fn }) as never, {})
+  let called = 0
+  for (const type of ['research-tree:lens', 'research-tree:web_builder', 'research-tree:reviewer']) {
+    expect((await spawn!(host, { subagentType: type, prompt: 'Read the plan.' } as never,
+      async () => { called += 1; return { agentId: 'forbidden' } })).deny).toContain('不支持的研究角色')
+  }
+  expect(called).toBe(0)
+  expect(state.get('agents')).toBeUndefined()
 })
 
-test('the registered lens has only read tools and returns candidates for the Leader', async () => {
-  const agents: { name: string; tools?: string[]; prompt?: string }[] = []
-  const host = { agent: { register: async (input: typeof agents[number]) => { agents.push(input) } } }
-  await internals.registerAgents(host as never, null)
-  const lens = agents.find(agent => agent.name === 'lens')!
-  expect(lens.tools).toEqual(['Read', 'Grep', 'Glob'])
-  expect(lens.prompt).toContain('你不写任何文件')
-  expect(lens.prompt).toContain('最终回答只包含 JSON')
+test('the registered role set has no lens or fallback model aliases', async () => {
+  const agents: { name: string; model: string; prompt: string; tools?: string[] }[] = []
+  const models = Object.fromEntries(['ui', 'worker', 'architect', 'explorer', 'analyst'].map(role =>
+    [role, { model: `${role}-model`, effort: null }]))
+  await internals.registerAgents({ agent: { register: async (agent: never) => { agents.push(agent) } } } as never,
+    { version: 3, models, platform: { dev: 'local', experiment: 'CPU', skills: [] } } as never)
+  expect(agents.map(a => a.name).sort()).toEqual(['analyst', 'architect', 'explorer', 'ui', 'worker'])
+  for (const agent of agents) expect(agent.model).toBe(`${agent.name}-model`)
+  expect(agents.find(a => a.name === 'explorer')!.prompt).toContain('source:"explorer/main"')
 })
 
 test('worker identities resolve to their node, and bound sessions to their identity', () => {
   const worker = (id: string | null, agent: string | null) => ({ id, agent_id: agent, session_at: null, resume: [] })
   const s = {
-    project: { id: 'my-study', worker: worker('root', 'agent-root') },
+    project: { id: 'my-study', architect: worker('root', 'agent-root') },
     nodes: [{ id: 'H-0001', worker: worker('h0001', 'agent-1') }, { id: 'H-0002', worker: worker(null, null) }],
   } as unknown as ResearchSummary
-  expect(internals.workerNode(s, 'root')).toBe('my-study')
-  expect(internals.workerNode(s, 'h0001')).toBe('H-0001')
-  expect(internals.workerNode(s, 'h0002')).toBeUndefined()
-  expect(internals.workerNode(null, 'h0001')).toBeUndefined()
+  expect(internals.workerNode(s, 'architect/root')).toBe('my-study')
+  expect(internals.workerNode(s, 'worker/h0001')).toBe('H-0001')
+  expect(internals.workerNode(s, 'worker/h0002')).toBeUndefined()
+  expect(internals.workerNode(null, 'worker/h0001')).toBeUndefined()
   expect(internals.workerActor(s, 'agent-1')).toBe('worker/h0001')
-  expect(internals.workerActor(s, 'agent-root')).toBe('worker/root')
+  expect(internals.workerActor(s, 'agent-root')).toBe('architect/root')
   expect(internals.workerActor(s, 'agent-x')).toBeUndefined()
+  expect(internals.workerNode(s, 'worker/root')).toBeUndefined()
+  expect(internals.workerNode(s, 'root')).toBeUndefined()
+  expect(internals.workerNode(s, 'architect/h0001')).toBeUndefined()
 })
 
 test('a worker without a task in hand waits while max_parallel_workers others have one', () => {
@@ -449,7 +453,7 @@ test('without a project the UI window says so and starts no UI agent', async ($,
 })
 
 test('a UI run reads with the CLI and acts only through its own outbox', () => {
-  const project = { project_id: 'p', root: '/w/study/research/p', db: '/w/study/research/p/research_tree.db' } as
+  const project = { format_version: 3, project_id: 'p', root: '/w/study/research/p', db: '/w/study/research/p/research_tree.db' } as
     Parameters<typeof internals.uiPrompt>[1]
   const prompt = internals.uiPrompt('/plug', project, 'r123', '/w/study/.venv/bin/python')
   expect(prompt).toContain('在项目目录 /w/study 运行命令')
@@ -473,7 +477,7 @@ test('the main model is never offered the UI agent', async $ => {
 /** A host for the UI hand-off alone: state, files, the Python tools, spawns and prompts to the RLD, all in memory. */
 function uiHost(outboxes: Record<string, string>, answered: Set<string> = new Set()) {
   const root = '/w/study/research/p'
-  const state = new Map<string, unknown>([['project', { project_id: 'p', phase: 'confirmed', root, db: `${root}/research_tree.db` }]])
+  const state = new Map<string, unknown>([['project', { format_version: 3, project_id: 'p', phase: 'confirmed', root, db: `${root}/research_tree.db` }]])
   const files = new Map<string, string>(Object.entries(outboxes).map(([run, text]) => [`${root}/cache/ui/${run}.jsonl`, text]))
   files.set('/w/study/.venv/bin/python', '')
   const spawns: string[] = []
@@ -492,9 +496,9 @@ function uiHost(outboxes: Record<string, string>, answered: Set<string> = new Se
     },
     process: { run: async (argv: string[]) => ({
       exitCode: 0, stderr: '',
-      stdout: argv[1]!.endsWith('send_message.py') ? '{"id":"ui-0001","type":"question"}'
-        : argv.includes('inbox') ? JSON.stringify({ ok: true, result: answered.has('ui-0001') ? []
-          : [{ kind: 'awaiting_reply', id: null, text: 'ui-0001（question）尚无RLD回执：…' }] })
+      stdout: argv[1]!.endsWith('send_message.py') ? '{"id":"ui--ui-0001","type":"question"}'
+        : argv.includes('inbox') ? JSON.stringify({ ok: true, result: answered.has('ui--ui-0001') ? []
+          : [{ kind: 'awaiting_reply', id: null, text: 'ui--ui-0001（question）尚无RLD回执：…' }] })
         : '{"ok": true, "result": []}',
     }) },
     agent: { spawn: async (input: { prompt: string }) => (spawns.push(input.prompt), { agentId: `a${spawns.length}` }) },
@@ -530,7 +534,7 @@ test('a message the RLD already answered is not delivered a second time (real-ru
   const cfg = { actor: 'rld/main' }
   const answered = new Set<string>()
   const { host, prompts } = uiHost({ r1: '{"type": "reply", "text": "转交"}\n{"type": "question", "text": "能否加 seed？"}\n' }, answered)
-  answered.add('ui-0001')  // the RLD answered it (re=ui-0001) before the queued delivery ran
+  answered.add('ui--ui-0001')  // the RLD answered it (re=ui--ui-0001) before the queued delivery ran
   await internals.carryOutUi(host, cfg, { run: 'r1', message: '能否加 seed？', attempt: 1 }, '', false)
   await new Promise(resolve => setTimeout(resolve, 10))
   expect(prompts).toEqual([])
@@ -604,7 +608,7 @@ test('advisory sessions cannot mutate records, edit files, use shell execution o
 
 const LIGHT_SUMMARY = {
   meta: { data_version: 3, generated_at: 'fixture', eligibility_checked: false }, db_path: '/w/study/research/p/research_tree.db',
-  project: { id: 'p', title: 'Study', status: 'active', stage: 'search', worker: { id: 'root', agent_id: null }, sota_experiment_id: null },
+  project: { id: 'p', title: 'Study', status: 'active', stage: 'search', architect: { id: 'root', agent_id: null }, sota_experiment_id: null },
   counts: { status: {}, exp_status: {}, go: null, node_hours: 0, screen_seeds: 1 },
   nodes: [{ id: 'H-0001', title: 'Idea', parent: 'p', worker: { id: 'h1', agent_id: null }, go: null }],
   attention: [], busy_workers: [], guards: { frozen_docs: [], harness: [] },
@@ -796,7 +800,7 @@ test('review start and collection use immediate durable tickets without opening 
   expect(spawns).toEqual([])
 })
 
-test('Architect is confirmation-gated, root-only and shares the live root-worker slot', async () => {
+test('Architect is confirmation-gated and root-only; root-worker aliases are rejected', async () => {
   const { host, state } = uiHost({})
   const h = host as unknown as { process: { run: (argv: string[]) => Promise<unknown> } }
   h.process.run = async argv => ({ exitCode: 0, stderr: '', stdout: JSON.stringify(argv[1]!.endsWith('build_site.py')
@@ -808,22 +812,23 @@ test('Architect is confirmation-gated, root-only and shares the live root-worker
     if (event === 'turn.complete') complete = fn
   }) as never, {})
   const next = async () => ({ agentId: 'architect-root', model: 'fixture' })
-  state.set('project', { project_id: 'p', phase: 'planning', root: '/w/study/research/p', db: LIGHT_SUMMARY.db_path })
+  state.set('project', { format_version: 3, project_id: 'p', phase: 'planning', root: '/w/study/research/p', db: LIGHT_SUMMARY.db_path })
   expect((await spawn!(host, { subagentType: 'research-tree:architect', prompt: '你是 architect/root' } as never, next)).deny).toContain('尚未经用户确认')
-  state.set('project', { project_id: 'p', phase: 'confirmed', root: '/w/study/research/p', db: LIGHT_SUMMARY.db_path })
+  state.set('project', { format_version: 3, project_id: 'p', phase: 'confirmed', root: '/w/study/research/p', db: LIGHT_SUMMARY.db_path })
   expect((await spawn!(host, { subagentType: 'research-tree:architect', prompt: '你是 architect/h1' } as never, next)).deny).toContain('根节点')
   expect((await spawn!(host, { subagentType: 'research-tree:architect', prompt: '你是 architect/root' } as never, next)).agentId).toBe('architect-root')
   expect((state.get('agents') as Record<string, string>)['architect-root']).toBe('architect/root')
-  expect((await spawn!(host, { subagentType: 'research-tree:worker', prompt: '你是 worker/root' } as never, next)).deny).toContain('已有执行会话')
+  expect((await spawn!(host, { subagentType: 'research-tree:worker', prompt: '你是 worker/root' } as never, next)).deny).toContain('worker仅负责假说节点')
+  expect((await spawn!(host, { subagentType: 'research-tree:architect', prompt: '你是 architect/root' } as never, next)).deny).toContain('已有会话')
   await complete!(host, { agentId: 'architect-root' } as never, async () => ({}))
   expect((await spawn!(host, { subagentType: 'research-tree:architect', prompt: '你是 architect/root' } as never, next)).agentId).toBe('architect-root')
 })
 
 test('fast planning has per-candidate admission, lightweight design and final confirmation after screening', () => {
-  const project = { project_id: 'p', root: '/r/p', plan_instruction: { path: 'project/plan.v1.md' } } as Parameters<typeof internals.planningPrompt>[0]
-  const effective = { version: 2, workflow: { mode: 'fast_screening' }, discovery: { mode: 'incremental' },
+  const project = { format_version: 3, project_id: 'p', root: '/r/p', plan_instruction: { path: 'project/plan.v1.md' } } as Parameters<typeof internals.planningPrompt>[0]
+  const effective = { version: 3,
     platform: { dev: 'local', experiment: 'CPU', skills: [] }, budget: { per_run: { nodes: 1, walltime: 10 }, screen_node_h: 1 }, models: {} }
-  const view = { effective, db_fields: { gate_seeds: 3, seeds: [1, 2, 3], min_related_work: 3 } } as unknown as Parameters<typeof internals.planningPrompt>[2]
+  const view = { effective, db_fields: { gate_seeds: 3, seeds: [1, 2, 3] } } as unknown as Parameters<typeof internals.planningPrompt>[2]
   const prompt = internals.planningPrompt(project, '/plug', view)
   expect(prompt).toContain('gate --candidate')
   expect(prompt).toContain('A就绪即可执行')
@@ -832,14 +837,19 @@ test('fast planning has per-candidate admission, lightweight design and final co
   expect(prompt).toContain('主会话的明确确认同样有效')
   expect(prompt).not.toContain('D5 查新')
   expect(internals.workerPrompt(effective as never)).toContain('不逐次等待新模型代码审查')
-  expect(internals.workerPrompt({ ...effective, workflow: { mode: 'strict' } } as never)).toContain('strict/旧项目')
+  for (const text of [prompt, internals.workerPrompt(effective as never), internals.WORKFLOW]) {
+    for (const removed of ['workflow.mode', 'discovery.mode', 'strict/旧项目', 'research-tree:lens', 'D5 查新']) expect(text).not.toContain(removed)
+  }
+  expect(prompt).toContain('assign_architect')
+  expect(prompt).toContain('proposals/*.json')
+  expect(prompt).toContain('version 3')
   expect(internals.statusText(LIGHT_SUMMARY)).toContain('未核验')
   expect(internals.statusLine(LIGHT_SUMMARY, { phase: 'confirmed' } as never)).toContain('未核验')
 })
 
 test('main-session confirmation authorizes Architect without opening or starting UI', async () => {
   const { host, state, files, spawns, prompts } = uiHost({})
-  const project = { project_id: 'p', phase: 'awaiting_confirmation', root: '/w/study/research/p', db: LIGHT_SUMMARY.db_path }
+  const project = { format_version: 3, project_id: 'p', phase: 'awaiting_confirmation', root: '/w/study/research/p', db: LIGHT_SUMMARY.db_path }
   state.set('project', project)
   files.set('/w/study/.research-tree.json', JSON.stringify(project))
   const calls: string[][] = []
@@ -855,7 +865,7 @@ test('main-session confirmation authorizes Architect without opening or starting
     if (argv[2] === 'phase') files.set('/w/study/.research-tree.json', JSON.stringify({ ...project, phase: 'confirmed' }))
     const conf = { models: { ui: { model: 'fixture' }, worker: { model: 'fixture' } }, platform: { dev: 'local', experiment: 'CPU', skills: [] } }
     return { exitCode: 0, stderr: '', stdout: argv[1]!.endsWith('build_site.py') ? JSON.stringify(LIGHT_SUMMARY)
-      : argv[1]!.endsWith('send_message.py') ? '{"id":"ui-0001","type":"instruction"}'
+      : argv[1]!.endsWith('send_message.py') ? '{"id":"ui--ui-0001","type":"instruction"}'
       : JSON.stringify({ ok: true, result: argv[2] === 'instruction' ? { doc_id: 'D-0020', path: 'project/instructions/confirm.v1.md' }
         : argv[2] === 'config' ? { effective: conf } : {} }) }
   }
@@ -866,4 +876,52 @@ test('main-session confirmation authorizes Architect without opening or starting
   expect(calls.find(argv => argv[2] === 'instruction')).toContain(words)
   expect(prompts[0]).toContain('research-tree:architect')
   expect(spawns).toEqual([])
+})
+
+
+test('unsupported project formats are refused without writes or role launches', async () => {
+  const { host, state, files, spawns, prompts } = uiHost({})
+  state.delete('project')
+  const marker = JSON.stringify({ project_id: 'legacy', phase: 'confirmed', root: '/w/study/research/legacy', db: '/w/study/research/legacy/research_tree.db' })
+  files.set('/w/study/.research-tree.json', marker)
+  const before = [...files.entries()]
+  let writes = 0
+  const result = await registeredTool('Write')(host, { file_path: '/w/study/new.py' } as never,
+    async () => { writes += 1; return { result: 'written' } })
+  expect(result.deny).toContain('UNSUPPORTED_PROJECT_VERSION')
+  expect(writes).toBe(0)
+  expect([...files.entries()]).toEqual(before)
+  expect(spawns).toEqual([])
+  expect(prompts).toEqual([])
+})
+
+test('removed persisted actor identities never fall back to a writable role', async () => {
+  const { host, state } = uiHost({})
+  let calls = 0
+  const h = host as unknown as { process: { run: (argv: string[]) => Promise<unknown> } }
+  h.process.run = async () => { calls += 1; return { exitCode: 0, stdout: '{}', stderr: '' } }
+  for (const actor of ['assistant/lens_old', 'assistant/web_builder', 'worker/root', 'architect/h1']) {
+    state.set('agents', { stale: actor })
+    const db = await registeredTool('mcp__research-tree__research_db')(host, { agentId: 'stale', method: 'get' } as never)
+    expect(db.isError).toBe(true)
+    expect(String(db.result)).toContain('不支持的研究身份')
+    const write = await registeredTool('Write')(host, { agentId: 'stale', file_path: '/tmp/x' } as never,
+      async () => { calls += 1; return { result: 'written' } })
+    expect(write.deny).toContain('不支持的研究身份')
+    expect(internals.subagentCallBlock(internals.researchCalls(`python research_db.py --actor ${actor} get '{}'`), actor)).toContain('不支持的研究身份')
+  }
+  expect(calls).toBe(0)
+})
+
+
+test('deprecated configurable main actors are rejected rather than reinterpreted', () => {
+  let refused = 0
+  for (const actor of ['rld/main', 'worker/root', 'architect/root']) {
+    try { register((() => undefined) as never, { actor } as never) }
+    catch (error) {
+      expect(String(error)).toContain('UNSUPPORTED_ROLE_CONFIGURATION')
+      refused += 1
+    }
+  }
+  expect(refused).toBe(3)
 })

@@ -2,9 +2,11 @@
 
 在 **Claude Code** 或 **Codex CLI** 中运行多角色 ML 研究：从研究计划出发，建立假说树，用最小实验筛选方法，并保留可追溯的结果、文档与决策。
 
-当前工作流聚焦**阶段 1：低成本验证与 GO / NOT GO 判断**。进入阶段 2 的大规模实验前，由用户确定范围与预算。
+工作流聚焦**阶段 1：低成本验证与 GO / NOT GO 判断**。进入阶段 2 的大规模实验前，由用户确定范围与预算。
 
 两端共用研究规则、数据库、配置和页面生成器；分别提供适合各自宿主的命令、代理会话与界面。
+
+**破坏性版本边界：仅支持 version 3 配置与 schema 23 数据库。** 工作流固定为快速筛选与增量发现，没有模式开关。旧项目、旧配置和旧数据库会被拒绝并提示迁移，不会自动升级或改写；迁移步骤见[旧项目迁移](#旧项目迁移)。
 
 [安装](#安装) · [快速开始](#快速开始) · [研究工作流](#研究工作流) · [日常使用](#日常使用) · [项目配置](#项目配置) · [源码与发布](#源码与发布) · [开发与验证](#开发与验证)
 
@@ -12,7 +14,7 @@
 
 ### 环境要求
 
-- 对应的宿主 CLI。Codex 版已在 **CLI 0.160.0** 上验证，运行研究前需完成登录。
+- 对应的宿主 CLI。历史 Codex 安装证据使用 **CLI 0.160.0**（当前破坏性契约仍需新的原生宿主验证），运行研究前需完成登录。
 - [uv](https://docs.astral.sh/uv/)；`prepare` 用它建立项目的 Python 环境并安装依赖。
 - Codex 适配层使用 POSIX 环境和 Python 3。`prepare` 只需要 POSIX shell 和 uv，不依赖 Python 或已有项目。
 
@@ -87,7 +89,7 @@ claude --plugin-dir /absolute/path/to/research-agent/dist/claude/plugins/researc
 
 ### 2. 填写计划与配置
 
-`plan.md` 按章节填写：**研究目标**和**初始假说**必填；没有具体假说时写“由发现流程产生。”，可使用默认的增量发现。另写明非目标、已尝试与无效的方法；期望使用的模型、训练与评测数据集（写 Hugging Face Hub 上的正式 ID，数据集加 config 与 split）、基线，评测与指标，实验范围，验收要求等各节默认写着“由 RLD 决定。”，保留时由 Leader 在立项计划中提出方案，经你确认后执行。插件会保留计划原文，Leader 再将其整理为可执行的最小立项范围。
+`plan.md` 按章节填写：**研究目标**和**初始假说**必填；没有具体假说时写“由发现流程产生。”，由增量发现逐步产生候选。另写明非目标、已尝试与无效的方法；期望使用的模型、训练与评测数据集（写 Hugging Face Hub 上的正式 ID，数据集加 config 与 split）、基线，评测与指标，实验范围，验收要求等各节默认写着“由 RLD 决定。”，保留时由 Leader 在立项计划中提出方案，经你确认后执行。插件会保留计划原文，Leader 再将其整理为可执行的最小立项范围。
 
 在 `research-tree.yaml` 中设置开发与实验平台、资源预算、阶段1门槛和子代理模型；配置项见[项目配置](#项目配置)。
 
@@ -97,7 +99,7 @@ claude --plugin-dir /absolute/path/to/research-agent/dist/claude/plugins/researc
 |---|---|
 | `/research-tree init` | `$research-tree init` |
 
-初始化读取 `plan.md` 和本目录的 `research-tree.yaml`，建立数据库和文档目录，并进入立项规划。**此时还不会启动研究 worker。**
+初始化读取 `plan.md` 和本目录的 `research-tree.yaml`，建立数据库和文档目录，并进入立项规划。**此时还不会启动 Architect 或 Worker。**
 
 | 选项 | 用途 |
 |---|---|
@@ -115,7 +117,7 @@ Leader 会整理研究目标、最小实验设定、初始假说、基线任务�
 |---|---|
 | `/research-tree confirm` | `$research-tree confirm` |
 
-确认后，插件登记当时的配置版本，Leader 才能指派 worker，先实现根节点的实验框架与基线。
+确认后，插件登记当时的配置版本，Leader 才能指派根节点 Architect 和假说 Worker，先实现公共框架与基线，并行推进候选发现。
 
 ## 研究工作流
 
@@ -126,10 +128,10 @@ Leader 会整理研究目标、最小实验设定、初始假说、基线任务�
 | **用户** | 提供目标和约束，确认立项计划，决定预算、权限与范围变更 |
 | **RLD：Research Leader** | 当前主会话中的唯一 Leader；确定研究方向、预算分配与优先级，处理争议，作最终 GO/NOT GO 决定 |
 | **Hypothesis Explorer** | 持续阅读文献，分析基础假说、负面和不确定结果，提出可证伪候选、变体与组合 |
-| **Experiment Architect** | 由根 worker 演进，构建和维护可复用的实验框架、baseline 与统一评测协议 |
-| **Experiment Workers** | 每个节点绑定固定身份；实现方法、运行小实验、修复工程问题并交付原始证据 |
+| **Experiment Architect** | 唯一根节点执行角色，构建和维护可复用的实验框架、baseline 与统一评测协议 |
+| **Experiment Workers** | 每个假说节点绑定固定身份；实现方法、运行小实验、修复工程问题并交付原始证据 |
 | **Evidence Analyst** | 比较现有证据，建议补 seed、扩展、暂停或淘汰，提出下一轮实验；不代替 Leader 作决定 |
-| **Reviewer** | 独立核验关键证据，主要服务于有潜力的候选及最终确认；不审批每次廉价筛选 |
+| **Reviewer** | 只经独立评审包装器核验关键证据，主要服务于有潜力的候选及最终确认；不审批每次廉价筛选 |
 | **按需 UI** | 从 ResearchDB 展示树、结果对比和 GO/NOT GO；复杂可视化或交互分析时才临时启用 UI Agent |
 
 用户直接在主会话下达的指令始终有效，无需到 UI 重复授权。普通研究无需常驻 UI Agent。Explorer、Workers、Analyst 构成持续循环，Leader 处理方向、投入和争议，而不亲自包办检索与逐项结果整理。
@@ -140,7 +142,7 @@ Leader 会整理研究目标、最小实验设定、初始假说、基线任务�
 flowchart TD
     A["用户准备计划与配置"] --> B["初始化：Leader 整理立项计划"]
     B --> C["用户确认最小范围、协议与预算"]
-    C --> D["Architect 建框架、冻结并逐 seed 跑 baseline"]
+    C --> D["Architect 建框架；Leader 冻结；逐 seed 跑 baseline"]
     C --> X["Explorer 持续产生候选"]
     D --> F["就绪候选独立准入，Workers 并行小实验"]
     X --> F
@@ -155,48 +157,48 @@ flowchart TD
 
 | 阶段 | 发生什么 | 留下什么证据 |
 |---|---|---|
-| **立项规划** | Leader 明确最小范围、预算、协议与框架任务，请用户确认；增量模式无需等待所有候选的文献和评审 | 目标、最小实验设定、指标规范、协议与立项计划 |
+| **立项规划** | Leader 明确最小范围、预算、协议与框架任务，请用户确认；无需等待整个候选池的文献和评审 | 目标、最小实验设定、指标规范、协议与立项计划 |
 | **建立基线** | Architect 实现训练、评测与统计代码，sanity 后由 Leader 审核冻结，逐 seed 实测 baseline；匹配且有效的 seed 可先用于快速筛选 | 框架版本、baseline 运行、原始指标和统计结果 |
-| **验证假说** | 每个节点的 worker 在自己的分支或 worktree 中实现改动，按预算运行筛选实验 | 代码版本、实验设定、run/job ID、结果与交付文档 |
+| **验证假说** | 每个假说的 Worker 在自己的分支或 worktree 中实现改动，按预算运行筛选实验 | 代码版本、实验设定、run/job ID、结果与交付文档 |
 | **比较与迭代** | 运行结果经 manifest 导入；接口重算配对效应、门槛与保护指标，形成版本化 evaluation；Analyst 整理结果和下一步建议，Leader 决定投入与分支 | evaluation、实验结论、投入状态和决定理由 |
 | **确认与结项** | 选少量候选，补齐复制/关键对照、冻结并独立确认；最终五维复核绑定当前证据，Leader 作阶段 GO/NOT GO | 冻结候选、确认材料使用史、复核记录、最终报告与未完成项 |
 
 ### 假说树如何组织
 
-根节点存放共享框架、统计代码和基线。快速模式把思想来源（`parent_id` 与类型化 `relations`）、代码起点（`code_parent_id` / 分支 `base_commit`）、实验参照（`comparator_experiment_id`）和投入状态分开；基础假说尚未胜出，也能产生并行变体。严格旧模式保留其可拓展父节点限制。
+根节点存放共享框架、统计代码和基线。思想来源（`parent_id` 与类型化 `relations`）、代码起点（`code_parent_id` / 分支 `base_commit`）、实验参照（`comparator_experiment_id`）和投入状态相互独立；基础假说尚未胜出，也能产生并行变体。
 
 ```text
-根节点：框架与 baselines                   ← architect/root（兼容 worker/root）
+根节点：框架与 baselines                   ← architect/root
 ├── 初始假说 A                            ← 独立 worker
 │   ├── A 的变体 A1（A 尚未胜出也可验证） ← 独立 worker
 │   └── A 的变体 A2                        ← 独立 worker
 └── 初始假说 B                            ← 独立 worker
 ```
 
-分别看四层状态：实验结论 `positive_signal / negative_signal / inconclusive`，投入 `active / paused / retired`，证据阶段 `candidate_ready / confirmed`，项目决定 `go / not_go`。旧节点标签继续用于展示与兼容，不能代替这四个问题；worker 一轮会话结束不代表实验或研究已完成。
+分别看四层状态：实验结论 `positive_signal / negative_signal / inconclusive`，投入 `active / paused / retired`，证据阶段 `candidate_ready / confirmed`，项目决定 `go / not_go`。节点生命周期不能代替这四个问题；worker 一轮会话结束不代表实验或研究已完成。
 
 ### 哪些情况需要用户决定
 
-- **立项确认前**：不启动研究 worker。
+- **立项确认前**：不启动 Architect 或 Worker。
 - **预算、资源或权限不足时**：Leader 报告进展与所需变更，由用户决定；等待期间可继续授权范围内的独立工作。
 - **用户要求暂停、停止或修改目标时**：按用户指令调整，并核对在途作业与任务。
 - **进入阶段 2 前**：由用户确定大规模实验的范围与预算。
 
-**阶段 1 GO** 要求至少一个节点的当前 evaluation 仍然适用（框架、协议、指标规范、基线与所用 run 都未变）、在全部统一 seed 上达到优于 SOTA 的门槛并满足保护指标，且新颖性与理论正确性复核绑定到该实验的代码版本（`get_eligibility` 计算，不读缓存标签）。协议为 `stage1_confirmed`（默认）时，搜索中过门槛的节点只是 candidate_ready，GO 前还需在搜索从未用过的确认 seed 上对冻结代码做一次独立确认；任何未关闭的复核问题（obligation）都会阻挡 GO。它是继续研究的筛选信号，不等同于统计显著性或可发表结论。
+**阶段 1 GO** 要求至少一个节点的当前 evaluation 仍然适用（框架、协议、指标规范、基线与所用 run 都未变）、在全部统一 seed 上达到优于 SOTA 的门槛并满足保护指标，且新颖性与理论正确性复核绑定到该实验的代码版本（`get_eligibility` 计算，不读缓存标签）。搜索中过门槛的节点只是 candidate_ready，GO 前必须在搜索从未用过的确认 seed 上对冻结代码做一次独立确认；任何未关闭的复核问题（obligation）都会阻挡 GO。它是继续研究的筛选信号，不等同于统计显著性或可发表结论。
 
-**增量发现与兼容。** 新模板显式选择 `workflow.mode: fast_screening` 与 `discovery.mode: incremental`。先确认最小范围，随后框架、baseline 和文献发现并行；`discovery select --candidate CAND-0001` 单独选择候选，`discovery gate --candidate CAND-0001` 只读检查该候选，不生成全局通行证、不代替用户确认。A 就绪时不等 B。五项筛选说明与资源上限必须齐全；严格增量模式仍逐候选检查当前查新/批判回执和已核验文献。`full` / `precheck` 保留整批阶段、报告与回执门，通过后才请求立项确认；`off` 不启用发现门。旧 v2 配置未写 workflow 时仍是 `strict`，未写 discovery.mode 时仍是 `full`；v1 保持原严格行为，不自动放松已有项目。
+**增量发现。** 先确认最小范围，随后框架、baseline 和文献发现并行。Explorer 的实际提案保存为 `cache/discovery/proposals/*.json`，每份为 `{source, candidates}`，`source` 写明真实来源（如 `explorer/main`）。Leader 合并提案并保留用户种子来源；`discovery select --candidate CAND-0001` 单独选择候选，`discovery gate --candidate CAND-0001` 只读检查当前候选 revision，不生成全局通行证、不代替用户确认。A 就绪时不等 B；五项筛选说明、当前范围与资源上限必须齐全。候选改变后重新检查，不能复用另一候选的准入结果。
 
 **发现与经验。** 研究发现（`finding`）与运行经验（`lesson`）写成带 YAML front matter 的文档：发现把事实与解释分开并引用证据；经验写症状、根因状态、已验证的修复、适用范围与反例，根因只是猜测时只能登记为 proposed。登记时过滤运维噪声（`capture_filter`）与注入、要求扩权或绕过门槛的内容（`threat_scan`）。worker 接手节点时，`resume_package` 附带一个固定上限的上下文包（目标与问题锚点、未决问题、不再投入的节点与经验、发现、当前评估），框架或配置变更后的经验标为待核对。
 
-**廉价筛选与正式确认。** 快速节点保留获准的问题锚点，写清可证伪预测、干预、匹配对照、资源上限、停止与继续条件；候选 JSON 分别使用 `prediction`、`intervention`、`comparator`、`resource_ceiling: {nodes, walltime_s}`、`stop_conditions`。方法变化可以来自代码或明确的科学配置，运维字段不算科学改动。sanity、有效数据/指标、方法身份、公平配对、原始证据、预算和防重复提交仍是硬检查；普通快速筛选不等待新的模型代码审查。详细 Claim map、完整文献论证与深入复核主要服务于晋级和确认，`strict` 保留原设计和评审门。已有真实泄漏/指标问题仍须修复，工程失败不能记作科学反证。
+**廉价筛选与正式确认。** 快速节点保留获准的问题锚点，写清可证伪预测、干预、匹配对照、资源上限、停止与继续条件；候选 JSON 分别使用 `prediction`、`intervention`、`comparator`、`resource_ceiling: {nodes, walltime_s}`、`stop_conditions`。方法变化可以来自代码或明确的科学配置，运维字段不算科学改动。sanity、有效数据/指标、方法身份、公平配对、原始证据、预算和防重复提交仍是硬检查；普通快速筛选不等待新的模型代码审查。详细 Claim map、完整文献论证与深入复核主要服务于晋级和确认。已有真实泄漏/指标问题仍须修复，工程失败不能记作科学反证。
 
 **最小对照与评审争议。** 获准设计中的精确最小对照经 Leader 登记后可在原方法和预算边界内执行，无需另做 `ablation_plan` 评审；未声明或扩大的矩阵仍走深入评审。阻塞代码评审可用 `dispute_code_review` 提交具体证据，经绑定该异议的独立复核后由 Leader 用 `adjudicate_code_review` 明确裁决；保留原回执、异议、证据和裁决，不靠换 reviewer 消掉反对意见。
 
-**跨模型复核。** `review.trigger: candidate_ready`（默认）时，GO 候选还需五个维度——数字完整性、协议合规、方法—代码对齐、新颖性、理论/论证——各一次跨模型、非交互的复核（`research_review`，kind `candidate_recheck`）。reviewer 由 `models.reviewer` 指定：`anthropic/*` 用 Claude Code CLI（`claude -p --safe-mode --restricted`，只读工具），其他 provider 用 [pi](https://github.com/badlogic/pi-mono)（`pi -p --mode json`）；两者互不降级，且须与 Leader 不同模型族（Claude 宿主的 Leader 因此走 pi）。每次复核是一个新会话，只读 Leader 写的 brief（文件路径与结构化元数据）；结果由 reviewer 角色登记为 `docs/reviews/RV-*.md`，Leader 不能登记或替换。reviewer 不可用、输出无效或评审费用达到 `budget.review_usd_alert` 时如实上报，不以 Leader 自评代替。`get_eligibility` 的 `rechecks` 说明每个 GO 基于哪次评估、检查了什么、由谁（后端与模型）复核。插件只依赖 `pi` / `claude` 已在 PATH 且已登录，不替你安装或登录。
+**跨模型复核。** GO 候选必须完成五个维度——数字完整性、协议合规、方法—代码对齐、新颖性、理论/论证——各一次跨模型、非交互的复核（`research_review`，kind `candidate_recheck`）。reviewer 由 `models.reviewer` 指定：`anthropic/*` 用 Claude Code CLI（`claude -p --safe-mode --restricted`，只读工具），其他 provider 用 [pi](https://github.com/badlogic/pi-mono)（`pi -p --mode json`）；两者互不降级，且须与 Leader 不同模型族（Claude 宿主的 Leader 因此走 pi）。每次复核是一个新会话，只读 Leader 写的 brief（文件路径与结构化元数据）；结果由 reviewer 角色登记为 `docs/reviews/RV-*.md`，Leader 不能登记或替换。reviewer 不可用、输出无效或评审费用达到 `budget.review_usd_alert` 时如实上报，不以 Leader 自评代替。`get_eligibility` 的 `rechecks` 说明每个 GO 基于哪次评估、检查了什么、由谁（后端与模型）复核。插件只依赖 `pi` / `claude` 已在 PATH 且已登录，不替你安装或登录。
 
 推荐顺序是先选少量候选、补齐复制与关键对照，冻结方法和主张，进行独立确认，最后集中做五维复核。不要每见到一次 `positive_signal` 就消耗确认材料；numbers/protocol 必须绑定最终确认结果，其他维度仅在依据不变时复用。review 启动先返回 ticket，后续按同一 ticket 取状态和结果，不为等待重开调用。
 
-`init` 在发现或候选复核启用时检查配置所选基座的认证，把检查时间和结果交给 Leader 写入立项简报；认证成功不代替实际模型调用或评审回执。`budget.review_usd_alert` 是累计费用达到后暂停新调用的阈值，不是精确支出上限；Claude Code 的单次 `--max-budget-usd` 按分取整且至少为 0.01 USD。每次成功或失败的实际回传费用均保留入账。
+`init` 检查配置所选评审基座的认证，把检查时间和结果交给 Leader 写入立项简报；认证成功不代替实际模型调用或评审回执。`budget.review_usd_alert` 是累计费用达到后暂停新调用的阈值，不是精确支出上限；Claude Code 的单次 `--max-budget-usd` 按分取整且至少为 0.01 USD。每次成功或失败的实际回传费用均保留入账。
 
 每次计算给出确定性的结论：正向信号、负向信号或不确定；达到 seed 上限也可以停在不确定。是否继续投入（继续、暂停、不再投入）是另一项有理由与复议条件的决定，不由结论自动决定。结果文档中的数字须在 evidence 代码块中注明来源文件，由接口核对。
 
@@ -232,7 +234,7 @@ Claude 版提供内嵌窗口、面板和状态栏；Codex 版使用独立终端�
 
 ## 项目配置
 
-配置文件为研究项目目录中的 `research-tree.yaml`（version 2）。由 `prepare` 从[带注释的默认模板](shared/research-tree/schema/config.template.yaml)生成，省略的键取默认值；旧的 version 1 文件（[模板](shared/research-tree/schema/config.v1.template.yaml)）仍可读取。
+配置文件为研究项目目录中的 `research-tree.yaml`（version 3）。由 `prepare` 从[带注释的默认模板](shared/research-tree/schema/config.template.yaml)生成，允许省略的键取当前默认值。版本不符或包含已删除字段会被拒绝；不能只改版本号继续使用旧配置。独立确认、原始指标保留与提交未知时保留预留并对账是固定保护，不提供关闭开关。
 
 | 配置项 | 含义 | 默认值 |
 |---|---|---|
@@ -241,7 +243,8 @@ Claude 版提供内嵌窗口、面板和状态栏；Codex 版使用独立终端�
 | `metric_specs` | 指标规范，第一个为主指标；init 把它登记为 metric_spec 文档，主指标的 `minimum_practical_gain` 即优于 SOTA 的门槛 | accuracy（百分点，0.2） |
 | `verification.screening_seeds` / `replication_seeds` | 筛选与复制 seed，合起来是判定所需的统一 seed | `[42]` / `[43, 44]` |
 | `verification.confirmation_seeds` 等 | 独立确认用的 seed 与候选数；协议文档必须与它们一致 | `[1042, 1043, 1044]` |
-| `evidence_policy.profile` | `screening` 或 `stage1_confirmed`（GO 前须独立确认） | `stage1_confirmed` |
+| `verification.independence_fields` / `repetition` | 独立重复单元字段 / 有界搜索复制建议，不能借用确认材料或自行扩大预算 | `[]` / 默认关闭 |
+| `evidence_policy.require_artifact_import` | 要求从原始 manifest 与指标文件导入结果 | `true` |
 | `budget.per_run.nodes` / `budget.per_run.walltime` | 单次运行，即一个 seed 的节点数和墙钟上限 | `8` / `1h` |
 | `budget.total_limit` 及 `search_limit` / `confirmation_limit` / `repair_limit` | 授权总量与分池（node-seconds）；设置后每次提交先预留，预算不足时接口拒绝 | `null`，只提醒不封顶 |
 | `budget.screen_node_h` | 按基线实际成本计算筛选 seed 数的预算 | `10` node·h |
@@ -250,17 +253,13 @@ Claude 版提供内嵌窗口、面板和状态栏；Codex 版使用独立终端�
 | `design.overrun_factor` | 实际用量达到预估（`estimated_node_h`）的倍数时写待处理项 | `2.0` |
 | `search.stall_structural_at` / `stall_human_at` | 连续无新发现的决策批次数：须换向 / 须上报用户 | `2` / `4` |
 | `notify.url` | 可选：确认请求与用量提醒同时 POST 到这个地址；超时不等于同意，记录在 `logs/notify.jsonl` | `null` |
-| `literature.min_related_work` | 严格候选准入的已核验相关研究下限；快速筛选复用文献、晋级时补充分论证 | `3` |
 | `models.ui` / `models.worker` | 子代理的模型与 effort | `inherit` / 模型默认 |
 | `models.explorer` / `architect` / `analyst` | 新角色的模型与 effort；Explorer/Analyst 只读研究状态并向 Leader 建议 | `inherit` |
-| `models.lens_assistant` | 发现阶段 lens 助手的模型与 effort | `inherit` |
-| `workflow.mode` | `fast_screening` 延后深入复核；`strict` 保留严格路径。旧文件未声明时保持 strict | 新模板 `fast_screening` |
-| `discovery.mode` / `require_precheck` / `triage_top_n` | `incremental` 逐候选准入；`full` / `precheck` 整批门；`off` 关闭发现门；triage 数量不限制增量选择 | 新模板 `incremental` / `true` / `4` |
-| `literature.require_verified` | 只有经 `verify_literature` 核验存在的文献计入 `min_related_work` | `true` |
 | `models.reviewer` | 跨模型评审：`provider/model`、thinking、`require_cross_family`、超时 | `openai/gpt-6-astra`，high |
-| `review.trigger` / `budget.review_usd_alert` | GO 候选须跨模型复核 / 累计评审费用提醒（达到后暂停评审调用） | `candidate_ready` / `null` |
+| `budget.review_usd_alert` | 累计评审费用提醒，达到后暂停新的评审调用 | `null` |
+| `design.code_review` / `sanity_first` | 适用的关键实验代码审查 / 同方法 sanity；普通廉价筛选不逐次等待模型审查 | `true` / `true` |
 
-模型支持 Claude 易读名称，忽略大小写与首尾空格。例如 `ui: {model: Haiku 5, effort: high}` 会解析为 `claude-haiku-5-5`；`Haiku 5.5` 和 `Claude Sonnet 5.5` 也可使用。此规则适用于 `ui`、`worker`、`explorer`、`architect`、`analyst`、`lens_assistant` 和 `reviewer`（后者自动补 `anthropic/`）；正式模型 ID 保持原样。解析名称不代表服务端一定支持该模型或 effort，实际可用性取决于宿主与账号。
+模型支持 Claude 易读名称，忽略大小写与首尾空格。例如 `ui: {model: Haiku 5, effort: high}` 会解析为 `claude-haiku-5-5`；`Haiku 5.5` 和 `Claude Sonnet 5.5` 也可使用。此规则适用于 `ui`、`worker`、`explorer`、`architect`、`analyst` 和 `reviewer`（后者自动补 `anthropic/`）；正式模型 ID 保持原样。解析名称不代表服务端一定支持该模型或 effort，实际可用性取决于宿主与账号。
 
 Codex 侧同样支持 GPT 易读名称，如 `ui: {model: GPT 6 Luna, effort: high}` → `gpt-6-luna`、`GPT 6.1 Sol` → `gpt-6.1-sol`，也接受 `GPT-6 Luna`。这些转换同样适用于其他模型角色；`reviewer` 自动补 `openai/`。名称转换在两端共用的配置读取层完成，不会改变宿主支持哪些模型。
 
@@ -286,9 +285,11 @@ Codex 侧同样支持 GPT 易读名称，如 `ui: {model: GPT 6 Luna, effort: hi
 
 **搜索关系与探索份额。** 新节点可用 `relations` 写科学依据：`combines`、`repairs`、`tests_assumption` 可以基于负向或不确定的历史；与已不再投入节点同方向的新节点必须以 `repairs` 指向它，修复次数有上限（`REPEATED_DIRECTION`）；`relations(node)` 列出类型化关系（含 tested_by、supports、invalidates 及其证据是否仍适用）。`search.exploration_fraction` 为不同机制保留一部分搜索预算，其他工作不能占用，没有值得探索的新机制时不花；放宽这些上限须用户在配置中修改。
 
-### 工作流对照基准
+### 可控回归夹具
 
-`scripts/benchmark/make_task.py` 生成可控的研究任务（零效应、可恢复收益、只有组合才有效、高噪声、易混淆的竞争解释），真相写在项目目录之外，训练脚本经环境变量 `RT_BENCH_TRUTH` 读取；`scripts/benchmark/score.py` 从完成的项目数据库计算错误 GO、找到真实改进、过早淘汰、有效实验效率、重复提交、用户负担、评审费用与探索覆盖。对比单 agent 简洁循环（A）、冻结版 research-tree（B）与当前版本（C）时，固定模型、工具、预算与任务起点，并在多个任务与种子上比较，单次运行不足以下结论。
+`scripts/benchmark/make_task.py` 生成使用当前 version 3 配置的可控 REG 任务，覆盖零效应、组合效应、噪声、混淆和失败恢复。训练脚本在真实 ToyOpt 计算上注入预设的公式效应；这些数值只用于检验评分逻辑，不能作为真实科研结果或工作流效能证据。真相保存在项目之外，经 `RT_BENCH_TRUTH` 传入；仅换目录不构成盲评隔离。
+
+`scripts/benchmark/score.py` 按当前数据库与明确的 GO 依据统计错误 GO、有效机制、持有最佳组合却停止投入的节点、用量、重复提交、用户负担和评审费用。缺少明确 GO 证据时不从节点标签推断候选。真实固定资源效能比较需要另行设计、授权并运行，当前夹具通过不能代替该比较。
 
 ## 源码与发布
 
@@ -329,11 +330,11 @@ python3 scripts/build_plugins.py --target all
 | [build_site.py](shared/research-tree/tools/build_site.py) | 离线进度页面生成器 |
 | [schema/](shared/research-tree/schema/) | 数据库、配置、文档和消息格式 |
 | [Codex 插件说明](codex-plugin/research-tree/README.md) | Codex 功能对应、会话管理与故障恢复 |
-| [demo/](demo/) | 虚构示例项目，页面位于 `demo/research/P-demo-lora-opt/site/index.html` |
+| [demo/](demo/) | 历史虚构示例档案，包含旧格式；仅离线查看，不作为当前可运行项目 |
 
 ## 本轮发布验证范围
 
-**2026-10-11 快速研究工作流改进：** R01–R13 的代码、边界与回归对应见 [实施与验证矩阵](plans/fast-research-workflow.md)。本轮验证共享核心、两端构建与确定性适配器夹具；Claude 原生 SDK/界面和真实模型场景未运行，不能从历史验收或本轮夹具推断其已通过。无 GPU/生产作业，也不声称科研效能已提升。完整结果见 [验证范围说明](shared/research-tree/RELEASE.md)；无原生 SDK 时可用 [Claude 夹具测试说明](claude-mod/research-tree/TESTING.md) 复现受限的接口测试。
+**2026-10-11 单一工作流破坏性版本：** 当前发布仅接受 version 3 配置与 schema 23 数据库。此前 [快速工作流实施记录](plans/fast-research-workflow.md) 保留为历史记录，其中旧兼容条款不再适用，其测试数量也不作为本轮验收结果。当前验证范围见 [验证范围说明](shared/research-tree/RELEASE.md)；无原生 SDK 时可按 [Claude 夹具测试说明](claude-mod/research-tree/TESTING.md) 复现受限接口测试。
 
 **此前证据一致性改进轮（S0–S7，见 [实施文档](plans/research-tree-implementation-and-real-scenarios.md)）：**每个阶段末，Claude Code 与 Codex 都在全新的虚构项目 ToyOpt Lab 中运行该阶段的真实场景（原生宿主、真实模型与插件、CPU 上的真实训练与实测用量），并由 Fable 5.1 新会话独立评审与终审。预设数值、模型替身与回执注入只用于确定性回归（REG），不代替真实场景（SC）。场景底座见 [`scripts/scenarios/`](scripts/scenarios/README.md)，阶段状态与证据见 `plans/design/test-logs/`。
 
@@ -369,19 +370,21 @@ claude plugin test dist/claude/plugins/research-tree
 .venv/bin/python scripts/check_codex_sessions.py dist/codex/plugins/research-tree --evidence /tmp/new-session-check
 ```
 
-安装检查使用隔离的配置目录。会话检查使用真实 Codex CLI 和本地确定性 Responses 服务，验证 worker 启动、排队、恢复与独立 UI；不调用付费模型，也不代替对真实模型研究质量的评估。`--evidence` 需要一个尚不存在的目录。
+安装检查使用隔离的配置目录。会话检查使用真实 Codex CLI 和本地确定性 Responses 服务，验证 Architect 启动、排队、恢复与按需 UI；不调用付费模型，也不代替对真实模型研究质量的评估。`--evidence` 需要一个尚不存在的目录。
 
-**升级旧项目的数据库**（升到本插件的 schema_version）：新版插件拒绝写入旧版本的数据库（读取仍可用）。先停止所有会话并备份研究目录，然后：
+### 旧项目迁移
+
+本版不打开旧格式项目继续研究，不提供原地数据库升级或兼容解释。若收到版本拒绝提示：
+
+1. 停止旧项目的写入会话，核对并按原身份处置在途作业；备份整个研究目录、原始结果和配置
+2. 保留旧项目及对应旧插件作为历史档案，在新的工作目录运行 `prepare`，从 version 3 模板重新填写配置与计划
+3. 把仍适用的目标、权限、预算、文献和代码来源显式整理到新计划；不要复制旧数据库、项目标记或模式字段，也不要仅修改版本号
+4. 在新项目中重新登记协议、指标和所需证据，由用户确认当前范围后再执行；旧回执、授权、GO 和确认材料不自动变成新项目的有效资格
+
+这是一项用户审阅的迁移工作，不承诺自动迁移科学状态或重写历史结果。可追溯的旧结果可作为明确标注的参考材料；是否能复用为当前证据，须在新项目的身份、协议、配对、独立性和来源检查下重新证明。不得借新项目重置既有确认材料的使用事实或重新挑选结果。
+
+在一个全新空目录生成当前格式的虚构示例（不改写历史 demo 档案）：
 
 ```bash
-.venv/bin/python <插件目录>/schema/create_db.py --upgrade research/<项目ID>/research_tree.db
-.venv/bin/python <插件目录>/tools/research_db.py --db research/<项目ID>/research_tree.db --actor rld/main migrate_evaluations '{"dry_run": true}'
-```
-
-`migrate_evaluations` 从登记的运行重算旧判定并与记录对照，一致的补记为 evaluation（只作历史，标为旧记录，不支持新规则下的 GO），不一致的列出待核对；不重跑任何实验，也不改动已记录的结果。之后用 `evaluate_experiment` 在新规则下重新计算需要的实验，并补登指标规范与协议（`update_project` 引用用户指令）。
-
-重新生成虚构示例：
-
-```bash
-.venv/bin/python shared/research-tree/tools/make_demo.py --dest demo
+.venv/bin/python shared/research-tree/tools/make_demo.py --dest /tmp/research-tree-demo-v3
 ```

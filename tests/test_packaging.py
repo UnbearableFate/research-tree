@@ -74,7 +74,13 @@ class PackagingTest(unittest.TestCase):
             self.assertTrue(Path(marker["db"]).is_file())
             shown = subprocess.run(cmd + ["config"], cwd=project, capture_output=True, text=True)
             self.assertEqual(shown.returncode, 0, shown.stderr)
-            self.assertEqual(json.loads(shown.stdout)["result"]["effective"]["verification"]["screening_seeds"], [42])
+            config = json.loads(shown.stdout)["result"]["effective"]
+            self.assertEqual(config["version"], 3)
+            self.assertEqual(config["verification"]["screening_seeds"], [42])
+            self.assertNotIn("workflow", config)
+            self.assertNotIn("discovery", config)
+            self.assertNotIn("lens_assistant", config["models"])
+            self.assertEqual(marker["format_version"], 3)
 
     def test_collisions_and_missing_adapter_do_not_replace_working_build(self):
         import shutil
@@ -107,6 +113,29 @@ class PackagingTest(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "non-build"):
                 builder.build(["claude"], output)
             self.assertEqual((output / "claude/keep.txt").read_text(), "user data")
+
+    def test_bundles_exclude_obsolete_configuration_and_review_contracts(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            output = Path(tmp) / "dist"
+            builder.build(["claude", "codex"], output)
+            for host in ("claude", "codex"):
+                plugin = output / host / "plugins/research-tree"
+                self.assertFalse(list((plugin / "schema").glob("config.v1.*")))
+                self.assertFalse((plugin / "schema/web_builder.md").exists())
+                self.assertTrue((plugin / "schema/progress_page.md").is_file())
+                manifest = json.loads((plugin / builder.MANIFESTS[host]).read_text())
+                self.assertEqual(manifest["version"], "0.2.0")
+                self.assertEqual({p.stem.removesuffix(".schema") for p in (plugin / "schema/reviews").glob("*.json")},
+                                 {"ablation_plan", "code_review", "candidate_recheck"})
+                if host == "claude":
+                    manifest = json.loads((plugin / ".claude-plugin/plugin.json").read_text())
+                    self.assertNotIn("actor", manifest.get("userConfig", {}))
+                schema = json.loads((plugin / "schema/config.schema.json").read_text())
+                self.assertEqual(schema["properties"]["version"]["const"], 3)
+                self.assertNotIn("workflow", schema["properties"])
+                self.assertNotIn("discovery", schema["properties"])
+                self.assertNotIn("lens_assistant", schema["properties"]["models"]["properties"])
+                self.assertRegex((plugin / "schema/create_db.py").read_text(), r"SCHEMA_VERSION\s*=\s*23\b")
 
     def test_two_host_assembly_has_identical_common_code(self):
         with tempfile.TemporaryDirectory() as tmp:

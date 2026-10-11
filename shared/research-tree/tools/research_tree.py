@@ -71,9 +71,9 @@ MARKER = Path(".research-tree.json")
 PHASES = ("planning", "awaiting_confirmation", "confirmed")
 SUBDIRS = ("docs/project/reports", "docs/instructions", "docs/requirements", "docs/literature", "docs/hypotheses", "docs/tasks",
            "docs/baselines", "docs/workflow", "messages", "snapshots", "cache/literature", "outputs", "site", "logs")
-# Node workers are named after their node (worker/h0007) and only send; the root's worker also receives.
-AGENTS = ["ui/ui", "rld/main", "architect/root", "worker/root", "explorer/main", "analyst/main",
-          "assistant/a1", "web_builder/site"]
+# Only current roles are registered; hypothesis workers are added for their assigned nodes.
+AGENTS = ["ui/ui", "rld/main", "architect/root", "explorer/main", "analyst/main"]
+PROJECT_VERSION = 3
 
 
 class TreeError(Exception):
@@ -99,7 +99,12 @@ def read_marker(cwd: Path) -> dict:
     if not path.is_file():
         raise TreeError(f"no research project in {cwd} or a parent directory ({MARKER} not found); run "
                         "/research-tree init <plan.md> in the project directory")
-    return json.loads(path.read_text(encoding="utf-8"))
+    marker = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(marker, dict) or marker.get("format_version") != PROJECT_VERSION:
+        raise TreeError("UNSUPPORTED_PROJECT_VERSION: this plugin only opens version-3 projects. "
+                        "Preserve the old research directory and create an explicitly authorized new project; "
+                        "do not relabel historical evidence.")
+    return marker
 
 
 def write_marker(cwd: Path, marker: dict) -> None:
@@ -197,33 +202,30 @@ def init(cwd: Path, plan: Path, project_id: str | None, config: Path | None = No
     instruction = register_instruction(
         root, plan_text, f"立项：研究目标与初始假说、实验设计见原文（{plan}）。由RLD整理为目标、最小实验设定、初始节点和根节点任务，请用户确认后再启动worker。",
         "指令（立项）", [])
-    marker = {"project_id": project_id, "root": str(root), "db": str(db), "plan": str(plan.resolve()),
+    marker = {"format_version": PROJECT_VERSION, "project_id": project_id, "root": str(root), "db": str(db), "plan": str(plan.resolve()),
               "plan_instruction": instruction, "phase": "planning", "created_at": now_utc(), "confirmed_at": None,
               "config": None}
     write_marker(cwd, marker)
     config_parsed = project_config.parse(config_text)
-    if config_parsed["version"] == 2:  # the metric specification the Leader passes to create_project
-        register_metric_spec(cwd, marker, ResearchDB(db, "rld/main"), config_parsed, None)
-    if (config_parsed.get("discovery", {}).get("mode", "off") != "off" or
-            config_parsed.get("review", {}).get("trigger")):
-        # Availability only: no model call, review receipt or scientific decision.
-        # An unavailable backend belongs in the proposal; it does not prevent init.
-        from review_call import ReviewError, backend_for
-        reviewer = config_parsed["models"].get("reviewer")
-        check = {"checked_at": now_utc(), "model": reviewer.get("model") if reviewer else None,
-                 "backend": None, "ok": False, "error": None}
-        if reviewer:
-            backend = backend_for(reviewer, root)
-            check["backend"] = backend.name
-            try:
-                backend.precheck()
-                check["ok"] = True
-            except ReviewError as exc:
-                check["error"] = str(exc)
-        else:
-            check["error"] = "REVIEW_UNAVAILABLE: configure models.reviewer before requesting reviews"
-        marker["reviewer_backend"] = check
-        write_marker(cwd, marker)
+    register_metric_spec(cwd, marker, ResearchDB(db, "rld/main"), config_parsed, None)
+    # Availability only: no model call, review receipt or scientific decision.
+    # An unavailable backend belongs in the proposal; it does not prevent init.
+    from review_call import ReviewError, backend_for
+    reviewer = config_parsed["models"].get("reviewer")
+    check = {"checked_at": now_utc(), "model": reviewer.get("model") if reviewer else None,
+             "backend": None, "ok": False, "error": None}
+    if reviewer:
+        backend = backend_for(reviewer, root)
+        check["backend"] = backend.name
+        try:
+            backend.precheck()
+            check["ok"] = True
+        except ReviewError as exc:
+            check["error"] = str(exc)
+    else:
+        check["error"] = "REVIEW_UNAVAILABLE: configure models.reviewer before requesting reviews"
+    marker["reviewer_backend"] = check
+    write_marker(cwd, marker)
     skills = ((config_parsed.get("platform") or {}).get("skills") or [])
     if skills:
         marker["skills_check"] = check_skills(skills, cwd)
@@ -289,13 +291,14 @@ def show_config(cwd: Path) -> dict:
         pending = text != registered_text
     elif file_config is not None:
         effective, source, pending = file_config, "file", False
+    elif file_error:
+        raise ConfigError(file_error)
     else:
         effective, source, pending = project_config.defaults(), "template", False
     return {"file": str(file), "exists": text is not None, "source": source, "registered": registered,
             "pending": pending, "file_error": file_error, "effective": effective,
             "db_fields": project_config.db_fields(effective), "metric_spec": marker.get("metric_spec"),
-            "protocol_requirements": (project_config.protocol_requirements(effective)
-                                      if effective["version"] == 2 else None)}
+            "protocol_requirements": project_config.protocol_requirements(effective)}
 
 
 def apply_config(cwd: Path, actor: str, words: str | None = None, require_project: bool = False,
@@ -318,13 +321,8 @@ def apply_config(cwd: Path, actor: str, words: str | None = None, require_projec
     if project is not None and spec and spec["doc_id"] != project.get("metric_spec_doc_id"):
         fields["metric_spec_doc_id"] = spec["doc_id"]
     changes = {k: v for k, v in fields.items() if project is not None and project.get(k) != v}
-    if project is not None and config["version"] == 2:
+    if project is not None:
         check_protocol(root, project, config)
-    if "gate_seeds" in changes and "seeds" not in changes:
-        seeds = list(project["seeds"])
-        while len(seeds) < changes["gate_seeds"]:
-            seeds.append(max(seeds, default=-1) + 1)
-        changes["seeds"] = seeds[:changes["gate_seeds"]]
     locked = sorted(set(changes) & set(GATE_FIELDS))
     if locked and rld.find("experiment"):
         raise TreeError(f"experiments exist, so {', '.join(locked)} can no longer change; set them back in "
@@ -353,7 +351,7 @@ def apply_config(cwd: Path, actor: str, words: str | None = None, require_projec
         write_marker(cwd, marker)
     instruction = None
     # The file is the user's (agents may not write it): a cap it raises or a document it changes rests on it.
-    authorization_fields = set(CAP_FIELDS + EVIDENCE_DOC_FIELDS + ("workflow_mode", "discovery_mode"))
+    authorization_fields = set(CAP_FIELDS + EVIDENCE_DOC_FIELDS)
     if not words and project is not None and set(changes) & authorization_fields:
         words = f"（用户的 {CONFIG_NAME}，经 config apply 或立项确认生效）"
     if words and (new_version or changes):  # first: a new metric specification rests on the user's instruction
@@ -371,15 +369,13 @@ def apply_config(cwd: Path, actor: str, words: str | None = None, require_projec
 
 def register_metric_spec(cwd: Path, marker: dict, rld: ResearchDB, config: dict, project: dict | None,
                          replace: bool = False) -> dict | None:
-    """A version-2 configuration states the metric specification: register it as the metric_spec document when its
-    content is new (rld/main, current; the previous version superseded). Returns {doc_id, path} or None (v1).
+    """A version-3 configuration states the metric specification: register it as the metric_spec document when its
+    content is new (rld/main, current; the previous version superseded). Returns {doc_id, path}.
 
     The specification in effect is the project record's (real-run-error #16-#18), not only the one this file last
     registered: when the RLD registered a newer version on a user instruction, a configuration whose content
     equals it just takes it over, and one that differs is refused — naming the differences — unless the user
     passes replace (config apply --replace-metric-spec). The file never silently undoes a recorded decision."""
-    if config["version"] != 2:
-        return None
     root = Path(marker["root"])
     text = json.dumps(project_config.metric_spec_document(config), ensure_ascii=False, indent=1) + "\n"
     current = marker.get("metric_spec")
@@ -439,10 +435,17 @@ def check_protocol(root: Path, project: dict, config: dict) -> None:
         return
     doc = ResearchDB(root / "research_tree.db", "ui/ui").get(project["protocol_doc_id"])
     protocol = json.loads((root / "docs" / doc["path"]).read_text(encoding="utf-8"))
-    defaults = {"profile": "stage1_confirmed", "confirmation_seeds": [], "min_confirmation_pairs": 3,
-                "max_confirmation_candidates": None, "require_artifact_import": False, "confirmation_materials": []}
-    wrong = {k: (protocol.get(k, defaults[k]), v) for k, v in project_config.protocol_requirements(config).items()
-             if protocol.get(k, defaults[k]) != v}
+    defaults = {"confirmation_materials": [], "independence_fields": [],
+                "repetition": {"enabled": False, "se_multiple": 2.0, "batch": 2, "seed_pool": []}}
+    def effective(key, value):
+        if key == "repetition" and isinstance(value, dict):
+            return {**defaults["repetition"], **value}
+        return value
+    wrong = {}
+    for key, required in project_config.protocol_requirements(config).items():
+        actual = effective(key, protocol.get(key, defaults.get(key)))
+        if actual != effective(key, required):
+            wrong[key] = (actual, required)
     if wrong:
         raise TreeError(f"the protocol {project['protocol_doc_id']} differs from {CONFIG_NAME}: "
                         + "; ".join(f"{k} is {a!r}, the configuration says {b!r}" for k, (a, b) in wrong.items())
@@ -580,93 +583,51 @@ def log_agent_model(root: Path, entry: dict) -> dict:
 
 
 def discovery_command(cwd: Path, args) -> dict:
-    """The discovery subcommand: the stage state lives in the research root; reviews and literature come from the
-    database (read-only here)."""
+    """Continuous discovery: selection and candidate readiness never form a whole-project gate."""
     marker = read_marker(cwd)
     root = Path(marker["root"])
     reader = ResearchDB(Path(marker["db"]), "rld/main")
     conf = show_config(cwd)["effective"]
     if args.action == "start":
-        mode = (conf.get("discovery") or {}).get("mode", "off")
-        if mode == "off":
-            raise TreeError("discovery.mode is off in research-tree.yaml: plan from the user's hypotheses directly")
         import review_call
-        return discovery.start(root, mode, review_call.leader_model(root))
+        return discovery.start(root, review_call.leader_model(root))
     if args.action == "status":
-        return {"state": discovery.load(root), "resume": discovery.resume_point(root) if discovery.load(root) else None,
-                "candidates": discovery.read_candidates(root)}
-    if args.action == "set":
-        return discovery.set_status(root, args.stage, args.status, args.artifact)
-    if args.action == "accept":
-        return discovery.accept(root, args.stage, args.evidence, reviewer_records(reader), args.verifier)
-    if args.action == "resume":
-        return {"resume": discovery.resume_point(root)}
+        return {"state": discovery.load(root), "candidates": discovery.read_candidates(root)}
     if args.action == "cite":
         for doc_id in args.literature:
             doc = reader.get(doc_id)
             if not doc or doc.get("doc_type") != "literature":
                 raise TreeError(f"{doc_id} is not a literature document")
         return discovery.cite(root, args.candidate, args.literature)
-    if args.action == "check":  # may the start-up plan be put to the user?
+    if args.action == "check":
         return {"blocked": discovery_blocks_confirmation(cwd)}
     if args.action == "merge":
         users = json.loads(resolve_input(args.user_hypotheses, root, cwd, getattr(args, "invoked", cwd)).read_text(
             encoding="utf-8")) if args.user_hypotheses else []
-        merged = discovery.merge(discovery.read_shards(root), users, discovery.read_candidates(root))
+        merged = discovery.merge(discovery.read_proposals(root), users, discovery.read_candidates(root))
         return {"path": discovery.write_candidates(root, merged), "candidates": merged}
     if args.action == "feasibility":
-        project = (reader.find("project") or [None])[0]
-        fields = project or project_config.db_fields(conf)
+        fields = (reader.find("project") or [None])[0] or project_config.db_fields(conf)
         checked = discovery.feasibility(discovery.read_candidates(root), fields["max_nodes"], fields["max_walltime_s"],
                                         fields["screen_budget_node_h"])
         return {"path": discovery.write_candidates(root, checked), "candidates": checked}
     if args.action == "select":
-        if args.candidate:
-            if args.triage:
-                raise TreeError("select uses either --candidate (incremental) or --triage (batch), not both")
-            if conf.get("discovery", {}).get("mode") != "incremental":
-                raise TreeError("select --candidate requires discovery.mode incremental")
-            chosen = discovery.select_candidate(root, args.candidate)
-            return {"path": str(discovery.CANDIDATES_PATH), "candidate": chosen}
-        review = reader.get(args.triage) if args.triage else None
-        if not review or (review.get("doc_type"), review.get("review_kind"), review.get("status")) != (
-                "review", "triage", "current"):
-            raise TreeError("select reads the ranking of a current triage review (--triage RV document id)")
-        text = (root / "docs" / review["path"]).read_text(encoding="utf-8")
-        blocks = re.findall(r"```json[ \t]*\n(.*?)```", text, re.S)
-        ranking = json.loads(blocks[-1])["ranking"] if blocks else []
-        top_n = (conf.get("discovery") or {}).get("triage_top_n", 4)
-        chosen = discovery.select(discovery.read_candidates(root), ranking, top_n)
-        return {"path": discovery.write_candidates(root, chosen), "candidates": chosen}
+        if not args.candidate:
+            raise TreeError("select requires --candidate CAND-…; batch triage is unsupported")
+        chosen = discovery.select_candidate(root, args.candidate)
+        return {"path": str(discovery.CANDIDATES_PATH), "candidate": chosen}
     if args.action == "gate":
-        literature = {d["id"]: d.get("literature_check") == "verified" for d in reader.find("document")
-                      if d["doc_type"] == "literature" and d["status"] == "current"}
-        project = (reader.find("project") or [None])[0]
-        fields = project or project_config.db_fields(conf)
-        need = fields["min_related_work"]
-        mode = conf.get("discovery", {}).get("mode", "off")
-        if mode == "incremental":
-            if not args.candidate:
-                raise TreeError("incremental discovery checks one candidate: gate --candidate CAND-…; "
-                                "discovery check reports whether minimal scope may be put to the user")
-            if args.report:
-                raise TreeError("incremental candidate readiness does not use --report; use --candidate alone")
-            return discovery.evaluate_candidate(
-                root, args.candidate, workflow_mode=fields.get("workflow_mode", "strict"),
-                reviews=reviewer_records(reader), literature=literature, min_related_work=need,
-                max_nodes=fields["max_nodes"], max_walltime_s=fields["max_walltime_s"],
-                screen_node_h=fields["screen_budget_node_h"])
-        if args.candidate:
-            raise TreeError("gate --candidate requires discovery.mode incremental; full/precheck keep the batch gate")
-        result = discovery.evaluate(root, reviewer_records(reader), literature, need, args.report)
-        marker["discovery_gate"] = result["verdict"]
-        write_marker(cwd, marker)
-        return result
-    raise TreeError(f"unknown discovery action {args.action}")
+        if not args.candidate:
+            raise TreeError("gate requires --candidate CAND-…; there is no whole-project discovery PASS")
+        fields = (reader.find("project") or [None])[0] or project_config.db_fields(conf)
+        return discovery.evaluate_candidate(root, args.candidate, max_nodes=fields["max_nodes"],
+                                            max_walltime_s=fields["max_walltime_s"],
+                                            screen_node_h=fields["screen_budget_node_h"])
+    raise TreeError(f"unsupported discovery action {args.action!r}; only continuous candidate discovery is supported")
 
 
 def resolve_input(path: str, root: Path, project: Path, invoked: Path) -> Path:
-    """A file argument: absolute, or relative to the research root like --artifact and --report, else to the
+    """A file argument: absolute, or relative to the research root, else to the
     project directory or where the command was run (real-run-error #9: the two used to disagree)."""
     given = Path(path)
     if given.is_absolute():
@@ -677,23 +638,13 @@ def resolve_input(path: str, root: Path, project: Path, invoked: Path) -> Path:
     raise TreeError(f"{path} not found under the research root {root}, the project directory {project} or {invoked}")
 
 
-def reviewer_records(reader: ResearchDB) -> list[dict]:
-    return reader.reviews()
-
-
 def discovery_blocks_confirmation(cwd: Path) -> str | None:
-    """Incremental scope confirmation does not wait for candidate discovery; legacy batch modes still do.
+    """A valid project may ask the user to confirm minimal scope while discovery continues.
 
-    Returning None only permits asking the user. The startup phase remains unconfirmed until their reply.
+    This is not the confirmation itself: workers still wait for explicit scope/budget approval.
     """
-    conf = show_config(cwd)["effective"]
-    if conf["version"] != 2 or (conf.get("discovery") or {}).get("mode", "off") in ("off", "incremental"):
-        return None
-    state = discovery.load(Path(read_marker(cwd)["root"]))
-    if state is None or (state.get("gate") or {}).get("verdict") != "PASS":
-        reasons = (state or {}).get("gate", {}) or {}
-        return ("discovery 门尚未通过（research_tree.py discovery gate --report <报告>）："
-                + "；".join(reasons.get("reasons", [])[:5] or ["尚未运行"]))
+    show_config(cwd)  # Reject unsupported/invalid configuration, without inventing a fallback mode.
+    discovery.load(Path(read_marker(cwd)["root"]))
     return None
 
 
@@ -749,20 +700,10 @@ def main(argv: list[str] | None = None) -> int:
     nt.add_argument("--text", required=True)
     nt.add_argument("--docs", nargs="*", default=[])
     sub.add_parser("inbox", help="messages to the RLD that still wait for its receipt or answer")
-    dv = sub.add_parser("discovery", help="ongoing incremental or legacy batch discovery: stage state, "
-                                          "candidate pool, readiness")
-    dv.add_argument("action", choices=("start", "status", "set", "accept", "resume", "merge", "feasibility",
-                                       "select", "gate", "check", "cite"))
-    dv.add_argument("--stage")
-    dv.add_argument("--status", choices=discovery.EXECUTOR_STATUSES)
-    dv.add_argument("--artifact", help="the stage's output, relative to the research root")
-    dv.add_argument("--evidence", nargs="*", default=[], help="accept: review document ids or verifier outputs")
-    dv.add_argument("--verifier", help="accept (literature, feasibility): the deterministic check")
-    dv.add_argument("--user-hypotheses", help="merge: JSON list of the user's hypotheses (title, summary, ...); "
-                                              "relative to the research root like --artifact")
-    dv.add_argument("--triage", help="select: the triage review document id")
-    dv.add_argument("--report", help="gate: the discovery report, relative to the research root")
-    dv.add_argument("--candidate", help="cite, or incremental select/gate: the candidate (CAND-…)")
+    dv = sub.add_parser("discovery", help="continuous discovery: candidate pool, selection and readiness")
+    dv.add_argument("action", choices=("start", "status", "merge", "feasibility", "select", "gate", "check", "cite"))
+    dv.add_argument("--user-hypotheses", help="merge: JSON list of user hypotheses, relative to the research root")
+    dv.add_argument("--candidate", help="cite, select or gate: the candidate (CAND-…)")
     dv.add_argument("--literature", nargs="*", default=[], help="cite: literature document ids (D-…)")
     sub.add_parser("status")
     args = p.parse_args(argv)

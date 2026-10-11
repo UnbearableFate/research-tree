@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "research-tree/message.schema.json",
   "title": "Agent message",
-  "description": "One agent-to-agent message: a short note plus references. Serialize as one line of compact UTF-8 JSON (ensure_ascii=False, no spaces); the serialized line must be <= 1000 bytes. The sender appends the exact line to messages/<sender-id>.jsonl before sending.",
+  "description": "One agent-to-agent message: a short note plus references. Serialize as one line of compact UTF-8 JSON (ensure_ascii=False, no spaces); the serialized line must be <= 1000 bytes. The sender appends the exact line to messages/<role>--<agent-id>.jsonl before sending.",
   "type": "object",
   "additionalProperties": false,
   "required": ["v", "id", "ts", "project", "from", "to", "type", "text", "need"],
@@ -10,8 +10,8 @@
     "v": { "const": 1, "description": "Message schema version." },
     "id": {
       "type": "string",
-      "pattern": "^(?:(?:explorer|analyst)--)?[A-Za-z0-9_.]+-[0-9]{4,}$",
-      "description": "Legacy <sender-id>-<sequence>, e.g. w3-0042; advisors use role--id, e.g. explorer--main-0001. Architect retains its worker sequence."
+      "pattern": "^(?:rld|ui|worker|architect|explorer|analyst|reviewer)--[A-Za-z0-9_.]+-[0-9]{4,}$",
+      "description": "Role-qualified sender and sequence, e.g. rld--main-0001 or architect--root-0001. Every role has a separate log."
     },
     "ts": { "type": "string", "format": "date-time", "description": "UTC send time." },
     "project": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$" },
@@ -23,7 +23,7 @@
     },
     "re": {
       "type": "string",
-      "pattern": "^(?:(?:explorer|analyst)--)?[A-Za-z0-9_.]+-[0-9]{4,}$",
+      "pattern": "^(?:rld|ui|worker|architect|explorer|analyst|reviewer)--[A-Za-z0-9_.]+-[0-9]{4,}$",
       "description": "id of the message this one answers."
     },
     "about": {
@@ -57,8 +57,8 @@
   "$defs": {
     "agent": {
       "type": "string",
-      "pattern": "^(ui|rld|worker|architect|explorer|analyst|assistant|web_builder)/[A-Za-z0-9_.]+$",
-      "description": "<role>/<agent-id>, e.g. worker/w3."
+      "pattern": "^(?:rld/main|ui/ui|architect/root|worker/(?!root$)[A-Za-z0-9_.]+|(?:explorer|analyst|reviewer)/[A-Za-z0-9_.]+)$",
+      "description": "A fixed root role, registered advisor/reviewer, or hypothesis-bound worker address. Root work belongs only to architect/root."
     }
   },
   "allOf": [

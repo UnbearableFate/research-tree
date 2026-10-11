@@ -20,6 +20,7 @@ import codex_agent
 import codex_hook
 import codex_mcp
 import research_tree
+import project_config
 from codex_runtime import Runtime
 from metrics import minimal_documents
 import build_site
@@ -33,22 +34,27 @@ class AdapterTest(unittest.TestCase):
         self.cwd = Path(self.temp.name) / "project with spaces"
         self.cwd.mkdir()
         (self.cwd / "plan.md").write_text("# 研究计划\n保留用户原话。\n", encoding="utf-8")
-        # the adapter's behaviour, not the configuration version: version 1 leaves the documents to the RLD
-        shutil.copyfile(ROOT / "schema/config.v1.template.yaml", self.cwd / "research-tree.yaml")
-        research_tree.init(self.cwd, self.cwd / "plan.md", "P-test")
+        # Host fixtures use the same sole supported config/protocol contract as production.
+        specs, protocol = minimal_documents("accuracy", "higher", [])
+        self.config = {"version": 3, "metric_specs": specs["metrics"],
+                       "verification": {"screening_seeds": [1], "replication_seeds": [2, 3]}}
+        (self.cwd / "research-tree.yaml").write_text(json.dumps(self.config))
+        marker = research_tree.init(self.cwd, self.cwd / "plan.md", "P-test")
         self.runtime = Runtime(self.cwd)
         self.db = self.runtime.db()
         setup = self.doc("project/min-setup.v1.md", "min_setup")
-        docs = {}
-        for kind, content in zip(("metric_spec", "protocol"), minimal_documents("accuracy", "higher", [])):
-            path = self.runtime.root / "docs" / "project" / f"{kind}.v1.json"
-            path.write_text(json.dumps(content), encoding="utf-8")
-            docs[f"{kind}_doc_id"] = self.db.register_document(f"project/{kind}.v1.json", kind, kind)
-            self.db.set_document_current(docs[f"{kind}_doc_id"])
-        self.db.create_project("P-test", "test", setup, "accuracy", "higher", True, [], [1, 2, 3], **docs)
+        conf = research_tree.show_config(self.cwd)["effective"]
+        protocol.update(project_config.protocol_requirements(conf))
+        path = self.runtime.root / "docs/project/protocol.v1.json"
+        path.write_text(json.dumps(protocol), encoding="utf-8")
+        protocol_id = self.db.register_document("project/protocol.v1.json", "protocol", "protocol")
+        self.db.set_document_current(protocol_id)
+        self.db.create_project("P-test", "test", setup, "accuracy", "higher", [],
+                               metric_spec_doc_id=marker["metric_spec"]["doc_id"], protocol_doc_id=protocol_id,
+                               **project_config.db_fields(conf))
         self.plan = self.doc("project/reports/init-plan.v1.md", "report")
         request = self.doc("tasks/T-0001/request.v1.md", "task_request")
-        self.task = self.db.create_task("harness", "worker", request, target_id="P-test")
+        self.task = self.db.create_task("harness", "architect", request, target_id="P-test")
         self.bin = Path(self.temp.name) / "bin"
         self.bin.mkdir()
         fake = self.bin / "codex"
@@ -105,8 +111,11 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         return self.runtime.confirm("同意上面的立项计划。")
 
     def assign(self):
-        self.db.assign_worker("P-test")
+        self.db.assign_architect()
         self.db.update_task(self.task, assignee_id="root")
+
+    def start_architect(self, task, **kwargs):
+        return self.runtime.control("architect", {"node_id": "P-test", "task": task, **kwargs})
 
     def wait_run(self, run):
         path = Path(run["directory"]) / "state.json"
@@ -119,7 +128,7 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
 
     def test_confirmation_persists_verbatim_config_and_gates_workers(self):
         with self.assertRaisesRegex(ValueError, "confirmed"):
-            self.runtime.start_worker("P-test", "task")
+            self.start_architect("task")
         with self.assertRaisesRegex(ValueError, "submitted"):
             self.runtime.confirm("同意")
         with self.assertRaises(Exception):
@@ -133,8 +142,8 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         before = len(self.db.find("document"))
         self.runtime.confirm("again")
         self.assertEqual(len(self.db.find("document")), before)
-        with self.assertRaisesRegex(ValueError, "assign_worker"):
-            self.runtime.start_worker("P-test", "implement")
+        with self.assertRaisesRegex(ValueError, "assign_architect"):
+            self.start_architect("implement")
 
     def test_confirm_request_and_usage_alert_reach_the_webhook_log(self):
         self.runtime.post({"type": "confirm_request", "text": "请确认", "docs": ["project/reports/init-plan.v1.md"]})
@@ -150,9 +159,9 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         self.assertEqual([(r["kind"], r["outcome"]) for r in log],
                          [("confirm_request", "skipped: no notify.url"), ("alert", "skipped: no notify.url")])
 
-    def test_confirm_request_waits_for_the_discovery_gate(self):
-        with patch.object(research_tree, "discovery_blocks_confirmation", return_value="discovery 门尚未通过：x"):
-            with self.assertRaisesRegex(ValueError, "discovery 门尚未通过"):
+    def test_confirm_request_refuses_a_failed_scope_preflight(self):
+        with patch.object(research_tree, "discovery_blocks_confirmation", return_value="initial scope preflight unavailable"):
+            with self.assertRaisesRegex(ValueError, "scope preflight"):
                 self.runtime.post({"type": "confirm_request", "text": "确认？", "docs": ["project/reports/init-plan.v1.md"]})
         self.assertEqual(self.runtime.marker["phase"], "planning")
 
@@ -168,8 +177,8 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
 
     def test_research_review_handler_returns_ticket_without_waiting(self):
         import review_call
-        args = {"kind": "novelty_precheck", "brief": "docs/project/min-setup.v1.md", "about": "P-test"}
-        worker = Runtime(self.cwd, "worker/root")
+        args = {"kind": "code_review", "brief": "docs/project/min-setup.v1.md", "about": "P-test"}
+        worker = Runtime(self.cwd, "architect/root")
         with self.assertRaisesRegex(ValueError, "only the Leader"):
             worker.dispatch("research_review", args)
         with patch.object(review_call, "start_job", return_value="RJ-0123456789ab") as start, \
@@ -215,15 +224,13 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         self.assertNotIn("attach(", again["hookSpecificOutput"]["additionalContext"])
 
     def test_planning_prompt_gives_the_effective_project_fields(self):
-        """Host drift found in the S0 Codex run: the Claude prompt hands the Leader the effective db_fields; the
-        Codex prompt only said 'the configuration's budget and gates', and the Leader copied require_precheck
-        from the YAML although discovery was off."""
         import codex_prompts
-        import project_config
-        conf = project_config.parse((ROOT / "schema/config.template.yaml").read_text().replace("mode: incremental", "mode: off"))
+        conf = project_config.parse((ROOT / "schema/config.template.yaml").read_text())
         text = codex_prompts.planning({"plan_instruction": "D-1", "root": "/r", "project_id": "P-x"}, conf)
-        self.assertIn('"require_precheck": false', text)
+        for key, value in project_config.db_fields(conf).items():
+            self.assertIn(json.dumps(key) + ": " + json.dumps(value), text)
         self.assertIn("不要从 yaml 原样抄写", text)
+        self.assertNotIn("require_precheck", text)
 
     def test_config_apply_passes_the_users_metric_spec_replacement(self):
         with patch("research_tree.apply_config", return_value={"new_version": False, "updated_fields": {}}) as apply:
@@ -234,7 +241,7 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
     def test_review_deadlines_leave_time_to_return_the_runtime_failure(self):
         from review_call import MAX_CALL_S
         client_timeout = json.loads((ROOT / ".mcp.json").read_text())["mcpServers"]["research_tree"]["tool_timeout_sec"]
-        spec = {"project": str(self.cwd), "actor": "worker/root", "model": {"model": "fixture-model"}}
+        spec = {"project": str(self.cwd), "actor": "architect/root", "model": {"model": "fixture-model"}}
         argv = codex_agent.command(spec, self.cwd)
         configs = dict(arg.split("=", 1) for arg in argv if arg.startswith("mcp_servers."))
         self.assertEqual(json.loads(configs["mcp_servers.research_tree.tool_timeout_sec"]), client_timeout)
@@ -252,7 +259,7 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         config_dir = self.cwd / "isolated-codex"
         config_dir.mkdir()
         config = config_dir / "config.toml"
-        spec = {"project": str(self.cwd), "actor": "worker/root", "model": {"model": "fixture-model"}}
+        spec = {"project": str(self.cwd), "actor": "architect/root", "model": {"model": "fixture-model"}}
         with patch.dict(os.environ, {"CODEX_HOME": str(config_dir)}):
             self.assertIn('sandbox_mode="workspace-write"', codex_agent.command(spec, self.cwd))
             config.write_text('sandbox_mode = "danger-full-access"\n')
@@ -263,10 +270,10 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
             self.assertTrue({"CODEX_HOME", "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR"} <= forwarded_names)
             spec["actor"] = "ui/ui"
             self.assertIn('sandbox_mode="read-only"', codex_agent.command(spec, self.cwd))
-            spec["actor"] = "assistant/lens_test"
+            spec["actor"] = "explorer/main"
             self.assertIn('sandbox_mode="read-only"', codex_agent.command(spec, self.cwd))
             config.write_text('sandbox_mode = "workspace-write"\n')
-            spec["actor"] = "worker/root"
+            spec["actor"] = "architect/root"
             self.assertIn('sandbox_mode="workspace-write"', codex_agent.command(spec, self.cwd))
         manifest_names = set(json.loads((ROOT / ".mcp.json").read_text())["mcpServers"]["research_tree"]["env_vars"])
         self.assertEqual(forwarded_names, manifest_names)
@@ -279,10 +286,10 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
             with self.assertRaisesRegex(ValueError, "only RLD"):
                 ui.control(action, {})
         with self.assertRaisesRegex(ValueError, "unexpected"):
-            codex_mcp.run_request(self.cwd, "worker/root", "research_db", {"actor": "rld/main", "method": "help"})
+            codex_mcp.run_request(self.cwd, "architect/root", "research_db", {"actor": "rld/main", "method": "help"})
         self.confirm()
         self.assign()
-        worker = Runtime(self.cwd, "worker/root")
+        worker = Runtime(self.cwd, "architect/root")
         with self.assertRaisesRegex(Exception, "requires role rld"):
             worker.dispatch("research_db", {"method": "update_project", "kwargs": {"title": "oops"}})
         worker.dispatch("research_db", {"method": "update_task", "kwargs": {"task_id": self.task, "status": "in_progress"}})
@@ -293,7 +300,7 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
             with self.assertRaisesRegex(ValueError, "needs type and text, or resend"):
                 worker.dispatch("research_message", arguments)
         alert = worker.dispatch("research_message", {"type": "alert", "text": "test blocker", "about": [self.task]})
-        self.assertEqual(alert["message"]["from"], "worker/root")
+        self.assertEqual(alert["message"]["from"], "architect/root")
 
     def test_advisors_are_real_bound_read_only_sessions_with_distinct_messages(self):
         for role in ("explorer", "analyst"):
@@ -329,24 +336,27 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
                 spec = read_json(Path(started["directory"]) / "spec.json")
                 self.assertIn('sandbox_mode="read-only"', codex_agent.command(spec, self.cwd))
                 self.assertIn(role, spec["prompt"])
-        self.assertFalse(self.db.get("P-test").get("worker_agent_id"))
+        self.assertFalse(self.db.get("P-test").get("architect_agent_id"))
         self.assertEqual(self.db.find("experiment"), [])
         self.assertEqual(self.runtime.marker["phase"], "planning")
 
-    def test_architect_is_root_only_and_shares_the_legacy_worker_lock(self):
+    def test_architect_is_root_only_and_root_worker_alias_is_rejected(self):
         with self.assertRaisesRegex(ValueError, "confirmed"):
             self.runtime.control("architect", {"node_id": "P-test", "task": "Build harness"})
         self.confirm()
         self.assign()
         with self.assertRaisesRegex(ValueError, "root"):
             self.runtime.control("architect", {"node_id": "H-0001", "task": "Take over hypothesis"})
-        self.assertEqual(actor_key("architect/root"), actor_key("worker/root"))
+        with self.assertRaisesRegex(ValueError, "invalid adapter actor"):
+            actor_key("worker/root")
+        with self.assertRaisesRegex(ValueError, "hypotheses only"):
+            self.runtime.control("worker", {"node_id": "P-test", "task": "Duplicate root"})
         hold = Path(self.temp.name) / "hold"
         hold.touch()
         started = self.runtime.control("architect", {"node_id": "P-test", "task": "Build shared harness and baseline"})
         self.assertEqual(started["actor"], "architect/root")
         with self.assertRaisesRegex(ValueError, "live"):
-            self.runtime.start_worker("P-test", "Duplicate root", restart=True)
+            self.start_architect("Duplicate root", restart=True)
         hold.unlink()
         self.assertEqual(self.wait_run(started)["status"], "completed")
         architect = Runtime(self.cwd, "architect/root")
@@ -355,10 +365,28 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         self.assertIsNone(codex_hook.call_block([("research_db.py", "architect/root", "update_task")], "architect/root"))
         self.assertIsNotNone(codex_hook.call_block([("research_db.py", "rld/main", "update_task")], "architect/root"))
 
+    def test_hypothesis_worker_uses_its_own_assignment_and_model(self):
+        self.confirm()
+        task = {"id": "T-0100", "target_id": "H-0001", "assignee_role": "worker", "assignee_id": "h0001", "status": "open"}
+        package = {"actor": "worker/h0001", "node": {"id": "H-0001"}, "tasks": [task],
+                   "branch": {"worktree_path": str(self.cwd)}, "agent_id": None}
+        with patch.object(self.runtime, "db") as db, patch.object(self.runtime, "start_agent", return_value={"started": True}) as start:
+            db.return_value.resume_package.return_value = package
+            db.return_value.find.side_effect = lambda table: [task] if table == "task" else [{"max_parallel_workers": 2}]
+            self.assertEqual(self.runtime.control("worker", {"node_id": "H-0001", "task": "Screen this hypothesis"}), {"started": True})
+            self.assertEqual(start.call_args.args[0], "worker/h0001")
+            self.assertEqual(start.call_args.args[2], research_tree.show_config(self.cwd)["effective"]["models"]["worker"])
+            self.assertEqual(start.call_args.kwargs["node_id"], "H-0001")
+            task["assignee_role"] = "architect"
+            with self.assertRaisesRegex(ValueError, "actionable node task"):
+                self.runtime.control("worker", {"node_id": "H-0001", "task": "Do not borrow an architect task"})
+        with self.assertRaisesRegex(ValueError, "hypotheses only"):
+            self.runtime.control("worker", {"node_id": "P-test", "task": "Do not use the removed root alias"})
+
     def test_committed_write_survives_display_failure_and_ui_is_on_demand(self):
         self.confirm()
         self.assign()
-        worker = Runtime(self.cwd, "worker/root")
+        worker = Runtime(self.cwd, "architect/root")
         with patch.object(build_site, "summary_or_empty", side_effect=RuntimeError("display unavailable")), \
                 patch.object(build_site, "build", side_effect=AssertionError("write must not render")):
             worker.dispatch("research_db", {"method": "update_task", "kwargs": {"task_id": self.task, "status": "in_progress"}})
@@ -382,49 +410,33 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         with self.assertRaisesRegex(ValueError, "only its ticket"):
             self.runtime.dispatch("research_review", {"ticket": answer["ticket"], "kind": "code_review"})
 
-    def test_lens_has_a_fixed_read_only_identity_and_cannot_be_duplicated(self):
-        (self.cwd / "research-tree.yaml").write_text(json.dumps({"version": 2,
-            "discovery": {"mode": "full", "lenses": ["contradiction"]},
-            "models": {"lens_assistant": {"model": "fixture-model", "effort": "medium"}}}))
-        hold = Path(self.temp.name) / "hold"
-        hold.touch()
-        task = {"lens": "contradiction", "task": "Read the plan and propose candidates only."}
-        started = self.runtime.control("lens", task)
-        self.assertTrue(started["actor"].startswith("assistant/lens_"))
-        with self.assertRaisesRegex(ValueError, "live"):
-            self.runtime.control("lens", task)
-        helper = Runtime(self.cwd, started["actor"])
-        self.assertEqual(helper.dispatch("research_db", {"method": "get", "kwargs": {"entity_id": "P-test"}})["id"], "P-test")
-        for method in ("create_experiment", "register_document", "update_project"):
-            with self.assertRaisesRegex(ValueError, "only read"):
-                helper.dispatch("research_db", {"method": method, "kwargs": {}})
-        for action in ("worker", "lens", "confirm", "instruction", "attach"):
-            with self.assertRaisesRegex(ValueError, "only RLD"):
-                helper.control(action, {})
-        with self.assertRaisesRegex(ValueError, "only the Leader"):
-            helper.dispatch("research_review", {})
-        with self.assertRaisesRegex(ValueError, "do not send"):
-            helper.dispatch("research_message", {"type": "alert", "text": "x"})
-        hold.unlink()
-        state = self.wait_run(started)
-        self.assertEqual(state["status"], "completed", state)
-        self.assertEqual(self.runtime.marker["phase"], "planning")
-        self.assertFalse(self.db.get("P-test").get("worker_agent_id"))
-        self.assertEqual(self.db.find("experiment"), [])
+    def test_removed_roles_and_control_actions_are_rejected(self):
+        for actor in ("assistant/lens_test", "assistant/web_builder", "worker/root", "architect/other", "explorer/other"):
+            with self.subTest(actor=actor), self.assertRaisesRegex(ValueError, "invalid adapter actor"):
+                Runtime(self.cwd, actor)
+        self.assertNotIn("lens", self.runtime.control("help", {}))
+        with self.assertRaisesRegex(ValueError, "unknown control action"):
+            self.runtime.control("lens", {"lens": "contradiction", "task": "generate"})
+        review = next(tool for tool in codex_mcp.TOOLS if tool["name"] == "research_review")
+        self.assertEqual(set(review["inputSchema"]["properties"]["kind"]["enum"]),
+                         {"code_review", "ablation_plan", "candidate_recheck"})
 
-    def test_lens_requires_full_discovery_planning_and_a_configured_lens(self):
-        with self.assertRaisesRegex(ValueError, "mode full"):
-            self.runtime.control("lens", {"lens": "contradiction", "task": "generate"})
-        (self.cwd / "research-tree.yaml").write_text(json.dumps({"version": 2,
-            "discovery": {"mode": "full", "lenses": ["contradiction"]}}))
-        with self.assertRaisesRegex(ValueError, "configured"):
-            self.runtime.control("lens", {"lens": "unknown", "task": "generate"})
-        with self.assertRaisesRegex(ValueError, "concrete"):
-            self.runtime.control("lens", {"lens": "contradiction", "task": ""})
-        shutil.copyfile(ROOT / "schema/config.v1.template.yaml", self.cwd / "research-tree.yaml")
-        self.confirm()
-        with self.assertRaisesRegex(ValueError, "during planning"):
-            self.runtime.control("lens", {"lens": "contradiction", "task": "generate"})
+    def test_old_project_marker_is_rejected_without_writing_it(self):
+        marker_path = self.cwd / ".research-tree.json"
+        original = marker_path.read_bytes()
+        marker = json.loads(original)
+        del marker["format_version"]
+        marker_path.write_text(json.dumps(marker))
+        before = marker_path.read_bytes()
+        try:
+            with self.assertRaisesRegex(Exception, "UNSUPPORTED_PROJECT_VERSION"):
+                self.runtime.control("status", {})
+            with self.assertRaisesRegex(Exception, "UNSUPPORTED_PROJECT_VERSION"):
+                codex_hook.handle({"hook_event_name": "SessionStart", "cwd": str(self.cwd), "model": "fixture",
+                                   "session_id": "33333333-3333-4333-8333-333333333333"})
+            self.assertEqual(marker_path.read_bytes(), before)
+        finally:
+            marker_path.write_bytes(original)
 
     def test_direct_main_instruction_preserves_words_and_scope(self):
         words = "暂停新实验；已提交的作业先核对状态。"
@@ -439,25 +451,23 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
     def test_display_model_names_reach_codex_exec_for_all_agent_roles(self):
         for role, display, expected in (
             ("ui", "GPT 6 Luna", "gpt-6-luna"),
-            ("lens_assistant", "GPT 6.1 Sol", "gpt-6.1-sol"),
-            ("worker", "GPT-6 Sol", "gpt-6-sol"),
+            ("explorer", "GPT 6.1 Sol", "gpt-6.1-sol"),
+            ("analyst", "GPT-6 Sol", "gpt-6-sol"),
+            ("architect", "GPT-6 Sol", "gpt-6-sol"),
         ):
             with self.subTest(role=role):
-                config = {"version": 2 if role == "lens_assistant" else 1,
-                          "models": {role: {"model": display, "effort": "high"}}}
-                if role == "lens_assistant":
-                    config["discovery"] = {"mode": "full", "lenses": ["contradiction"]}
+                config = {**self.config, "models": {role: {"model": display, "effort": "high"}}}
                 original = json.dumps(config)
                 (self.cwd / "research-tree.yaml").write_text(original)
                 with patch.dict(os.environ, {"FAKE_CODEX_REPLY": json.dumps({"reply": "收到", "actions": []})}):
                     if role == "ui":
                         run = self.runtime.start_ui("查看计划")
-                    elif role == "lens_assistant":
-                        run = self.runtime.control("lens", {"lens": "contradiction", "task": "Generate candidates."})
+                    elif role in {"explorer", "analyst"}:
+                        run = self.runtime.control(role, {"task": "Read current evidence and return advice."})
                     else:
                         self.confirm()
                         self.assign()
-                        run = self.runtime.start_worker("P-test", "实现根节点")
+                        run = self.start_architect("实现根节点")
                     state = self.wait_run(run)
                 self.assertEqual(state["status"], "completed", state)
                 calls = [json.loads(line) for line in (Path(self.temp.name) / "calls.jsonl").read_text().splitlines()]
@@ -469,42 +479,42 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
                 requested = [record for record in records if record["event"] == "requested" and record["actor"] == run["actor"]][-1]
                 self.assertEqual((requested["model"], requested["effort"]), (expected, "high"))
 
-    def test_worker_binding_followup_and_resume_use_same_identity(self):
+    def test_architect_binding_followup_and_resume_use_same_identity(self):
         self.confirm()
         self.assign()
         hold = Path(self.temp.name) / "hold"
         hold.touch()
-        first = self.runtime.start_worker("P-test", "实现根节点")
+        first = self.start_architect("实现根节点")
         for _ in range(300):
             if read_json(Path(first["directory"]) / "state.json").get("thread_id"):
                 break
             time.sleep(0.02)
-        queued = self.runtime.start_worker("P-test", "后续任务")
+        queued = self.start_architect("后续任务")
         self.assertEqual(queued["delivery"], "queued")
         with self.assertRaisesRegex(ValueError, "live"):
-            self.runtime.start_worker("P-test", "replacement", restart=True)
+            self.start_architect("replacement", restart=True)
         hold.unlink()
         state = self.wait_run(first)
         self.assertEqual(state["status"], "completed", state)
-        self.assertEqual(self.db.get("P-test")["worker_agent_id"], state["thread_id"])
-        second = self.runtime.start_worker("P-test", "继续核对")
+        self.assertEqual(self.db.get("P-test")["architect_agent_id"], state["thread_id"])
+        second = self.start_architect("继续核对")
         resumed = self.wait_run(second)
         self.assertEqual(resumed["thread_id"], state["thread_id"])
         self.assertEqual(resumed["status"], "completed", resumed)
         calls = [json.loads(x) for x in (Path(self.temp.name) / "calls.jsonl").read_text().splitlines()]
         execs = [c for c in calls if c[0] == "exec"]
         self.assertEqual(execs[0][execs[0].index("--model") + 1], "fixture-model")
-        self.assertTrue(any("worker/root" in x for x in execs[0]))
+        self.assertTrue(any("architect/root" in x for x in execs[0]))
         self.assertIn("resume", execs[1])
         self.assertFalse(any("bypass" in arg for call in calls for arg in call))
         # a background session cannot answer approval prompts: the plugin's own MCP server is pre-approved
         self.assertIn('mcp_servers.research_tree.default_tools_approval_mode="approve"', execs[0])
 
-    def test_worker_failure_is_visible_and_does_not_look_delivered(self):
+    def test_architect_failure_is_visible_and_does_not_look_delivered(self):
         self.confirm()
         self.assign()
         with patch.dict(os.environ, {"FAKE_CODEX_FAIL": "1"}):
-            run = self.runtime.start_worker("P-test", "task")
+            run = self.start_architect("task")
             state = self.wait_run(run)
         self.assertEqual(state["status"], "failed")
         self.assertEqual(state["exit_code"], 3)
@@ -590,13 +600,41 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         self.confirm()
         self.assign()
         write_json(self.runtime.cache / "leader.json", {"session_id": "11111111-1111-4111-8111-111111111111"})
-        run = self.runtime.start_worker("P-test", "task")
+        run = self.start_architect("task")
         state = self.wait_run(run)
         self.assertEqual(state["status"], "failed")
         self.assertIn("inherit", state["error"])
         self.assertEqual(state["notification"]["delivery"], "queued")
 
+    def install_guard_python(self):
+        # A fixture-local launcher uses this test environment without installing anything.
+        python = self.cwd / ".venv/bin/python"
+        python.parent.mkdir(parents=True, exist_ok=True)
+        python.write_text(f"#!/bin/sh\nexec '{sys.executable}' \"$@\"\n")
+        python.chmod(0o755)
+
+    def test_codex_file_guard_uses_fresh_authority_without_the_display_cache(self):
+        self.install_guard_python()
+        self.runtime.summary()
+        current = self.runtime.root / "docs/project/fresh.v1.md"
+        self.doc("project/fresh.v1.md", "report")
+        (self.runtime.cache / "summary.json").write_text("{broken presentation cache")
+        event = {"hook_event_name": "PreToolUse", "cwd": str(self.cwd), "tool_name": "Write",
+                 "tool_input": {"file_path": str(current)}}
+        self.assertIn("新版本", codex_hook.handle(event)["hookSpecificOutput"]["permissionDecisionReason"])
+        event["tool_input"]["file_path"] = str(self.cwd / "new.py")
+        self.assertEqual(codex_hook.handle(event), {})
+        for response in (subprocess.CompletedProcess([], 2, "", "database unavailable"),
+                         subprocess.CompletedProcess([], 0, "{}", ""),
+                         subprocess.CompletedProcess([], 0, json.dumps({"db_path": "other", "guards": {"frozen_docs": [], "harness": []}}), "")):
+            with patch.object(codex_hook.subprocess, "run", return_value=response):
+                self.assertIn("无法核验", codex_hook.handle(event)["hookSpecificOutput"]["permissionDecisionReason"])
+        event.update(tool_name="Bash", tool_input={"command": "cat notes.txt"})
+        with patch.object(codex_hook.subprocess, "run", side_effect=AssertionError("read-only tools need no file authorization")):
+            self.assertEqual(codex_hook.handle(event), {})
+
     def test_hook_guards_paths_and_preserves_worker_leader_boundary(self):
+        self.install_guard_python()
         self.runtime.summary()
         path = self.runtime.root / "docs/project/min-setup.v1.md"
         event = {"hook_event_name": "PreToolUse", "cwd": str(self.cwd), "tool_name": "apply_patch",
@@ -616,15 +654,15 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         self.assertIn("由用户修改", codex_hook.handle(event)["hookSpecificOutput"]["permissionDecisionReason"])
         # A worker acts only as itself and the UI only reads, also from a shell; the RLD drives the tools.
         db_call = f"python tools/research_db.py --db '{self.runtime.marker['db']}'"
-        cases = [("worker/root", f"{db_call} --actor rld/main update_run '{{}}'", True),
-                 ("worker/root", f"{db_call} --actor worker/root update_run '{{}}'", False),
+        cases = [("architect/root", f"{db_call} --actor rld/main update_run '{{}}'", True),
+                 ("architect/root", f"{db_call} --actor architect/root update_run '{{}}'", False),
                  ("ui/ui", f"{db_call} --actor ui/ui decide '{{}}'", True),
                  ("ui/ui", f"{db_call} --actor ui/ui get '{{}}'", False),
                  ("ui/ui", f"{db_call} --actor rld/main get '{{}}'", True),
-                 ("ui/ui", f"{db_call} --actor worker/root get '{{}}'", True),
-                 ("assistant/lens_test", f"{db_call} --actor rld/main get '{{}}'", True),
-                 ("assistant/lens_test", f"{db_call} --actor assistant/lens_test get '{{}}'", False),
-                 ("worker/root", "python tools/research_tree.py phase --set confirmed", True),
+                 ("ui/ui", f"{db_call} --actor architect/root get '{{}}'", True),
+                 ("explorer/main", f"{db_call} --actor rld/main get '{{}}'", True),
+                 ("explorer/main", f"{db_call} --actor explorer/main get '{{}}'", False),
+                 ("architect/root", "python tools/research_tree.py phase --set confirmed", True),
                  ("rld/main", f"{db_call} --actor rld/main decide '{{}}'", False),
                  # reviews only through research_review: no direct pi / claude -p, no reviewer identity (09 §4)
                  ("rld/main", "pi -p --mode json --model openai/gpt-6-astra 'review this'", True),
@@ -634,7 +672,7 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
                  ("rld/main", "claude --version", False),
                  ("rld/main", "echo pi", False),
                  ("rld/main", f"{db_call} --actor reviewer/pi register_review '{{}}'", True),
-                 ("worker/root", "python tools/review_call.py --kind code_review --brief b --about H-0001", True),
+                 ("architect/root", "python tools/review_call.py --kind code_review --brief b --about H-0001", True),
                  ("rld/main", "python tools/review_call.py --kind code_review --brief b --about H-0001", False)]
         for actor, command, denied in cases:
             event.update(tool_name="Bash", tool_input={"command": command})
@@ -642,15 +680,15 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
                 self.assertEqual(bool(codex_hook.handle(event)), denied, (actor, command))
         self.assertEqual(codex_hook.READ_METHODS, set(READ_METHODS))
         prior = read_json(self.runtime.cache / "leader.json")
-        with patch.dict(os.environ, {"RESEARCH_TREE_ACTOR": "worker/root", "RESEARCH_TREE_PROJECT": str(self.cwd)}):
+        with patch.dict(os.environ, {"RESEARCH_TREE_ACTOR": "architect/root", "RESEARCH_TREE_PROJECT": str(self.cwd)}):
             worker_context = codex_hook.handle({"hook_event_name": "SessionStart", "cwd": str(self.cwd), "session_id": "worker-thread", "model": "child"})["hookSpecificOutput"]["additionalContext"]
-        self.assertIn("worker/root", worker_context)
+        self.assertIn("architect/root", worker_context)
         self.assertNotIn("用research_control inbox", worker_context)
         self.assertNotIn("需要用户决定时post_to_ui", worker_context)
         self.assertEqual(prior, read_json(self.runtime.cache / "leader.json"))
         observed = json.loads((self.runtime.root / "logs/agent_models.jsonl").read_text().splitlines()[-1])
-        self.assertEqual((observed["actor"], observed["event"], observed["model"]), ("worker/root", "observed", "child"))
-        for actor in ("ui/ui", "assistant/lens_123456789abc", "explorer/main", "analyst/main"):
+        self.assertEqual((observed["actor"], observed["event"], observed["model"]), ("architect/root", "observed", "child"))
+        for actor in ("ui/ui", "explorer/main", "explorer/main", "analyst/main"):
             with patch.dict(os.environ, {"RESEARCH_TREE_ACTOR": actor, "RESEARCH_TREE_PROJECT": str(self.cwd)}):
                 context = codex_hook.handle({"hook_event_name": "SessionStart", "cwd": str(self.cwd)})["hookSpecificOutput"]["additionalContext"]
             self.assertIn(actor, context)
@@ -665,6 +703,7 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         self.assertEqual(prior["session_id"], read_json(self.runtime.cache / "leader.json")["session_id"])
 
     def test_copy_reads_protected_sources_but_guards_its_actual_destinations(self):
+        self.install_guard_python()
         self.runtime.summary()
         config = self.cwd / "research-tree.yaml"
         current = self.runtime.root / "docs/project/min-setup.v1.md"
@@ -696,7 +735,7 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         fresh = self.cwd / "fresh"
         fresh.mkdir()
         (fresh / "plan.md").write_text("# A project initialized in an existing Codex session\n")
-        shutil.copyfile(ROOT / "schema/config.v1.template.yaml", fresh / "research-tree.yaml")
+        shutil.copyfile(ROOT / "schema/config.template.yaml", fresh / "research-tree.yaml")
         event = {"hook_event_name": "SessionStart", "cwd": str(fresh),
                  "session_id": "fresh-main", "model": "gpt-6-luna"}
         with patch.dict(os.environ, {"RESEARCH_TREE_ACTOR": "rld/main", "RESEARCH_TREE_PROJECT": str(fresh)}):
@@ -799,34 +838,31 @@ class WorkerCommitTest(unittest.TestCase):
 
 
 class PromptContractTest(unittest.TestCase):
-    def test_all_workflow_discovery_combinations_are_consistent(self):
+    def test_only_current_workflow_is_advertised(self):
         import codex_prompts
-        import project_config
-        base = (ROOT / "schema/config.template.yaml").read_text()
+        conf = project_config.parse((ROOT / "schema/config.template.yaml").read_text())
         project = {"plan_instruction": {"path": "project/plan.v1.md"}, "root": "/r", "project_id": "P-x"}
-        package = {"worker": "architect/root", "node": {"id": "P-x"}}
-        for mode in ("fast_screening", "strict"):
-            for discovery in ("incremental", "full", "precheck", "off"):
-                with self.subTest(mode=mode, discovery=discovery):
-                    conf = project_config.parse(base.replace("mode: fast_screening", f"mode: {mode}")
-                                               .replace("mode: incremental", f"mode: {discovery}"))
-                    plan = codex_prompts.planning(project, conf)
-                    worker = codex_prompts.worker(project, package, conf, "Build shared harness")
-                    self.assertIn(mode, plan)
-                    self.assertIn(discovery, plan)
-                    self.assertIn("architect/root", worker)
-                    self.assertIn("reserve_submission", worker)
-                    self.assertIn("import_run_result", worker)
-                    if mode == "fast_screening":
-                        self.assertIn("停止与继续条件", plan)
-                        self.assertIn("不等待每次新的模型 code_review", worker)
-                    if discovery == "incremental":
-                        self.assertIn("gate --candidate", plan)
-                    for role in ("explorer", "analyst"):
-                        advisor = codex_prompts.advisor(project, conf, role, "Read current evidence")
-                        self.assertIn(f"{role}/main", advisor)
-                        self.assertIn("不修改文件、数据库", advisor)
-                        self.assertIn("由 Leader 记录", advisor)
+        package = {"actor": "architect/root", "node": {"id": "P-x"}}
+        plan = codex_prompts.planning(project, conf)
+        worker = codex_prompts.worker(project, package, conf, "Build shared harness")
+        self.assertIn("version 3", plan)
+        self.assertIn("schema 23", plan)
+        self.assertIn("停止与继续条件", plan)
+        self.assertIn("gate --candidate", plan)
+        self.assertIn("assign_architect", plan)
+        self.assertIn("cache/discovery/proposals", plan)
+        self.assertIn("architect/root", worker)
+        self.assertIn("reserve_submission", worker)
+        self.assertIn("import_run_result", worker)
+        self.assertIn("不等待每次新的模型 code_review", worker)
+        for text in (plan, worker, codex_hook.WORKFLOW):
+            for removed in ("workflow.mode", "discovery.mode", "lens", "strict", "config.v1", "旧 verdict"):
+                self.assertNotIn(removed, text)
+        for role in ("explorer", "analyst"):
+            advisor = codex_prompts.advisor(project, conf, role, "Read current evidence")
+            self.assertIn(f"{role}/main", advisor)
+            self.assertIn("不修改文件、数据库", advisor)
+            self.assertIn("由 Leader 记录", advisor)
         with self.assertRaisesRegex(ValueError, "advisor role"):
             codex_prompts.advisor(project, conf, "rld", "Take over")
 
@@ -851,7 +887,7 @@ class RootCommitTest(unittest.TestCase):
                     class DB:
                         def find(self, table):
                             if table == "project":
-                                return [{"id": "P-test", "repo_path": str(repo), "worker_id": "root"}]
+                                return [{"id": "P-test", "repo_path": str(repo), "architect_id": "root"}]
                             # A coincidentally matching worker id on another branch does not grant access.
                             return [{"hypothesis_id": "H-0001", "owner": "root", "worktree_path": str(Path(temp) / "other")}]
                     return DB()

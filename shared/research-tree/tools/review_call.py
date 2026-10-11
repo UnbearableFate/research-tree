@@ -1,7 +1,6 @@
 """Cross-model, non-interactive review (plans/design 09): one deterministic wrapper for every Type-B review.
 
-    review_call.py --kind <triage|novelty_precheck|critical_review|proposal_review|ablation_plan|code_review|
-                           candidate_recheck>
+    review_call.py --kind <ablation_plan|code_review|candidate_recheck>
                    --brief <file under the research root, e.g. docs/reviews/briefs/H-0001-numbers.v1.md>
                    --about <candidate or node id> [--dimension D --evaluation EV-xxxx] [--session RV-xxxx]
                    [--add-dir DIR ...] [--background] [--wait-s 0]
@@ -42,7 +41,6 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "schema"))
 
 from jsonschema import Draft202012Validator  # noqa: E402
 
-import discovery  # noqa: E402
 import review_rules  # noqa: E402
 import research_tree as tree  # noqa: E402
 from research_db import (CANDIDATE_ID_RE, RECHECK_DIMENSIONS, REVIEW_KINDS, ResearchDB,  # noqa: E402
@@ -78,7 +76,7 @@ def now() -> str:
     return datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
-family = discovery.family  # one model-family table for every review decision
+family = review_rules.family  # one model-family table for every review decision
 
 
 def leader_model(root: Path) -> str | None:
@@ -297,11 +295,6 @@ def problems(kind: str, data: dict | None, schema: dict, dimension: str | None) 
              for e in Draft202012Validator(schema).iter_errors(data)]
     if found:
         return found[:5]
-    if kind == "novelty_precheck":
-        named = {p.get("id") for p in data["closest_prior_work"]} | {p.get("title") for p in data["closest_prior_work"]}
-        if data["verdict"] == "ABANDON" and (not data.get("abandon_paper") or data["abandon_paper"] not in named):
-            found.append("ABANDON names the paper that already contains the result (abandon_paper, also in "
-                         "closest_prior_work); without it the verdict is invalid, not negative")
     if kind == "candidate_recheck":
         if data["dimension"] != dimension:
             found.append(f"dimension is {data['dimension']!r}, the brief asked for {dimension!r}")
@@ -316,16 +309,12 @@ def result_of(kind: str, data: dict) -> str:
     """The review's recorded conclusion; the positive/negative reading follows 09 §3."""
     if kind == "candidate_recheck":
         return data["result"]
-    if kind == "novelty_precheck":
-        return data["verdict"]
-    if kind == "critical_review":
-        return data["stance"]
-    if kind == "proposal_review":
-        return data["verdict"]
     if kind == "code_review":
         blocking = [i for i in data["issues"] if i["severity"] in ("CRITICAL", "MAJOR")]
         return "blocking" if blocking or not data["method_implemented"] else "clear"
-    return "ranked" if kind == "triage" else "planned"
+    if kind == "ablation_plan":
+        return "planned"
+    raise ReviewError("REVIEW_INVALID", f"unsupported review kind {kind!r}")
 
 
 # -- the call -----------------------------------------------------------------------------------------------------
@@ -394,7 +383,7 @@ def _prepare_review(cwd: Path, kind: str, brief: str, about: str, dimension: str
     conf = tree.show_config(cwd)["effective"]
     reviewer = (conf.get("models") or {}).get("reviewer")
     if not reviewer:
-        raise ReviewError("REVIEW_UNAVAILABLE", "research-tree.yaml has no models.reviewer (configuration version 2)")
+        raise ReviewError("REVIEW_UNAVAILABLE", "research-tree.yaml has no models.reviewer (configuration version 3)")
     brief_path = (Path(brief) if Path(brief).is_absolute() else root / brief).resolve()
     if not brief_path.is_file() or not brief_path.is_relative_to(root):
         raise ReviewError("REVIEW_INVALID", f"the brief is a file under {root}: {brief_path} is missing or outside it")
@@ -513,8 +502,8 @@ def followup_evidence(root: Path, db_path: Path, manifest: str, kind: str, about
     parent_id = path.parent.name
     rld = ResearchDB(db_path, "rld/main")
     parent = next((d for d in rld.reviews() if d["id"] == parent_id), None)
-    if parent is None or parent.get("review_kind") != kind or (
-            parent.get("review_about") or about) != about:
+    subjects = {edge["target_id"] for edge in rld.edges("rel_describes", source_id=parent_id)} if parent else set()
+    if parent is None or parent.get("review_kind") != kind or subjects != {about}:
         raise ReviewError("REVIEW_INVALID", f"{parent_id} is not a {kind} review of {about}")
     recorded = (parent.get("followup") or {}).get("sha256")
     digest = hashlib.sha256(path.read_bytes()).hexdigest()

@@ -1,19 +1,8 @@
-"""Resumable discovery and deterministic candidate readiness. Nothing here calls a model.
+"""Continuous incremental discovery with independently admitted, identity-bound candidates.
 
-Full/precheck retain the original whole-batch gate. Incremental discovery continues alongside the shared
-framework after the user confirms the initial scope; each selected candidate is checked independently.
-Candidate readiness never grants scope authorization or replaces experiment/evidence admission checks.
-
-Stage state is ported from ARIS tools/run_state.py and the gate from tools/idea_discovery_gate.py
-(Auto-claude-code-research-in-sleep @ 3b19a22), adapted: a stage is `done` when the Leader finished it and
-`accepted` only on evidence it cannot write itself — a current review document by another model family
-(review stages) or a deterministic check (literature verification, feasibility). Resume returns the first stage
-that is not terminal, so a stage the Leader called done but no reviewer accepted is redone, never skipped
-("a loop can DRIVE, it cannot ACQUIT").
-
-State: research/<id>/cache/discovery/state.json. Candidates: docs/project/discovery/candidates.json (merged from
-the lens shards in cache/discovery/shards/*.json). User hypotheses enter as candidates with origin "user": they
-are annotated, never eliminated by the feasibility gate or the triage ranking (02 §3).
+The Leader may confirm minimal scope while exploration continues. Candidate readiness never grants user
+permission, a global discovery PASS, experiment execution, or final research GO. Proposal sources provide advice;
+selection and the scientific validity/budget/evidence gates remain separate.
 """
 
 from __future__ import annotations
@@ -28,25 +17,9 @@ from contextlib import contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
-import review_rules
-
-STAGES = ("brief", "literature", "candidates", "feasibility", "triage", "novelty", "critique", "refine", "gate")
-SKIPPED_BY_MODE = {"full": (), "precheck": ("candidates", "feasibility", "triage"), "incremental": ()}
-REVIEW_STAGES = {"triage": "triage", "novelty": "novelty_precheck", "critique": "critical_review"}
-DETERMINISTIC_STAGES = ("literature", "feasibility")
-TERMINAL = ("accepted", "skipped")
-EXECUTOR_STATUSES = ("pending", "running", "done", "failed")
-REPORT_SECTIONS = ("用户假说", "新发现候选", "淘汰想法")
+DISCOVERY_VERSION = 2
 STATE_PATH = Path("cache") / "discovery" / "state.json"
 CANDIDATES_PATH = Path("docs") / "project" / "discovery" / "candidates.json"
-# What a finished stage's --artifact usually is (the gate needs one for every stage but brief)
-ARTIFACT_HINTS = {"literature": "docs/project/discovery/literature.md (the documents and their verification)",
-                  "candidates": "docs/project/discovery/candidates.json",
-                  "feasibility": "docs/project/discovery/candidates.json",
-                  "triage": "docs/project/discovery/triage.md (the triage review id and the selection)",
-                  "novelty": "docs/project/discovery/novelty-reviews.md (one line per candidate: review id, verdict)",
-                  "critique": "docs/project/discovery/critical-reviews.md (one line per candidate: review id, stance)",
-                  "refine": "docs/project/discovery/refined-hypotheses.md (the hypothesis documents written)"}
 
 
 class DiscoveryError(Exception):
@@ -74,7 +47,14 @@ def _locked(root: Path):
 
 def load(root: Path) -> dict | None:
     path = root / STATE_PATH
-    return json.loads(path.read_text(encoding="utf-8")) if path.is_file() else None
+    if not path.is_file():
+        return None
+    state = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(state, dict) or state.get("version") != DISCOVERY_VERSION or any(
+            key in state for key in ("mode", "stages", "gate")):
+        raise DiscoveryError("UNSUPPORTED_DISCOVERY_VERSION: sequential or unversioned discovery is no longer "
+                             "supported. Preserve the old project and start a new version-3 project.")
+    return state
 
 
 def _save(root: Path, state: dict) -> None:
@@ -86,51 +66,18 @@ def _save(root: Path, state: dict) -> None:
     os.replace(tmp, path)
 
 
-def start(root: Path, mode: str, executor_model: str | None) -> dict:
-    """Create discovery state; incremental stages track ongoing work without gating other candidates."""
-    if mode not in SKIPPED_BY_MODE:
-        raise DiscoveryError(f"discovery runs in mode full, precheck or incremental, not {mode!r} (off skips discovery)")
+def start(root: Path, executor_model: str | None = None) -> dict:
+    """Start continuous discovery; resuming never rewrites existing candidate or evidence history."""
+    # Inspect before creating directories/locks so a rejected old state is unchanged.
+    state = load(root)
+    read_candidates(root)
+    if state is not None:
+        return state
     with _locked(root):
         state = load(root)
-        if state is not None:
-            if state.get("mode") != mode:
-                raise DiscoveryError(f"discovery already started in {state.get('mode')!r}, not {mode!r}; "
-                                     "reconcile the existing run rather than silently changing its gates")
-            return state
-        state = {"mode": mode, "executor_model": executor_model, "created": now(), "gate": None,
-                 "stages": [{"stage": s, "status": "skipped" if s in SKIPPED_BY_MODE[mode] else "pending",
-                             "artifact": None, "evidence": None, "updated": now()} for s in STAGES]}
-        _save(root, state)
-        return state
-
-
-def _stage(state: dict, name: str) -> dict:
-    for s in state["stages"]:
-        if s["stage"] == name:
-            return s
-    raise DiscoveryError(f"unknown stage {name!r}; stages: {', '.join(STAGES)}")
-
-
-def set_status(root: Path, name: str, status: str, artifact: str | None = None) -> dict:
-    """The Leader's own progress: pending, running, done or failed. Acceptance is accept()'s alone."""
-    if status not in EXECUTOR_STATUSES:
-        raise DiscoveryError(f"set writes {', '.join(EXECUTOR_STATUSES)}; acceptance needs evidence (accept)")
-    with _locked(root):
-        state = _require(root)
-        stage = _stage(state, name)
-        if stage["status"] == "skipped":
-            raise DiscoveryError(f"{name} is skipped in mode {state['mode']}")
-        if artifact and not (root / artifact.partition("#")[0]).is_file():
-            raise DiscoveryError(f"--artifact {artifact} is not a file under the research root {root}")
-        if status == "done" and name not in ("brief", "gate") and not (artifact or stage.get("artifact")):
-            # the gate checks every stage's output (real-run-error #15): say so when the stage is finished
-            raise DiscoveryError(f"{name} done needs --artifact, the stage's output file relative to the research root "
-                                 f"(e.g. {ARTIFACT_HINTS.get(name, 'docs/project/discovery/<stage>.md')}); the "
-                                 "discovery gate checks it")
-        stage.update(status=status, updated=now(), **({"artifact": artifact} if artifact else {}))
-        if name != "gate":
-            state["gate"] = None  # anything redone invalidates an earlier gate result
-        _save(root, state)
+        if state is None:
+            state = {"version": DISCOVERY_VERSION, "executor_model": executor_model, "created": now()}
+            _save(root, state)
         return state
 
 
@@ -139,57 +86,6 @@ def _require(root: Path) -> dict:
     if state is None:
         raise DiscoveryError("no discovery run: start it first (discovery start)")
     return state
-
-
-def accept(root: Path, name: str, evidence: list[str], reviews: list[dict] | None = None,
-           verifier: str | None = None) -> dict:
-    """Accept a done stage on evidence the Leader cannot write: review stages need current review documents of
-    their kind by another model family (`reviews`: the records of `evidence`, from research_db.reviews), the
-    deterministic stages a verifier's report (`verifier`: what checked it, `evidence`: its output files)."""
-    with _locked(root):
-        state = _require(root)
-        stage = _stage(state, name)
-        if stage["status"] not in ("done", "accepted"):
-            raise DiscoveryError(f"{name} is {stage['status']}: only a finished stage is accepted")
-        if not evidence:
-            raise DiscoveryError(f"accepting {name} records its evidence (review ids or verifier output)")
-        if name in REVIEW_STAGES:
-            kind = REVIEW_STAGES[name]
-            found = {r["id"]: r for r in reviews or []}
-            for doc_id in evidence:
-                r = found.get(doc_id)
-                if r is None or r.get("review_kind") != kind or r.get("status") != "current":
-                    raise DiscoveryError(f"{name} is accepted on current {kind} reviews; {doc_id} is not one")
-                if family(r.get("reviewer_model")) in (None, family(state.get("executor_model"))):
-                    raise DiscoveryError(f"{doc_id} is not by another model family than the Leader "
-                                         f"({state.get('executor_model')})")
-        elif name in DETERMINISTIC_STAGES:
-            if not verifier:
-                raise DiscoveryError(f"{name} is accepted on a deterministic check: name the verifier")
-        else:
-            raise DiscoveryError(f"{name} needs no acceptance: done is terminal for it")
-        stage.update(status="accepted", evidence=list(evidence), verifier=verifier, updated=now())
-        _save(root, state)
-        return state
-
-
-def terminal(stage: dict) -> bool:
-    if stage["status"] in TERMINAL:
-        return True
-    # stages that promise no review or check end when the Leader has done them
-    return stage["status"] == "done" and stage["stage"] not in REVIEW_STAGES and stage["stage"] not in DETERMINISTIC_STAGES
-
-
-def resume_point(root: Path) -> dict | None:
-    """R11: the first stage that is not terminal (a done-but-unaccepted review stage is redone), else None."""
-    state = _require(root)
-    return next((s for s in state["stages"] if not terminal(s)), None)
-
-
-def family(model: str | None) -> str | None:
-    """The model family of a provider/model or a bare model id; None when it cannot be told. The one table both
-    review_call (who may review) and accept (whose review counts) use (review_rules.parse_model, S4 §8.3)."""
-    return review_rules.family(model)
 
 
 # -- candidates ----------------------------------------------------------------------------------------------------
@@ -206,8 +102,6 @@ def dedup_key(text: str) -> str:
 # feasibility notes) is not content.
 CONTENT_FIELDS = ("title", "summary", "mechanism", "method", "claim", "statement", "closest_work", "hypothesis",
                   "prediction", "estimated_run", "intervention", "comparator", "resource_ceiling", "stop_conditions")
-BOOKKEEPING = ("id", "revision", "content_sha", "revisions", "found_by", "selected", "literature", "triage_rank",
-               "feasible", "feasibility_reasons", "present", "origin", "dedup_key", "legacy_ids")
 
 
 def content_sha(candidate: dict) -> str:
@@ -216,18 +110,12 @@ def content_sha(candidate: dict) -> str:
     return hashlib.sha256(json.dumps(content, sort_keys=True, ensure_ascii=False).encode("utf-8")).hexdigest()
 
 
-def merge(shards: list[dict], user_hypotheses: list[dict], existing: list[dict] | None = None) -> list[dict]:
-    """R12, R17: merge lens shards ({"lens", "generator", "candidates": [{"title", "summary", "mechanism",
-    "dedup_key"?, "estimated_run"?, ...}]}) with the user's hypotheses ({"title", "summary", ...}). Duplicates are
-    clustered by dedup_key only — never dropped for being weak; a user hypothesis keeps origin "user" and records
-    which lenses also found it.
+def merge(proposals: list[dict], user_hypotheses: list[dict], existing: list[dict] | None = None) -> list[dict]:
+    """Merge read-only advisor proposals ({source, candidates}) with user hypotheses.
 
-    S1 §5.2: a candidate's id is stable. It is the explicit candidate_id an input names, else the id an existing
-    candidate of the same origin and dedup_key already has, else a new number never used before — never a position
-    in a sorted list, so inserting or reordering candidates moves no id. A candidate whose content changed keeps its
-    id with the next revision (content_sha changes): reviews are bound to the revision they read, so a changed
-    candidate needs new receipts. A candidate absent from the new inputs stays in the pool as not present (history),
-    unselected."""
+    Stable IDs survive reordered proposals. Scientific content changes advance a revision and invalidate old
+    receipts. Missing candidates remain historical and unselected; weak candidates are never erased by ranking.
+    """
     existing = [dict(c) for c in existing or []]
     by_id = {c["id"]: c for c in existing if c.get("id")}
     by_key = {(c.get("origin"), c.get("dedup_key")): c for c in existing if c.get("id")}
@@ -235,22 +123,25 @@ def merge(shards: list[dict], user_hypotheses: list[dict], existing: list[dict] 
     pool: dict[str, dict] = {}
     for h in user_hypotheses:
         key = h.get("dedup_key") or dedup_key(h["title"])
-        # a user hypothesis always goes to the novelty check and critical review (02 §3), in every mode
+        # Preserve user-origin ideas; readiness still checks their exact current content.
         pool[key] = {**h, "dedup_key": key, "origin": "user", "found_by": ["user"], "selected": True}
-    for shard in shards:
-        lens = shard.get("lens") or "unknown"
-        for c in shard.get("candidates") or []:
+    for proposal in proposals:
+        source = proposal.get("source")
+        if not isinstance(source, str) or not source.strip() or set(proposal) - {"source", "candidates"}:
+            raise DiscoveryError("a proposal needs {source, candidates}; legacy lens shards are unsupported")
+        if not isinstance(proposal.get("candidates"), list):
+            raise DiscoveryError("a proposal's candidates must be a list")
+        for c in proposal["candidates"]:
             if not (c.get("title") or "").strip():
-                raise DiscoveryError(f"a candidate of lens {lens} has no title")
+                raise DiscoveryError(f"a candidate from {source} has no title")
             key = c.get("dedup_key") or dedup_key(c["title"])
-            source = f"{lens}:{shard.get('generator') or 'assistant'}"
             if key in pool:
                 pool[key]["found_by"] = sorted(set(pool[key]["found_by"]) | {source})
                 pool[key]["literature"] = sorted(set(pool[key].get("literature") or []) | set(c.get("literature") or []))
                 for field, value in c.items():
                     pool[key].setdefault(field, value)
             else:
-                pool[key] = {**c, "dedup_key": key, "origin": "lens", "found_by": [source]}
+                pool[key] = {**c, "dedup_key": key, "origin": "explorer", "found_by": [source]}
     out, used = [], set()
     for c in pool.values():
         explicit = c.get("candidate_id") or (c.get("id") if CANDIDATE_RE.fullmatch(str(c.get("id") or "")) else None)
@@ -272,7 +163,7 @@ def merge(shards: list[dict], user_hypotheses: list[dict], existing: list[dict] 
             cited = sorted(set(old.get("literature") or []) | set(c.get("literature") or []))
             if cited:
                 c["literature"] = cited
-            for key in ("selected", "triage_rank", "feasible", "feasibility_reasons"):  # later stages' marks, for
+            for key in ("selected", "feasible", "feasibility_reasons"):  # later stages' marks, for
                 if revision == old.get("revision") and key in old and key not in c:  # unchanged content only
                     c[key] = old[key]
         else:
@@ -290,15 +181,6 @@ def merge(shards: list[dict], user_hypotheses: list[dict], existing: list[dict] 
 
 
 CANDIDATE_RE = re.compile(r"CAND-\d{4,}")
-
-
-def receipt_applies(review: dict, candidate: dict) -> bool:
-    """A discovery receipt counts for the candidate's current revision only (S1 §5.2): its system-captured basis
-    names that content, and the candidate did not change while the reviewer answered."""
-    basis = review.get("review_basis") or {}
-    return (not review.get("review_basis_changed") and basis.get("candidate_id") == candidate.get("id")
-            and basis.get("revision") == candidate.get("revision") and candidate.get("revision") is not None
-            and basis.get("content_sha") == candidate.get("content_sha") and candidate.get("content_sha") is not None)
 
 
 def feasibility(candidates: list[dict], max_nodes: int, max_walltime_s: int, screen_node_h: float) -> list[dict]:
@@ -327,26 +209,13 @@ def feasibility(candidates: list[dict], max_nodes: int, max_walltime_s: int, scr
     return out
 
 
-def select(candidates: list[dict], ranking: list[dict], top_n: int) -> list[dict]:
-    """R15: the ideas that go to the novelty check: every user hypothesis, whatever its rank, plus the top_n
-    feasible new candidates by the triage ranking ([{candidate_id, rank}] from the triage review)."""
-    rank = {r["candidate_id"]: r["rank"] for r in ranking}
-    present = [c for c in candidates if c.get("present", True)]
-    new = [c for c in present if c["origin"] != "user" and c.get("feasible") is not False]
-    new.sort(key=lambda c: rank.get(c["id"], 10 ** 6))
-    chosen = {c["id"] for c in new[:top_n]} | {c["id"] for c in present if c["origin"] == "user"}
-    return [{**c, "selected": c["id"] in chosen, "triage_rank": rank.get(c["id"])} for c in candidates]
-
-
 def select_candidate(root: Path, candidate_id: str) -> dict:
     """Select one incremental candidate without changing another candidate's selection or requiring triage.
 
     Selection is research prioritization, not a PASS receipt: admission rechecks current content and scope.
     """
     with _locked(root):
-        state = _require(root)
-        if state["mode"] != "incremental":
-            raise DiscoveryError("select --candidate is for incremental discovery; full/precheck keep triage selection")
+        _require(root)
         candidates = read_candidates(root)
         candidate = next((c for c in candidates if c.get("id") == candidate_id), None)
         if candidate is None or candidate.get("present") is False:
@@ -357,7 +226,7 @@ def select_candidate(root: Path, candidate_id: str) -> dict:
 
 
 def cite(root: Path, candidate_id: str, literature: list[str]) -> dict:
-    """Attach literature documents (D-…) to a candidate: the gate counts the verified ones."""
+    """Attach traceable literature documents without imposing a batch literature quota."""
     candidates = read_candidates(root)
     found = next((c for c in candidates if c["id"] == candidate_id), None)
     if found is None:
@@ -368,11 +237,13 @@ def cite(root: Path, candidate_id: str, literature: list[str]) -> dict:
 
 
 def write_candidates(root: Path, candidates: list[dict]) -> str:
+    load(root)
+    read_candidates(root)
     path = root / CANDIDATES_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=".candidates.", suffix=".tmp")
     with os.fdopen(fd, "w", encoding="utf-8") as handle:
-        json.dump({"updated": now(), "candidates": candidates}, handle, ensure_ascii=False, indent=1)
+        json.dump({"version": DISCOVERY_VERSION, "updated": now(), "candidates": candidates}, handle, ensure_ascii=False, indent=1)
         handle.write("\n")
     os.replace(tmp, path)
     return str(CANDIDATES_PATH)
@@ -380,12 +251,21 @@ def write_candidates(root: Path, candidates: list[dict]) -> str:
 
 def read_candidates(root: Path) -> list[dict]:
     path = root / CANDIDATES_PATH
-    return json.loads(path.read_text(encoding="utf-8"))["candidates"] if path.is_file() else []
+    if not path.is_file():
+        return []
+    value = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(value, dict) or value.get("version") != DISCOVERY_VERSION:
+        raise DiscoveryError("UNSUPPORTED_DISCOVERY_VERSION: old candidate pools are preserved, never imported "
+                             "implicitly; start a new version-3 project")
+    candidates = value.get("candidates")
+    if not isinstance(candidates, list) or any(not isinstance(c, dict) for c in candidates):
+        raise DiscoveryError("candidate pool needs a candidates list of objects")
+    return candidates
 
 
-def read_shards(root: Path) -> list[dict]:
+def read_proposals(root: Path) -> list[dict]:
     return [json.loads(p.read_text(encoding="utf-8"))
-            for p in sorted((root / "cache" / "discovery" / "shards").glob("*.json"))]
+            for p in sorted((root / "cache" / "discovery" / "proposals").glob("*.json"))]
 
 
 # -- the gate ------------------------------------------------------------------------------------------------------
@@ -402,19 +282,14 @@ def _has_description(value) -> bool:
     return False
 
 
-def evaluate_candidate(root: Path, candidate_id: str, *, workflow_mode: str = "strict",
-                       reviews: list[dict] | None = None, literature: dict[str, bool] | None = None,
-                       min_related_work: int = 0, max_nodes: int | None = None,
+def evaluate_candidate(root: Path, candidate_id: str, *, max_nodes: int | None = None,
                        max_walltime_s: int | None = None, screen_node_h: float | None = None) -> dict:
-    """Read-only readiness of exactly one candidate; no batch progress, report, or model call is required.
+    """Read-only readiness for one current selected candidate under its declared resource ceiling.
 
-    Fast screening requires a falsifiable prediction, intervention, matched comparator, positive per-run
-    resource ceiling within the supplied project limits, and stop/continue conditions. Strict readiness
-    retains current revision-bound novelty/critique receipts and verified related work. The database still
-    enforces negative-review adjudication, initial authorization, method identity and actual run limits.
+    Admission requires prediction, intervention, matched comparator, resource ceiling and stop/continue
+    conditions. Independent final reviews and actual experiment/evidence checks remain separate.
     """
-    if workflow_mode not in ("strict", "fast_screening"):
-        raise DiscoveryError(f"unknown workflow mode {workflow_mode!r}")
+    load(root)  # reject an older discovery state even if its candidate file was manually replaced
     candidate = next((c for c in read_candidates(root) if c.get("id") == candidate_id), None)
     result = {"verdict": "BLOCKED", "reasons": [], "candidate_id": candidate_id,
               "revision": candidate.get("revision") if candidate else None,
@@ -429,96 +304,20 @@ def evaluate_candidate(root: Path, candidate_id: str, *, workflow_mode: str = "s
         reasons.append(f"{candidate_id}: no valid content revision; merge again to record its identity")
     if not candidate.get("content_sha") or candidate["content_sha"] != content_sha(candidate):
         reasons.append(f"{candidate_id}: content changed outside discovery merge; merge again to record its revision")
-    if workflow_mode == "fast_screening":
-        for field in ("prediction", "intervention", "comparator", "stop_conditions"):
-            if not _has_description(candidate.get(field)):
-                reasons.append(f"{candidate_id}: screening needs {field}")
-        ceiling = candidate.get("resource_ceiling")
-        nodes = ceiling.get("nodes") if isinstance(ceiling, dict) else None
-        walltime = ceiling.get("walltime_s") if isinstance(ceiling, dict) else None
-        if type(nodes) is not int or type(walltime) is not int or nodes <= 0 or walltime <= 0:
-            reasons.append(f"{candidate_id}: resource_ceiling needs positive integer nodes and walltime_s")
-        else:
-            if max_nodes is not None and nodes > max_nodes:
-                reasons.append(f"{candidate_id}: resource_ceiling nodes {nodes} exceeds per-run cap {max_nodes}")
-            if max_walltime_s is not None and walltime > max_walltime_s:
-                reasons.append(f"{candidate_id}: resource_ceiling walltime_s {walltime} exceeds per-run cap {max_walltime_s}")
-            if screen_node_h is not None and nodes * walltime / 3600 > screen_node_h:
-                reasons.append(f"{candidate_id}: resource_ceiling exceeds screening budget {screen_node_h} node-h")
+    for field in ("prediction", "intervention", "comparator", "stop_conditions"):
+        if not _has_description(candidate.get(field)):
+            reasons.append(f"{candidate_id}: screening needs {field}")
+    ceiling = candidate.get("resource_ceiling")
+    nodes = ceiling.get("nodes") if isinstance(ceiling, dict) else None
+    walltime = ceiling.get("walltime_s") if isinstance(ceiling, dict) else None
+    if type(nodes) is not int or type(walltime) is not int or nodes <= 0 or walltime <= 0:
+        reasons.append(f"{candidate_id}: resource_ceiling needs positive integer nodes and walltime_s")
     else:
-        mine = [r for r in reviews or [] if r.get("status") == "current" and r.get("review_about") == candidate_id]
-        applicable = [r for r in mine if receipt_applies(r, candidate)]
-        for kind in ("novelty_precheck", "critical_review"):
-            if not any(r.get("review_kind") == kind for r in applicable):
-                reasons.append(f"{candidate_id}: no {kind} receipt for its current revision {candidate.get('revision')}")
-        novelty = [r for r in applicable if r.get("review_kind") == "novelty_precheck"]
-        if novelty and max(novelty, key=lambda r: int(r["id"].split("-")[1])).get("review_result") == "NEEDS_EVIDENCE":
-            reasons.append(f"{candidate_id}: novelty receipt needs evidence (NEEDS_EVIDENCE); run literature_followup")
-        verified = {d for d in candidate.get("literature") or [] if (literature or {}).get(d)}
-        if len(verified) < min_related_work:
-            reasons.append(f"{candidate_id}: {len(verified)} verified literature documents, needs {min_related_work}")
+        if max_nodes is not None and nodes > max_nodes:
+            reasons.append(f"{candidate_id}: resource_ceiling nodes {nodes} exceeds per-run cap {max_nodes}")
+        if max_walltime_s is not None and walltime > max_walltime_s:
+            reasons.append(f"{candidate_id}: resource_ceiling walltime_s {walltime} exceeds per-run cap {max_walltime_s}")
+        if screen_node_h is not None and nodes * walltime / 3600 > screen_node_h:
+            reasons.append(f"{candidate_id}: resource_ceiling exceeds screening budget {screen_node_h} node-h")
     result["verdict"] = "BLOCKED" if reasons else "PASS"
     return result
-
-
-def evaluate(root: Path, reviews: list[dict], literature: dict[str, bool], min_related_work: int,
-             report_path: str | None) -> dict:
-    """D8: every stage terminal with its artifact; the report has its sections (用户假说, 新发现候选, 淘汰想法) and
-    they are not empty; every selected candidate has a novelty_precheck and a critical_review, and at least
-    min_related_work verified literature documents (`literature`: doc id -> verified). Returns {verdict PASS or
-    BLOCKED, reasons} and records it in the state."""
-    state = _require(root)
-    if state["mode"] == "incremental":
-        raise DiscoveryError("incremental discovery has no whole-batch gate; use gate --candidate CAND-…")
-    reasons = []
-    for s in state["stages"]:
-        if s["stage"] == "gate":
-            continue
-        if not terminal(s):
-            reasons.append(f"{s['stage']}: {s['status']}" + (" (needs acceptance on evidence)"
-                                                             if s["status"] == "done" else ""))
-        elif s["status"] != "skipped" and s["stage"] != "brief" and not s.get("artifact"):
-            reasons.append(f"{s['stage']}: no artifact recorded")
-        elif s.get("artifact") and not (root / s["artifact"].partition("#")[0]).is_file():
-            reasons.append(f"{s['stage']}: artifact {s['artifact']} is missing")
-    if not report_path or not (root / report_path).is_file():
-        reasons.append("the discovery report (docs/project/reports/discovery.vN.md) is missing")
-    else:
-        text = (root / report_path).read_text(encoding="utf-8")
-        sections = dict(re.findall(r"^##[ \t]+(.+?)[ \t]*\n(.*?)(?=^##[ \t]|\Z)", text, re.M | re.S))
-        for name in REPORT_SECTIONS:
-            body = next((b for h, b in sections.items() if h.startswith(name)), None)
-            if body is None:
-                reasons.append(f"the report lacks the section ## {name}")
-            elif not re.sub(r"<!--.*?-->", "", body, flags=re.S).strip():
-                reasons.append(f"the report's section ## {name} is empty (write 无 when there is nothing)")
-    current = [r for r in reviews if r.get("status") == "current"]
-    candidates = read_candidates(root)
-    if not any(c.get("selected") for c in candidates):
-        reasons.append("no selected candidate: run discovery merge (user hypotheses are always selected)")
-    for c in candidates:
-        if not c.get("selected") or c.get("present") is False:
-            continue
-        mine = [r for r in current if r.get("review_about") == c["id"]]
-        kinds = {r["review_kind"] for r in mine if receipt_applies(r, c)}
-        for kind in ("novelty_precheck", "critical_review"):
-            if kind not in kinds:
-                stale = any(r["review_kind"] == kind for r in mine)
-                reasons.append(f"{c['id']} ({c['title'][:40]}): no {kind} receipt"
-                               + (f" for its current revision {c.get('revision')}" if stale else ""))
-        novelty = [r for r in mine if r["review_kind"] == "novelty_precheck" and receipt_applies(r, c)]
-        if novelty and max(novelty, key=lambda r: int(r["id"].split("-")[1])).get("review_result") == "NEEDS_EVIDENCE":
-            reasons.append(f"{c['id']}: its novelty receipt needs evidence (NEEDS_EVIDENCE): run the requested "
-                           "searches (literature_followup) and review again with them")
-        cited = c.get("literature") or []
-        verified = [d for d in cited if literature.get(d)]
-        if len(verified) < min_related_work:
-            reasons.append(f"{c['id']}: {len(verified)} verified literature documents, needs {min_related_work}")
-    verdict = "BLOCKED" if reasons else "PASS"
-    with _locked(root):
-        state = _require(root)
-        state["gate"] = {"verdict": verdict, "reasons": reasons, "at": now(), "report": report_path}
-        gate = _stage(state, "gate")
-        gate.update(status="done" if verdict == "PASS" else "failed", artifact=report_path, updated=now())
-        _save(root, state)
-    return {"verdict": verdict, "reasons": reasons}

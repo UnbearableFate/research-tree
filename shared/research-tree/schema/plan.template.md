@@ -19,7 +19,7 @@
 
 ## 初始假说
 
-<!-- 没有具体假说时写“由发现流程产生。”；默认 incremental 先确认最小范围，再让框架、baseline 与候选发现并行。full/precheck 保留整批前置检查。 -->
+<!-- 没有具体假说时写“由发现流程产生。”；本版固定先确认最小范围，再让 Architect 的框架与 baseline、Explorer 的候选发现并行。就绪候选逐个准入。仅支持 version 3 配置与 schema 23 新项目。 -->
 <!-- 每个假说一个三级标题，写清改什么、在什么条件下、预期哪项指标如何变化、为什么。例如：
 ### 假说 1：子批次二阶矩预条件
 在 LoRA 微调中用子批次二阶矩替代 Adam 的二阶矩估计，预期相同步数下验证集准确率更高；理由：……
@@ -68,7 +68,7 @@
 
 ## 验收要求
 
-<!-- 什么结果算达到目标。收益门槛在 research-tree.yaml 的 metric_specs.minimum_practical_gain 中设置（version 1 配置使用 stage1）。 -->
+<!-- 什么结果算达到目标。收益门槛在 research-tree.yaml 的 metric_specs.minimum_practical_gain 中设置。 -->
 由 RLD 决定。
 
 ## 参考资料

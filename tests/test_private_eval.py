@@ -6,7 +6,6 @@ workspace stays usable. The canary holds a random token, nothing sensitive."""
 
 from __future__ import annotations
 
-import hashlib
 import json
 import shutil
 import subprocess

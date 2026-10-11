@@ -1,62 +1,40 @@
-# 真实宿主场景底座（S0）
+# 当前流程的真实宿主场景工具
 
-本目录是 `plans/research-tree-implementation-and-real-scenarios.md`（下称实施文档）S0 交付的测试工具：
-虚构的 ToyOpt Lab 项目、本地执行适配器、独立 scorer、只读观察器与场景记录器。它们只属于测试，
-不进入插件发布包。
+本目录提供唯一 version-3 合同的 ToyOpt Lab 项目、真实本地执行适配器、独立 scorer、只读观察器和场景记录校验器。
+它们只属于测试，不进入插件发布包。历史 S0–S7 的批次、升级和旧角色控制器已删除；历史计划、会话和证据保持原样，
+不能作为当前版本已通过真实场景的证明。
 
-| 文件 | 作用 |
-| --- | --- |
-| `../make_rt_test_project.py` | 生成全新 ToyOpt Lab 项目（`--host --stage --case --attempt`）；控制器文件写在项目外的 `<项目>.ctl/` |
-| `toyopt/toytrain/` | 项目代码：`data.py`（固定切分 train / explore / c1 / c2 与身份）、`train.py`（CPU 上真实训练）、`run.py`（写 run_manifest.json 的 runner）、`methods.py` |
-| `local_exec.py` | 复制为项目的 `tools/local_exec.py`：按 submission key 真实启动本地进程，记录 PID 与启动时刻、实测 CPU / 墙钟用量；同一 key 不重复启动；可在场景前声明一次性故障窗口 |
-| `scorer.py` | 独立 scorer：从 `model.json` 与评测切分重算 correct/n，不导入项目训练代码，报告中的数字不影响它 |
-| `observe.py` | 只读观察器：数据库快照（比较前后 SHA-256）、逐 run 重评分、evaluation 均值独立重算、作业启动账本、`build_site.py --check` |
-| `record.py` | 场景记录（实施文档 §12.2）与故障清单（§3.3）的校验、汇总 |
+## 工具
+
+- `../make_rt_test_project.py`：生成全新 ToyOpt 项目与 version-3 配置；`--stage`、`--case`、`--attempt`
+  仅标记来源，不切换流程。控制器材料写在项目外的 `<项目>.ctl/`
+- `toyopt/toytrain/`：固定 train / explore / c1 / c2 切分、CPU 上实际计算的逻辑回归、manifest runner
+- `local_exec.py`：复制到项目的 `tools/`；按 submission key 启动进程，记录 PID，实测 CPU 和墙钟用量，
+  同一 key 不重复启动；支持运行前声明的一次性故障
+- `scorer.py`：不导入项目训练代码，从保存的模型与切分独立计算 correct/n；报告不能改变独立分数
+- `observe.py`：读取当前数据库快照、逐次重评分、核对 evaluation 均值与真实作业账本、检查网页，并核对数据库未变
+- `attempt_metrics.py`：区分研究重试、传输重试、重复作业、重复结算和已验证修复之后的可避免失败
+- `db_snapshot.py`、`usage_snapshot.py`：只读数据库与确认材料使用记录
+- `record.py`：核验记录、模型与实际 effort、原始证据、断言、恢复证据及预先声明的故障；不自动宣称成功
 
 ## 证据边界
 
-- 正常运行都是“合成数据上的真实计算”：accuracy 由 predictions 与标签计数得到，loss 来自模型输出，
-  usage 由适配器的监督进程实测。没有公式指标。
-- c1 / c2 在 S0–S6 中放在项目代码仓库里（`scenario.json` 记 `blind: false`）：这些阶段是非盲功能测试。
-  S7 的盲评需要独立私有材料与访问边界（实施文档 §11.4），不能把这里的切分换个目录升级为盲评材料。
-- 参考方法 `configs/reference.json`（sgd，lr 0.005，1 epoch，batch 32）在 S0 开发校准时用开发 seed 7–9 与
-  explore 切分选定后冻结；c1 / c2 的实例 seed 换成了校准从未接触的值（见 `data.py` 注释）。
+正常 ToyOpt 运行的 accuracy 来自预测计数，loss 来自模型输出，usage 由监督进程实测。
+c1 / c2 随项目交付，因此这些是非盲功能测试；私有评估必须另有访问边界，不能仅靠移动目录建立。
+参考方法 `configs/reference.json`（sgd、lr 0.005、1 epoch、batch 32）保留原始开发校准后冻结的值与切分身份。
 
-## 每个场景的步骤（概要）
+`../benchmark/make_task.py` 只生成 REG 公式回归 fixture，其预设偏移会使 accuracy 与预测计数不同。
+生成的计划、控制器来源、指标及 manifest 均标记 `evidence_class: reg` / `formula_metric`。
+它们不能证明科研有效性或模型能力，不能记为真实宿主场景通过。
 
-1. `python3 scripts/build_plugins.py --target all`，记录源码 commit、未提交变更与 `BUILD.json`。
-2. `python3 scripts/make_rt_test_project.py <持久目录>/rt-<Sn>-<host>-a<NN> --host <host> --stage <Sn> --case <SC-id>`。
-3. 在 Herdr pane 中启动宿主（Claude Code 加载 `dist/claude/plugins/research-tree`；Codex 用隔离的
-   `CODEX_HOME` 安装 `dist/codex`），以虚构用户身份只经正常入口输入（`/research-tree …` 或 `$research-tree …`
-   与对话）。故障清单在启动前写好，经 `RT_LOCAL_EXEC_FAULTS` 交给适配器。
-4. 结束后运行 `observe.py <项目> --tools dist/<host>/plugins/research-tree/tools --out <记录目录>/observer.json`，
-   把原始会话、观测模型、评审回执与快照路径写进 `record.py new` 生成的记录，再 `record.py validate`。
+## 运行与核验
 
-## S2–S7 控制器：`scenario.sh` + `lib.sh` + `sN.sh`（2026-10-09 起）
+1. `python3 scripts/build_plugins.py --target all`，记录源码 commit、未提交变更和 `BUILD.json`
+2. `python3 scripts/make_rt_test_project.py <新项目目录> --host claude --stage FAST --case SC-FAST-01`
+3. 用实际宿主加载本次构建，从当前入口开始新项目；采用 `rld/main`、`ui/ui`、`architect/root`、
+   `worker/h…`、`explorer/main`、`analyst/main` 的唯一角色合同。根框架与基线由 architect 负责
+4. `python3 scripts/scenarios/observe.py <项目目录> --tools dist/<host>/plugins/research-tree/tools --out <记录目录>/observer.json`
+5. 用 `record.py new` 建立记录，保存实际会话、观测模型与 effort、评审原始输出、恢复前后快照，最后 `record.py validate`
 
-- `bash scenario.sh <S2..S7> <claude|codex> <两位 attempt> <agent-pane> <scheduler-pane>`：生成全新项目，跑开场
-  （prepare、init、用户决定、confirm、根基线，即 SC-COMMON-01 前缀），把开场后的项目存为
-  `rt-scenarios/<阶段>/prefix-<host>-aNN.tar.gz`（加同名 `.json`），再跑阶段正文 `sN.sh` 与共有后缀（build、check、
-  终检查点、证据、关 pane、打包构建）。共用部分在 `lib.sh`；各阶段只有 `decision()`（立项时用户的决定）与 `body()`。
-  S0、S1 仍用 `run_s0.sh`、`run_s1.sh`；SC-S3-03 用 `run_s3_upgrade.sh`。
-- **从开场分叉重试**：`FORK=rt-scenarios/<阶段>/prefix-<host>-aNN.tar.gz bash scenario.sh ...`。快照解到本次 attempt
-  自己的目录，agent、调度服务与控制器的所有读写都在 bwrap 中运行，副本绑定在快照原路径上（数据库、标记文件与 worktree
-  记的是绝对路径）；新会话先按插件的恢复入口接手，再跑阶段正文。开场的检查点以 `prefix-*.json` 复制过来，
-  `forked_from.json` 写明来源。规则：
-  - 每个阶段 × 宿主至少保留一次**完整不分叉**的运行，SC-COMMON-01 只能由它证明（`record.py` 拒绝分叉 attempt 的
-    SC-COMMON-01，记录脚本也不为分叉 attempt 写它）；分叉 attempt 的记录带 `forked_from`。
-  - 修复改动了开场路径（prepare/init/confirm/基线、schema、迁移）时不要分叉，跑完整新 attempt。
-  - 开场时若有 worktree 在项目目录之外（agent 自选位置），快照不保存（commands.jsonl 记原因），不能分叉。
-  - 同一快照的分叉一次只跑一个（它们共用原路径，宿主会话目录也按原路径命名）。
-  - 这是实施文档 §2.5（每个项目执行完整前缀）的偏离，由用户 2026-10-09 批准，用于缩短阶段专属场景的重试。
-- **冒烟检查**：`bash smoke.sh <阶段> [host]`（约 30 秒）以 `SMOKE=1` 运行同一控制器：agent 与 herdr 换成记日志的
-  替身，提示只写入日志，检查点与助手脚本照常执行，报告 bash 错误、助手脚本非零退出、观察器失败，以及提示中指向冻结
-  框架（code/toytrain、configs、data）的文件路径。全新项目上没有数据库，检查点会跳过、依赖数据库的助手会失败；
-  加 `FORK=<快照>` 可让它们在真实开场上执行。冒烟产物都在 `rt-scenarios/smoke/`，构建也打包在那里，不碰真实归档。
-  **冒烟只检查控制器的管道，永远不是证据**；agent 会怎么做完全没有检查。
-
-## 测试套件
-
-`python3 scripts/run_tests.py`（先 `python3 scripts/build_plugins.py`）：共享核心、仓库测试与 Codex 适配器按测试类
-并行，约 45 秒（串行约 8 分钟）；开发中用 `python3 scripts/run_tests.py test_units test_s7` 只跑相关模块，
-`--suite repo|codex|shared` 选套件。提交或合并前跑全部。
+回归检查：`python3 scripts/run_tests.py --suite repo test_scenarios test_benchmark test_attempt_metrics test_private_eval`。
+完整检查按仓库要求执行全部套件。回归 fixture 与单元测试通过不能替代真实宿主会话的验证。

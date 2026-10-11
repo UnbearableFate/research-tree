@@ -12,7 +12,7 @@ with expected / actual / evidence / verdict PASS, the observer's result, and the
 resumes. A real host scenario (evidence_class real_sc) must not rest on a canned model answer, a mock reviewer,
 preset scores or a direct database write: those belong to REG or simulation records.
 
-A retry may start from another attempt's saved opening (scripts/scenarios/lib.sh, FORK=...): its records name that
+A record may describe a retry from another attempt's saved opening: its provenance names that
 snapshot in forked_from. A forked attempt can show a stage's own scenarios, never SC-COMMON-01 (the opening is not
 its own), and a stage x host cell is PASS only when some unbroken attempt of that stage and host passed SC-COMMON-01.
 """

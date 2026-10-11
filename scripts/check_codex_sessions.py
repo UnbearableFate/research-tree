@@ -2,8 +2,8 @@
 """Exercise real Codex exec/resume against a local deterministic Responses fixture.
 
 This checks CLI protocol/flags/session persistence, not model reasoning. It uses no
-account credentials and makes no paid model calls. Run on a compute node on Miyabi.
-The fixture has no live Leader session: it covers the worker queue, not notifications to the Leader.
+account credentials and makes no paid model calls. Use an isolated local fixture directory.
+The fixture has no live Leader session: it covers the Architect queue, not notifications to the Leader.
 """
 from __future__ import annotations
 
@@ -69,7 +69,7 @@ def main():
     from codex_state import read_json, write_json, lock_busy
 
     server = ThreadingHTTPServer(("127.0.0.1", 0), ResponsesFixture)
-    server.reply = "Fixture worker response; no research task has been delivered."
+    server.reply = "Fixture Architect response; no research task has been delivered."
     server.requests = 0
     server.hold = False
     server.entered = threading.Event()
@@ -92,11 +92,12 @@ supports_websockets = false
 ''')
     (project / ".venv").symlink_to(Path(sys.prefix), target_is_directory=True)
     (project / "plan.md").write_text("# Fixture only\nNo experiments authorized.\n")
-    # The local provider only replies with fixed text; it cannot perform the separate real-host discovery test.
+    # The local provider only replies with fixed text; it authorizes no research execution.
     fixture_documents = minimal_documents("acc", "higher", [])
     (project / "research-tree.yaml").write_text(json.dumps({
-        "version": 2, "discovery": {"mode": "off"}, "metric_specs": fixture_documents[0]["metrics"]}))
-    research_tree.init(project, project / "plan.md", "P-cli")
+        "version": 3, "metric_specs": fixture_documents[0]["metrics"],
+        "verification": {"screening_seeds": [1], "replication_seeds": [2, 3]}}))
+    marker = research_tree.init(project, project / "plan.md", "P-cli")
     runtime = Runtime(project)
     db = runtime.db()
 
@@ -109,20 +110,20 @@ supports_websockets = false
         return ident
 
     setup = document("project/min-setup.v1.md", "min_setup")
-    docs = {}
-    for kind, content in zip(("metric_spec", "protocol"), fixture_documents):
-        if kind == "protocol":
-            content.update(project_config.protocol_requirements(
-                project_config.parse((project / "research-tree.yaml").read_text())))
-        (runtime.root / "docs" / "project" / f"{kind}.v1.json").write_text(json.dumps(content))
-        docs[f"{kind}_doc_id"] = db.register_document(f"project/{kind}.v1.json", kind, kind)
-        db.set_document_current(docs[f"{kind}_doc_id"])
-    db.create_project("P-cli", "fixture", setup, "acc", "higher", True, [], [1, 2, 3], **docs)
+    conf = project_config.parse((project / "research-tree.yaml").read_text())
+    protocol = fixture_documents[1]
+    protocol.update(project_config.protocol_requirements(conf))
+    (runtime.root / "docs/project/protocol.v1.json").write_text(json.dumps(protocol))
+    protocol_id = db.register_document("project/protocol.v1.json", "protocol", "protocol")
+    db.set_document_current(protocol_id)
+    db.create_project("P-cli", "fixture", setup, "acc", "higher", [],
+                      metric_spec_doc_id=marker["metric_spec"]["doc_id"], protocol_doc_id=protocol_id,
+                      **project_config.db_fields(conf))
     document("project/reports/init-plan.v1.md", "report")
-    task = db.create_task("harness", "worker", document("tasks/T-0001/request.v1.md", "task_request"), target_id="P-cli")
+    task = db.create_task("harness", "architect", document("tasks/T-0001/request.v1.md", "task_request"), target_id="P-cli")
     runtime.post({"type": "confirm_request", "text": "Fixture confirmation", "docs": ["project/reports/init-plan.v1.md"]})
     runtime.confirm("Fixture; no experiment authority.")
-    db.assign_worker("P-cli")
+    db.assign_architect()
     db.update_task(task, assignee_id="root")
     write_json(runtime.cache / "leader.json", {"model": "fixture-model"})
 
@@ -139,36 +140,36 @@ supports_websockets = false
 
     try:
         server.hold = True
-        started = runtime.start_worker("P-cli", "Fixture: return final text only, do not execute any tools.")
+        started = runtime.control("architect", {"node_id": "P-cli", "task": "Fixture: return final text only, do not execute any tools."})
         if not server.entered.wait(30):
-            raise AssertionError("native worker did not reach the fixture provider")
+            raise AssertionError("native Architect did not reach the fixture provider")
         try:
             # The provider request and the supervisor's thread.started handling run concurrently.
             # Wait for the durable binding while the provider is held, before requesting a live follow-up.
             deadline = time.monotonic() + 10
             while not read_json(Path(started["directory"]) / "state.json").get("thread_id"):
                 if time.monotonic() >= deadline:
-                    raise AssertionError("native worker did not persist its thread identity")
+                    raise AssertionError("native Architect did not persist its thread identity")
                 time.sleep(0.05)
-            followup = runtime.start_worker("P-cli", "Fixture queued continuation; no tools.")
+            followup = runtime.control("architect", {"node_id": "P-cli", "task": "Fixture queued continuation; no tools."})
             write_json(evidence / "followup.json", followup)
             if followup.get("delivery") != "queued":
-                raise AssertionError(f"native live-worker queue failed: {followup}")
+                raise AssertionError(f"native live-Architect queue failed: {followup}")
         finally:
             server.hold = False
             server.release.set()
         first = wait(started)
-        second = wait(runtime.start_worker("P-cli", "Fixture: acknowledge this continuation without executing tools."))
+        second = wait(runtime.control("architect", {"node_id": "P-cli", "task": "Fixture: acknowledge this continuation without executing tools."}))
         if first["thread_id"] != second["thread_id"]:
-            raise AssertionError("Codex resume changed the worker thread")
+            raise AssertionError("Codex resume changed the Architect thread")
         server.reply = json.dumps({"reply": "Fixture UI response.", "actions": []})
         ui = wait(runtime.start_ui("Fixture UI question; no action requested."))
-        result = {"ok": True, "worker_thread": first["thread_id"], "resumed_thread": second["thread_id"],
+        result = {"ok": True, "architect_thread": first["thread_id"], "resumed_thread": second["thread_id"],
                   "ui_thread": ui["thread_id"], "local_responses": server.requests,
                   "live_followup": followup["delivery"],
                   "task_status": db.get(task)["status"]}
         if result["task_status"] != "open":
-            raise AssertionError("ending a worker turn incorrectly delivered its task")
+            raise AssertionError("ending a Architect turn incorrectly delivered its task")
         write_json(evidence / "result.json", result)
         print(json.dumps(result, indent=2))
     finally:

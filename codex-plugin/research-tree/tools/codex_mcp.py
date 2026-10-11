@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def schema(properties, required=()):
-    return {"type": "object", "properties": {"project": {"type": "string", "description": "Main session: supply the absolute user workspace, not the plugin or research materials directory. Managed worker/architect/explorer/analyst/UI/lens sessions: omit this field; the server already binds their workspace."}, **properties},
+    return {"type": "object", "properties": {"project": {"type": "string", "description": "Main session: supply the absolute user workspace, not the plugin or research materials directory. Managed worker/architect/explorer/analyst/UI sessions: omit this field; the server already binds their workspace."}, **properties},
             "required": list(required), "additionalProperties": False}
 
 
@@ -28,7 +28,7 @@ OBJECT = {"type": "object"}
 TOOLS = [
     {"name": "research_db", "description": "Call the research database as this session's fixed role. Use help to discover methods and parameters. All shared scientific and ownership gates apply.",
      "inputSchema": schema({"method": STRING, "kwargs": OBJECT}, ["method"])},
-    {"name": "research_control", "description": "Project control: help, init, status, refresh, build, pane, check, config, confirm, instruction, worker, architect, explorer, analyst, lens, agents, inbox, acknowledge, chat, ui_path, attach, commit. commit: a worker commits files of its own node worktree (the sandbox keeps .git read-only). lens starts a read-only candidate generator during full-discovery planning. Parameters depend on action; use help. Only RLD can control execution. User confirmations require their verbatim words.",
+    {"name": "research_control", "description": "Project control: help, init, status, refresh, build, pane, check, config, confirm, instruction, worker, architect, explorer, analyst, agents, inbox, acknowledge, chat, ui_path, attach, commit. commit: a worker commits files of its own node worktree (the sandbox keeps .git read-only). Parameters depend on action; use help. Only RLD can control execution. User confirmations require their verbatim words.",
      "inputSchema": schema({"action": STRING, "params": OBJECT}, ["action"])},
     {"name": "post_to_ui", "description": "RLD records a notice, reply (requires re), or confirm_request (requires registered docs) in the on-demand research conversation. Main-session confirmation is valid; opening UI is optional. A request is not approval.",
      "inputSchema": schema({"type": {"enum": ["notice", "reply", "confirm_request"]}, "text": {"type": "string", "minLength": 1, "maxLength": 200},
@@ -37,9 +37,8 @@ TOOLS = [
      "inputSchema": schema({"type": {"enum": ["instruction", "task", "delivery", "question", "reply", "confirm_request", "ack", "alert"]},
                             "text": {"type": "string", "maxLength": 200}, "docs": {"type": "array", "items": STRING},
                             "about": {"type": "array", "items": STRING}, "re": STRING, "resend": STRING})},
-    {"name": "research_review", "description": "RLD: run one cross-model, non-interactive review (plans/design 09) through review_call.py: kind triage, novelty_precheck, critical_review, proposal_review, ablation_plan, code_review or candidate_recheck (with dimension numbers/protocol/method_code/novelty/theory and the evaluation it rechecks). brief is a file under the research root listing paths and structured metadata only, never your summary. The review is registered by the reviewer role; REVIEW_UNAVAILABLE / REVIEW_INVALID / REVIEW_BUDGET are never replaced by a self-review. Start returns a durable pending ticket immediately. Call with only ticket for nonblocking collection; a pending answer means it is still running. Never start the same review again.",
-     "inputSchema": schema({"kind": {"enum": ["triage", "novelty_precheck", "critical_review", "proposal_review",
-                                              "ablation_plan", "code_review", "candidate_recheck"]},
+    {"name": "research_review", "description": "RLD: run one cross-model, non-interactive review (plans/design 09) through review_call.py: kind ablation_plan, code_review or candidate_recheck (with dimension numbers/protocol/method_code/novelty/theory and the evaluation it rechecks). brief is a file under the research root listing paths and structured metadata only, never your summary. The review is registered by the reviewer role; REVIEW_UNAVAILABLE / REVIEW_INVALID / REVIEW_BUDGET are never replaced by a self-review. Start returns a durable pending ticket immediately. Call with only ticket for nonblocking collection; a pending answer means it is still running. Never start the same review again.",
+     "inputSchema": schema({"kind": {"enum": ["ablation_plan", "code_review", "candidate_recheck"]},
                             "brief": {"type": "string", "description": "Brief file relative to the research root, e.g. docs/reviews/briefs/H-0001-numbers.v1.md; include docs/ when the file is under docs/."}, "about": STRING,
                             "dimension": {"enum": ["numbers", "protocol", "method_code", "novelty", "theory"]},
                             "evaluation": STRING, "code_ref": STRING,
@@ -120,7 +119,7 @@ def serve(cwd: Path, actor: str) -> None:
                 raise ValueError("params must be an object")
             if method == "initialize":
                 result = {"protocolVersion": params.get("protocolVersion", "2024-11-05"),
-                          "capabilities": {"tools": {}}, "serverInfo": {"name": "research-tree", "version": "0.1.0"},
+                          "capabilities": {"tools": {}}, "serverInfo": {"name": "research-tree", "version": "0.2.0"},
                           "instructions": f"Research-tree actor: {actor}. " +
                           ("Main session: supply the absolute project directory on every tool call. " if actor == "rld/main" else
                            "Managed child session: omit project on every tool call; your workspace and role are already bound. ") +

@@ -1,5 +1,10 @@
 # Claude adapter validation
 
+The current adapter accepts only configuration version 3 and database schema 23. Fast screening with
+incremental discovery is the sole workflow. Rebuild from the current sources before testing; old fixture
+counts and native runs do not validate this breaking contract. Historical plans remain evidence archives,
+not compatibility instructions.
+
 ## Native validation
 
 From the repository root, assemble the current sources and use a supported Claude installation:
@@ -55,3 +60,19 @@ Every executed callback is labeled `FIXTURE-ONLY PASS` or `FIXTURE-ONLY FAIL`. C
 Each fixture has a 10-second default deadline, configurable with `--timeout-ms`. A timeout aborts the run and explicitly leaves remaining callbacks unrun. The harness executes trusted repository test code and is not a sandbox. Unsupported test/assertion APIs fail instead of being silently ignored.
 
 The fixture runner does **not** validate the native Claude SDK, native UI rendering/events, SDK type compatibility, plugin installation, real-model calls, real research scenarios, or scientific search quality. Keep those statuses separate even when both source and packaged fixture runs pass.
+
+## Breaking-contract regression checklist
+
+Alongside the scientific validity, independent-confirmation, accounting and duplicate-submission tests,
+check the current host boundaries:
+
+- Old project markers/configurations/databases and deleted configuration fields fail with a migration notice, without rewriting files or silently upgrading
+- Root execution uses the explicit Architect identity/session; Worker accepts hypotheses only, and missing/unknown roles do not fall back to Worker
+- Only Explorer and Analyst provide read-only advice; independent reviews use code_review, ablation_plan or candidate_recheck through the wrapper
+- Candidate proposals retain their real source and current revision; admission checks one candidate without a batch gate or an authorization override
+- No persistent UI is started; lightweight status and explicit full rendering keep their separate scopes, and display failures do not undo committed writes
+- Confirmation-material history, current five-dimensional review evidence, unresolved validity defects, raw provenance, budgets and original submission identities survive retries/resumption
+
+Record actual executed, failed and unrun cases. A documented test target or a fixture callback name is not evidence that the current code passed it. Migration is an explicit fresh-project workflow, not an in-place upgrade test.
+
+旧安装如保留了原来的 `actor` 插件选项，须删除该选项后再启用；当前主会话固定为 `rld/main`。代码会拒绝旧选项，不把其他角色静默改成 Leader。

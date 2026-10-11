@@ -1,19 +1,14 @@
 #!/usr/bin/env python3
-"""Score finished benchmark episodes (plans/research-tree-implementation-and-real-scenarios.md §11.3, §11.5).
+"""Score REG-only formula-fixture episodes from the current project/database contract.
 
-    python3 scripts/benchmark/score.py PROJECT_DIR --truth truth.json --system B|C --tools DIST/.../tools \
+    python3 scripts/benchmark/score.py PROJECT_DIR --truth truth.json --system current --tools DIST/.../tools \
         [--host claude|codex] [--version <commit>] [--out episode.json]
 
-An episode is first normalized into plain events read through the tested version's own tools (its export_snapshot),
-so an older system is never asked to adopt the newer database layout: the final outcome (go, not_go, blocked,
-budget_stopped, active, incomplete — kept apart, never merged into a success rate), every GO candidate with the knob
-set its claim rests on and when it was decided, the knob sets tested, the attempt counts of §10.3 from the execution
-ledger, and the measured costs. Each GO candidate is then scored on its own: it is a false GO only when its knob set
-is not one the private truth lists as effective (another genuinely effective set is a success; hitting the best one
-is reported separately). A node retired while holding the best set is reported (best_retired), not called a
-premature elimination: retiring is a decision, not an error by itself. Episodes are grouped by system, host and the
-executor model actually observed; one label never hides two executors. The truth file is the evaluator's, never the
-agent's (§11.4). Single episodes are noisy: a pilot reports each one, not a verdict.
+Only version-3 project markers and schema-23 snapshots are accepted. GO candidates must be explicitly identified
+by a decision's based_on experiment/evaluation references and have marked REG knob evidence. Node verdict labels,
+free-text reasons, unrelated experiments and absent artifacts never substitute for that evidence. Missing evidence
+fails scoring rather than producing an empty successful GO. Formula-fixture scores are software regressions,
+never scientific or model-efficacy evidence. Outcomes remain separate and executor models cannot be mixed.
 """
 
 from __future__ import annotations
@@ -30,23 +25,44 @@ sys.path.insert(0, str(HERE.parent / "scenarios"))
 OUTCOMES = ("go", "not_go", "blocked", "budget_stopped", "active", "incomplete")
 
 
-def _knobs(root: Path, runs: list[dict], exp_id: str) -> list[str]:
-    for r in runs:
-        if r["experiment_id"] == exp_id and r.get("valid"):
-            path = Path(r.get("metrics_path") or Path(r.get("output_path") or "") / "metrics.json")
-            path = path if path.is_absolute() else root / path
-            if path.is_file():
-                return sorted(json.loads(path.read_text(encoding="utf-8")).get("knobs") or [])
-    return []
+def _knobs(root: Path, runs: list[dict], exp_id: str) -> list[str] | None:
+    """The exact experiment's explicit fixture knobs, consistent across every available valid run."""
+    observed = set()
+    for run in runs:
+        if run["experiment_id"] != exp_id or not run.get("valid"):
+            continue
+        raw_path = run.get("metrics_path")
+        if not raw_path:
+            continue
+        path = Path(raw_path)
+        path = path if path.is_absolute() else root / path
+        if not path.is_file():
+            continue
+        metrics = json.loads(path.read_text(encoding="utf-8"))
+        if metrics.get("evidence_class") != "reg" or "knobs" not in metrics:
+            continue
+        knobs = metrics["knobs"]
+        if not isinstance(knobs, list) or any(not isinstance(k, str) or not k for k in knobs):
+            raise ValueError(f"{exp_id}: REG knobs must be an explicit list of nonempty strings")
+        observed.add(tuple(sorted(set(knobs))))
+    if len(observed) > 1:
+        raise ValueError(f"{exp_id}: run artifacts disagree about the candidate's REG knobs")
+    return list(next(iter(observed))) if observed else None
 
 
 def snapshot(project_dir: Path, tools: Path, python: str = sys.executable) -> tuple[dict, Path]:
-    """The project's tables through the tested version's own CLI (a read-only role)."""
+    """Read current-contract tables through the exact read-only ui/ui actor."""
     marker = json.loads((project_dir / ".research-tree.json").read_text(encoding="utf-8"))
-    out = subprocess.run([python, str(tools / "research_db.py"), "--db", marker["db"], "--actor", "ui/benchmark",
+    if type(marker.get("format_version")) is not int or marker["format_version"] != 3:
+        raise ValueError("benchmark scoring requires a version-3 project marker")
+    out = subprocess.run([python, str(tools / "research_db.py"), "--db", marker["db"], "--actor", "ui/ui",
                           "export_snapshot"], capture_output=True, text=True, check=True)
-    data = json.loads(out.stdout)
-    data = data.get("result", data)
+    result = json.loads(out.stdout)
+    if result.get("ok") is not True:
+        raise ValueError("current snapshot export failed")
+    data = result["result"]
+    if data["meta"]["schema_version"] != 23:
+        raise ValueError("benchmark scoring requires database schema 23")
     return data["tables"], Path(marker["root"])
 
 
@@ -62,51 +78,72 @@ def normalize(project_dir: Path, tools: Path, system: str, host: str | None, ver
 def events(tables: dict, root: Path, system: str, host: str | None, version: str | None,
            executor_model: str | None, ended: str | None, attempts: dict | None) -> dict:
     project = tables["project"][0]
-    runs = tables.get("run", [])
-    hyps = {h["id"]: h for h in tables.get("hypothesis", [])}
-    exps = tables.get("experiment", [])
-    decisions = sorted(tables.get("decision", []), key=lambda d: (d.get("decided_at") or "", d["id"]))
+    runs = tables["run"]
+    hyps = {h["id"]: h for h in tables["hypothesis"]}
+    exps = {e["id"]: e for e in tables["experiment"]}
+    evaluations = {e["id"]: e for e in tables["evaluation"]}
+    decisions = sorted(tables["decision"], key=lambda d: (d.get("decided_at") or "", d["id"]))
     candidates = []
-    for d in decisions:  # every GO decision, in order; a later revision is its own event
-        if d.get("field") != "status" or d.get("to_value") != "go":
+    for decision in decisions:
+        if (decision["target_id"] != project["id"] or decision["field"] != "status"
+                or decision["to_value"] != "go"):
             continue
-        named = sorted({e.get("hypothesis_id") for e in exps
-                        if e["id"] in f"{d.get('reason') or ''} {' '.join(d.get('based_on') or [])}"} - {None})
-        for node in named or sorted(h for h, x in hyps.items() if x.get("experiment_status") == "beats_sota"):
-            method = [e for e in exps if e.get("hypothesis_id") == node and e["kind"] == "method"]
-            candidates.append({"decision_id": d["id"], "decided_at": d.get("decided_at"), "node": node,
-                               "knobs": _knobs(root, runs, method[-1]["id"]) if method else []})
-    tested = [{"node": e.get("hypothesis_id"), "knobs": _knobs(root, runs, e["id"]),
-               "retired": hyps.get(e.get("hypothesis_id"), {}).get("status") == "prunable"
-               or hyps.get(e.get("hypothesis_id"), {}).get("disposition") == "retired"}
-              for e in exps if e["kind"] == "method" and e.get("hypothesis_id")]
-    status = project.get("status")
-    outcome = ("go" if status == "go" else "not_go" if status in ("not_go", "closed_not_go") else
+        explicit = set()
+        for evidence in decision["based_on"]:
+            exp_id = evaluations[evidence]["experiment_id"] if evidence in evaluations else evidence
+            exp = exps.get(exp_id)
+            if exp and exp["kind"] == "method" and exp.get("hypothesis_id") in hyps:
+                explicit.add(exp_id)
+        if not explicit:
+            raise ValueError(f"GO decision {decision['id']} needs explicit based_on method experiment/evaluation evidence")
+        for exp_id in sorted(explicit):
+            knobs = _knobs(root, runs, exp_id)
+            if knobs is None:
+                raise ValueError(f"GO decision {decision['id']}: {exp_id} lacks explicit REG knob artifacts")
+            candidates.append({"decision_id": decision["id"], "decided_at": decision.get("decided_at"),
+                               "node": exps[exp_id]["hypothesis_id"], "experiment_id": exp_id, "knobs": knobs})
+    tested = [{"node": e["hypothesis_id"], "experiment_id": e["id"], "knobs": _knobs(root, runs, e["id"]),
+               "retired": hyps[e["hypothesis_id"]]["disposition"] == "retired"}
+              for e in exps.values() if e["kind"] == "method" and e.get("hypothesis_id") in hyps]
+    status = project["status"]
+    if status not in ("active", "go", "not_go", "stopped"):
+        raise ValueError(f"unsupported project status {status!r}")
+    if status == "go" and not candidates:
+        raise ValueError("GO project has no explicit GO decision evidence")
+    outcome = ("go" if status == "go" else "not_go" if status == "not_go" else
                "budget_stopped" if ended == "budget" or project.get("admission_paused") else
-               "blocked" if ended == "blocked" else "incomplete" if ended in ("timeout", "incomplete") else "active")
-    return {"system": system, "host": host, "version": version, "executor_model": executor_model,
-            "outcome": outcome, "ended": ended, "go_candidates": candidates, "tested": tested,
+               "blocked" if ended == "blocked" else
+               "incomplete" if status == "stopped" or ended in ("timeout", "incomplete") else "active")
+    return {"evidence_class": "reg", "system": system, "host": host, "version": version,
+            "executor_model": executor_model, "outcome": outcome, "ended": ended,
+            "go_candidates": candidates, "tested": tested,
             "valid_runs": sum(1 for r in runs if r.get("valid")),
-            "node_seconds": sum((r.get("actual_units") or r.get("reserved_units") or 0)
-                                for r in tables.get("reservation", []) if r.get("accounting_status") != "released"),
+            "node_seconds": sum(r["actual_units"] if r.get("actual_units") is not None else r["reserved_units"]
+                                for r in tables["reservation"] if r["accounting_status"] != "released"),
             "review_cost_usd": project.get("review_cost_usd") or 0.0,
-            "user_instructions": sum(1 for d in tables.get("document", []) if d.get("doc_type") == "user_instruction"),
+            "user_instructions": sum(1 for d in tables["document"] if d["doc_type"] == "user_instruction"),
             "attempts": attempts}
 
 
 def score_episode(ep: dict, truth: dict) -> dict:
+    if ep.get("evidence_class") != "reg" or truth.get("evidence_class") != "reg":
+        raise ValueError("formula-fixture scoring requires REG episode and truth labels")
+    if ep["outcome"] == "go" and not ep.get("go_candidates"):
+        raise ValueError("GO episode needs explicit candidate evidence")
     effective = [sorted(k) for k in (truth.get("effective") or ([truth["best"]] if truth.get("best") else []))]
     best = sorted(truth.get("best") or [])
     scored = [{**c, "supported": sorted(c["knobs"]) in effective, "best": bool(best) and sorted(c["knobs"]) == best}
               for c in ep.get("go_candidates", [])]
     hours = (ep.get("node_seconds") or 0) / 3600
-    return {"system": ep["system"], "host": ep.get("host"), "version": ep.get("version"),
+    return {"evidence_class": "reg", "system": ep["system"], "host": ep.get("host"), "version": ep.get("version"),
             "executor_model": ep.get("executor_model"), "outcome": ep["outcome"],
             "go_candidates": scored, "false_go": sum(not c["supported"] for c in scored),
             "found_effective": any(c["supported"] for c in scored), "found_best": any(c["best"] for c in scored),
-            "best_retired": bool(best) and any(sorted(t["knobs"]) == best and t["retired"] for t in ep.get("tested", [])),
-            "coverage": len({tuple(sorted(t["knobs"])) for t in ep.get("tested", [])}),
+            "best_retired": bool(best) and any(t["knobs"] is not None and sorted(t["knobs"]) == best
+                                              and t["retired"] for t in ep.get("tested", [])),
+            "coverage": len({tuple(sorted(t["knobs"])) for t in ep.get("tested", []) if t["knobs"] is not None}),
             "efficiency": round(ep.get("valid_runs", 0) / hours, 3) if hours else None,
+            "unscored_experiments": [t["experiment_id"] for t in ep.get("tested", []) if t["knobs"] is None],
             "user_burden": max(0, (ep.get("user_instructions") or 0) - 1),
             "review_cost_usd": ep.get("review_cost_usd", 0.0), "attempts": ep.get("attempts")}
 
@@ -132,8 +169,8 @@ def main() -> int:
     p = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     p.add_argument("project", type=Path)
     p.add_argument("--truth", type=Path, required=True)
-    p.add_argument("--system", required=True, help="A: single-agent loop, B: frozen research-tree, C: this version")
-    p.add_argument("--tools", type=Path, required=True, help="the tested version's plugin tools directory")
+    p.add_argument("--system", required=True, help="label for a current-contract REG fixture system")
+    p.add_argument("--tools", type=Path, required=True, help="the current-contract plugin tools directory")
     p.add_argument("--host")
     p.add_argument("--version")
     p.add_argument("--executor-model")

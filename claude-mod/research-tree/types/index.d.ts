@@ -4,12 +4,12 @@ export type ResearchNode = {
   title: string
   parent: string
   status: 'pending' | 'verifying' | 'expandable' | 'prunable'
-  exp_status: 'todo' | 'running' | 'no_gain' | 'beats_parent' | 'beats_sota'
+  exp_status: 'todo' | 'running' | 'no_gain' | 'beats_sota' | 'inconclusive'
   novelty: 'pending' | 'pass' | 'fail'
   theory: 'pending' | 'pass' | 'fail'
   go: boolean | null
   eligibility_checked?: boolean
-  verdict: string | null
+  outcome: 'positive_signal' | 'negative_signal' | 'inconclusive' | null
   seeds: number | null
   vs_sota: number | null
   vs_parent: number | null
@@ -41,7 +41,7 @@ export type ResearchSummary = {
     max_parallel_workers: number | null
     alert_node_h: number | null
     config_doc_id: string | null
-    worker: ResearchWorker
+    architect: ResearchWorker
   }
   counts: {
     status: Record<string, number>
@@ -59,6 +59,7 @@ export type ResearchSummary = {
 
 /** The research project of the session's directory, as .research-tree.json records it. */
 export type ResearchProject = {
+  format_version: 3
   project_id: string
   root: string
   db: string
@@ -69,7 +70,7 @@ export type ResearchProject = {
   confirmed_at: string | null
   /** The registered version of research-tree.yaml in effect; null until it is first applied. */
   config: { doc_id: string; path: string } | null
-  /** Version 2: the metric_spec document registered from research-tree.yaml. */
+  /** Version 3: the metric_spec document registered from research-tree.yaml. */
   metric_spec?: { doc_id: string; path: string }
   reviewer_backend?: { checked_at: string; model: string | null; backend: string | null; ok: boolean; error: string | null }
   skills_check?: { checked_at: string; configured: string[]; missing: string[]; suggestions: Record<string, string[]>; searched: string[] }
@@ -80,8 +81,8 @@ export type ResearchModel = { model: string; effort: 'low' | 'medium' | 'high' |
 
 /** research-tree.yaml, completed from the template (tools/project_config.py). */
 export type ResearchConfig = {
-  /** Version 1 states the gate in `stage1`; version 2 in metric_specs and verification (01 §3). */
-  version: 1 | 2
+  /** The sole supported configuration format. */
+  version: 3
   platform: { dev: string; experiment: string; skills: string[] }
   budget: {
     per_run: { nodes: number; walltime: number | string }
@@ -90,11 +91,8 @@ export type ResearchConfig = {
     alert_node_h: number | null
     total_limit?: number | null
   }
-  stage1?: { gate_seeds: number; go_margin: number; min_related_work: number }
   notify?: { url: string | null; timeout_s: number }
-  discovery?: { mode: 'off' | 'precheck' | 'full' | 'incremental'; lenses: string[]; seed_lenses: string[] }
-  workflow?: { mode: 'fast_screening' | 'strict' }
-  models: { explorer?: ResearchModel; architect?: ResearchModel; analyst?: ResearchModel; ui: ResearchModel; worker: ResearchModel; lens_assistant?: ResearchModel; reviewer?: unknown }
+  models: { explorer: ResearchModel; architect: ResearchModel; analyst: ResearchModel; ui: ResearchModel; worker: ResearchModel; reviewer?: unknown }
 }
 
 /** `research_tree.py config`: the configuration in effect and the state of the file. */
@@ -110,9 +108,9 @@ export type ResearchConfigView = {
   effective: ResearchConfig
   /** The project record's fields the configuration sets. */
   db_fields: Record<string, number | number[] | boolean | null>
-  /** Version 2: the metric_spec document init registered from the configuration. */
+  /** Version 3: the metric_spec document init registered from the configuration. */
   metric_spec?: { doc_id: string; path: string } | null
-  /** Version 2: the protocol fields the configuration fixes. */
+  /** Version 3: the protocol fields the configuration fixes. */
   protocol_requirements?: Record<string, unknown> | null
 }
 
@@ -133,7 +131,7 @@ declare module 'claude-code' {
       uiRun: { run: string; message: string; messageId?: string; attempt: number } | null
       /** The project of the session's directory; null when there is none. */
       project: ResearchProject | null
-      /** Subagent runs the mod started: agentId -> worker/architect node identity, explorer/main, analyst/main, or assistant/lens_<name>. */
+      /** Subagent runs the mod started: agentId -> worker/architect node identity, explorer/main, analyst/main, or ui/ui. */
       agents: Record<string, string>
       /** The project configuration in effect; null without a project environment. */
       config: ResearchConfigView | null

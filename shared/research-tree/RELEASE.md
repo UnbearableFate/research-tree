@@ -1,23 +1,36 @@
-# 验证范围说明（2026-10-11）
+# 单一研究工作流版本与验证范围（2026-10-11）
 
-本轮为快速研究工作流改进（R01–R13），完整对应关系见仓库的 `plans/fast-research-workflow.md`。以下是本轮实际验证，不继承历史宿主验收作为新功能证明。
+## 当前破坏性契约（插件 0.2.0）
 
-- **共享核心、仓库和构建后的 Codex 适配器**：`scripts/run_tests.py` 汇总 **511 个确定性测试、135 个测试类全部通过**。测试使用隔离 HOME 与仅供临时测试仓库使用的 Git 身份。Codex 传输为假 CLI 子进程夹具，不是真实模型调用。
-- **两端安装包**：`scripts/build_plugins.py --target all` 成功生成 Claude 与 Codex 包；源码/打包一致性有仓库回归覆盖。
-- **Claude 适配器**：`scripts/run_claude_fixtures.cjs` 在源码与构建后的包各通过 **37 个确定性 hook 回调**，失败为 0；另有 **7 个需要原生 SDK 的回调明确未运行**。Babel 只转译语法，不是 TypeScript 类型检查，也不验证真实宿主界面。复现说明在仓库 `claude-mod/research-tree/TESTING.md`。
-- **静态和独立复核**：改动范围的 Python 编译、Ruff F/E9、Node 语法、内嵌评审 JSON schema 一致性及 `git diff --check` 通过。独立只读科学/安全复核发现的准入、身份、争议、任务生命周期、崩溃恢复和文件写保护问题均修复并加入回归；终轮无未解决 P0/P1。
-- **兼容性**：schema 22 为增量扩展；测试覆盖 schema 21 升级幂等、历史证据不变与未显式选择新模式时保留 strict。旧数据库写入前仍须停写、备份并运行既有升级流程。
+- 只支持 **version 3 配置、schema 23 数据库**，工作流固定为快速筛选与增量发现，没有模式切换
+- 会话角色仅为 RLD、按需 UI、根节点 Architect、假说 Worker、Explorer、Analyst；Reviewer 只经独立评审包装器。没有根 Worker 别名、角色回退或常驻 UI
+- 逐候选按当前 revision/hash、最小设计与授权范围准入；Explorer 实际提案使用 `cache/discovery/proposals/*.json` 的 `{source, candidates}` 格式
+- 普通廉价搜索保留有效性、原始证据、方法/主张身份、配对、预算及防重复检查。晋级与 GO 保留强制独立确认、最终五维复核、未决问题和真实用量记账
+- 旧项目、配置和数据库明确拒绝并提示迁移；不原地升级、静默改写、解释缺失字段或自动迁移科学状态
+- 方法执行去重只看不可变科学身份与材料范围，不看名称、输出路径、调度资源或 screen/replicate 标签。已观察的确认不能通过改名、改节点或改资源重采样；重复方法/材料会复用原实验或明确拒绝并指出既有证据。不同方法仍可共享预声明批次与基线，不同 holdout 可使用相同训练 seed
+- 删除旧模式、旧角色、旧 verdict/API、旧评审流水线及无效配置；保留实际实现的独立单元与只读重复建议。高级 verification 配置可应用，零次修复预算不再回退为默认两次
 
-**未验证**：本轮未运行 Claude 原生 SDK/界面/安装场景、真实 Codex/Claude 模型端到端科研场景、GPU、PBS、生产调度器或固定资源 A/B/C 科研效能比较。现有原始证据、独立确认、预算和防重复机制经回归保留；测试数量不证明科学可靠性或发现质量，也不支持宣称科研速度已提高。
+迁移前停止旧写入者、对账在途作业并保留完整备份。在新目录运行 prepare，从 v3 模板重建计划与配置，显式登记所需协议、指标、文献与证据，再由用户确认范围。不能复制旧数据库/标记、只改版本号、沿用旧资格或重置确认材料使用史。历史计划与证据档案保持原样；其中的兼容条款不是当前接口契约。
 
-以下保留历史验证记录，其范围和遗留 OPEN 项不被本轮确定性测试改写。
+## 当前验证记录
 
-## 历史验证记录（2026-10-07）
+本轮实际运行（2026-10-11）：
 
-本轮修复以原始回执、运行产物和独立审计验证功能；测试数量不证明科学可靠性。
+- `python3 scripts/build_plugins.py --target all`：Claude 66 个文件、Codex 73 个文件，独立安装包均为 0.2.0
+- `python scripts/run_tests.py -j 12`：**562 个测试、139 个类全部通过**，包含共享核心、仓库/打包/真实 CPU ToyOpt 与 REG 工具，以及新构建 Codex 适配器的 38 个测试
+- Claude 源码与新构建包各 **40 个 fixture-only 回调通过**；各有 **7 个原生 SDK 回调未运行**，两边回调不是两套独立原生证据
+- 全部 Python 源码/测试的 Ruff `F,E9`、`git diff --check`、`uv lock --check --offline` 通过
+- 独立最终评审无未解决的可操作问题：另跑 221 个 Python 测试、40 个 Claude 夹具回调并构建两包，确认 75 个生产文件与所测产物一致；复现并验证了确认重采样修复，以及最终复核豁免回执的真实保留（这些是上面测试范围的交叉检查，不累加为新的总数）
+- 旧版本拒绝包含只读与写入入口的字节级不变断言；当前完整确认流程、权限、原始证据、独立重复、预算、恢复与宿主回调由明确标注的夹具覆盖
 
-- **模拟与传输夹具**：共享核心、适配器和打包测试使用确定性输入；原生安装、exec/resume/UI 夹具使用实际 Codex CLI 和本地 Responses 服务，未调用实际模型。这些结果验证接口、权限与会话传输。
-- **真实宿主测试**：实际 Codex v0.160.1（gpt-6-luna）及 Claude Code v2.1.292/v2.1.293（claude-sonnet-5-5），包含插件 MCP、固定身份 worker/lens、跨族 Claude Code/Pi 评审和本地 CPU toy training。部分功能场景使用预声明 simulation_only 指标公式；另有 synthetic_proxy 场景直接由验证集 correct/n 得到 accuracy。两者均只用于工程验收，不能据此声称真实科研改进。失败调用、权限拒绝与原始费用保留。
-- **真实 GPU 或调度器训练**：本轮未执行 GPU、PBS 或集群科研作业；不将 CPU toy training、模拟指标或本地传输夹具记作此类验证。
+本环境没有 `codegraph` 命令，未执行 sync；使用源码检查和独立评审。没有修改实际科研数据库，也没有改写历史计划、测试记录或既有 demo 证据。
 
-11 §2 的完整固定资源 A/B/C 科研效能比较仍未执行、未获豁免；12 §1 整体 M8 完成标准仍 OPEN。模型宿主费用或未提供账单不从 reviewer CLI 费用推断。
+尤其检查旧配置/DB/项目拒绝时无写入、移除字段和角色被拒绝、Architect/Worker 所有权隔离、候选逐个准入、确定性 outcome、确认与复核、争议、预算、防重复、恢复及轻量展示。复现入口：`scripts/run_tests.py`、`scripts/build_plugins.py --target all`、`scripts/run_claude_fixtures.cjs`。Claude 夹具限制见仓库 `claude-mod/research-tree/TESTING.md`。
+
+夹具不证明原生 SDK/UI、真实模型、GPU/生产调度器或科研质量。没有相应新证据时，不把历史原生测试或 fixture 数量作为当前版本的端到端验收，也不宣称科研速度或发现质量提升。
+
+## 历史证据与限制
+
+此前快速工作流的实现、测试数量与当时的边界保留在仓库 `plans/fast-research-workflow.md`；更早的阶段场景与原始证据保留在 `plans/research-tree-implementation-and-real-scenarios.md`、`plans/design/test-logs/` 等历史档案中。这些记录未被本轮改写，其中原生宿主、CPU toy training、预声明模拟指标和确定性传输夹具的范围各不相同。
+
+完整固定资源 A/B/C 科研效能比较没有在本节登记通过。不能把模拟指标、CPU toy training 或接口测试记为 GPU/生产调度器科研训练，也不能从 reviewer CLI 费用推断其他模型宿主的全部费用。

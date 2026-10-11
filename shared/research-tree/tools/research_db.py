@@ -9,9 +9,8 @@ constraints, so every write goes through this module, which checks:
     records of the right kind;
   * who may write what (actor = "<role>/<agent-id>");
   * the experiment-first rules: every node is a code change evaluated with the
-    frozen harness and statistics code; the seed budget; the verdict recorded
-    for each experiment and its consistency with the paired comparisons; node
-    status following the latest verdict; novelty/theory rechecks only after a
+    frozen harness and statistics code; the seed budget; computed experiment
+    outcomes and their paired comparisons; node status following current evidence; novelty/theory rechecks only after a
     node beats SOTA; GO/NOT GO; branch, task and document lifecycles;
   * every hypothesis/project/branch state change writes a decision record in
     the same transaction.
@@ -59,11 +58,11 @@ SPEC_PATH = Path(__file__).resolve().parent.parent / "schema" / "research_tree.s
 CLEANUP_SCRIPT = "research-tree-cleanup.py"
 CLEANUP_TEMPLATE = Path(__file__).resolve().parent.parent / "schema" / "cleanup.template.py"
 # The database layout this interface writes (schema/create_db.py SCHEMA_VERSION; a test keeps them equal).
-SCHEMA_VERSION = 22
+SCHEMA_VERSION = 23
 OPEN_ATTEMPTS = 40
 OPEN_RETRY_DELAY_S = 0.25
 
-ROLES = ("ui", "rld", "worker", "architect", "explorer", "analyst", "assistant", "web_builder", "reviewer")
+ROLES = ("ui", "rld", "worker", "architect", "explorer", "analyst", "reviewer")
 
 ID_PREFIX = {
     "project": "P",
@@ -147,14 +146,14 @@ DOC_AUTHORS = {
     "metric_spec": ("rld",),
     "task_request": ("rld",),
     "user_instruction": ("ui", "rld"),
-    "literature": ("worker", "architect", "assistant", "rld"),
-    "experiment_design": ("worker", "architect", "assistant", "rld"),
-    "experiment_result": ("worker", "architect", "assistant", "rld"),
-    "task_delivery": ("worker", "architect", "assistant", "web_builder", "rld"),
-    "other": ("ui", "rld", "worker", "architect", "assistant"),
+    "literature": ("worker", "architect", "rld"),
+    "experiment_design": ("worker", "architect", "rld"),
+    "experiment_result": ("worker", "architect", "rld"),
+    "task_delivery": ("worker", "architect", "rld"),
+    "other": ("ui", "rld", "worker", "architect"),
     "review": ("reviewer",),  # only through review_call.py (plans/design 09 §4)
     "finding": ("rld", "worker", "architect"),  # 08 §1.1
-    "lesson": ("rld", "worker", "architect", "assistant"),  # 08 §1.2
+    "lesson": ("rld", "worker", "architect"),  # 08 §1.2
     "method_spec": ("rld", "worker", "architect"),  # written by create_experiment itself (S1), never by hand
     "candidate_spec": ("rld",),  # freeze_candidate (S2)
     "confirmation_batch": ("rld",),  # create_confirmation_batch (S2)
@@ -172,44 +171,37 @@ SANITY_OVERRIDES = ("epochs", "steps", "max_steps", "n_train", "n_eval", "sanity
 METHOD_SPEC_DIR = "specs/method"
 APPLICABILITY_SECTION = "评审适用性"
 FOLLOWUP_ROUNDS = 1  # S4 §8.4: automatic literature follow-up rounds per review chain
-POSITIVE_NOVELTY = ("PROCEED", "PROCEED_WITH_CAUTION")  # 09 §3: CAUTION is positive; only a named ABANDON is not
 # 06 §4: relations that let a node rest on negative or inconclusive history (code parent and scientific basis differ)
 EVIDENCE_RELATIONS = ("combines", "repairs", "tests_assumption")
 RELATION_KINDS = ("competes", "shares_control", "variant_of") + EVIDENCE_RELATIONS
-REVIEW_KINDS = ("triage", "novelty_precheck", "critical_review", "proposal_review", "ablation_plan", "code_review",
-                "candidate_recheck")
+REVIEW_KINDS = ("ablation_plan", "code_review", "candidate_recheck")
 # A GO candidate's rechecks (07 §2): the dimensions about numbers are bound to the evaluation they checked, the
 # others to its code (they stay valid when seeds are added to the same code, 07 §3).
 RECHECK_DIMENSIONS = {"numbers": "evaluation", "protocol": "evaluation", "method_code": "code",
                       "novelty": "code", "theory": "code"}
 
-CONCLUSIONS = ("no_gain", "beats_parent", "beats_sota", "inconclusive")
+CONCLUSIONS = ("no_gain", "beats_sota", "inconclusive")
 # A decision resting on an inconclusive result lists what is missing and the next experiment (03 §9, 06 §7).
 INCONCLUSIVE_SECTIONS = ("缺失证据", "下一实验")
 # From idea to experiment design (plans/design 03 §2, §10): the goal's problem anchor (copied verbatim into every
 # hypothesis document), the hypothesis document's sections and an experiment design's fields.
 ANCHOR_SECTION = "问题锚点"
 ANCHOR_FIELDS = ("底线问题", "必须解决的瓶颈", "非目标", "约束", "成功条件")
-HYPOTHESIS_SECTIONS = ("问题锚点", "方法步骤", "技术缺口", "可证伪预测与竞争解释", "最接近工作与差异", "Claim map",
-                       "实验块", "成本估计", "停止条件", "有意舍弃的复杂度")
 EXPERIMENT_DESIGN_SECTIONS = ("检验的 claim", "存在理由", "数据与切分", "比较系统", "指标", "设定", "成功判据",
                               "失败解释", "表图目标", "优先级与成本")
 SCREENING_SECTIONS = ("可证伪预测", "干预", "匹配对照", "资源上限", "停止与继续条件")
-BLOCK_FIELDS = ("成功判据", "失败解释")
 # Evaluation types that bound the wording of a result (03 §5, 04 §6): no SOTA claim on a proxy.
 PROXY_EVAL_TYPES = ("synthetic_proxy", "self_supervised_proxy", "simulation_only")
 SOTA_CLAIM_RE = re.compile(r"优于\s*SOTA|超过\s*SOTA|超越\s*SOTA|beats?\s+(the\s+)?SOTA|state[- ]of[- ]the[- ]art|新的\s*SOTA",
                            re.I)
-FAILURE_PATCHES, FAILURE_REWRITES = 2, 2  # 03 §8: per root cause
+FAILURE_REWRITES = 2  # 03 §8: per root cause
 LESSON_ORDER = {"verified": 0, "observed": 1, "proposed": 2, "stale": 3, "contradicted": 4}
 BLOCK_RE_EVIDENCE = re.compile(r"^```evidence[ \t]*\n.*?^```[ \t]*$", re.M | re.S)
 # What a NOT GO report accounts for, node by node (06 §3.3).
 NOT_GO_SECTIONS = ("未探索", "工程失败", "不确定", "重复方向", "明确反证", "投入价值判断")
 DISPOSITIONS = ("active", "paused", "retired")
-# The execution lifecycle as the old node status shows it (06 §3.1).
 BUDGET_POOLS = ("search", "confirmation", "repair")
 SUBMISSION_KEY_RE = re.compile(r"[A-Za-z0-9_.:@/-]{1,128}")
-LIFECYCLE = {"pending": "pending", "verifying": "verifying", "expandable": "assessed", "prunable": "assessed"}
 SEVERITIES = ("CRITICAL", "MAJOR", "MINOR")
 FIX_TYPES = ("corrected_from_results", "re_evaluated", "re_run", "code_fixed", "claim_narrowed", "claim_withdrawn",
              "citation_replaced")
@@ -245,7 +237,7 @@ TASK_TRANSITIONS = {  # status -> {to_status: role allowed to make the change}
     "cancelled": {},
 }
 # Comparison rules and seeds that must not change once experiments exist.
-GATE_FIELDS = ("primary_metric", "metric_direction", "metric_is_percent", "secondary_metrics", "go_margin",
+GATE_FIELDS = ("primary_metric", "metric_direction", "secondary_metrics", "go_margin",
                "gate_seeds", "seeds")
 RUN_MEASUREMENTS = ("metric_value", "secondary", "nodes_used", "walltime_used_s")
 # What import_run_result writes besides the measurements; kept per attempt like them.
@@ -265,11 +257,9 @@ ATTEMPT_FIELDS = (REPORTED_FIELDS + RUN_MEASUREMENTS + IMPORT_FIELDS
 # Settings from the project configuration (research-tree.yaml) besides the caps and gates above.
 LIMIT_FIELDS = ("max_parallel_workers", "alert_node_h", "config_doc_id", "total_limit", "search_limit",
                 "confirmation_limit", "repair_limit", "overrun_factor", "stall_structural_at", "stall_human_at",
-                "recheck_required", "review_usd_alert", "screen_seeds", "design_required", "max_primary_claims",
-                "max_core_blocks", "code_review_required", "sanity_required", "require_precheck",
-                "literature_verification", "max_repairs_per_root_cause", "memory_max_items",
+                "review_usd_alert", "screen_seeds", "code_review_required", "sanity_required", "max_repairs_per_root_cause", "memory_max_items",
                 "memory_counterevidence", "memory_enabled", "memory_pack_limit", "exploration_fraction",
-                "require_selection_rationale", "allow_repair_from_retired", "workflow_mode", "discovery_mode")
+                "require_selection_rationale", "allow_repair_from_retired")
 # The documents evaluations are computed under (plans/design/04): protocol and metric specification.
 EVIDENCE_DOC_FIELDS = ("protocol_doc_id", "metric_spec_doc_id")
 # Caps the user authorizes (10 §1.5): an agent may lower them, raising one (or lifting it, None) needs the user.
@@ -278,10 +268,8 @@ CAP_FIELDS = ("total_limit", "search_limit", "confirmation_limit", "repair_limit
 
 # The keyword arguments a method takes through **optional / **changes; `help` lists them (real-run-error #5).
 OPTIONAL_PARAMS = {
-    "create_project": ("goal_doc_id", "go_margin", "gate_seeds", "screen_budget_node_h", "min_related_work",
-                       "max_nodes", "max_walltime_s", "repo_path") + LIMIT_FIELDS + EVIDENCE_DOC_FIELDS,
-    "update_project": ("title", "goal_doc_id", "min_setup_doc_id", "stage", "min_related_work",
-                       "screen_budget_node_h", "max_nodes", "max_walltime_s", "repo_path", "harness_ref",
+    "create_project": ("goal_doc_id", "go_margin", "gate_seeds", "screen_budget_node_h", "max_nodes", "max_walltime_s", "repo_path") + LIMIT_FIELDS + EVIDENCE_DOC_FIELDS,
+    "update_project": ("title", "goal_doc_id", "min_setup_doc_id", "stage", "screen_budget_node_h", "max_nodes", "max_walltime_s", "repo_path", "harness_ref",
                        "harness_paths", "sota_experiment_id") + GATE_FIELDS + LIMIT_FIELDS + EVIDENCE_DOC_FIELDS,
     "update_hypothesis": ("title", "statement", "doc_id", "owner"),
     "create_experiment": ("config_path", "owner", "keep", "keep_reason", "stage", "selection_rationale",
@@ -576,6 +564,8 @@ class ResearchDB:
         role, _, agent = actor.partition("/")
         if role not in ROLES or not re.fullmatch(r"[A-Za-z0-9_.]+", agent):
             raise ResearchDBError(f"actor must be <role>/<agent-id> with role in {ROLES}, got {actor!r}")
+        if (role == "worker" and agent == "root") or (role == "architect" and agent != "root"):
+            raise ResearchDBError("the root identity is architect/root; workers belong to hypothesis nodes only")
         self.role, self.agent = role, agent
 
     # -- sessions -----------------------------------------------------------
@@ -602,37 +592,42 @@ class ResearchDB:
     def reader(self) -> Iterator[_Tx]:
         """Read-only session for several reads against one consistent state."""
         with self._open(write=False) as db, db.read() as txn:
+            self._check_schema(txn)
             yield _Tx(txn)
 
     @contextmanager
     def _writer(self) -> Iterator[_Tx]:
         if self.role in ("explorer", "analyst"):
             raise PermissionDenied(f"{self.role} is advisory and read-only; send recommendations to the Leader")
+        # Check in a read-only open before a writable handle can touch an incompatible database or WAL.
+        with self.reader():
+            pass
         with self._open(write=True) as db, db.write() as txn:
+            self._check_schema(txn)
             tx = _Tx(txn)
-            meta = txn.get_nodes_by_label("Meta")
-            version = txn.get_property(meta[0], "schema_version") if meta else None
-            if version != SCHEMA_VERSION:
-                raise ResearchDBError(
-                    f"{self.db_path} has schema_version {version}, this plugin writes version {SCHEMA_VERSION}: "
-                    + ("back up the research directory, run `python <plugin>/schema/create_db.py --upgrade "
-                       f"{self.db_path}`, then the record migrations, each with dry_run first: migrate_evaluations, "
-                       "migrate_identity, migrate_units, migrate_reviews, migrate_memory, migrate_budget"
-                       if isinstance(version, int)
-                       and version < SCHEMA_VERSION else "use the plugin version that wrote it")
-                    + "; reading still works")
             yield tx
             tx.bump_meta()
             txn.commit()
 
+    @staticmethod
+    def _check_schema(txn) -> None:
+        meta = txn.get_nodes_by_label("Meta")
+        version = txn.get_property(meta[0], "schema_version") if len(meta) == 1 else None
+        if type(version) is not int or version != SCHEMA_VERSION:
+            raise ResearchDBError(
+                f"unsupported schema_version {version}; this plugin requires schema_version {SCHEMA_VERSION}. "
+                "Migration notice: keep the historical database and its evidence unchanged, use the matching "
+                "older plugin to inspect it, and initialize a separate version 3 project with a new database. "
+                "In-place upgrades and record migrations are not supported")
+
     # -- checks ---------------------------------------------------------------
 
     def _require_role(self, *roles: str) -> None:
-        if self.role not in roles and not (self.role == "architect" and "worker" in roles):
+        if self.role not in roles:
             raise PermissionDenied(f"{self.role}/{self.agent} may not do this; requires role {' or '.join(roles)}")
 
     def _architect_scope(self, tx: _Tx, table: str, record: dict) -> None:
-        """Architect is the root worker, never a second identity for a hypothesis owner."""
+        """Architect owns the shared root harness, never a hypothesis."""
         if self.role != "architect":
             return
         if table in ("hypothesis", "branch", "decision"):
@@ -644,8 +639,8 @@ class ResearchDB:
         if table == "task" and record.get("target_id") not in (None, self._project(tx)["id"]):
             raise PermissionDenied("architect tasks target the project root")
         project = self._project(tx)
-        if project.get("worker_id") and project["worker_id"] != self.agent:
-            raise PermissionDenied(f"architect must use the root's assigned worker identity {project['worker_id']}")
+        if project.get("architect_id") != self.agent:
+            raise PermissionDenied("assign architect/root before root work")
 
     def _check_values(self, table: str, values: dict) -> None:
         columns = SPEC[table].columns
@@ -729,7 +724,7 @@ class ResearchDB:
     # -- project ---------------------------------------------------------------
 
     def create_project(self, id: str, title: str, min_setup_doc_id: str, primary_metric: str,
-                       metric_direction: str, metric_is_percent: bool, secondary_metrics: list[str],
+                       metric_direction: str, secondary_metrics: list[str],
                        seeds: list[int], **optional) -> str:
         """The project record (the tree's root): comparison setup and caps; rld only, once per database."""
         self._require_role("rld")
@@ -744,7 +739,7 @@ class ResearchDB:
                                                          "(see doc_library: metric_spec, protocol)")
         record = {
             "id": id, "title": title, "min_setup_doc_id": min_setup_doc_id, "primary_metric": primary_metric,
-            "metric_direction": metric_direction, "metric_is_percent": metric_is_percent,
+            "metric_direction": metric_direction,
             "secondary_metrics": secondary_metrics, "seeds": seeds, "stage": "stage1", "status": "active",
             "owner": self.agent, **optional,
             "resume_doc_ids": [min_setup_doc_id] + ([optional["goal_doc_id"]] if optional.get("goal_doc_id") else []),
@@ -804,14 +799,10 @@ class ResearchDB:
             if project.get("exploration_fraction") and "exploration_fraction" in changes and (
                     not changes["exploration_fraction"] or changes["exploration_fraction"] < project["exploration_fraction"]):
                 raised.append("exploration_fraction")  # a smaller share lets current directions take more
-            for gate in ("recheck_required", "design_required", "code_review_required", "sanity_required",
-                         "require_precheck", "literature_verification", "require_selection_rationale"):
+            for gate in ("code_review_required", "sanity_required",
+                         "require_selection_rationale"):
                 if project.get(gate) and changes.get(gate) is False:
                     raised.append(gate)  # dropping a gate lowers the bar: the user's decision
-            if changes.get("workflow_mode") == "fast_screening" and project.get("workflow_mode", "strict") != "fast_screening":
-                raised.append("workflow_mode")
-            if changes.get("discovery_mode") == "incremental" and project.get("discovery_mode", "full") != "incremental":
-                raised.append("discovery_mode")
             if raised:
                 instruction = user_instruction_doc_id and tx.get(user_instruction_doc_id)
                 if not instruction or (instruction.get("doc_type"), instruction.get("status")) != (
@@ -842,23 +833,21 @@ class ResearchDB:
             sota = changes.get("sota_experiment_id")
             if sota is not None:
                 exp = tx.require(sota, ("experiment",))
-                fast = final.get("workflow_mode") == "fast_screening"
-                seeds_ok = exp["seeds"] == final["seeds"] or (fast and exp["seeds"] == final["seeds"][:len(exp["seeds"])])
+                seeds_ok = bool(exp["seeds"]) and exp["seeds"] == final["seeds"][:len(exp["seeds"]) ]
                 if exp["kind"] != "baseline" or not seeds_ok or exp.get("stage") == "confirm":
                     raise ResearchDBError(f"the SOTA baseline must be a baseline experiment on seeds {final['seeds']}")
                 if not exp.get("evaluated_at"):
                     invalid = _invalid_runs(tx, exp)
                     raise ResearchDBError(
                         f"{sota} is not evaluated yet: its owner (or rld) calls evaluate_experiment(experiment_id, "
-                        "result_doc_id) with no verdict, as baselines record metrics only, "
+                        "result_doc_id), as baselines record metrics only, "
                         "once every seed has a valid run" + (f"; not yet valid: {invalid}. {VALID_RUN_HOW}" if invalid else ""))
                 if exp.get("harness_ref") != final.get("harness_ref"):
                     raise ResearchDBError(
                         f"{sota} was evaluated with harness {str(exp.get('harness_ref'))[:10]}, but the frozen harness is "
                         f"{str(final.get('harness_ref'))[:10]}: run the baseline again with the frozen harness "
                         "(create_experiment kind=baseline, then its runs and evaluate_experiment) and set that experiment")
-                if fast:
-                    self._available_baseline(tx, final, exp)
+                self._available_baseline(tx, final, exp)
             self._update(tx, project["id"], changes)
 
     def check_project_changes(self, **changes) -> None:
@@ -929,7 +918,7 @@ class ResearchDB:
         if doc["doc_type"] != doc_type:
             raise ResearchDBError(f"{doc_id} is a {doc['doc_type']} document, expected {doc_type}")
         path = self.docs_root / doc["path"]
-        if not path.is_file() or (doc.get("sha256") and sha256_file(path) != doc["sha256"]):
+        if not path.is_file() or not doc.get("sha256") or sha256_file(path) != doc["sha256"]:
             raise ResearchDBError(f"{doc_id} ({doc['path']}) is missing or no longer matches its recorded hash")
         try:
             return json.loads(path.read_text(encoding="utf-8"))
@@ -937,13 +926,17 @@ class ResearchDB:
             raise ResearchDBError(f"{doc_id} ({doc['path']}) is not JSON: {exc}") from None
 
     def _specs(self, tx: _Tx, project: dict) -> dict:
-        """The project's metric specification, or the compatibility one for a project without it."""
-        if project.get("metric_spec_doc_id"):
-            return self._json_doc(tx, project["metric_spec_doc_id"], "metric_spec")
-        return metrics.legacy_specs(project)
+        """Read the mandatory immutable metric contract; no inferred metric units or directions."""
+        if not project.get("metric_spec_doc_id"):
+            raise CodedError("PROTOCOL_CHANGE_REQUIRED", "a metric_spec_doc_id is required; start a version 3 project")
+        with _coded():
+            return metrics.check_metric_specs(self._json_doc(tx, project["metric_spec_doc_id"], "metric_spec"))
 
-    def _protocol(self, tx: _Tx, project: dict) -> dict | None:
-        return self._json_doc(tx, project["protocol_doc_id"], "protocol") if project.get("protocol_doc_id") else None
+    def _protocol(self, tx: _Tx, project: dict) -> dict:
+        if not project.get("protocol_doc_id"):
+            raise CodedError("PROTOCOL_CHANGE_REQUIRED", "a protocol_doc_id is required; start a version 3 project")
+        with _coded():
+            return metrics.check_protocol(self._json_doc(tx, project["protocol_doc_id"], "protocol"))
 
     # -- hypotheses -------------------------------------------------------------
 
@@ -955,17 +948,9 @@ class ResearchDB:
         """related_work: current literature documents consulted when creating the node (the cached
         related research); the hypothesis document records the creation rationale.
 
-        The tree's root is the project: it holds the baselines (frozen harness, SOTA and other baseline
-        experiments) and no hypothesis. Without parent_id a node is a child of the root, as every initial
-        hypothesis is. Strict projects require a verified, expandable parent. Fast-screening projects may
-        derive ideas from an unproven parent while naming their independent code source and comparator.
-
-        With literature_verification only literature whose existence was verified (front matter `verification:
-        verified`) counts toward min_related_work. With require_precheck an initial node names the discovery
-        candidate it comes from (candidate_id) and needs that candidate's receipts: a current novelty_precheck
-        that is PROCEED or PROCEED_WITH_CAUTION and a critical_review with stance proceed. A negative receipt does
-        not drop a user's hypothesis: the user decides, and user_instruction_doc_id (their current instruction)
-        then admits it.
+        The root holds the harness and baselines. A hypothesis may derive an idea from any existing node,
+        but declares its code source and evaluated comparator independently. Every hypothesis names a selected
+        current discovery candidate, shares that candidate's five screening fields, and stays inside its ceiling.
 
         relations ([{kind, target}], 06 §4): competes, shares_control, variant_of, and combines / repairs /
         tests_assumption, which may rest on negative or inconclusive nodes — each target needs an evaluation (the
@@ -977,52 +962,28 @@ class ResearchDB:
         with self._writer() as tx:
             project = self._project(tx)
             self._require_active(project)
-            fast = project.get("workflow_mode") == "fast_screening"
             if parent_id is not None and parent_id != project["id"]:
-                parent = tx.require(parent_id, ("hypothesis",))
-                if not fast and parent["status"] != "expandable":
-                    raise ResearchDBError(
-                        f"{parent_id} is {parent['status']}: new nodes go below the root (no parent_id) or below a "
-                        "verified, expandable node"
-                    )
+                tx.require(parent_id, ("hypothesis",))
             self._check_stall(tx, parent_id, direction)
-            if project.get("design_required") or fast:
-                self._check_hypothesis_doc(tx, project, doc_id)
-            contract = self._screening_contract(tx, doc_id) if fast else None
-            code_parent = code_parent_id or (project["id"] if fast else parent_id or project["id"])
+            self._check_hypothesis_doc(tx, project, doc_id)
+            contract = self._screening_contract(tx, doc_id)
+            code_parent = code_parent_id or project["id"]
             code_node = tx.require(code_parent, ("project", "hypothesis"))
             if code_node["id"] != project["id"] and code_node.get("project_id") != project["id"]:
                 raise ResearchDBError("the code parent must belong to this project")
-            comparator = comparator_experiment_id or (project.get("sota_experiment_id") if fast else None)
+            comparator = comparator_experiment_id or project.get("sota_experiment_id")
             if comparator is not None:
                 ref = tx.require(comparator, ("experiment",))
                 if not ref.get("evaluated_at") or ref.get("stage") == "confirm" or ref["project_id"] != project["id"]:
                     raise ResearchDBError("the comparator must be a current evaluated search experiment in this project")
                 self._check_harness(project, ref)
-            if fast and not comparator:
+            if not comparator:
                 raise ResearchDBError("a screening hypothesis needs comparator_experiment_id or an available SOTA baseline")
             related = sorted(set(related_work))
-            if not fast and len(related) < project["min_related_work"]:
-                raise ResearchDBError(
-                    f"a new node must reference at least {project['min_related_work']} related-work documents, "
-                    f"got {len(related)}"
-                )
             for doc_id_ in related:
                 self._check_literature(tx, doc_id_)
-            if project.get("literature_verification") and not fast:
-                verified = [d for d in related if self._literature_verified(tx, d)]
-                if len(verified) < project["min_related_work"]:
-                    raise CodedError(
-                        "LITERATURE_UNVERIFIED",
-                        f"only {len(verified)} of the cited literature documents are verified to exist "
-                        f"(research_db verify_literature); a node needs {project['min_related_work']} — "
-                        "unverified literature is kept but does not count")
-            if project.get("require_precheck") and (fast or parent_id in (None, project["id"])):
-                admitted = self._check_receipts(tx, candidate_id, user_instruction_doc_id)
-                if fast and admitted is not None:
-                    self._bind_screening_candidate(contract, admitted)
-            elif candidate_id is not None and not CANDIDATE_ID_RE.fullmatch(candidate_id):
-                raise ResearchDBError("candidate_id is a discovery candidate id (CAND-0001)")
+            admitted = self._check_candidate_admission(tx, candidate_id)
+            self._bind_screening_candidate(contract, admitted)
             links = self._check_relations(tx, project, relations or [], direction, title, user_instruction_doc_id)
             hyp_id = self._insert(tx, "hypothesis", {
                 "id": tx.next_id("hypothesis"), "project_id": project["id"], "parent_id": parent_id or project["id"],
@@ -1057,43 +1018,14 @@ class ResearchDB:
         return None if body is None else re.sub(r"\s+", " ", re.sub(r"<!--.*?-->", "", body, flags=re.S)).strip()
 
     def _check_hypothesis_doc(self, tx: _Tx, project: dict, doc_id: str) -> None:
-        """03 §10: the hypothesis document has its sections, the goal's problem anchor verbatim, a claim map of at
-        most max_primary_claims claims and at most max_core_blocks experiment blocks, each with its success
-        criterion and failure interpretation written before the experiment."""
+        """The hypothesis preserves the approved problem and declares its bounded screening contract."""
         goal = project.get("goal_doc_id")
         anchor = self._anchor(tx, goal) if goal else None
         if not anchor or not all(f in anchor for f in ANCHOR_FIELDS):
-            raise CodedError("DESIGN_SECTION_MISSING", f"the goal document {goal} needs a '## {ANCHOR_SECTION}' section with "
-                                  f"{', '.join(ANCHOR_FIELDS)} (03 §2); register a goal version with it "
-                                  "(update_project goal_doc_id)")
-        sections, path = self._doc_sections(tx, doc_id)
-        if project.get("workflow_mode") == "fast_screening":
-            self._screening_contract(tx, doc_id)
-            if self._anchor(tx, doc_id) != anchor:
-                raise CodedError("DESIGN_SECTION_MISSING", f"{doc_id}'s {ANCHOR_SECTION} must match the approved goal")
-            return
-        missing = [name for name in HYPOTHESIS_SECTIONS if self._section(sections, name) is None]
-        if missing:
-            raise CodedError("DESIGN_SECTION_MISSING", f"{doc_id} ({path}) lacks the sections {', '.join(missing)}; a hypothesis document "
-                                  f"has the '## ' sections {', '.join(HYPOTHESIS_SECTIONS)} (03 §10)")
+            raise CodedError("DESIGN_SECTION_MISSING", f"the goal document {goal} needs a '## {ANCHOR_SECTION}' section with {', '.join(ANCHOR_FIELDS)}")
+        self._screening_contract(tx, doc_id)
         if self._anchor(tx, doc_id) != anchor:
-            raise CodedError("DESIGN_SECTION_MISSING", f"{doc_id}'s {ANCHOR_SECTION} differs from the goal's ({goal}): the anchor is copied "
-                                  "verbatim; a change of the problem is drift — push back, or change the anchor in "
-                                  "the goal with the user's instruction")
-        rows = [line for line in self._section(sections, "Claim map").splitlines() if line.strip().startswith("|")]
-        claims = [r for r in rows[2:] if r.strip("|").strip()]  # header and separator rows first
-        if not 1 <= len(claims) <= project.get("max_primary_claims", 2):
-            raise CodedError("DESIGN_SECTION_MISSING", f"{doc_id}: the claim map has {len(claims)} claims; 1..{project.get('max_primary_claims', 2)} "
-                                  "primary claims (design.max_primary_claims)")
-        blocks = re.split(r"^###[ \t]+", self._section(sections, "实验块"), flags=re.M)[1:]
-        if not 1 <= len(blocks) <= project.get("max_core_blocks", 5):
-            raise CodedError("DESIGN_SECTION_MISSING", f"{doc_id}: {len(blocks)} experiment blocks ('### ' under 实验块); "
-                                  f"1..{project.get('max_core_blocks', 5)} (design.max_core_blocks)")
-        for block in blocks:
-            lacking = [f for f in BLOCK_FIELDS if f not in block]
-            if lacking:
-                raise CodedError("DESIGN_SECTION_MISSING", f"{doc_id}: experiment block '{block.splitlines()[0].strip()}' lacks "
-                                      f"{', '.join(lacking)}: written before the experiment, never after the result")
+            raise CodedError("DESIGN_SECTION_MISSING", f"{doc_id}'s {ANCHOR_SECTION} must match the approved goal")
 
     def _screening_contract(self, tx: _Tx, doc_id: str) -> dict:
         self._require_unchanged(tx.require(doc_id, ("document",)))
@@ -1169,7 +1101,7 @@ class ResearchDB:
         # U07: an excluded idea is not proposed again under another name; repairs are bounded per root cause
         retired = [h for h in (tx.get(i) for i in tx.ids("hypothesis"))
                    if h["status"] == "prunable" or _disposition(h) == "retired"]
-        if retired and not direction and project.get("design_required"):
+        if retired and (not direction):
             raise ResearchDBError("nodes are no longer pursued in this project: a new node names its direction (the "
                                   "mechanism it tests) so a renamed excluded idea is recognised")
         # the direction (mechanism) is what a renamed idea keeps; titles change freely
@@ -1189,7 +1121,7 @@ class ResearchDB:
             raise CodedError("REPEATED_DIRECTION", f"{', '.join(h['id'] for h in same)} already tested this direction "
                                                    "and is no longer pursued: a new node repairs it (relation repairs "
                                                    "with the specific defect it fixes) or takes another direction")
-        limit = project.get("max_repairs_per_root_cause") or FAILURE_PATCHES
+        limit = project["max_repairs_per_root_cause"]
         for target in repaired:
             earlier = [e for e in tx.edges("rel_related", target=target) if e.get("kind") == "repairs"]
             if len(earlier) >= limit:
@@ -1228,7 +1160,7 @@ class ResearchDB:
         """08 §2: check that a literature document's paper exists (literature.verify: arXiv id → CrossRef DOI →
         Semantic Scholar title, from the document's front matter) and record the result on the document. Network
         access happens here; an unreachable service gives unverified (pending), never an error."""
-        self._require_role("rld", "worker", "assistant")
+        self._require_role("rld", "worker", "architect")
         import literature
         with self.reader() as tx:
             doc = tx.require(doc_id, ("document",))
@@ -1251,65 +1183,23 @@ class ResearchDB:
                                       "literature_check_detail": f"{result.get('method')}: {result.get('detail')}"[:300]})
         return result
 
-    def _check_receipts(self, tx: _Tx, candidate_id: str | None, user_instruction_doc_id: str | None) -> dict | None:
-        """02 §3 D8 / R09: an initial node needs its candidate's novelty and critical-review receipts."""
+    def _check_candidate_admission(self, tx: _Tx, candidate_id: str | None) -> dict:
+        """Every hypothesis is bound to its selected, current incremental candidate and bounded screening scope."""
         if not candidate_id or not CANDIDATE_ID_RE.fullmatch(candidate_id):
-            raise CodedError("PRECHECK_REQUIRED", "discovery.require_precheck: an initial node names its discovery "
-                                                  "candidate (candidate_id CAND-…) whose novelty_precheck and "
-                                                  "critical_review it rests on")
-        state = self.db_path.parent / "cache" / "discovery" / "state.json"
-        gate = (json.loads(state.read_text(encoding="utf-8")).get("gate") or {}) if state.is_file() else {}
-        project = self._project(tx)
-        incremental = project.get("discovery_mode") == "incremental"
-        if not incremental and gate.get("verdict") != "PASS":
-            raise CodedError("PRECHECK_REQUIRED", "initial nodes are created after the discovery gate passed "
-                                                  "(research_tree.py discovery gate --report …)")
+            raise CodedError("PRECHECK_REQUIRED", "a hypothesis names its selected discovery candidate (candidate_id CAND-…)")
         import discovery
-        pool = discovery.read_candidates(self.db_path.parent)
-        candidate = next((c for c in pool if c.get("id") == candidate_id), None)
+        project = self._project(tx)
+        candidate = next((c for c in discovery.read_candidates(self.db_path.parent) if c.get("id") == candidate_id), None)
         if candidate is None or candidate.get("present") is False:
-            raise CodedError("PRECHECK_REQUIRED", f"{candidate_id} is not a current discovery candidate "
-                                                  "(docs/project/discovery/candidates.json)")
-        docs = [tx.get(i) for i in tx.ids("document", "WHERE n.doc_type = $t", t="review")]
-        if incremental:
-            verdict = discovery.evaluate_candidate(self.db_path.parent, candidate_id,
-                workflow_mode=project.get("workflow_mode", "strict"), reviews=docs,
-                literature={i: self._literature_verified(tx, i) and tx.get(i)["status"] == "current"
-                            for i in tx.ids("document", "WHERE n.doc_type = $t", t="literature")},
-                min_related_work=project["min_related_work"], max_nodes=project["max_nodes"],
-                max_walltime_s=project["max_walltime_s"], screen_node_h=project["screen_budget_node_h"])
-            if verdict["verdict"] != "PASS":
-                raise CodedError("PRECHECK_REQUIRED", "; ".join(verdict["reasons"]))
-            if project.get("workflow_mode") == "fast_screening":
-                if verdict["revision"] != candidate.get("revision") or verdict["content_sha"] != candidate.get("content_sha"):
-                    raise CodedError("PRECHECK_REQUIRED", "candidate changed during admission; check its current revision")
-                return candidate
-        # S1: receipts count for the candidate's current content revision only
-        mine = [d for d in docs if d["status"] == "current" and d.get("review_about") == candidate_id
-                and discovery.receipt_applies(d, candidate)]
-
-        def latest(kind):
-            found = [d for d in mine if d.get("review_kind") == kind]
-            return max(found, key=lambda d: int(d["id"].split("-")[1])) if found else None
-        novelty, critique = latest("novelty_precheck"), latest("critical_review")
-        missing = [k for k, d in (("novelty_precheck", novelty), ("critical_review", critique)) if d is None]
-        if missing:
-            raise CodedError("PRECHECK_REQUIRED", f"{candidate_id} has no {' and no '.join(missing)} receipt for its "
-                                                   f"current revision {candidate.get('revision')} (research_review "
-                                                   f"with about={candidate_id}); the node is created after both")
-        if novelty["review_result"] == "NEEDS_EVIDENCE":  # S4 §8.4: pending evidence, not a negative verdict
-            raise CodedError("PRECHECK_REQUIRED", f"{candidate_id}'s novelty receipt {novelty['id']} needs evidence: "
-                                                   "literature_followup, then review again with the evidence set")
-        negative = [f"{novelty['id']} {novelty['review_result']}"] if novelty["review_result"] not in POSITIVE_NOVELTY else []
-        if critique["review_result"] != "proceed":
-            negative.append(f"{critique['id']} stance {critique['review_result']}")
-        if negative:
-            instruction = user_instruction_doc_id and tx.get(user_instruction_doc_id)
-            if not instruction or (instruction.get("doc_type"), instruction.get("status")) != (
-                    "user_instruction", "current"):
-                raise ResearchDBError(f"{candidate_id}'s receipts advise against it ({'; '.join(negative)}): a user "
-                                      "hypothesis stays for the user to decide (report it as '建议放弃，待用户决定'); "
-                                      "to build it anyway pass user_instruction_doc_id, their current instruction")
+            raise CodedError("PRECHECK_REQUIRED", f"{candidate_id} is not a current discovery candidate")
+        verdict = discovery.evaluate_candidate(self.db_path.parent, candidate_id,
+            max_nodes=project["max_nodes"], max_walltime_s=project["max_walltime_s"],
+            screen_node_h=project["screen_budget_node_h"])
+        if verdict["verdict"] != "PASS":
+            raise CodedError("PRECHECK_REQUIRED", "; ".join(verdict["reasons"]))
+        if verdict["revision"] != candidate.get("revision") or verdict["content_sha"] != candidate.get("content_sha"):
+            raise CodedError("PRECHECK_REQUIRED", "candidate changed during admission; check its current revision")
+        return candidate
 
     def _check_literature(self, tx: _Tx, doc_id: str) -> None:
         doc = tx.require(doc_id, ("document",))
@@ -1328,15 +1218,12 @@ class ResearchDB:
         with self._writer() as tx:
             hyp = tx.require(hypothesis_id, ("hypothesis",))
             project = self._project(tx)
-            if "doc_id" in changes and (project.get("design_required") or project.get("workflow_mode") == "fast_screening"):
+            if 'doc_id' in changes:
                 self._check_hypothesis_doc(tx, project, changes["doc_id"])
-                if project.get("workflow_mode") == "fast_screening":
-                    contract = self._screening_contract(tx, changes["doc_id"])
-                    if project.get("require_precheck") and hyp.get("candidate_id"):
-                        admitted = self._check_receipts(tx, hyp["candidate_id"], None)
-                        if admitted is not None:
-                            self._bind_screening_candidate(contract, admitted)
-                    changes["screening_contract"] = contract
+                contract = self._screening_contract(tx, changes["doc_id"])
+                admitted = self._check_candidate_admission(tx, hyp.get("candidate_id"))
+                self._bind_screening_candidate(contract, admitted)
+                changes["screening_contract"] = contract
             claim = self._claim_fields(tx, project, hyp, changes.get("statement", hyp["statement"]),
                                        changes.get("doc_id", hyp["doc_id"]))
             self._update(tx, hypothesis_id, {**changes, **claim})
@@ -1348,8 +1235,7 @@ class ResearchDB:
         content = {"statement": _norm_text(statement), "claim_map": _norm_text(self._section(sections, "Claim map")),
                    "scope": _norm_text(self._section(sections, "适用范围") or self._section(sections, "停止条件")),
                    "goal_doc_id": project.get("goal_doc_id")}
-        if project.get("workflow_mode") == "fast_screening":
-            content["screening"] = {k: _norm_text(self._section(sections, k)) for k in SCREENING_SECTIONS}
+        content["screening"] = {k: _norm_text(self._section(sections, k)) for k in SCREENING_SECTIONS}
         declared = self._section(sections, APPLICABILITY_SECTION)
         if declared is not None:  # S4 §8.1: which review dimensions the claim declares not part of it
             content["review_applicability"] = _norm_text(declared)
@@ -1377,8 +1263,8 @@ class ResearchDB:
         sha = _sha(content)
         if hyp is not None and hyp.get("claim_sha") == sha:
             return {}
-        revision = (hyp.get("claim_revision") or 0) + 1 if hyp is not None else 1
-        history = list(((hyp or {}).get("claim_history") or {}).get("revisions", []))
+        revision = hyp["claim_revision"] + 1 if hyp is not None else 1
+        history = list(hyp["claim_history"]["revisions"]) if hyp is not None else []
         history.append({"revision": revision, "sha": sha, "statement": statement, "doc_id": doc_id, "at": now_utc()})
         return {"claim_revision": revision, "claim_sha": sha, "claim_history": {"revisions": history}}
 
@@ -1519,8 +1405,8 @@ class ResearchDB:
             raise ResearchDBError("a pending node has experiment_status todo and no rechecks")
         if new_status == "verifying" and final["experiment_status"] == "todo":
             raise ResearchDBError("a verifying node has its code change and experiments under way (experiment_status running)")
-        if new_status == "expandable" and final["experiment_status"] not in ("beats_parent", "beats_sota"):
-            raise ResearchDBError("an expandable node must beat its parent or SOTA")
+        if new_status == "expandable" and final["experiment_status"] != "beats_sota":
+            raise ResearchDBError("an expandable node must pass the SOTA gate")
         if new_status == "prunable" and new_status != old_status and not user_declined:
             # Retiring a node is the Leader's decision on evidence (06 §3): any evidence, not only a negative result;
             # a node never tested is retired only by the user.
@@ -1545,26 +1431,16 @@ class ResearchDB:
             raise ResearchDBError(f"{hyp['id']} has no experiment evaluated with the current harness")
         if latest["id"] not in {e["id"] for e in evidence}:
             raise ResearchDBError(f"experiment_status={conclusion} needs based_on the latest evaluated experiment {latest['id']}")
-        if latest.get("verdict") is None:  # new flow: the conclusion agrees with the recomputed comparisons
-            ev = tx.get(latest["evaluation_id"]) if latest.get("evaluation_id") else {}
-            if conclusion == "inconclusive":
-                if ev.get("outcome") != "inconclusive":
-                    raise ResearchDBError(f"{latest['id']}'s outcome is {ev.get('outcome')}, not inconclusive")
-                return
-            edges = tx.edges("rel_compared_with", source=latest["id"])
-            self._check_verdict(self._project(tx), latest, conclusion, edges)
+        ev = tx.require(latest.get("evaluation_id"), ("evaluation",))
+        stale = self._stale_reasons(tx, self._project(tx), ev)
+        if stale:
+            raise CodedError("EVIDENCE_STALE", f"{ev['id']}: {', '.join(stale)}")
+        if conclusion == "inconclusive":
+            if ev.get("outcome") != "inconclusive":
+                raise ResearchDBError(f"{latest['id']}'s outcome is {ev.get('outcome')}, not inconclusive")
             return
-        if latest["verdict"] == conclusion or (latest["verdict"] == "close" and conclusion == "inconclusive"):
-            return
-        if latest["verdict"] != "needs_rld":
-            raise ResearchDBError(f"{latest['id']} has verdict {latest['verdict']}; experiment_status must follow it"
-                                  + (" (extend its seeds first)" if latest["verdict"] == "close" else ""))
-        if doc_id is None:
-            raise ResearchDBError("deciding a needs_rld verdict needs a decision document (doc_id)")
-        if conclusion == "beats_sota" and not any(
-            e.get("passes_gate") is True for e in tx.edges("rel_compared_with", source=latest["id"])
-        ):
-            raise ResearchDBError(f"beats_sota needs {latest['id']} to pass the SOTA gate")
+        self._check_conclusion_evidence(self._project(tx), conclusion,
+                                        tx.edges("rel_compared_with", source=latest["id"]))
 
     def _check_headings(self, tx: _Tx, doc_id: str | None, required: tuple[str, ...], why: str) -> None:
         doc = tx.get(doc_id) if doc_id else None
@@ -1611,8 +1487,6 @@ class ResearchDB:
                     raise CodedError("CONFIRMATION_REQUIRED", message)
                 if any("OBLIGATION_OPEN" in r["reasons"] for r in based):
                     raise CodedError("OBLIGATION_OPEN", message)
-                if based and all("LEGACY_RESULT_UNVERIFIED" in r["reasons"] for r in based):
-                    raise CodedError("LEGACY_RESULT_UNVERIFIED", message)
                 raise ResearchDBError(message)
         if new == "not_go":
             # Not 'every hypothesis disproved' (06 §3.3): no node is still active, and the report accounts for what
@@ -1636,10 +1510,6 @@ class ResearchDB:
             if bad:
                 raise CodedError("STAT_MISMATCH", f"{doc_id}: numbers not found in their sources: " + "; ".join(
                     f"{r.get('id', '?')} {r.get('value')!r}: {r['status']}" for r in bad[:10]))
-            protocol = self._protocol(tx, project)
-            if new == "go" and protocol and protocol.get("profile") == "screening":
-                # screening ends at candidate_ready (06 §2.4): a GO on it says so in its report
-                self._check_headings(tx, doc_id, ("未经独立确认",), "a GO under the screening profile")
         if new in ("stopped", "active") and not any(
             e["_table"] == "document" and e["doc_type"] == "user_instruction" for e in evidence
         ):
@@ -1786,20 +1656,30 @@ class ResearchDB:
             ref_id = exp.get("parent_experiment_id") if against == "parent" else exp.get("baseline_experiment_id")
             if not ref_id:
                 raise ResearchDBError(f"{experiment_id} has no {against} reference")
-            specs, protocol = self._specs(tx, project), self._protocol(tx, project) or {}
+            specs, protocol = self._specs(tx, project), self._protocol(tx, project)
             spec = metrics.spec_by_name(specs)[project["primary_metric"]]
             sign = 1 if spec["direction"] == "higher" else -1
             mine = {r["seed"]: r for r in (tx.get(f"{experiment_id}/s{s}") for s in exp["seeds"]) if r and r.get("valid")}
             ref = tx.get(ref_id)
             theirs = {r["seed"]: r for r in (tx.get(f"{ref_id}/s{s}") for s in ref["seeds"]) if r and r.get("valid")}
             fields = protocol.get("independence_fields") or []
-            pairs = []
+            pairs, units = [], []
             for seed in sorted(set(mine) & set(theirs)):
                 a = metrics.run_values(specs, mine[seed], [spec["name"]])[spec["name"]]
                 b = metrics.run_values(specs, theirs[seed], [spec["name"]])[spec["name"]]
-                manifest = mine[seed].get("manifest") or {}
-                unit = tuple(manifest.get(f) for f in fields) if fields and all(manifest.get(f) is not None for f in fields) else None
-                pairs.append({"seed": seed, "diff": sign * (a - b), "unit": unit})
+                sides = []
+                for run in (mine[seed], theirs[seed]):
+                    manifest = run.get("manifest") or {}
+                    sides.append(tuple(manifest[f] for f in fields)
+                                 if fields and all(isinstance(manifest.get(f), (str, int, float, bool))
+                                                   for f in fields) else None)
+                units.append(tuple(sides))
+                pairs.append({"seed": seed, "diff": sign * (a - b), "unit": None})
+            for index, (pair, (method_unit, reference_unit)) in enumerate(zip(pairs, units)):
+                if method_unit is not None and reference_unit is not None and all(
+                        method_unit not in other and reference_unit not in other
+                        for j, other in enumerate(units) if j != index):
+                    pair["unit"] = (method_unit, reference_unit)
             same_identity = [e for e in (tx.get(i) for i in tx.ids("experiment"))
                              if e.get("hypothesis_id") == exp.get("hypothesis_id")
                              and e.get("method_spec_doc_id") == exp.get("method_spec_doc_id")]
@@ -1860,7 +1740,7 @@ class ResearchDB:
         its severity if higher (never lowers it) and reopens it if it was resolved. source is
         '<family>:<instance>', e.g. 'code_review:RV-0003' or 'STAT_MISMATCH:interface'; the family groups the reports
         that reconcile_obligations compares. rld or worker."""
-        self._require_role("rld", "worker")
+        self._require_role("rld", "worker", "architect")
         return self._obligation(about, source, pattern, claim, severity, evidence_excerpt)
 
     def _obligation(self, about: str, source: str, pattern: str, claim: str, severity: str,
@@ -1979,7 +1859,7 @@ class ResearchDB:
         fingerprint it no longer contains are marked UNRESOLVED_DISAPPEARANCE and stay OPEN (disappearance is not
         resolution). present: the fingerprints (or obligation ids) the new report still contains. Returns the ids
         marked. rld or worker."""
-        self._require_role("rld", "worker")
+        self._require_role("rld", "worker", "architect")
         family = source.split(":", 1)[0]
         with self._writer() as tx:
             marked = []
@@ -2024,7 +1904,7 @@ class ResearchDB:
         scheduler enforces), optional "budget_pool" (search, confirmation, repair; by default from the experiment's
         stage) and "platform_profile". Reserved units = nodes x walltime_s node-seconds, rounded up. With a total
         budget (project.total_limit) a run is submitted only under a reservation."""
-        self._require_role("rld", "worker")
+        self._require_role("rld", "worker", "architect")
         if not isinstance(submission_key, str) or not SUBMISSION_KEY_RE.fullmatch(submission_key):
             raise ResearchDBError("submission_key is 1..128 characters of letters, digits and _ . : @ / -")
         if not isinstance(resource_request, dict) or set(resource_request) - {"nodes", "walltime_s", "budget_pool",
@@ -2114,56 +1994,20 @@ class ResearchDB:
 
     @staticmethod
     def _check_allocation_scope(project: dict, experiments: list[dict], nodes: int, walltime: int) -> None:
-        if project.get("workflow_mode") != "fast_screening":
-            return  # Legacy projects retain explicitly authorized scheduler padding semantics.
         units = sum(e["nodes"] * e["walltime_s"] for e in experiments)
         if nodes * walltime != units or nodes > sum(e["nodes"] for e in experiments) or walltime > sum(e["walltime_s"] for e in experiments):
-            raise CodedError("BUDGET_EXCEEDED", "fast-screening allocation must fit the exact aggregate registered run "
+            raise CodedError("BUDGET_EXCEEDED", "bounded screening allocation must fit the exact aggregate registered run "
                              "scope; declare scheduler overhead before admission, not in a larger reservation")
 
     @staticmethod
     def _reservation_pool(r: dict) -> str:
-        """The pool a reservation counts in: a migration's correction when there is one (the original stays)."""
-        return (r.get("pool_correction") or {}).get("to") or r["budget_pool"]
+        """The immutable pool this reservation was authorized to use."""
+        return r["budget_pool"]
 
-    def migrate_budget(self, dry_run: bool = True) -> dict:
-        """S6 §10.4: reservations whose pool is not the one their experiments draw on. The original record stays;
-        a pool_correction moves it in the per-pool view (the total spent is unchanged, nothing is released: an
-        in-flight or unknown reservation stays held and is reconciled by its key). A reservation over several pools
-        is reported, not split by guesswork. Pools over their limit after the correction are reported; new
-        admission to them is refused by the ordinary budget check. Idempotent. rld only."""
-        self._require_role("rld")
-        report = {"corrected": [], "mixed": [], "over_limit": {}}
-        with self.reader() as tx:
-            plan = []
-            for r in (tx.get(i) for i in tx.ids("reservation")):
-                exps = [tx.get(tx.get(ref.rpartition("@")[0])["experiment_id"]) for ref in r["run_attempt_refs"]
-                        if tx.get(ref.rpartition("@")[0])]
-                pools = {self._experiment_pool(e) for e in exps}
-                if len(pools) > 1:
-                    report["mixed"].append(r["id"])
-                elif pools and pools != {self._reservation_pool(r)}:
-                    plan.append((r["id"], r["budget_pool"], pools.pop()))
-                    report["corrected"].append(r["id"])
-        if not dry_run:
-            with self._writer() as tx:
-                for res_id, old, new in plan:
-                    if (tx.get(res_id).get("pool_correction") or {}).get("to") != new:
-                        self._update(tx, res_id, {"pool_correction": {
-                            "from": old, "to": new, "at": now_utc(),
-                            "reason": "the runs' experiments draw on this pool (S6 migration)"}})
-        with self.reader() as tx:
-            project = self._project(tx)
-            committed = self._committed(tx)
-            for pool in BUDGET_POOLS:
-                limit = project.get(f"{pool}_limit")
-                if limit is not None and committed[pool] > limit:
-                    report["over_limit"][pool] = {"committed": committed[pool], "limit": limit}
-        return report
 
     @staticmethod
     def _experiment_pool(exp: dict) -> str:
-        return exp.get("budget_pool") or ("confirmation" if exp.get("stage") == "confirm" else "search")
+        return exp["budget_pool"]
 
     def claim_submission(self, submission_key: str, reclaim: bool = False) -> dict:
         """Step 2: one executor takes the intent before submitting; it gets a claim generation that attach_job
@@ -2196,10 +2040,9 @@ class ResearchDB:
                 requested.append(exp)
                 self._check_ready(tx, project, exp)
                 self._check_screen_pair(tx, project, run)
-            if project.get("workflow_mode") == "fast_screening":
-                if not r.get("request_nodes") or not r.get("request_walltime_s"):
-                    raise CodedError("SUBMISSION_AMBIGUOUS", "legacy reservation has no recorded allocation shape; reconcile it")
-                self._check_allocation_scope(project, requested, r["request_nodes"], r["request_walltime_s"])
+            if not r.get("request_nodes") or not r.get("request_walltime_s"):
+                raise CodedError("SUBMISSION_AMBIGUOUS", "reservation has no recorded allocation shape; reconcile it")
+            self._check_allocation_scope(project, requested, r["request_nodes"], r["request_walltime_s"])
             generation = r["claim_generation"] + 1
             self._update(tx, r["id"], {"submission_phase": "claimed", "claim_generation": generation})
             return {"submission_key": submission_key, "claim_generation": generation}
@@ -2380,7 +2223,7 @@ class ResearchDB:
 
     def _committed(self, tx: _Tx) -> dict:
         """node-seconds committed per pool and in total: settled actual usage, outstanding reservations, and
-        recorded run usage not covered by any reservation (older runs, unreserved projects)."""
+        recorded run usage not covered by any reservation (projects without a hard budget)."""
         out = {"total": 0} | {p: 0 for p in BUDGET_POOLS}
         covered = set()
         for r in (tx.get(i) for i in tx.ids("reservation")):
@@ -2437,8 +2280,10 @@ class ResearchDB:
         the next step) is required once the node's last two results were inconclusive. estimated_node_h (required)
         is the cost estimate; milestone M0..M4 (03 §6); budget_pool (search, confirmation, repair; by default from
         the stage) is the budget part its reservations count against. An overlapping seed request for the same
-        node, code and method identity returns the existing experiment — also when only execution fields differ
-        (another output directory is the same experiment); extend_seeds explicitly adds missing seeds.
+        node and immutable method identity returns the existing experiment, regardless of display name, request
+        resources, config path, output directory, or screen/replicate label. Confirmation also binds its frozen
+        candidate, batch, reference and scientific material; relabeling cannot retry a measured confirmation.
+        Distinct declared confirmation material remains distinct; extend_seeds explicitly adds search seeds.
 
         Method identity (S1): the effective configuration — config_path's content at code_ref (JSON or YAML), then
         method_config on top — is resolved now and kept; together with the code, the protocol and the frozen
@@ -2448,7 +2293,7 @@ class ResearchDB:
         passes the method's configuration and sanity_overrides (the protocol's allowed small-scale changes, e.g.
         {"epochs": 2, "sanity": true}): its own identity includes them, and it is bound to the method it checks
         (sanity_target_spec_doc_id). Runs import only with the configuration their spec states."""
-        self._require_role("rld", "worker")
+        self._require_role("rld", "worker", "architect")
         self._only_fields(optional, OPTIONAL_PARAMS["create_experiment"])
         if method_config is not None and not (isinstance(method_config, dict) and all(isinstance(k, str) for k in method_config)):
             raise ResearchDBError("method_config is a JSON object of the method's settings")
@@ -2469,6 +2314,7 @@ class ResearchDB:
         # confirmation pool, everything else on search; only the Leader assigns repair, on a recorded failure
         derived = "confirmation" if stage == "confirm" else "search"
         asked = optional.get("budget_pool")
+        optional["budget_pool"] = asked or derived
         if asked is not None and asked not in BUDGET_POOLS:
             raise ResearchDBError(f"budget_pool is one of {BUDGET_POOLS}")
         if asked in ("search", "confirmation") and asked != derived:
@@ -2482,8 +2328,8 @@ class ResearchDB:
         if stage != "confirm" and any(confirm_args.values()):
             raise ResearchDBError(f"{', '.join(k for k, v in confirm_args.items() if v)} belong to a confirmation "
                                   "(stage confirm)")
-        if optional.get("owner") and self.role != "rld":
-            raise PermissionDenied("only rld assigns an experiment to another owner")
+        if "owner" in optional and self.role != "rld":
+            raise PermissionDenied("only rld may name an experiment owner explicitly")
         if optional.get("keep") and not (optional.get("keep_reason") or "").strip():
             raise ResearchDBError("keep needs keep_reason: which later experiment uses these outputs")
         with self._writer() as tx:
@@ -2521,7 +2367,7 @@ class ResearchDB:
             if hypothesis_id is not None and _disposition(node) != "active":
                 raise ResearchDBError(f"{hypothesis_id} is {_disposition(node)} ({node.get('disposition_reason')}): no "
                                       "new experiments; decide_disposition active first if that changed")
-            protocol = self._protocol(tx, project) or {}
+            protocol = self._protocol(tx, project)
             if kind == "sanity":  # 03 §8: one minimal attempt; it counts toward no seed and is never evaluated
                 if n_seeds not in (None, 1):
                     raise ResearchDBError("a sanity experiment runs one seed")
@@ -2562,10 +2408,18 @@ class ResearchDB:
                     raise ResearchDBError(f"{hypothesis_id}'s last two results were inconclusive: another experiment "
                                           "needs selection_rationale (why now, how its result changes the next step; "
                                           "or narrow the claim, change direction, pause)")
-            if self.role in ("worker", "architect") and node.get("worker_id") and node["worker_id"] != self.agent:
-                raise PermissionDenied(f"{node['id']} is worker/{node['worker_id']}'s node")
-            if self.role == "architect" and hypothesis_id is not None:
-                raise PermissionDenied("architect executes root harness and baseline experiments only")
+            if self.role == "worker" and hypothesis_id is None:
+                raise PermissionDenied("workers execute hypothesis experiments only; root work belongs to architect/root")
+            if self.role == "architect" and (hypothesis_id is not None or project.get("architect_id") != self.agent):
+                raise PermissionDenied("architect executes its assigned root harness and baseline experiments only")
+            if self.role == "worker" and node.get("worker_id") != self.agent:
+                raise PermissionDenied(f"{node['id']} must be assigned to worker/{self.agent}")
+            executor_role = "worker" if hypothesis_id is not None else "architect"
+            owner = node.get(f"{executor_role}_id")
+            if not owner:
+                raise PermissionDenied(f"assign {node['id']} its {executor_role} before creating experiments")
+            if "owner" in optional and optional.pop("owner") != owner:
+                raise PermissionDenied(f"{node['id']} experiments belong to {executor_role}/{owner}")
             branch = self._branch_of(tx, hypothesis_id) if hypothesis_id is not None else None
             if hypothesis_id is not None and branch is None:
                 raise ResearchDBError(f"{hypothesis_id} needs a code branch before experiments")
@@ -2578,30 +2432,22 @@ class ResearchDB:
             self._check_not_blocked(tx, node["id"])
             cheap = self._cheap_search(project, {"kind": kind, "stage": stage, "nodes": nodes,
                                                  "walltime_s": walltime_s, "seeds": seeds})
-            if (project.get("design_required") or cheap) and kind in ("method", "ablation"):
+            if kind in ('method', 'ablation'):
                 self._check_design_doc(tx, design_doc_id, lightweight=cheap)
-            if hypothesis_id and project.get("workflow_mode") == "fast_screening" and stage != "confirm":
+            if hypothesis_id and stage != 'confirm':
                 contract = node.get("screening_contract")
                 if not contract:
-                    raise CodedError("DESIGN_SECTION_MISSING", "this legacy node needs a current screening contract before fast search")
+                    raise CodedError("DESIGN_SECTION_MISSING", "this node needs a current screening contract")
                 ceiling = contract["resource_ceiling"]
                 if nodes > ceiling["nodes"] or walltime_s > ceiling["walltime_s"] or len(seeds) > ceiling["n_seeds"]:
                     raise CodedError("BUDGET_EXCEEDED", "experiment exceeds this hypothesis's declared screening resource ceiling")
             identity = self._identity(tx, project, protocol, resolved, kind, optional.get("config_path"),
                                       method_config, sanity_overrides)
-            if kind == "ablation" and project.get("design_required"):
-                self._check_ablation(tx, hypothesis_id, resolved, kind, stage, method_name, nodes, walltime_s,
-                                     {**optional, "_method_spec_sha": identity["method_spec_sha"], "_seeds": seeds}, project)
+            if kind == 'ablation':
+                self._check_ablation(tx, hypothesis_id, resolved, stage, nodes, walltime_s,
+                                     {**optional, "_method_spec_sha": identity["method_spec_sha"], "_seeds": seeds})
             elif optional.get("ablation_of") or optional.get("source_review_id") or optional.get("predeclared_control_id"):
                 raise ResearchDBError("ablation_of and source_review_id belong to an ablation")
-            # Seed extension must not make the original request create a second copy of a run (05 §5).
-            # Reuse an overlapping experiment; callers add missing seeds through extend_seeds and its gates.
-            config_hash = self._config_hash(project, resolved, kind, stage, method_name, nodes, walltime_s,
-                                            optional.get("config_path"))
-            for other in (tx.get(i) for i in tx.ids("experiment", "WHERE n.config_hash = $h", h=config_hash)):
-                if (other["code_ref"], other.get("hypothesis_id"), other.get("method_spec_sha")) == (
-                        resolved, hypothesis_id, identity["method_spec_sha"]) and set(other["seeds"]) & set(seeds):
-                    return other["id"]
             # The references a node experiment is compared with are fixed now (plans/design 05 §3.2): later
             # experiments of the parent or a new SOTA do not move them.
             refs = {}
@@ -2612,21 +2458,34 @@ class ResearchDB:
                                                 identity, confirm_args, batch))
             elif hypothesis_id is not None:
                 refs["baseline_experiment_id"] = project.get("sota_experiment_id")
-                parent = node.get("code_parent_id") or node.get("parent_id")
                 explicit = node.get("comparator_experiment_id")
                 if explicit and explicit != refs["baseline_experiment_id"]:
                     refs["parent_experiment_id"] = explicit
-                elif not explicit and parent and table_of(parent) == "hypothesis":
-                    latest = self._latest_evaluated(tx, parent)
-                    if latest is None:
-                        raise ResearchDBError(f"parent {parent} has no experiment evaluated with the current harness: "
-                                              "the comparison reference is fixed when the experiment is created")
-                    refs["parent_experiment_id"] = latest["id"]
+            # Execution identity excludes display names, paths, resource requests, and screen/replicate labels.
+            # Reuse each scientific seed instead of letting retries create a fresh ID and pick the best result.
+            scope = self._experiment_scope({"kind": kind, "stage": stage, **refs, **identity})
+            for other in (tx.get(i) for i in tx.ids("experiment", "WHERE n.method_spec_doc_id = $s",
+                                                   s=identity["method_spec_doc_id"])):
+                if self._experiment_scope(other) != scope or not set(other["seeds"]) & set(seeds):
+                    continue
+                if other.get("hypothesis_id") != hypothesis_id:
+                    if stage == "confirm":
+                        raise CodedError("CONFIRMATION_MATERIAL_REUSED", f"{other['id']} already confirms this method "
+                                         "on the same material; renaming the hypothesis cannot create another attempt")
+                    continue
+                if stage == "confirm" and any(other.get(k) != refs.get(k) for k in (
+                        "candidate_spec_doc_id", "confirmation_batch_doc_id", "confirmation_of", "baseline_experiment_id")):
+                    raise CodedError("CONFIRMATION_MATERIAL_REUSED", f"{other['id']} already binds this method and "
+                                     "material; a different candidate, batch or reference cannot rerun the same seeds")
+                if other["kind"] != kind:
+                    raise CodedError("METHOD_IDENTITY_REUSED", f"{other['id']} already runs this method and seeds as "
+                                     f"{other['kind']}; reuse its evidence instead of relabeling it {kind}")
+                return other["id"]
             return self._insert(tx, "experiment", {
                 "id": tx.next_id("experiment"), "project_id": project["id"], "hypothesis_id": hypothesis_id,
                 "kind": kind, "method_name": method_name, "design_doc_id": design_doc_id, "code_ref": resolved,
-                "seeds": seeds, "nodes": nodes, "walltime_s": walltime_s, "stage": stage, "config_hash": config_hash,
-                "owner": optional.pop("owner", None) or self.agent, **refs, **optional, **identity,
+                "seeds": seeds, "nodes": nodes, "walltime_s": walltime_s, "stage": stage,
+                "owner": owner, **refs, **optional, **identity,
             })
 
     def _load_config(self, project: dict, code_ref: str, config_path: str) -> dict:
@@ -2653,7 +2512,7 @@ class ResearchDB:
 
     def _spec_content(self, project: dict, protocol: dict, code_ref: str, config: dict) -> dict:
         return {"version": 1, "code_ref": code_ref, "config": scientific_config(config, protocol),
-                "data": {k: v for k, v in sorted(((protocol or {}).get("match") or {}).items())},
+                "data": {k: v for k, v in sorted((protocol.get("match") or {}).items())},
                 "protocol_doc_id": project.get("protocol_doc_id"), "harness_ref": project.get("harness_ref")}
 
     def _register_spec(self, tx: _Tx, spec: dict) -> tuple[str, str]:
@@ -2690,7 +2549,7 @@ class ResearchDB:
                                                        "as an object); its scientific fields are the method's identity")
         out = {"effective_config": config}
         if kind == "sanity" and sanity_overrides:
-            allowed = set((protocol or {}).get("sanity_overrides_allowed") or SANITY_OVERRIDES)
+            allowed = set(protocol.get("sanity_overrides_allowed") or SANITY_OVERRIDES)
             bad = sorted(set(sanity_overrides) - allowed)
             if bad:
                 raise CodedError("METHOD_SPEC_INCOMPLETE", f"a sanity run may override only {sorted(allowed)}; "
@@ -2702,24 +2561,17 @@ class ResearchDB:
         out.update(method_spec_doc_id=doc_id, method_spec_sha=sha)
         return out
 
-    def _config_hash(self, project: dict, code_ref: str, kind: str, stage: str, method_name: str, nodes: int,
-                     walltime_s: int, config_path: str | None) -> str:
-        """What an experiment runs besides its code: kind, stage, method, request and the configuration snapshot
-        (config_path's content at code_ref in the repository, else the file under the project directory)."""
-        content = None
-        if config_path:
-            shown = subprocess.run(["git", "-C", project["repo_path"], "show", f"{code_ref}:{config_path}"],
-                                   capture_output=True, check=False)
-            if shown.returncode == 0:
-                content = hashlib.sha256(shown.stdout).hexdigest()
-            elif not Path(config_path).is_absolute() and ".." not in Path(config_path).parts and \
-                    (self.project_dir / config_path).is_file():
-                content = sha256_file(self.project_dir / config_path)
-        key = json.dumps([kind, stage, method_name, nodes, walltime_s, config_path, content], sort_keys=True)
-        return hashlib.sha256(key.encode("utf-8")).hexdigest()[:32]
+    @staticmethod
+    def _experiment_scope(exp: dict) -> tuple:
+        """Only scientific material distinguishes repeats; scheduler and display metadata never do."""
+        if exp["kind"] == "sanity":
+            return ("sanity", exp.get("sanity_target_spec_doc_id"))
+        if exp["stage"] == "confirm":
+            return ("confirm", exp["material_key"])
+        return ("search",)
 
-    def _check_ablation(self, tx: _Tx, hypothesis_id: str, code_ref: str, kind: str, stage: str, method_name: str,
-                        nodes: int, walltime_s: int, optional: dict, project: dict) -> None:
+    def _check_ablation(self, tx: _Tx, hypothesis_id: str, code_ref: str, stage: str,
+                        nodes: int, walltime_s: int, optional: dict) -> None:
         """03 §7: an ablation names the experiment it ablates and the ablation_plan review that proposed it; one
         with the same code and configuration as that experiment is a no-op and is refused."""
         target = tx.require(optional.get("ablation_of"), ("experiment",)) if optional.get("ablation_of") else None
@@ -2737,14 +2589,12 @@ class ResearchDB:
                                                                       target=hypothesis_id)):
             raise ResearchDBError(f"an ablation names source_review_id, the current ablation_plan review of "
                                   f"{hypothesis_id} that proposed it")
-        mine = self._config_hash(project, code_ref, target["kind"], target.get("stage") or "screen",
-                                 target["method_name"], nodes, walltime_s, optional.get("config_path"))
-        unchanged = (target["method_spec_sha"] == optional.get("_method_spec_sha") if target.get("method_spec_sha")
-                     else mine == target.get("config_hash"))
+        if not target.get("method_spec_doc_id") or not target.get("method_spec_sha"):
+            raise CodedError("METHOD_SPEC_INCOMPLETE", "the ablated experiment needs its immutable method identity")
+        unchanged = target["method_spec_sha"] == optional["_method_spec_sha"]
         if code_ref == target["code_ref"] and unchanged:
             raise ResearchDBError(f"this ablation runs {target['id']} unchanged (same code and configuration): a "
                                   "no-op ablation equivalent to what it ablates is not run")
-        del kind, stage, method_name
 
     def approve_minimum_controls(self, experiment_id: str, decision_doc_id: str) -> dict:
         """Leader freezes exact minimum controls already in the method's design, before its first submission.
@@ -2776,7 +2626,7 @@ class ResearchDB:
             if not isinstance(controls, list) or not 1 <= len(controls) <= 3:
                 raise ResearchDBError("a minimum design contains 1..3 controls; larger matrices need ablation_plan review")
             frozen, ids = [], set()
-            protocol = self._protocol(tx, project) or {}
+            protocol = self._protocol(tx, project)
             for control in controls:
                 if not isinstance(control, dict) or set(control) != {"id", "code_ref", "method_config", "nodes", "walltime_s", "n_seeds"}:
                     raise ResearchDBError("each control names exactly id, code_ref, method_config, nodes, walltime_s, n_seeds")
@@ -2828,8 +2678,8 @@ class ResearchDB:
 
     @staticmethod
     def _cheap_search(project: dict, exp: dict) -> bool:
-        return (project.get("workflow_mode") == "fast_screening" and exp.get("kind") in ("method", "ablation")
-                and (exp.get("stage") or "screen") in ("screen", "replicate")
+        return (exp.get("kind") in ("method", "ablation")
+                and exp["stage"] in ("screen", "replicate")
                 and exp["nodes"] * exp["walltime_s"] * len(exp["seeds"]) <= project["screen_budget_node_h"] * 3600)
 
     def _code_review_applies(self, tx: _Tx, review: dict, exp: dict, *, check_claim: bool = True) -> bool:
@@ -2837,14 +2687,13 @@ class ResearchDB:
             return False
         basis = review.get("review_basis") or {}
         if not exp.get("method_spec_doc_id"):
-            return bool(tx.edges("rel_describes", source=review["id"], target=exp.get("hypothesis_id"))
-                        or tx.edges("rel_describes", source=review["id"], target=exp["id"]))
+            return False
         hyp = tx.get(exp["hypothesis_id"]) if exp.get("hypothesis_id") else {}
         return ((not check_claim or not review.get("review_basis_changed"))
                 and exp["method_spec_doc_id"] in (basis.get("method_spec_doc_ids") or [])
                 and (not check_claim or (basis.get("claim_sha") == hyp.get("claim_sha")
                                         and basis.get("claim_revision") == hyp.get("claim_revision")))
-                and (not check_claim or basis.get("hypothesis_id", hyp.get("id")) == hyp.get("id")))
+                and (not check_claim or basis.get("hypothesis_id") == hyp.get("id")))
 
     def _dispute_basis(self, tx: _Tx, exp: dict) -> dict:
         hyp = tx.require(exp["hypothesis_id"], ("hypothesis",))
@@ -2927,7 +2776,7 @@ class ResearchDB:
                             evidence_doc_id: str, reason: str) -> dict:
         """Open an auditable objection, without releasing the experiment. A fresh clear receipt alone never
         erases a blocker. Categories: input_unreadable, protocol_interpretation, novelty_argument, validity_defect."""
-        self._require_role("rld", "worker")
+        self._require_role("rld", "worker", "architect")
         if category not in ("input_unreadable", "protocol_interpretation", "novelty_argument", "validity_defect") or not reason.strip():
             raise ResearchDBError("a code-review dispute needs a supported category and an evidence-based reason")
         with self._writer() as tx:
@@ -3002,7 +2851,9 @@ class ResearchDB:
         and a cross-model code review of that code with no CRITICAL/MAJOR issue (or the Leader's recorded waiver)."""
         if exp["kind"] not in ("method", "ablation"):
             return
-        if project.get("workflow_mode") == "fast_screening" and exp.get("stage") != "confirm":
+        if not exp.get("method_spec_doc_id"):
+            raise CodedError("METHOD_SPEC_INCOMPLETE", "submission needs the experiment's immutable method identity")
+        if exp.get('stage') != 'confirm':
             hyp = tx.require(exp["hypothesis_id"], ("hypothesis",))
             contract = hyp.get("screening_contract") or {}
             if not contract:
@@ -3020,9 +2871,8 @@ class ResearchDB:
         if project.get("sanity_required"):
             sane = [e for e in (tx.get(i) for i in tx.ids("experiment")) if e["kind"] == "sanity"
                     and e.get("hypothesis_id") == exp.get("hypothesis_id") and e["code_ref"] == exp["code_ref"]]
-            if exp.get("method_spec_doc_id"):  # S1: a sanity of this method identity (or a declared projection of it)
-                sane = [e for e in sane if exp["method_spec_doc_id"] in (e.get("method_spec_doc_id"),
-                                                                         e.get("sanity_target_spec_doc_id"))]
+            sane = [e for e in sane if exp["method_spec_doc_id"] in (e.get("method_spec_doc_id"),
+                                                                     e.get("sanity_target_spec_doc_id"))]
             if not any((tx.get(f"{e['id']}/s{s}") or {}).get("valid") is True for e in sane for s in e["seeds"]):
                 raise CodedError("SANITY_REQUIRED", f"{exp['id']}: run a sanity experiment (kind sanity) of code "
                                                     f"{exp['code_ref'][:10]} first and accept its run (valid=true: "
@@ -3054,8 +2904,6 @@ class ResearchDB:
 
     def _waiver_bound(self, tx: _Tx, exp: dict) -> bool:
         """A code-review waiver applies to the identity and claim revision it was given for (S1)."""
-        if not exp.get("method_spec_doc_id"):
-            return True  # an experiment before S1: the waiver stands as it was
         basis = exp.get("code_review_waiver_basis") or {}
         hyp = tx.get(exp["hypothesis_id"]) if exp.get("hypothesis_id") else {}
         return basis.get("method_spec_doc_id") == exp["method_spec_doc_id"] and basis.get("claim_sha") == hyp.get("claim_sha")
@@ -3110,15 +2958,14 @@ class ResearchDB:
         with self._writer() as tx:
             task = tx.require(task_id, ("task",))
             if self.role != "rld" and (task.get("assignee_role"), task.get("assignee_id")) != (self.role, self.agent):
-                if not self._root_task_alias(tx, task):
-                    raise PermissionDenied(f"{task_id} is not {self.role}/{self.agent}'s task")
+                raise PermissionDenied(f"{task_id} is not {self.role}/{self.agent}'s task")
             if task.get("blocked_reason"):
                 raise CodedError("FAILURE_BUDGET", f"{task_id} is blocked: {task['blocked_reason']}")
             log = list((task.get("failure_log") or {}).get("entries", []))
             same = [f for f in log if f["root_cause"] == cause]
             patches = sum(f["remedy"] == "patch" for f in same)
             rewrites = sum(f["remedy"] == "rewrite" for f in same)
-            limit = self._project(tx).get("max_repairs_per_root_cause") or FAILURE_PATCHES
+            limit = self._project(tx)["max_repairs_per_root_cause"]
             if remedy == "patch" and (patches >= limit or rewrites):
                 raise CodedError("FAILURE_BUDGET", f"{cause!r} was patched {patches} time(s): rewrite from the "
                                                    "hypothesis document, or report to the Leader")
@@ -3239,9 +3086,9 @@ class ResearchDB:
     def _materials(self, protocol: dict) -> dict:
         """The confirmation materials the protocol declares: {name: {seeds, split_sha256?, manifest_field}}; a
         protocol without them has one material, its confirmation_seeds (identity: the seed block)."""
-        declared = (protocol or {}).get("confirmation_materials") or []
+        declared = protocol.get("confirmation_materials") or []
         if not declared:
-            return {"default": {"name": "default", "seeds": list((protocol or {}).get("confirmation_seeds") or [])}}
+            return {"default": {"name": "default", "seeds": list(protocol.get("confirmation_seeds") or [])}}
         return {m["name"]: m for m in declared}
 
     @staticmethod
@@ -3264,7 +3111,7 @@ class ResearchDB:
             raise ResearchDBError("candidate_spec_ids lists distinct frozen candidates")
         with self._writer() as tx:
             project = self._project(tx)
-            protocol = self._protocol(tx, project) or {}
+            protocol = self._protocol(tx, project)
             materials = self._materials(protocol)
             if material not in materials:
                 raise CodedError("CONFIRMATION_IDENTITY_UNVERIFIED", f"the protocol declares the confirmation "
@@ -3332,7 +3179,7 @@ class ResearchDB:
         for e in exps:
             if e["kind"] != "method" or not e.get("evaluation_id"):
                 continue
-            if (stage is None and (e.get("stage") or "screen") == "confirm") or (stage and e.get("stage") != stage):
+            if (stage is None and e["stage"] == "confirm") or (stage and e.get("stage") != stage):
                 continue
             out.append(tx.get(e["evaluation_id"]))
         return out
@@ -3375,7 +3222,7 @@ class ResearchDB:
         return seeds
 
     def _evaluation_view(self, tx: _Tx, project: dict, exp: dict) -> dict:
-        if project.get("workflow_mode") == "fast_screening" and exp["kind"] == "baseline" and exp.get("stage") != "confirm":
+        if exp['kind'] == 'baseline' and exp.get('stage') != 'confirm':
             return {**exp, "seeds": self._available_baseline(tx, project, exp)}
         return exp
 
@@ -3390,16 +3237,15 @@ class ResearchDB:
             raise CodedError("PAIRING_MISMATCH", "the first matching baseline seed must be valid")
         cost = run["nodes_used"] * run["walltime_used_s"] / 3600
         n = 1
-        cap = min(project["gate_seeds"], project.get("screen_seeds") or project["gate_seeds"])
-        if project.get("workflow_mode") == "fast_screening":
-            cap = min(cap, len(self._available_baseline(tx, project, tx.require(sota, ("experiment",)))))
+        cap = min(project["gate_seeds"], project["screen_seeds"])
+        cap = min(cap, len(self._available_baseline(tx, project, tx.require(sota, ("experiment",)))))
         while n < cap and (n + 1) * cost < project["screen_budget_node_h"]:
             n += 1
         return n
 
     def extend_seeds(self, experiment_id: str, n_seeds: int) -> None:
-        """Add seeds (next in project.seeds). Beyond the screening count only when the verdict is close or
-        beats_parent, or by rld. Clears the verdict and comparisons; the experiment is evaluated again."""
+        """Add bounded seeds after a current positive signal, or by RLD approval. Preserve prior evaluations;
+        clear the current method result until the extended experiment is evaluated again."""
         with self._writer() as tx:
             project = self._project(tx)
             exp = tx.require(experiment_id, ("experiment",))
@@ -3417,7 +3263,7 @@ class ResearchDB:
             if exp.get("predeclared_control_id"):
                 self._check_minimum_control(tx, tx.require(exp["ablation_of"], ("experiment",)),
                     exp["predeclared_control_id"], exp["method_spec_sha"], exp["nodes"], exp["walltime_s"], project["seeds"][:n_seeds])
-            if project.get("workflow_mode") == "fast_screening" and exp.get("hypothesis_id"):
+            if exp.get('hypothesis_id'):
                 ceiling = (tx.require(exp["hypothesis_id"]).get("screening_contract") or {}).get("resource_ceiling") or {}
                 if n_seeds > ceiling.get("n_seeds", 0):
                     raise CodedError("BUDGET_EXCEEDED", "replication exceeds this hypothesis's declared seed ceiling")
@@ -3427,17 +3273,15 @@ class ResearchDB:
                 latest = self._node_evaluations(tx, exp["hypothesis_id"])
                 current = current and bool(latest) and latest[-1]["id"] == ev["id"]
                 positive = current and ev.get("outcome") == "positive_signal"
-                # Deliberate compatibility: old verdicts remain valid only with their still-current evaluation.
-                legacy = current and exp.get("verdict") in ("close", "beats_parent")
-                if not (positive or legacy):
+                if not positive:
                     raise ResearchDBError("seeds beyond the screening budget need a current positive_signal "
-                                          "(legacy close or beats_parent with current evidence), or rld")
-            if exp["kind"] == "baseline" and project.get("workflow_mode") == "fast_screening":
+                                          "with current evidence, or rld")
+            if exp['kind'] == 'baseline':
                 # Keep the already evaluated subset available; the next evaluation records additional valid seeds.
                 self._update(tx, experiment_id, {"seeds": project["seeds"][:n_seeds]})
                 return
             self._update(tx, experiment_id, {
-                "seeds": project["seeds"][:n_seeds], "verdict": None, "metric_mean": None, "metric_sd": None,
+                "seeds": project["seeds"][:n_seeds], "metric_mean": None, "metric_sd": None,
                 "result_doc_id": None, "harness_ref": None, "evaluated_at": None, "evaluation_id": None,
             })
             tx.unlink_all("rel_compared_with", experiment_id)
@@ -3543,7 +3387,7 @@ class ResearchDB:
                 if final["nodes_used"] > project["max_nodes"] or final["walltime_used_s"] > project["max_walltime_s"]:
                     raise ResearchDBError("recorded usage exceeds the per-run cap")
                 protocol = self._protocol(tx, project)
-                if (protocol or {}).get("require_artifact_import") and not final.get("import_record"):
+                if protocol.get("require_artifact_import") and not final.get("import_record"):
                     raise ResearchDBError(f"the protocol requires imported results: import_run_result({run_id}, "
                                           f"{final['attempt']}, <manifest>) before valid=true")
                 with _coded():
@@ -3566,7 +3410,7 @@ class ResearchDB:
     def _check_screen_pair(self, tx: _Tx, project: dict, run: dict) -> None:
         """Check matching evidence before authorizing an external scheduler submission, not after paying."""
         exp = tx.require(run["experiment_id"], ("experiment",))
-        if project.get("workflow_mode") == "fast_screening" and exp["kind"] in ("method", "ablation") and exp.get("stage") != "confirm":
+        if exp['kind'] in ('method', 'ablation') and exp.get('stage') != 'confirm':
             reference = tx.require(exp["baseline_experiment_id"], ("experiment",))
             if run["seed"] not in self._available_baseline(tx, project, reference):
                 raise CodedError("PAIRING_MISMATCH", "this screening seed needs its valid matching baseline seed first")
@@ -3590,11 +3434,15 @@ class ResearchDB:
             tx.set(hypothesis_id, {field_name: now_utc()})
 
     def _require_owner(self, record: dict) -> None:
-        if self.role in ("explorer", "analyst"):
-            raise PermissionDenied(f"{self.role} is advisory and cannot execute experiments")
-        if self.role == "architect" and (record.get("hypothesis_id") or record.get("_table") in ("hypothesis", "branch")):
+        self._require_role("rld", "worker", "architect")
+        if self.role == "rld":
+            return
+        is_root = record.get("_table") == "experiment" and not record.get("hypothesis_id")
+        if self.role == "architect" and not is_root:
             raise PermissionDenied("architect works on the root harness and baselines only")
-        if self.role != "rld" and record["owner"] != self.agent:
+        if self.role == "worker" and is_root:
+            raise PermissionDenied("workers execute hypothesis experiments only; root work belongs to architect/root")
+        if record["owner"] != self.agent:
             raise PermissionDenied(f"{record['id']} belongs to {record['owner']}")
 
     # -- run results ----------------------------------------------------------------
@@ -3624,8 +3472,9 @@ class ResearchDB:
             exp = tx.require(run["experiment_id"], ("experiment",))
             self._require_owner(exp)
             specs, protocol = self._specs(tx, project), self._protocol(tx, project)
-            method_spec = (self._json_doc(tx, exp["method_spec_doc_id"], "method_spec")
-                           if exp.get("method_spec_doc_id") else None)
+            if not exp.get("method_spec_doc_id"):
+                raise CodedError("METHOD_SPEC_INCOMPLETE", "import needs the experiment's immutable method identity")
+            method_spec = self._json_doc(tx, exp["method_spec_doc_id"], "method_spec")
         if attempt != run["attempt"]:
             raise CodedError("EVIDENCE_CHANGED", f"{run_id} is at attempt {run['attempt']}, not {attempt}")
         if run["exec_status"] != "succeeded":
@@ -3651,7 +3500,7 @@ class ResearchDB:
             problems.append("counts must give the positive numbers of training/evaluation items actually used")
             counts = {}
         # a sanity run is minimal by design (03 §8): it joins no comparison, so the protocol's scale is not asked of it
-        scale = {} if exp["kind"] == "sanity" else protocol or {}
+        scale = {} if exp["kind"] == "sanity" else protocol
         for name, want in (scale.get("required_counts") or {}).items():
             if counts.get(name) != want:
                 problems.append(f"counts.{name} is {counts.get(name)!r}, the protocol requires {want}")
@@ -3675,18 +3524,17 @@ class ResearchDB:
                                  f"{material['name']} is {material['split_sha256']}")
             if sorted(material["seeds"]) and run["seed"] not in material["seeds"]:
                 raise CodedError("PAIRING_MISMATCH", f"seed {run['seed']} is not in material {material['name']}")
-        if method_spec is not None:  # S1: the run reports the configuration its experiment's identity states
-            reported = manifest.get("config")
-            if isinstance(reported, str):
-                reported = _read_json(self._inside_project(reported, base, "config"), "config file")
-            differ = [f"{k}: spec {v!r}, run {(reported or {}).get(k, '<missing>')!r}"
-                      for k, v in sorted(method_spec["config"].items())
-                      if not isinstance(reported, dict) or k not in reported or reported[k] != v]
-            if differ:
-                raise CodedError("METHOD_SPEC_MISMATCH", f"{manifest_file.name}: the run's configuration is not "
-                                                         f"{exp['id']}'s method identity {exp['method_spec_doc_id']} "
-                                                         f"({'; '.join(differ[:6])}); a changed configuration is a "
-                                                         "new experiment, not this one")
+        reported = manifest.get("config")
+        if isinstance(reported, str):
+            reported = _read_json(self._inside_project(reported, base, "config"), "config file")
+        differ = [f"{k}: spec {v!r}, run {(reported or {}).get(k, '<missing>')!r}"
+                  for k, v in sorted(method_spec["config"].items())
+                  if not isinstance(reported, dict) or k not in reported or reported[k] != v]
+        if differ:
+            raise CodedError("METHOD_SPEC_MISMATCH", f"{manifest_file.name}: the run's configuration is not "
+                                                     f"{exp['id']}'s method identity {exp['method_spec_doc_id']} "
+                                                     f"({'; '.join(differ[:6])}); a changed configuration is a "
+                                                     "new experiment, not this one")
         metrics_file = self._inside_project(manifest.get("metrics_path"), base, "metrics_path")
         values = _read_json(metrics_file, "metrics file")
         if not isinstance(values, dict):
@@ -3694,7 +3542,7 @@ class ResearchDB:
         units = manifest.get("units")
         by_spec = metrics.spec_by_name(specs)
         declared = [n for n in [project["primary_metric"], *project["secondary_metrics"]] if n in by_spec
-                    and not specs.get("legacy")]
+                    ]
         if declared and (not isinstance(units, dict) or any(units.get(n) != by_spec[n]["input_unit"] for n in declared)):
             raise CodedError("METRIC_UNIT_MISMATCH", f"{manifest_file.name} declares units {units!r}; the metric "
                                                      "specification reads "
@@ -3710,11 +3558,11 @@ class ResearchDB:
                     metrics.canonical(by_name[name], values[name], f"{run_id}@{attempt}")
                 elif not (metrics.is_number(values[name]) and math.isfinite(values[name])):
                     raise MetricError("NONFINITE_METRIC", f"{run_id}@{attempt}: {name} is {values[name]!r}")
-            for key in (protocol or {}).get("pair_fields", []):
+            for key in protocol.get("pair_fields", []):
                 if key != "seed" and not isinstance(manifest.get(key), (str, int, float, bool)):
                     raise MetricError("PAIRING_MISMATCH", f"{manifest_file.name} lacks {key} (a scalar), a pair "
                                                           "field of the protocol")
-            for key in (protocol or {}).get("independence_fields", []):  # S3 §7.2: never counted as a new unit
+            for key in protocol.get("independence_fields", []):  # S3 §7.2: never counted as a new unit
                 if manifest.get(key) is None or not isinstance(manifest.get(key), (str, int, float, bool)):
                     raise MetricError("INDEPENDENCE_UNVERIFIED", f"{manifest_file.name} lacks {key} (a scalar), an "
                                                                  "independence field of the protocol")
@@ -3815,7 +3663,7 @@ class ResearchDB:
 
     # -- evaluations ----------------------------------------------------------------
 
-    def evaluate_experiment(self, experiment_id: str, result_doc_id: str, verdict: str | None = None,
+    def evaluate_experiment(self, experiment_id: str, result_doc_id: str, *,
                             protocol_id: str | None = None, baseline_experiment_id: str | None = None) -> dict:
         """Compute an experiment's statistics from its registered runs and record them as an evaluation
         (plans/design 05 §2–3): means and sample SDs per metric in canonical units, and for node experiments the
@@ -3823,25 +3671,13 @@ class ResearchDB:
         the top level), the SOTA gate (minimum practical gain of the primary metric over the required pairs) and
         the guardrails (allowed regressions). No number is taken from the caller. Every seed needs a valid run.
 
-        verdict: node experiments still name one (no_gain, close, beats_parent, beats_sota, needs_rld); it must
-        agree with the computed comparisons. Baselines record metrics only. protocol_id, when given, must be the
+        Baselines record metrics only. protocol_id, when given, must be the
         project's current protocol. baseline_experiment_id rescores against the current SOTA when it changed since
         the experiment was created: a new evaluation, the earlier one stays. The same inputs again return the
         same evaluation. The result document cites its numbers in an ```evidence block (checked against files)."""
         with self._ledgered(experiment_id, "evaluate_experiment"):
-            return self._evaluate(experiment_id, result_doc_id, verdict, protocol_id, baseline_experiment_id, None)
+            return self._evaluate(experiment_id, result_doc_id, protocol_id, baseline_experiment_id)
 
-    def record_verdict(self, experiment_id: str, result_doc_id: str, metric_mean: float | None = None,
-                       metric_sd: float | None = None, verdict: str | None = None,
-                       comparisons: list[dict] | tuple[dict, ...] = ()) -> dict:
-        """Compatibility entry of evaluate_experiment: the statistics are recomputed from the runs and the numbers
-        given here are only cross-checked (STAT_MISMATCH when they differ beyond the decimals given). comparisons:
-        [{"target_id", "role": "parent"|"sota", "n_paired", "delta_mean", "delta_sd", "deltas"}], effects oriented so
-        that positive is better. Every seed needs a valid run first (update_run: exec_status succeeded, valid true,
-        measurements)."""
-        expected = {"metric_mean": metric_mean, "metric_sd": metric_sd, "comparisons": list(comparisons)}
-        with self._ledgered(experiment_id, "record_verdict"):
-            return self._evaluate(experiment_id, result_doc_id, verdict, None, None, expected)
 
     @contextmanager
     def _ledgered(self, experiment_id: str, call: str) -> Iterator[None]:
@@ -3860,8 +3696,8 @@ class ResearchDB:
     # Called between the computation (outside the write lock) and the write; tests use it to change the database.
     _after_compute = None
 
-    def _evaluate(self, experiment_id: str, result_doc_id: str, verdict: str | None, protocol_id: str | None,
-                  baseline_id: str | None, expected: dict | None) -> dict:
+    def _evaluate(self, experiment_id: str, result_doc_id: str, protocol_id: str | None,
+                  baseline_id: str | None) -> dict:
         with self.reader() as tx:
             project = self._project(tx)
             exp = tx.require(experiment_id, ("experiment",))
@@ -3876,52 +3712,44 @@ class ResearchDB:
                                       f"{VALID_RUN_HOW}")
             self._check_harness(project, exp)
             self._check_refs(tx, "experiment", {"result_doc_id": result_doc_id}, current_docs=True)
-            self._check_values("experiment", {"verdict": verdict})
             if protocol_id is not None and protocol_id != project.get("protocol_doc_id"):
                 raise CodedError("PROTOCOL_CHANGE_REQUIRED", f"{protocol_id} is not the project's current protocol "
                                                              f"({project.get('protocol_doc_id')})")
             if exp["kind"] == "baseline":
-                if verdict is not None or (expected and expected["comparisons"]) or baseline_id:
-                    raise ResearchDBError("a baseline records metrics only, no verdict or comparisons")
+                if baseline_id:
+                    raise ResearchDBError("a baseline cannot name another baseline for comparison")
             else:
                 blocked = self._blocking_code_reviews(tx, exp, screening=self._cheap_search(project, exp))
                 if blocked:
                     raise CodedError("CODE_REVIEW_REQUIRED", f"{blocked[0]['id']} remains unresolved; its results cannot be valid evidence")
-                branch = self._branch_of(tx, exp["hypothesis_id"])
-                reference_id = (exp.get("ablation_of") if exp["kind"] == "ablation" else None) or exp.get("parent_experiment_id") or exp.get("baseline_experiment_id") or project.get("sota_experiment_id")
+                reference_id = (exp.get("ablation_of") if exp["kind"] == "ablation" else None) or exp.get("parent_experiment_id") or exp.get("baseline_experiment_id")
                 reference = tx.get(reference_id) if reference_id else None
-                bound = reference and exp.get("method_spec_doc_id") and reference.get("method_spec_doc_id")
-                protocol = self._protocol(tx, project) or {}
-                unchanged = bool(bound and exp["code_ref"] == reference["code_ref"] and
-                    scientific_config(exp.get("effective_config") or {}, protocol) ==
-                    scientific_config(reference.get("effective_config") or {}, protocol))
-                legacy_unchanged = not bound and _git_commit(project["repo_path"], branch["base_commit"]) == exp["code_ref"]
-                if unchanged or legacy_unchanged:
+                if not reference or not exp.get("method_spec_doc_id") or not reference.get("method_spec_doc_id"):
+                    raise CodedError("METHOD_SPEC_INCOMPLETE", "method and comparator require immutable method identities")
+                protocol = self._protocol(tx, project)
+                unchanged = bool(exp["code_ref"] == reference["code_ref"] and
+                    scientific_config(exp["effective_config"], protocol) ==
+                    scientific_config(reference["effective_config"], protocol))
+                if unchanged:
                     raise ResearchDBError(f"{experiment_id}: a node needs a code change or a different scientific configuration "
                                           "from its explicit comparator; this is not a new intervention")
             refs = self._references(tx, project, exp, baseline_id)
             signature = self._signature(tx, project, exp, refs)
             with _coded():
                 computed = self._compute(tx, project, exp, refs)
-            if expected is not None:
-                self._cross_check(computed, expected, exp)
             self._check_result_claims(tx, exp, result_doc_id, computed)
-            edges = computed["edges"]
-            if exp["kind"] != "baseline" and verdict is not None:  # the old labels, still checked when given
-                self._check_verdict(project, exp, verdict, edges)
-            fingerprint = hashlib.sha256(json.dumps({"inputs": signature["inputs_digest"], "verdict": verdict,
+            fingerprint = hashlib.sha256(json.dumps({"inputs": signature["inputs_digest"],
                                                      "result_doc_id": result_doc_id},
                                                     sort_keys=True).encode()).hexdigest()
             if exp.get("evaluated_at"):
                 old = tx.get(exp["evaluation_id"]) if exp.get("evaluation_id") else None
                 if old is None:
                     raise ResearchDBError(f"{experiment_id} is already evaluated; extend its seeds or start a new "
-                                          "experiment (migrate_evaluations records an evaluation for it)")
+                                          "experiment; its current evaluation is missing")
                 if old["fingerprint"] == fingerprint:  # the same inputs again: the same evaluation
                     return {"evaluation_id": old["id"], "created": False, **computed["public"]}
-                if old["inputs_digest"] == signature["inputs_digest"] and not old.get("migrated"):
-                    raise ResearchDBError(f"{experiment_id} is already evaluated with these runs ({old['id']}, verdict "
-                                          f"{old.get('verdict')}); extend its seeds or start a new experiment")
+                if old["inputs_digest"] == signature["inputs_digest"]:
+                    raise ResearchDBError(f"{experiment_id} is already evaluated with these runs ({old['id']}); extend its seeds or start a new experiment")
         if self._after_compute is not None:
             self._after_compute()
         with self._writer() as tx:
@@ -3938,19 +3766,16 @@ class ResearchDB:
             current = tx.get(exp["evaluation_id"]) if exp.get("evaluation_id") else None
             if current is not None and current["fingerprint"] == fingerprint:  # written meanwhile by the same call
                 return {"evaluation_id": current["id"], "created": False, **computed["public"]}
-            if current is not None and current["inputs_digest"] == signature["inputs_digest"] \
-                    and not current.get("migrated"):
+            if current is not None and current["inputs_digest"] == signature["inputs_digest"]:
                 raise ResearchDBError(f"{experiment_id} was evaluated with these runs meanwhile ({current['id']}, "
-                                      f"verdict {current.get('verdict')})")
-            ev_id = self._record_evaluation(tx, project, exp, refs, signature, computed, verdict, result_doc_id,
+                                      f"outcome {current.get('outcome')})")
+            ev_id = self._record_evaluation(tx, project, exp, refs, signature, computed, result_doc_id,
                                             fingerprint)
             return {"evaluation_id": ev_id, "created": True, **computed["public"]}
 
     def _record_evaluation(self, tx: _Tx, project: dict, exp: dict, refs: dict, signature: dict, computed: dict,
-                           verdict: str | None, result_doc_id: str | None, fingerprint: str,
-                           migrated: bool = False) -> str:
-        """Write one evaluation and make it the experiment's current one (migrated: the experiment's recorded
-        result stays as it was)."""
+                           result_doc_id: str, fingerprint: str) -> str:
+        """Append immutable evidence and select it as the experiment's current evaluation."""
         experiment_id = exp["id"]
         history = self._evaluations_of(tx, experiment_id)
         previous = history[-1]["id"] if history else None
@@ -3966,7 +3791,7 @@ class ResearchDB:
             "baseline_experiment_id": refs.get("sota"), "baseline_evaluation_id": refs.get("sota_evaluation"),
             "parent_experiment_id": refs.get("parent"), "parent_evaluation_id": refs.get("parent_evaluation"),
             "result_doc_id": result_doc_id, "metrics": computed["metrics"], "comparisons": computed["comparisons"],
-            "verdict": verdict, "outcome": computed.get("outcome"), "outcome_reason": computed.get("outcome_reason"),
+            "outcome": computed.get("outcome"), "outcome_reason": computed.get("outcome_reason"),
             "stage": computed.get("stage"), "gate_passed": computed["gate_passed"],
             "guardrails_passed": computed["guardrails_passed"], "eval_type": computed["eval_type"],
             "limitations": computed["limitations"], "verification_level": computed["verification_level"],
@@ -3974,14 +3799,10 @@ class ResearchDB:
             "parser_version": metrics.PARSER_VERSION if computed["verification_level"] == "artifact_imported" else None,
             "fingerprint": fingerprint, "inputs_digest": signature["inputs_digest"],
             "supersedes_evaluation_id": previous, "created_by": f"{self.role}/{self.agent}",
-            "migrated": True if migrated else None,
         })
-        if migrated:
-            tx.set(experiment_id, {"evaluation_id": ev_id})
-            return ev_id
         primary = computed["metrics"][computed["primary"]]
         self._update(tx, experiment_id, {
-            "verdict": verdict, "metric_mean": primary["mean"], "metric_sd": primary["sd"],
+            "metric_mean": primary["mean"], "metric_sd": primary["sd"],
             "result_doc_id": result_doc_id, "harness_ref": project["harness_ref"], "evaluated_at": now_utc(),
             "evaluation_id": ev_id,
         })
@@ -3993,172 +3814,6 @@ class ResearchDB:
                     {k: v for k, v in edge.items() if k != "target_id" and v is not None})
         return ev_id
 
-    def migrate_states(self, dry_run: bool = True) -> dict:
-        """Old node records to the separate lifecycle / outcome / disposition (plans/design 10 §2.3): disposition
-        retired for prunable nodes, active otherwise, reason copied from the status; nothing else changes (no
-        experiment is re-run, no verdict is upgraded: an old 'close' is an inconclusive result). rld only."""
-        self._require_role("rld")
-        with self.reader() as tx:
-            plan = [(h["id"], h["status"], _disposition(h), h.get("status_reason"))
-                    for h in (tx.get(i) for i in tx.ids("hypothesis")) if not h.get("disposition")]
-            closes = [e["id"] for e in (tx.get(i) for i in tx.ids("experiment")) if e.get("verdict") == "close"]
-            ran = {h for h, *_ in plan if self._node_evaluations(tx, h)}
-        report = {"nodes": [{"hypothesis_id": h, "status": st, "disposition": d,
-                             "lifecycle": "pending" if st == "prunable" and h not in ran else LIFECYCLE[st]}
-                            for h, st, d, _ in plan], "close_as_inconclusive": closes}
-        if not dry_run:
-            with self._writer() as tx:
-                for h, _, d, reason in plan:
-                    if not tx.get(h).get("disposition"):
-                        tx.set(h, {"disposition": d, "disposition_reason": reason or "migrated from status"})
-        return report
-
-    def migrate_evaluations(self, dry_run: bool = True) -> dict:
-        """Shadow comparison for experiments evaluated before evaluations existed (plans/design 10 §2.2 B–C):
-        recompute each from its registered runs and compare with its recorded mean, SD and comparisons. With
-        dry_run=false the consistent ones get an evaluation bound to the harness they were evaluated with; the
-        inconsistent ones are only listed. rld only. Nothing is re-run and no recorded result changes."""
-        self._require_role("rld")
-        report = {"consistent": [], "mismatched": [], "recorded": []}
-        planned = []
-        with self.reader() as tx:
-            project = self._project(tx)
-            # references (baselines) first, so that dependants bind to their evaluations
-            order = sorted((tx.get(i) for i in tx.ids("experiment")),
-                           key=lambda e: (e["kind"] != "baseline", int(e["id"].split("-")[1])))
-            for exp in order:
-                if not exp.get("evaluated_at") or exp.get("evaluation_id"):
-                    continue
-                edges = tx.edges("rel_compared_with", source=exp["id"])
-                refs = {e["role"]: e["target_id"] for e in edges}
-                for role in ("sota", "parent"):
-                    if role in refs:
-                        refs[f"{role}_evaluation"] = tx.get(refs[role]).get("evaluation_id")
-                then = {**project, "harness_ref": exp.get("harness_ref")}
-                try:
-                    with _coded():
-                        computed = self._compute(tx, then, exp, refs)
-                    self._cross_check(computed, {
-                        "metric_mean": exp.get("metric_mean"), "metric_sd": exp.get("metric_sd"),
-                        "comparisons": [{k: e.get(k) for k in ("target_id", "role", "n_paired", "delta_mean",
-                                                               "delta_sd", "deltas")} for e in edges]}, exp)
-                except ResearchDBError as exc:
-                    report["mismatched"].append({"experiment_id": exp["id"], "error": str(exc)})
-                    continue
-                signature = self._signature(tx, then, exp, refs)
-                planned.append((exp["id"], refs, signature, computed))
-                report["consistent"].append(exp["id"])
-        if dry_run:
-            return report
-        with self._writer() as tx:
-            project = self._project(tx)
-            for exp_id, refs, signature, computed in planned:
-                exp = tx.get(exp_id)
-                then = {**project, "harness_ref": exp.get("harness_ref")}
-                for role in ("sota", "parent"):  # bind to the references' evaluations, migrated just before
-                    if role in refs:
-                        refs[f"{role}_evaluation"] = tx.get(refs[role]).get("evaluation_id")
-                if exp.get("evaluation_id"):
-                    continue
-                planned_inputs = signature["inputs"]
-                signature = self._signature(tx, then, exp, refs)
-                if signature["inputs"] != planned_inputs:  # its runs changed since the comparison: not now
-                    report["mismatched"].append({"experiment_id": exp_id, "error": "EVIDENCE_CHANGED: runs changed"})
-                    continue
-                fingerprint = hashlib.sha256(json.dumps({"inputs": signature["inputs_digest"],
-                                                         "verdict": exp.get("verdict"),
-                                                         "result_doc_id": exp.get("result_doc_id")},
-                                                        sort_keys=True).encode()).hexdigest()
-                ev_id = self._record_evaluation(tx, then, exp, refs, signature, computed, exp.get("verdict"),
-                                                exp.get("result_doc_id"), fingerprint, migrated=True)
-                report["recorded"].append({"experiment_id": exp_id, "evaluation_id": ev_id,
-                                           "verification_level": computed["verification_level"]})
-        return report
-
-    def migrate_identity(self, dry_run: bool = True) -> dict:
-        """S1 §5.3: bring records from before method identities, claim revisions and review bases into the new
-        rules without inventing history. Hypotheses get their first claim revision from the statement and document
-        they hold now (marked legacy in the history); experiments without a method identity stay legacy_unbound
-        (their history is readable; current eligibility needs new experiments or rechecks); reviews without a
-        system-captured basis are listed as needs_recheck (they never bind the current state); discovery candidates
-        without a content revision get revision 1 of their current content (legacy ids kept). Running it again
-        changes nothing. rld only."""
-        self._require_role("rld")
-        report = {"claims": [], "legacy_unbound_experiments": [], "needs_recheck_reviews": [], "candidates": []}
-        with self.reader() as tx:
-            project = self._project(tx)
-            for h in (tx.get(i) for i in tx.ids("hypothesis")):
-                if not h.get("claim_sha"):
-                    report["claims"].append(h["id"])
-            report["legacy_unbound_experiments"] = [e["id"] for e in (tx.get(i) for i in tx.ids("experiment"))
-                                                    if not e.get("method_spec_doc_id")]
-            report["needs_recheck_reviews"] = [d["id"] for d in (tx.get(i) for i in tx.ids(
-                "document", "WHERE n.doc_type = $t", t="review")) if d["status"] == "current" and not d.get("review_basis")]
-        import discovery
-        pool = discovery.read_candidates(self.db_path.parent)
-        report["candidates"] = [c["id"] for c in pool if not c.get("content_sha")]
-        if dry_run:
-            return report
-        with self._writer() as tx:
-            project = self._project(tx)
-            for hyp_id in report["claims"]:
-                h = tx.get(hyp_id)
-                if h.get("claim_sha"):
-                    continue
-                fields = self._claim_fields(tx, project, h, h["statement"], h["doc_id"])
-                fields["claim_history"]["revisions"][-1]["legacy"] = True
-                self._update(tx, hyp_id, fields)
-        if report["candidates"]:
-            for c in pool:
-                if not c.get("content_sha"):
-                    sha = discovery.content_sha(c)
-                    c.update(revision=1, content_sha=sha, revisions=[{"revision": 1, "content_sha": sha,
-                                                                      "legacy": True}])
-            discovery.write_candidates(self.db_path.parent, pool)
-        return report
-
-    def migrate_units(self, dry_run: bool = True) -> dict:
-        """S3 §7.3: imported runs from before units were recorded. When the imported manifest file is still there
-        and still the imported file (its SHA-256 equals the import record's), its units and full content are
-        recorded now (recovered, with the source named); otherwise the run stays unverified for computations that
-        need units (RAW_METADATA_UNVERIFIED) — nothing is back-filled from the current specification. Earlier
-        evaluations and spent usage are untouched; running it again changes nothing. rld only."""
-        self._require_role("rld")
-        report = {"recovered": [], "unverified": []}
-        plan = []
-        with self.reader() as tx:
-            for run in (tx.get(i) for i in tx.ids("run")):
-                attempts = [(run["attempt"], run, None)] + [(int(k), a, k) for k, a in (run.get("attempts") or {}).items()]
-                for n, a, key in attempts:
-                    record = a.get("import_record")
-                    if not record or "units" in record:
-                        continue
-                    ref = f"{run['id']}@{n}"
-                    path = self.db_path.parent / (a.get("manifest_path") or "")
-                    if a.get("manifest_path") and path.is_file() and sha256_file(path) == record.get("manifest_sha256"):
-                        manifest = _read_json(path, "manifest")
-                        plan.append((run["id"], key, manifest, a.get("manifest_path")))
-                        report["recovered"].append(ref)
-                    else:
-                        report["unverified"].append(ref)
-        if dry_run:
-            return report
-        with self._writer() as tx:
-            for run_id, key, manifest, source in plan:
-                run = tx.get(run_id)
-                target = run if key is None else dict(run["attempts"][key])
-                record = dict(target["import_record"])
-                if "units" in record:
-                    continue
-                record.update(units={k: v for k, v in (manifest.get("units") or {}).items() if isinstance(v, str)},
-                              units_recovered_from=source, units_recovered_at=now_utc())
-                if key is None:
-                    tx.set(run_id, {"import_record": record, "manifest_snapshot": manifest})
-                else:
-                    attempts = dict(run["attempts"])
-                    attempts[key] = {**target, "import_record": record, "manifest_snapshot": manifest}
-                    tx.set(run_id, {"attempts": attempts})
-        return report
 
     def _evaluations_of(self, tx: _Tx, experiment_id: str) -> list[dict]:
         rows = tx.query("MATCH (v:Evaluation)-[:EVALUATES]->(e:Experiment {id: $id}) RETURN v.id AS id", id=experiment_id)
@@ -4186,12 +3841,11 @@ class ResearchDB:
                 "verification_level": computed["verification_level"], "limitations": computed["limitations"]}
 
     def _references(self, tx: _Tx, project: dict, exp: dict, baseline_id: str | None) -> dict:
-        """The experiments a node experiment is compared with: fixed at creation (older experiments: the SOTA and
-        the parent's latest evaluated experiment). baseline_id rescores against the current SOTA."""
+        """Use the immutable explicit comparison references; rescoring may name the current SOTA."""
         if exp["kind"] == "baseline":
             return {}
         refs = {}
-        sota = exp.get("baseline_experiment_id") or project.get("sota_experiment_id")
+        sota = exp.get("baseline_experiment_id")
         history = self._evaluations_of(tx, exp["id"])
         if history and history[-1].get("baseline_experiment_id"):  # a rescoring sticks to its new baseline
             sota = history[-1]["baseline_experiment_id"]
@@ -4208,15 +3862,8 @@ class ResearchDB:
         if not sota:
             raise ResearchDBError("no SOTA baseline is set for the current harness")
         refs["sota"] = sota
-        node = tx.get(exp["hypothesis_id"])
-        parent = node.get("code_parent_id") or node["parent_id"]
-        explicit = node.get("comparator_experiment_id")
-        if (exp.get("parent_experiment_id") or (not explicit and table_of(parent) == "hypothesis")) and (exp.get("stage") or "screen") != "confirm":
-            ref = (exp.get("parent_experiment_id") or (history[-1].get("parent_experiment_id") if history else None)
-                   or (self._latest_evaluated(tx, parent) or {}).get("id"))
-            if ref is None:
-                raise ResearchDBError(f"parent {parent} has no experiment evaluated with the current harness")
-            refs["parent"] = ref
+        if exp.get("parent_experiment_id") and exp["stage"] != "confirm":
+            refs["parent"] = exp["parent_experiment_id"]
         for role in ("sota", "parent"):
             if role in refs:
                 target = tx.require(refs[role], ("experiment",))
@@ -4224,7 +3871,7 @@ class ResearchDB:
                     raise ResearchDBError(f"the {role} reference {refs[role]} is not evaluated")
                 refs[f"{role}_evaluation"] = target.get("evaluation_id")
                 ref_ev = tx.get(target["evaluation_id"]) if target.get("evaluation_id") else None
-                if ref_ev is not None and not ref_ev.get("migrated") and any(
+                if ref_ev is not None and any(
                         ref_ev.get(k) != project.get(k) for k in ("protocol_doc_id", "metric_spec_doc_id")):
                     raise CodedError("EVIDENCE_STALE", f"the {role} reference {refs[role]} was evaluated under another "
                                                        "protocol or metric specification; evaluate it again (its runs "
@@ -4237,7 +3884,7 @@ class ResearchDB:
         inputs, attempt_refs = {}, []
         for exp_id in [exp["id"]] + [refs[r] for r in ("sota", "parent") if r in refs]:
             seeds = exp["seeds"] if exp_id == exp["id"] else tx.require(exp_id, ("experiment",))["seeds"]
-            if project.get("workflow_mode") == "fast_screening" and exp.get("stage") != "confirm":
+            if exp.get('stage') != 'confirm':
                 seeds = [s for s in seeds if s in exp["seeds"]]
             for seed in seeds:
                 run = tx.get(f"{exp_id}/s{seed}")
@@ -4249,7 +3896,7 @@ class ResearchDB:
                 if exp_id == exp["id"] or run.get("valid") is True:
                     attempt_refs.append(f"{run['id']}@{run['attempt']}")
         digest_refs = refs
-        if project.get("workflow_mode") == "fast_screening" and exp.get("stage") != "confirm":
+        if exp.get('stage') != 'confirm':
             digest_refs = {k: v for k, v in refs.items() if not k.endswith("_evaluation")}
         context = {"code_ref": exp["code_ref"], "seeds": exp["seeds"], "harness_ref": project.get("harness_ref"),
                    "harness_paths": sorted(project.get("harness_paths") or []),
@@ -4263,18 +3910,16 @@ class ResearchDB:
     def _compute(self, tx: _Tx, project: dict, exp: dict, refs: dict) -> dict:
         specs, protocol = self._specs(tx, project), self._protocol(tx, project)
         names = [project["primary_metric"], *project["secondary_metrics"]]
-        legacy = bool(specs.get("legacy"))
         runs = [tx.get(f"{exp['id']}/s{s}") for s in exp["seeds"]]
-        incremental = project.get("workflow_mode") == "fast_screening" and exp.get("stage") != "confirm"
+        incremental = exp.get("stage") != "confirm"
         def reference_runs(exp_id):
             target = tx.require(exp_id, ("experiment",))
             seeds = [s for s in target["seeds"] if not incremental or s in exp["seeds"]]
             return [r for r in (tx.get(f"{exp_id}/s{s}") for s in seeds) if r and r.get("valid") is True]
         by_name = metrics.spec_by_name(specs)
-        if not legacy:  # S3: every run is read in the unit it was imported in, never reinterpreted
-            refs_runs = [r for role in ("sota", "parent") if role in refs
-                         for r in reference_runs(refs[role])]
-            self._check_raw_units(by_name, runs + refs_runs, names)
+        refs_runs = [r for role in ("sota", "parent") if role in refs
+                     for r in reference_runs(refs[role])]
+        self._check_raw_units(by_name, runs + refs_runs, names)
         limitations = []
         per_metric = {}
         for name in names:
@@ -4286,20 +3931,17 @@ class ResearchDB:
                 limitations.append(hint)
             per_metric[name] = {**metrics.summary(values), "unit": by_name[name]["canonical_unit"],
                                 "seeds": [r["seed"] for r in runs]}
-        if legacy:
-            limitations.append("legacy metric specification: secondary metrics have no recorded direction and "
-                               "their deltas are the caller's, not recomputed")
         if len(runs) == 1:
             limitations.append("n=1: no standard deviation")
         comparisons, edges, pair_keys = {}, [], {}
         gate_passed = guardrails_passed = None
         primary = specs["primary"]
         threshold = by_name[primary]["minimum_practical_gain"]
-        comparison = (protocol or {}).get("gate_comparison", ">")
-        stage = exp.get("stage") or "screen"
-        min_pairs = (protocol or {}).get("min_pairs") or project["gate_seeds"]
+        comparison = protocol.get("gate_comparison", ">")
+        stage = exp["stage"]
+        min_pairs = protocol.get("min_pairs") or project["gate_seeds"]
         if stage == "confirm":  # the confirmation's own declared number of pairs (06 §2.2)
-            min_pairs = (protocol or {}).get("min_confirmation_pairs") or 3
+            min_pairs = protocol.get("min_confirmation_pairs") or 3
         for role in ("sota", "parent"):
             if role not in refs:
                 continue
@@ -4349,12 +3991,12 @@ class ResearchDB:
                                 for r in reference_runs(refs[role])]
         self._check_protocol_runs(protocol, participating)
         imported = all(r.get("import_record") for r in participating)
-        level = "legacy_unverified" if legacy else ("artifact_imported" if imported else "record_recomputed")
-        if (protocol or {}).get("require_artifact_import") and level != "artifact_imported":
+        level = "artifact_imported" if imported else "record_recomputed"
+        if protocol.get("require_artifact_import") and level != "artifact_imported":
             missing = sorted(r["id"] for r in participating if not r.get("import_record"))
             raise MetricError("PROTOCOL_CHANGE_REQUIRED", f"the protocol requires imported results; not imported: "
                                                           f"{missing}")
-        ceiling = metrics.EVAL_TYPE_LIMITS.get((protocol or {}).get("eval_type"))
+        ceiling = metrics.EVAL_TYPE_LIMITS.get(protocol.get("eval_type"))
         if ceiling:
             limitations.append(ceiling)
         public = {"verification_level": level, "metric_mean": per_metric.get(primary, {}).get("mean"),
@@ -4368,7 +4010,7 @@ class ResearchDB:
                 "metrics": per_metric, "comparisons": comparisons, "edges": edges, "pair_keys": pair_keys,
                 "gate_passed": gate_passed, "guardrails_passed": guardrails_passed, "primary": primary,
                 "secondary": list(project["secondary_metrics"]),
-                "eval_type": (protocol or {}).get("eval_type"), "limitations": limitations, "legacy": legacy,
+                "eval_type": protocol.get("eval_type"), "limitations": limitations,
                 "verification_level": level,
                 "artifact_refs": sorted({p for r in participating for p in (r.get("evidence_paths") or [])}),
                 "public": public}
@@ -4377,31 +4019,32 @@ class ResearchDB:
     def _check_raw_units(by_name: dict, runs: list[dict], names: list[str]) -> None:
         """S3 §7.1: an imported run's values are read in the units its manifest stated at import. A current
         specification whose input_unit differs refuses to reinterpret them (METRIC_UNIT_MISMATCH); an imported
-        run whose units were never recorded (an older plugin) cannot enter a computation that needs them
-        (RAW_METADATA_UNVERIFIED; migrate_units recovers them from the original manifest when it still matches).
-        Runs reported without an import keep the old reading."""
+        run whose units are absent cannot enter a computation that needs them
+        (RAW_METADATA_UNVERIFIED); never reconstruct historical metadata or reinterpret imported values.
+        Runs reported without an import use the registered metric specification."""
         for run in runs:
             record = run.get("import_record")
             if not record:
                 continue
             if "units" not in record:
                 raise MetricError("RAW_METADATA_UNVERIFIED", f"{run['id']} was imported without its units recorded; "
-                                                             "migrate_units restores them from the original manifest "
-                                                             "when it is still the imported file")
+                                                             "a new checked run is required; historical evidence remains unchanged")
             for name in names:
                 spec = by_name.get(name)
                 raw = record["units"].get(name)
-                if spec is not None and raw is not None and raw != spec["input_unit"]:
+                if spec is None or raw is None:
+                    raise MetricError("RAW_METADATA_UNVERIFIED", f"{run['id']}: no recorded unit for {name}")
+                if raw != spec["input_unit"]:
                     raise MetricError("METRIC_UNIT_MISMATCH", f"{run['id']} reported {name} in {raw}; the current "
                                                               f"specification reads {spec['input_unit']}: old values are "
                                                               "not reinterpreted (restore the input unit, or change only "
                                                               "an auxiliary metric's canonical unit)")
 
-    def _check_protocol_runs(self, protocol: dict | None, runs: list[dict]) -> None:
+    def _check_protocol_runs(self, protocol: dict, runs: list[dict]) -> None:
         """Every run in a comparison meets the current protocol: its imported manifest has the settings the protocol
         fixes and the counts it requires. A protocol that fixes any is met only by imported runs."""
-        match = (protocol or {}).get("match") or {}
-        counts = (protocol or {}).get("required_counts") or {}
+        match = protocol.get("match") or {}
+        counts = protocol.get("required_counts") or {}
         if not (match or counts):
             return
         for run in runs:
@@ -4454,53 +4097,6 @@ class ResearchDB:
             raise CodedError("STAT_MISMATCH", f"result document {result_doc_id} ({doc['path']}) does not match "
                                               f"{exp['id']}: {'; '.join(problems)}")
 
-    def _cross_check(self, computed: dict, expected: dict, exp: dict) -> None:
-        """Numbers given by a caller of record_verdict against the recomputed ones (STAT_MISMATCH)."""
-        problems = []
-        primary = computed["metrics"].get(computed["primary"], {})
-        for key, value in (("metric_mean", primary.get("mean")), ("metric_sd", primary.get("sd"))):
-            if expected[key] is not None and not metrics.matches_given(expected[key], value):
-                problems.append(f"{key} {expected[key]} (recomputed {value})")
-        given = expected["comparisons"]
-        if given:
-            roles = {}
-            for cmp in given:
-                if not isinstance(cmp, dict) or set(cmp) - {"target_id", "role", "n_paired", "delta_mean",
-                                                            "delta_sd", "deltas"}:
-                    raise ResearchDBError(f"malformed comparison {cmp!r}")
-                roles[cmp.get("role")] = cmp
-            want = {r: c["target_id"] for r, c in computed["comparisons"].items()}
-            if {r: c.get("target_id") for r, c in roles.items()} != want or len(roles) != len(given):
-                raise ResearchDBError(f"comparisons must be exactly {want} (role -> target experiment)")
-            for role, cmp in roles.items():
-                mine = computed["comparisons"][role]
-                if cmp.get("n_paired") != mine["n_paired"]:
-                    problems.append(f"{role} pairs {mine['n_paired']} seeds, not {cmp.get('n_paired')}")
-                for field in ("delta_mean", "delta_sd"):
-                    if cmp.get(field) is not None and not metrics.matches_given(cmp[field], mine[field]):
-                        problems.append(f"{role} {field} {cmp[field]} (recomputed {mine[field]})")
-                deltas = cmp.get("deltas")
-                if deltas is not None:
-                    if not isinstance(deltas, dict):
-                        raise ResearchDBError(f"{role} deltas must be an object")
-                    for name, value in deltas.items():
-                        if computed["legacy"] and name not in mine["deltas"]:
-                            if not (_type_ok(value, "REAL") and math.isfinite(value)):
-                                problems.append(f"{role} deltas.{name} is not a number")
-                            continue
-                        if name not in mine["deltas"] or not metrics.matches_given(value, mine["deltas"][name]):
-                            problems.append(f"{role} deltas.{name} {value} (recomputed {mine['deltas'].get(name)})")
-                    if computed["legacy"]:  # secondary deltas without a known direction: the caller's
-                        if set(deltas) != set(computed["secondary"]):
-                            raise ResearchDBError(f"deltas must give a number for each of {computed['secondary']}")
-                        mine["deltas"] = {**deltas, **mine["deltas"]}
-                        for edge in computed["edges"]:
-                            if edge["role"] == role:
-                                edge["deltas"] = dict(mine["deltas"])
-        if problems:
-            raise CodedError("STAT_MISMATCH", f"{exp['id']}: the numbers given differ from the ones recomputed from "
-                                              f"its runs: {'; '.join(problems)}. The interface computes them; pass "
-                                              "none, or call evaluate_experiment")
 
     def _check_harness(self, project: dict, exp: dict) -> None:
         repo, harness = project["repo_path"], project["harness_ref"]
@@ -4509,23 +4105,16 @@ class ResearchDB:
         if not _git_ok(repo, "diff", "--quiet", harness, exp["code_ref"], "--", *project["harness_paths"]):
             raise ResearchDBError(f"{exp['id']}: the harness/statistics files differ from the frozen harness")
 
-    def _check_verdict(self, project: dict, exp: dict, verdict: str, edges: list[dict]) -> None:
+    def _check_conclusion_evidence(self, project: dict, conclusion: str, edges: list[dict]) -> None:
         by_role = {e["role"]: e for e in edges}
-        parent = by_role.get("parent", by_role["sota"])  # top-level nodes compare with SOTA as their parent
-        # an effect that could not be computed (None) does not count as better
-        no_better = parent["delta_mean"] <= 0 and all(v is None or v <= 0 for v in parent["deltas"].values())
-        if (verdict == "no_gain") != no_better:
-            raise ResearchDBError("verdict no_gain applies exactly when no metric is better than the parent")
-        if verdict == "beats_parent" and parent["delta_mean"] <= 0:
-            raise ResearchDBError("beats_parent needs a positive primary-metric difference to the parent")
-        gate = by_role["sota"]["passes_gate"]
-        if verdict == "beats_sota" and not gate:
-            raise ResearchDBError(
-                f"beats_sota needs {project['gate_seeds']} paired seeds and a primary lead over the minimum practical "
-                "gain (the metric specification's; go_margin without one)"
-            )
-        if gate and verdict not in ("beats_sota", "needs_rld"):
-            raise ResearchDBError("the SOTA gate is passed; the verdict is beats_sota or needs_rld")
+        if "sota" not in by_role:
+            raise ResearchDBError("a scientific conclusion needs a recomputed SOTA comparison")
+        reference = by_role.get("parent", by_role["sota"])
+        no_better = reference["delta_mean"] <= 0 and all(v is None or v <= 0 for v in reference["deltas"].values())
+        if conclusion == "no_gain" and not no_better:
+            raise ResearchDBError("no_gain requires that no metric is better than the declared comparator")
+        if conclusion == "beats_sota" and not by_role["sota"].get("passes_gate"):
+            raise ResearchDBError(f"beats_sota needs {project['gate_seeds']} independent paired repeats and the minimum practical gain")
 
     def _latest_evaluated(self, tx: _Tx, hypothesis_id: str) -> dict | None:
         """The node's most recent method experiment evaluated with the current harness."""
@@ -4533,7 +4122,7 @@ class ResearchDB:
         rows = tx.query("MATCH (e:Experiment)-[:TESTS]->(h:Hypothesis {id: $id}) RETURN e.id AS id", id=hypothesis_id)
         exps = [tx.get(r["id"]) for r in rows]
         exps = [e for e in exps if e["kind"] == "method" and e.get("evaluated_at") and e.get("harness_ref") == harness
-                and (e.get("stage") or "screen") != "confirm"]
+                and e["stage"] != "confirm"]
         return max(exps, key=lambda e: int(e["id"].split("-")[1]), default=None)
 
     def latest_result(self, hypothesis_id: str) -> dict | None:
@@ -4883,8 +4472,6 @@ class ResearchDB:
         data = data or {}
         declared = data.get("status")
         basis = d.get("memory_basis")
-        if basis is not None and basis.get("legacy"):
-            basis = None  # migrated without support: still legacy until it is checked again
         out = {"id": d["id"], "doc_type": d["doc_type"], "declared_status": declared,
                "scope": data.get("applicability") or data.get("scope") or {}, "recheck_reasons": []}
         if d["doc_type"] == "lesson":
@@ -4897,8 +4484,8 @@ class ResearchDB:
                 why = ["scope not stated: applies only where it is checked again"] + why
             out["recheck_reasons"] = why
             if basis is None:
-                out.update(evidence_state="legacy", effective_status="unverified" if declared == "verified" else declared)
-                out["recheck_reasons"] = ["recorded before S5: no memory_basis"] + out["recheck_reasons"]
+                out.update(evidence_state="unverified", effective_status="unverified" if declared == "verified" else declared)
+                out["recheck_reasons"] = ["no recorded memory_basis; support is unverified"] + out["recheck_reasons"]
             elif declared == "verified":
                 if verification["state"] != "verified":
                     out.update(evidence_state="unverified", effective_status="unverified")
@@ -4913,8 +4500,8 @@ class ResearchDB:
         out["source_refs"] = evidence["sources"]
         out["recheck_reasons"] = list(evidence["reasons"])
         if basis is None:
-            out.update(evidence_state="legacy", effective_status="observed" if declared == "supported" else declared)
-            out["recheck_reasons"] = ["recorded before S5: no memory_basis"] + out["recheck_reasons"]
+            out.update(evidence_state="unverified", effective_status="observed" if declared == "supported" else declared)
+            out["recheck_reasons"] = ["no recorded memory_basis; support is unverified"] + out["recheck_reasons"]
         elif evidence["state"] != "current":
             # stale is not contradicted: the history stays, the current support does not
             out.update(evidence_state="stale", effective_status="stale" if declared in ("supported", "observed") else declared)
@@ -4922,33 +4509,6 @@ class ResearchDB:
             out.update(evidence_state="current", effective_status=declared)
         return out
 
-    def migrate_memory(self, dry_run: bool = True) -> dict:
-        """S5 §9.4: current findings and lessons recorded before S5. Each one gets the basis the system can derive
-        now (nothing in the text is rewritten); a declared supported/verified without that support stays legacy
-        (shown as unverified / observed until it is checked again). Idempotent. rld only."""
-        self._require_role("rld")
-        report = {"derived": [], "legacy": []}
-        with self.reader() as tx:
-            todo = [d for d in (tx.get(i) for i in tx.ids("document")) if d.get("doc_type") in ("finding", "lesson")
-                    and d["status"] == "current" and d.get("memory_basis") is None]
-            plan = []
-            for d in todo:
-                text = (self.docs_root / d["path"]).read_text(encoding="utf-8") if (self.docs_root / d["path"]).is_file() else ""
-                data = memory.front_matter(text) or {}
-                basis = ({"kind": "finding", "evidence": self._finding_evidence(tx, data)} if d["doc_type"] == "finding"
-                         else {"kind": "lesson", "verification": self._verify_fix(tx, data, d)})
-                basis.update(migrated=True, derived_at=now_utc())
-                holds = (basis.get("evidence") or {}).get("state") == "current" or \
-                    (basis.get("verification") or {}).get("state") in ("verified", "not_claimed")
-                (report["derived"] if holds else report["legacy"]).append(d["id"])
-                plan.append((d["id"], basis if holds else {**basis, "legacy": True}))
-        if dry_run:
-            return report
-        with self._writer() as tx:
-            for doc_id, basis in plan:
-                if tx.get(doc_id).get("memory_basis") is None:
-                    self._update(tx, doc_id, {"memory_basis": basis})
-        return report
 
     def context_pack(self, node_id: str, role: str = "worker") -> dict:
         # role: worker (its node's lineage) or rld (every open obligation and finding: decision batches)
@@ -5003,7 +4563,7 @@ class ResearchDB:
                                        LESSON_ORDER.get(status["effective_status"], 9), -int(d["id"].split("-")[1]))})
             lessons.sort(key=lambda x: x["_rank"])
             lessons = [{k: v for k, v in x.items() if k != "_rank"} for x in
-                       lessons[:project.get("memory_max_items") or 5]]
+                       lessons[:project["memory_max_items"]]]
             for x in lessons:
                 app = "，".join(f"{k}={str(v)[:40]}" for k, v in x["applicability"].items())
                 cause = "；根因未确定（只指导已验证的操作）" if x["root_cause_status"] != "verified" else ""
@@ -5131,6 +4691,8 @@ class ResearchDB:
         obligations in the same write. The same receipt delivered again (same session and content) returns the
         review already registered."""
         self._require_role("reviewer")
+        if not isinstance(basis, dict):
+            raise CodedError("REVIEW_INVALID", "every receipt needs the captured review_basis")
         m = DOC_PATH_RE.match(path)
         if not m or not path.startswith("reviews/"):
             raise ResearchDBError(f"a review is written under reviews/ as <name>.v<N>.md: {path}")
@@ -5154,12 +4716,11 @@ class ResearchDB:
                 if receipt_key and tx.get(same_path[0]).get("receipt_key") == receipt_key:
                     return same_path[0]  # the same receipt delivered again: nothing new is written or counted
                 raise ResearchDBError(f"{path} is already registered")
-            candidates = [a for a in about if CANDIDATE_ID_RE.fullmatch(a)]
-            if len(candidates) > 1 or (candidates and len(about) > 1):
-                raise ResearchDBError("a review is about one discovery candidate, or about database entities")
-            if candidates and kind == "candidate_recheck":
-                raise ResearchDBError("a candidate_recheck is about a node, not a discovery candidate")
-            targets = [tx.require(entity) for entity in about if entity not in candidates]
+            if any(CANDIDATE_ID_RE.fullmatch(a) for a in about):
+                raise CodedError("REVIEW_SUBJECT_UNSUPPORTED", "reviews address admitted hypotheses or method experiments")
+            if len(about) != 1:
+                raise CodedError("REVIEW_SUBJECT_UNSUPPORTED", "a review binds exactly one hypothesis or method experiment")
+            targets = [tx.require(about[0])]
             fields = {}
             if kind == "candidate_recheck":
                 if dimension not in RECHECK_DIMENSIONS:
@@ -5200,8 +4761,6 @@ class ResearchDB:
                               review_findings={"items": norm["findings"]})
             elif dimension or evaluation_id:
                 raise ResearchDBError("dimension and evaluation_id belong to a candidate_recheck")
-            if kind == "novelty_precheck" and payload is not None:
-                result = self._novelty_effective(tx, payload, fields)
             if kind == "code_review":  # bound to the code it read (03 §8): a submission checks the same commit
                 if payload is not None:
                     issues = payload.get("issues")
@@ -5226,7 +4785,7 @@ class ResearchDB:
             if basis is not None:
                 if not isinstance(basis, dict):
                     raise ResearchDBError("basis is the object review_basis returned when the call started")
-                about_id = candidates[0] if candidates else (targets[0]["id"] if targets else None)
+                about_id = targets[0]["id"]
                 try:
                     now_basis = self._current_basis(tx, about_id, kind, dimension, evaluation_id, code_ref) \
                         if about_id else {}
@@ -5253,10 +4812,9 @@ class ResearchDB:
                 "title": title, "summary": summary, "status": "current", "author_role": self.role,
                 "author_id": self.agent, "sha256": sha256_file(file), "review_kind": kind, "review_result": result,
                 "review_backend": backend, "reviewer_model": reviewer_model, "review_session": session,
-                "review_about": candidates[0] if candidates else None, **fields})
+                **fields})
             for entity in about:
-                if entity not in candidates:
-                    tx.link("rel_describes", doc_id, entity)
+                tx.link("rel_describes", doc_id, entity)
             if previous:
                 self._update(tx, previous["id"], {"status": "superseded"})
                 tx.link("rel_supersedes", doc_id, previous["id"])
@@ -5265,33 +4823,6 @@ class ResearchDB:
             self._update(tx, project["id"], {"review_cost_usd": round((project.get("review_cost_usd") or 0) + cost_usd, 6)})
             return doc_id
 
-    def _novelty_effective(self, tx: _Tx, payload: dict, fields: dict) -> str:
-        """S4 §8.4: an ABANDON counts only with a verified source (a current literature document the system
-        verified, whose DOI or arXiv id is the one named, with a location); otherwise it is NEEDS_EVIDENCE."""
-        import literature
-        reported = payload.get("verdict")
-        effective, warnings = reported, []
-        if reported == "ABANDON":
-            ev = payload.get("abandon_evidence") or {}
-            doc = tx.get(ev.get("literature_doc_id") or "") if ev.get("literature_doc_id") else None
-            why = None
-            if doc is None or (doc.get("doc_type"), doc.get("status")) != ("literature", "current"):
-                why = "abandon_evidence names no current literature document"
-            elif doc.get("literature_check") != "verified":
-                why = f"{doc['id']} is not verified (verify_literature)"
-            elif not str(ev.get("location") or "").strip() or not str(ev.get("covered_claim") or "").strip():
-                why = "abandon_evidence has no location in the paper or no covered claim"
-            else:
-                head = self._front_matter(doc)
-                named = str(ev.get("identifier") or "")
-                ids = {x for x in (literature.normalize_doi(head.get("doi")), literature.normalize_arxiv_id(head.get("arxiv_id"))) if x}
-                if not ids & {x for x in (literature.normalize_doi(named), literature.normalize_arxiv_id(named)) if x}:
-                    why = f"{named!r} is not the DOI or arXiv id of {doc['id']} ({sorted(ids)})"
-            if why:
-                effective = "NEEDS_EVIDENCE"
-                warnings.append(f"ABANDON_UNVERIFIED: {why}")
-        fields.update(reported_result=reported, effective_result=effective, normalization_warnings=warnings)
-        return effective
 
     def _front_matter(self, doc: dict) -> dict:
         import yaml
@@ -5305,8 +4836,7 @@ class ResearchDB:
 
     def literature_followup(self, review_id: str, sources: list[str] | None = None,
                             user_instruction_doc_id: str | None = None) -> dict:
-        """S4 §8.4: run the searches a review asked for (requested_queries, at most 3; a novelty_precheck with
-        NEEDS_EVIDENCE or a novelty recheck that is uncertain) once, keep each query's raw results, time and
+        """S4 §8.4: run the searches a review asked for (requested_queries, at most 3; an uncertain novelty recheck) once, keep each query's raw results, time and
         failure under cache/literature/followup/<review>/, and record the manifest on the review. A query already
         done is not run again (a resumed session repeats nothing). One follow-up round per review chain unless the
         user's current instruction allows another. The next review round passes the manifest as evidence_set.
@@ -5317,9 +4847,12 @@ class ResearchDB:
             doc = tx.require(review_id, ("document",))
             if doc.get("doc_type") != "review":
                 raise ResearchDBError(f"{review_id} is not a review")
+            subject = [e["target_id"] for e in tx.edges("rel_describes", source=review_id)]
+            if len(subject) != 1:
+                raise CodedError("REVIEW_SUBJECT_UNSUPPORTED", "follow-up requires one exact reviewed hypothesis")
             queries = list((doc.get("review_payload") or {}).get("requested_queries") or [])[:3]
             asks = (doc.get("review_kind"), doc.get("review_result")) in (
-                ("novelty_precheck", "NEEDS_EVIDENCE"), ("candidate_recheck", "uncertain"))
+                ("candidate_recheck", "uncertain"),)
             if not queries or not asks or (doc.get("review_kind") == "candidate_recheck"
                                            and doc.get("review_dimension") != "novelty"):
                 raise ResearchDBError(f"{review_id} requests no follow-up searches")
@@ -5354,7 +4887,7 @@ class ResearchDB:
             tmp.replace(path)
             entries.append({"query": query, "path": self._research_rel(path), "status": record["status"],
                             "reused": False})
-        manifest = {"review_id": review_id, "about": doc.get("review_about") or None, "queries": entries,
+        manifest = {"review_id": review_id, "about": subject[0], "queries": entries,
                     "written_at": now_utc()}
         mpath = folder / "manifest.json"
         previous = _read_json(mpath, "follow-up manifest") if mpath.is_file() else None
@@ -5369,41 +4902,6 @@ class ResearchDB:
             self._update(tx, review_id, {"followup": record})
         return {**record, "entries": entries}
 
-    def migrate_reviews(self, dry_run: bool = True) -> dict:
-        """S4 §8.5: receipts registered before the checklist rule. Their documents stay readable; a pass without
-        an effective result is never completed into a current pass (the recheck shows needs_recheck); a negative
-        candidate_recheck becomes OPEN obligations (its failed items, or a summary item) so the migration cannot
-        make it disappear. Idempotent. rld only."""
-        self._require_role("rld")
-        report = {"negative_kept_open": [], "needs_recheck": []}
-        with self.reader() as tx:
-            old = [d for d in (tx.get(i) for i in tx.ids("document", "WHERE n.doc_type = $t", t="review"))
-                   if d.get("review_kind") == "candidate_recheck" and d.get("effective_result") is None
-                   and d["status"] == "current"]
-        for d in old:
-            (report["negative_kept_open"] if d.get("review_result") == "fail" else report["needs_recheck"]).append(d["id"])
-        if dry_run:
-            return report
-        with self._writer() as tx:
-            for doc_id in report["negative_kept_open"]:
-                d = tx.get(doc_id)
-                hyp = next((tx.get(e["target_id"]) for e in tx.edges("rel_describes", source=doc_id)
-                            if (tx.get(e["target_id"]) or {}).get("_table") == "hypothesis"), None)
-                if hyp is None:
-                    continue
-                text = (self.docs_root / d["path"]).read_text(encoding="utf-8") if (self.docs_root / d["path"]).is_file() else ""
-                blocks = re.findall(r"```json[ \t]*\n(.*?)```", text, re.S)
-                try:
-                    data = json.loads(blocks[-1]) if blocks else {}
-                except json.JSONDecodeError:
-                    data = {}
-                failed = [{"item": e.get("item"), "result": "fail", "note": str(e.get("note") or "")}
-                          for e in (data.get("checklist") or []) if isinstance(e, dict) and e.get("result") == "fail"]
-                findings = failed or [{"item": "summary", "result": "fail",
-                                       "note": str(data.get("reason") or d.get("summary") or "a negative recheck before S4")}]
-                self._record_review_findings(tx, hyp, doc_id, d.get("review_dimension"),
-                                             {"review_basis": d.get("review_basis"), "review_findings": {"items": findings}})
-        return report
 
     def _record_review_findings(self, tx: _Tx, hyp: dict, doc_id: str, dimension: str, fields: dict) -> None:
         """S4 §8.1: one OPEN obligation per (subject, basis, dimension, item) of a legal fail; the same item found
@@ -5505,7 +5003,7 @@ class ResearchDB:
     def review_basis(self, about: str, kind: str, dimension: str | None = None, evaluation_id: str | None = None,
                      code_ref: str | None = None) -> dict:
         """What a review of this kind about this subject rests on now (S1 §5.2), as the system sees it: the
-        discovery candidate's content revision; a node's claim revision; for a code_review the commit and the
+        node's claim revision; for a code_review its explicit hypothesis, commit and the
         method identities of the node's experiments of that commit; for a candidate_recheck the evaluation
         (numbers, protocol) or the method identity and claim (method_code, novelty, theory; novelty and theory
         also the node's cited literature). review_call.py captures it when the call starts; register_review
@@ -5518,12 +5016,7 @@ class ResearchDB:
         if kind not in REVIEW_KINDS:
             raise ResearchDBError(f"kind is one of {REVIEW_KINDS}")
         if CANDIDATE_ID_RE.fullmatch(about or ""):
-            path = self.db_path.parent / "docs" / "project" / "discovery" / "candidates.json"
-            pool = json.loads(path.read_text(encoding="utf-8")).get("candidates", []) if path.is_file() else []
-            c = next((x for x in pool if x.get("id") == about), None)
-            if c is None:
-                raise ResearchDBError(f"{about} is not in the discovery candidate pool")
-            return {"candidate_id": about, "revision": c.get("revision"), "content_sha": c.get("content_sha")}
+            raise CodedError("REVIEW_SUBJECT_UNSUPPORTED", "reviews address admitted hypotheses or method experiments, not discovery candidates")
         node = tx.require(about)
         experiment = node if node["_table"] == "experiment" else None
         if experiment is not None:
@@ -5538,15 +5031,13 @@ class ResearchDB:
                     "hypothesis_id": node["id"], "experiment_id": experiment["id"],
                     "code_ref": resolved, "method_spec_doc_ids": [experiment["method_spec_doc_id"]]}
         if node["_table"] != "hypothesis":
-            if kind in ("code_review", "candidate_recheck", "ablation_plan"):
-                raise CodedError("REVIEW_SUBJECT_UNSUPPORTED", f"{kind} needs a hypothesis or supported experiment subject")
-            return {"subject": about}
+            raise CodedError("REVIEW_SUBJECT_UNSUPPORTED", f"{kind} needs a hypothesis or supported experiment subject")
         basis = {"claim_revision": node.get("claim_revision"), "claim_sha": node.get("claim_sha")}
         if kind == "code_review":
             resolved = _git_commit(self._project(tx).get("repo_path") or "", code_ref or "") if code_ref else None
             specs = sorted({e["method_spec_doc_id"] for e in self._node_experiments(tx, about)
                             if e["code_ref"] == resolved and e.get("method_spec_doc_id")})
-            return {**basis, "code_ref": resolved, "method_spec_doc_ids": specs}
+            return {**basis, "hypothesis_id": node["id"], "code_ref": resolved, "method_spec_doc_ids": specs}
         if kind == "candidate_recheck":
             if dimension not in RECHECK_DIMENSIONS or not evaluation_id:
                 raise ResearchDBError(f"a candidate_recheck basis names dimension ({', '.join(RECHECK_DIMENSIONS)}) and "
@@ -5568,7 +5059,7 @@ class ResearchDB:
     def _review_bound(self, tx: _Tx, review: dict, about: str, dimension: str | None = None,
                       evaluation_id: str | None = None) -> bool:
         """Whether a review still applies: its system-captured basis equals the current one, and it did not change
-        while the reviewer answered. A review without a basis (before S1) never binds the current state."""
+        while the reviewer answered. Missing identity evidence never grants current eligibility."""
         basis = review.get("review_basis")
         if not basis or review.get("review_basis_changed"):
             return False
@@ -5594,8 +5085,7 @@ class ResearchDB:
         with self.reader() as tx:
             docs = [tx.get(i) for i in tx.ids("document", "WHERE n.doc_type = $t", t="review")]
             if about:
-                docs = [d for d in docs if d.get("review_about") == about
-                        or tx.edges("rel_describes", source=d["id"], target=about)]
+                docs = [d for d in docs if tx.edges("rel_describes", source=d["id"], target=about)]
         out = [{k: v for k, v in d.items() if k != "_table"} for d in docs if not kind or d.get("review_kind") == kind]
         return sorted(out, key=lambda d: int(d["id"].split("-")[1]))
 
@@ -5615,10 +5105,9 @@ class ResearchDB:
                 continue
             d = max(mine, key=lambda x: int(x["id"].split("-")[1]))
             # S1: bound when the review's system-captured basis is the current one (evaluation for numbers and
-            # protocol; method identity, claim revision and literature for the others); a review without a basis
-            # (before S1) needs a new review
+            # protocol; method identity, claim revision and literature for the others).
             bound = self._review_bound(tx, d, hyp["id"], dimension, evaluation_id)
-            # S4 §8.5: a receipt registered before the checklist rule has no effective result and is reviewed again
+            # An absent effective result cannot satisfy the current checklist rule.
             effective = d.get("effective_result")
             if effective == "not_applicable" and not applies[dimension].get("exempt"):
                 bound = False  # the protocol or the claim no longer exempts the dimension
@@ -5655,12 +5144,15 @@ class ResearchDB:
     def create_branch(self, hypothesis_id: str, name: str, base_ref: str, base_commit: str, worktree_path: str,
                       owner: str | None = None) -> str:
         """The branch lives in the project's code repository (project.repo_path); its owner is the node's
-        worker unless given."""
+        permanently assigned worker. An explicit owner must name that same worker."""
         self._require_role("rld")
         with self._writer() as tx:
-            owner = owner or tx.require(hypothesis_id, ("hypothesis",)).get("worker_id")
-            if not owner:
-                raise ResearchDBError(f"assign {hypothesis_id} a worker (assign_worker) or pass owner")
+            assigned = tx.require(hypothesis_id, ("hypothesis",)).get("worker_id")
+            if not assigned:
+                raise ResearchDBError(f"assign {hypothesis_id} a worker (assign_worker) before creating its branch")
+            if owner is not None and owner != assigned:
+                raise PermissionDenied(f"{hypothesis_id}'s branch belongs to worker/{assigned}")
+            owner = assigned
             if self._branch_of(tx, hypothesis_id) is not None:
                 raise ResearchDBError(f"{hypothesis_id} already has a branch")
             self._require_active(self._project(tx))
@@ -5731,40 +5223,63 @@ class ResearchDB:
     # session with the same identity takes over from the node's resume documents.
 
     def assign_worker(self, node_id: str, worker_id: str | None = None) -> str:
-        """Give a node (hypothesis, or the project as the root) its worker identity; set once."""
+        """Bind one permanent worker identity to one hypothesis."""
         self._require_role("rld")
         with self._writer() as tx:
-            node = tx.require(node_id, ("hypothesis", "project"))
-            wanted = worker_id or default_worker_id(node_id, node["_table"])
-            if not re.fullmatch(r"[A-Za-z0-9_.]+", wanted):
-                raise ResearchDBError(f"worker id must be letters, digits, _ or ., got {wanted!r}")
+            node = tx.require(node_id, ("hypothesis",))
+            wanted = worker_id or default_worker_id(node_id)
+            if not re.fullmatch(r"[A-Za-z0-9_.]+", wanted) or wanted == "root":
+                raise ResearchDBError("worker id must be a hypothesis identity; root belongs to architect/root")
             if node.get("worker_id") and node["worker_id"] != wanted:
                 raise ResearchDBError(f"{node_id} already belongs to worker/{node['worker_id']}")
-            taken = [n["id"] for t in ("hypothesis", "project") for n in (tx.get(i) for i in tx.ids(t))
-                     if n.get("worker_id") == wanted and n["id"] != node_id]
+            taken = [i for i in tx.ids("hypothesis") if i != node_id and tx.get(i).get("worker_id") == wanted]
             if taken:
                 raise ResearchDBError(f"worker/{wanted} already works on {taken[0]}")
             if not node.get("worker_id"):
                 tx.set(node_id, {"worker_id": wanted})
             return wanted
 
+    def assign_architect(self, architect_id: str = "root") -> str:
+        """Bind the project root to architect/root, independently of hypothesis workers."""
+        self._require_role("rld")
+        if architect_id != "root":
+            raise ResearchDBError("the root architect identity is architect/root")
+        with self._writer() as tx:
+            project = self._project(tx)
+            if project.get("architect_id") not in (None, architect_id):
+                raise ResearchDBError("the root architect identity is immutable")
+            if not project.get("architect_id"):
+                tx.set(project["id"], {"architect_id": architect_id})
+            return architect_id
+
+    def bind_architect_session(self, agent_id: str) -> None:
+        """Record the current root architect session."""
+        self._require_role("rld")
+        with self._writer() as tx:
+            project = self._project(tx)
+            if project.get("architect_id") != "root":
+                raise ResearchDBError("assign architect/root before binding its session")
+            self._check_values("project", {"architect_agent_id": agent_id})
+            tx.set(project["id"], {"architect_agent_id": agent_id, "architect_session_at": now_utc()})
+
     def bind_worker_session(self, node_id: str, agent_id: str) -> None:
         """Record the agent session now working as the node's worker (a new one replaces the old)."""
         self._require_role("rld")
         with self._writer() as tx:
-            node = tx.require(node_id, ("hypothesis", "project"))
+            node = tx.require(node_id, ("hypothesis",))
             if not node.get("worker_id"):
                 raise ResearchDBError(f"assign {node_id} a worker before binding a session")
             self._check_values(node["_table"], {"worker_agent_id": agent_id})
             tx.set(node_id, {"worker_agent_id": agent_id, "worker_session_at": now_utc()})
 
     def add_resume_docs(self, node_id: str, doc_ids: list[str]) -> list[str]:
-        """Add documents a new worker session needs to take over the node; rld or the node's worker."""
+        """Add recovery documents as the Leader or the node's exact assigned owner."""
         with self._writer() as tx:
             node = tx.require(node_id, ("hypothesis", "project"))
-            root_architect = self.role == "architect" and node["_table"] == "project" and self.agent == node.get("worker_id")
-            if self.role != "rld" and not root_architect and (self.role, self.agent) != ("worker", node.get("worker_id")):
-                raise PermissionDenied(f"only rld or worker/{node.get('worker_id')} adds resume documents to {node_id}")
+            role = "architect" if node["_table"] == "project" else "worker"
+            owner = node.get(f"{role}_id")
+            if self.role != "rld" and (self.role, self.agent) != (role, owner):
+                raise PermissionDenied(f"only rld or {role}/{owner} adds resume documents to {node_id}")
             for doc_id in doc_ids:
                 tx.require(doc_id, ("document",))
             return self._append_resume(tx, node_id, doc_ids)
@@ -5793,19 +5308,21 @@ class ResearchDB:
                      for t in (tx.get(i) for i in tx.ids("task")) if t.get("target_id") == node_id]
             pending = sorted((t for t in tasks if t["status"] not in ("accepted", "cancelled")),
                              key=lambda t: int(t["id"].split("-")[1]))
+            role = "architect" if node["_table"] == "project" else "worker"
+            identity = node.get(f"{role}_id")
             package = {
                 "first_unaccepted_task": pending[0]["id"] if pending else None,
                 "node": {k: v for k, v in node.items() if k != "_table"},
-                "worker": f"worker/{node['worker_id']}" if node.get("worker_id") else None,
-                "agent_id": node.get("worker_agent_id"), "session_at": node.get("worker_session_at"),
+                "actor": f"{role}/{identity}" if identity else None,
+                "agent_id": node.get(f"{role}_agent_id"), "session_at": node.get(f"{role}_session_at"),
                 "documents": docs, "tasks": tasks,
             }
             if node["_table"] == "hypothesis":
                 exps = [tx.get(r["id"]) for r in tx.query(
                     "MATCH (e:Experiment)-[:TESTS]->(h:Hypothesis {id: $id}) RETURN e.id AS id", id=node_id)]
-                package["experiments"] = [{**{k: e.get(k) for k in ("id", "kind", "seeds", "verdict", "code_ref",
+                package["experiments"] = [{**{k: e.get(k) for k in ("id", "kind", "seeds", "code_ref",
                                                                     "result_doc_id", "method_spec_doc_id")},
-                                           "identity": "bound" if e.get("method_spec_doc_id") else "legacy_unbound"}
+                                           "identity": "bound" if e.get("method_spec_doc_id") else "unbound"}
                                           for e in exps]
                 # S1: what no longer applies after a claim or configuration change, visible on resume
                 elig = self._eligibility(tx, self._project(tx), node)
@@ -5833,7 +5350,7 @@ class ResearchDB:
 
     def cleanup_due(self, node_id: str | None = None) -> list[dict]:
         """Experiments whose outputs are due for cleanup (optionally of one node): evaluated since their last
-        cleanup, of a concluded node without a verdict, or with kept outputs now released. Each lists its
+        cleanup, of a concluded node without an evaluation, or with kept outputs now released. Each lists its
         runs (earlier attempts too) with their output directories and evidence, and the classes still kept."""
         with self.reader() as tx:
             return [d for d in self._cleanup_due(tx) if node_id in (None, d["node"])]
@@ -5874,7 +5391,7 @@ class ResearchDB:
             if exp.get("evaluated_at") and uncovered:
                 reason = "statistics recorded"
             elif not exp.get("evaluated_at") and hyp and hyp.get("concluded_at") and uncovered:
-                reason = "node concluded without a verdict for it"
+                reason = "node concluded without evaluating it"
             elif last is not None and last.get("kept") and not keep:
                 reason = "kept outputs released"
             else:
@@ -5969,8 +5486,16 @@ class ResearchDB:
         is active."""
         self._require_role("rld")
         with self._writer() as tx:
-            if assignee_role == "architect" and target_id != self._project(tx)["id"]:
-                raise PermissionDenied("architect tasks target the project root")
+            project = self._project(tx)
+            if assignee_role == "architect" and (target_id != project["id"] or assignee_id not in (None, project.get("architect_id"))):
+                raise PermissionDenied("architect tasks target the assigned project root identity")
+            self._check_values("task", {"kind": kind, "assignee_role": assignee_role})
+            if assignee_role == "worker":
+                if target_id is None:
+                    raise PermissionDenied("worker tasks require their hypothesis target")
+                target = tx.require(target_id, ("hypothesis",))
+                if assignee_id is not None and target.get("worker_id") != assignee_id:
+                    raise PermissionDenied("worker tasks target that worker's assigned hypothesis")
             if kind in RESEARCH_TASK_KINDS:
                 self._require_active(self._project(tx))
             self._check_sections(tx, request_doc_id)
@@ -5984,11 +5509,6 @@ class ResearchDB:
                 self._append_resume(tx, target_id, [request_doc_id])
             return task_id
 
-    def _root_task_alias(self, tx: _Tx, task: dict) -> bool:
-        project = self._project(tx)
-        return (self.role in ("worker", "architect") and task.get("assignee_role") in ("worker", "architect")
-                and task.get("target_id") == project["id"] and task.get("assignee_id") == self.agent
-                and project.get("worker_id") == self.agent)
 
     def update_task(self, task_id: str, status: str | None = None, delivery_doc_id: str | None = None,
                     assignee_id: str | None = None, evidence_ids: list[str] | None = None) -> None:
@@ -6012,6 +5532,9 @@ class ResearchDB:
                 if task["status"] != "open":
                     raise ResearchDBError("a task is (re)assigned only while open")
                 if task["assignee_role"] in ("worker", "architect"):
+                    node = tx.require(task.get("target_id"), ("hypothesis",) if task["assignee_role"] == "worker" else ("project",))
+                    if node.get(f"{task['assignee_role']}_id") != assignee_id:
+                        raise PermissionDenied("task assignee must match the node's permanent role identity")
                     self._check_parallel_workers(tx, assignee_id, task_id)
                 changes["assignee_id"] = assignee_id
             if status is not None:
@@ -6022,7 +5545,7 @@ class ResearchDB:
                 if who == "rld":
                     self._require_role("rld")
                 elif (self.role, self.agent) != (task["assignee_role"], task.get("assignee_id")):
-                    if not records_advice and not self._root_task_alias(tx, task):
+                    if not records_advice:
                         raise PermissionDenied(f"only the assignee {task['assignee_role']}/{task.get('assignee_id')} may do this")
                 changes["status"] = status
                 if status == "accepted":
@@ -6139,12 +5662,12 @@ class ResearchDB:
         stale), reasons, verification_level, gate_passed, guardrails_passed}. The basis is the node's latest
         evaluation; reasons name what is missing or no longer applies (HARNESS_CHANGED, BASELINE_CHANGED,
         PROTOCOL_CHANGED, METRIC_SPEC_CHANGED, STATISTICS_CHANGED, RUN_RETRACTED, INPUT_CHANGED,
-        RESULT_REVISION_PENDING, LEGACY_RESULT_UNVERIFIED, EVAL_TYPE_MISSING, GATE_NOT_PASSED, GUARDRAIL_FAILED,
+        RESULT_REVISION_PENDING, EVAL_TYPE_MISSING, GATE_NOT_PASSED, GUARDRAIL_FAILED,
         OBLIGATION_OPEN, DISPOSITION_RETIRED, RECHECK_PENDING, RECHECK_FAILED, RECHECK_STALE, RECHECK_UNCERTAIN,
         CONFIRMATION_REQUIRED,
         CONFIRMATION_FAILED, CONFIRMATION_REUSED, CONFIRMATION_STALE). stage: candidate_ready once the search
         evidence passes the Type-A gates, confirmed after the confirmation; outcome: the basis's outcome, or invalid
-        when the node's runs all ended without a valid one. rechecks (projects with recheck_required): per dimension
+        when the node's runs all ended without a valid one. Mandatory rechecks: per dimension
         the cross-model review that checked this basis (review id, result, backend, reviewer model, evaluation or
         code it is bound to, and the one it must be bound to) — what was checked and by whom; numbers and protocol
         are bound to recheck_evaluation_id (the confirmation's evaluation once there is one). rld_rechecks
@@ -6171,7 +5694,7 @@ class ResearchDB:
     def _eligibility(self, tx: _Tx, project: dict, hyp: dict, protocol_id: str | None = None) -> dict:
         exps = [tx.get(r["id"]) for r in tx.query("MATCH (e:Experiment)-[:TESTS]->(h:Hypothesis {id: $id}) "
                                                    "RETURN e.id AS id", id=hyp["id"])]
-        search = [e for e in exps if e["kind"] == "method" and (e.get("stage") or "screen") != "confirm"
+        search = [e for e in exps if e["kind"] == "method" and e["stage"] != "confirm"
                   and self._evaluations_of(tx, e["id"])]
         out = {"hypothesis_id": hyp["id"], "eligible": False, "basis_evaluation_id": None, "experiment_id": None,
                "evidence_state": "none", "reasons": ["NO_EVALUATION"], "verification_level": None,
@@ -6180,7 +5703,7 @@ class ResearchDB:
                "recheck_evaluation_id": None, "rld_rechecks": None}
         if not search:
             # an engineering failure is no evidence: no evaluation; the node's outcome reads 'invalid' (06 §2.1)
-            tried = [e for e in exps if e["kind"] == "method" and (e.get("stage") or "screen") != "confirm"]
+            tried = [e for e in exps if e["kind"] == "method" and e["stage"] != "confirm"]
             runs = [tx.get(f"{e['id']}/s{s}") for e in tried for s in e["seeds"]]
             if runs and all(r and r["exec_status"] in FINAL_EXEC and r.get("valid") is not True for r in runs):
                 out["outcome"] = "invalid"
@@ -6192,9 +5715,7 @@ class ResearchDB:
         if protocol_id is not None and protocol_id != basis.get("protocol_doc_id"):
             reasons.append("PROTOCOL_CHANGED")
         state = "stale" if reasons else "current"
-        if basis["verification_level"] == "legacy_unverified" or basis.get("migrated"):
-            reasons.append("LEGACY_RESULT_UNVERIFIED")
-        elif not basis.get("eval_type"):
+        if not basis.get("eval_type"):
             reasons.append("EVAL_TYPE_MISSING")
         if not basis.get("gate_passed"):
             reasons.append("GATE_NOT_PASSED")
@@ -6209,14 +5730,12 @@ class ResearchDB:
         basis_exp = tx.get(basis["experiment_id"])
         if self._blocking_code_reviews(tx, basis_exp):
             reasons.append("CODE_REVIEW_BLOCKED")
-        if project.get("workflow_mode") == "fast_screening":
-            baseline = tx.get(basis.get("baseline_experiment_id")) if basis.get("baseline_experiment_id") else None
-            if (len(basis_exp["seeds"]) < project["gate_seeds"] or baseline is None or
-                    any(not (tx.get(f"{baseline['id']}/s{s}") or {}).get("valid") for s in project["seeds"])):
-                reasons.append("SEARCH_REPLICATION_REQUIRED")
+        baseline = tx.get(basis.get("baseline_experiment_id")) if basis.get("baseline_experiment_id") else None
+        if (len(basis_exp["seeds"]) < project["gate_seeds"] or baseline is None or
+                any(not (tx.get(f"{baseline['id']}/s{s}") or {}).get("valid") for s in project["seeds"])):
+            reasons.append("SEARCH_REPLICATION_REQUIRED")
         if not basis_exp.get("method_spec_doc_id"):
-            # S1 §5.3: an experiment from before method identities stays readable but cannot carry current
-            # eligibility; its configuration was never bound
+            # Corrupt or incomplete identity cannot support eligibility; never infer or repair it.
             reasons.append("METHOD_IDENTITY_UNBOUND")
         stage = "candidate_ready" if not reasons else None
         rld_rechecks = {}
@@ -6231,18 +5750,15 @@ class ResearchDB:
                 reasons.append("RECHECK_STALE")
         confirmation = None
         protocol = self._protocol(tx, project)
-        if protocol and protocol.get("profile", "stage1_confirmed") == "stage1_confirmed":
-            confirmation, why = self._confirmation(tx, project, protocol, hyp, basis_exp)
-            if why:
-                reasons.append(why)
-            elif stage == "candidate_ready":
-                stage = "confirmed"
+        confirmation, why = self._confirmation(tx, project, protocol, hyp, basis_exp)
+        if why:
+            reasons.append(why)
+        elif stage == "candidate_ready":
+            stage = "confirmed"
         rechecks, recheck_ev = None, None
-        if project.get("recheck_required"):  # cross-model rechecks of the candidate (07, 09 candidate_recheck)
-            # the numbers GO rests on: the confirmation's once there is one, else the search basis (07 §3, §6)
-            recheck_ev = confirmation or basis["id"]
-            rechecks, why = self._candidate_rechecks(tx, hyp, recheck_ev, basis_exp)
-            reasons += why
+        recheck_ev = confirmation or basis["id"]
+        rechecks, why = self._candidate_rechecks(tx, hyp, recheck_ev, basis_exp)
+        reasons += why
         reasons = list(dict.fromkeys(reasons))
         return {**out, "eligible": not reasons, "basis_evaluation_id": basis["id"],
                 "experiment_id": basis["experiment_id"], "evidence_state": state, "reasons": reasons,
@@ -6255,8 +5771,7 @@ class ResearchDB:
         """The node's independent confirmation of its frozen candidate (S2 §6): a current confirm-stage evaluation
         of an experiment bound to a candidate_spec of the basis's method identity, compared with its batch's
         confirmation baseline of the frozen reference, on a material no other batch used before it; it passes the
-        gate and guardrails. A confirmation without these bindings (before S2) stays history:
-        CONFIRMATION_IDENTITY_UNVERIFIED."""
+        gate and guardrails. Every confirmation must carry all immutable identity bindings."""
         confirms = [e for e in self._node_experiments(tx, hyp["id"])
                     if e.get("stage") == "confirm" and e.get("evaluation_id")]
         if not confirms:
@@ -6270,9 +5785,7 @@ class ResearchDB:
                     e.get("method_spec_doc_id") == candidate["method_spec_doc_id"]:
                 bound.append(e)
         if not bound:
-            legacy = [e for e in confirms if not e.get("candidate_spec_doc_id")]
-            return (tx.get(legacy[-1]["evaluation_id"])["id"] if legacy else None,
-                    "CONFIRMATION_IDENTITY_UNVERIFIED" if legacy else "CONFIRMATION_REQUIRED")
+            return None, "CONFIRMATION_IDENTITY_UNVERIFIED"
         exp = max(bound, key=lambda e: int(e["id"].split("-")[1]))
         ev = tx.get(exp["evaluation_id"])
         batch = self._json_doc(tx, exp["confirmation_batch_doc_id"], "confirmation_batch")
@@ -6311,7 +5824,7 @@ class ResearchDB:
                 # S2: a confirmation stays compared with the baseline fixed when it was created (its batch's);
                 # a later control or confirmation baseline does not move it
                 reference = tx.get(ev["experiment_id"]).get("baseline_experiment_id")
-            incremental = project.get("workflow_mode") == "fast_screening" and ev.get("stage") != "confirm"
+            incremental = ev.get("stage") != "confirm"
             changed_revision = not incremental and (
                 baseline.get("evaluation_id") and baseline["evaluation_id"] != ev.get("baseline_evaluation_id"))
             changed_evidence = not incremental and base_ev is not None and self._stale_reasons(tx, project, {**base_ev, "baseline_experiment_id": None})
@@ -6333,12 +5846,11 @@ class ResearchDB:
                                else "INPUT_CHANGED")
             elif run.get("valid") is not True:
                 reasons.append("RUN_RETRACTED")
-            elif project.get("workflow_mode") == "fast_screening":
-                old = (ev.get("input_revisions") or {}).get(run_id)
-                current = {k: run.get(k) for k in ("attempt", "valid", "metric_value", "secondary", "retracted_at")}
-                current["import"] = (run.get("import_record") or {}).get("metrics_sha256")
-                if old != current:
-                    reasons.append("INPUT_CHANGED")
+            old = (ev.get("input_revisions") or {}).get(run_id)
+            current = {k: run.get(k) for k in ("attempt", "valid", "metric_value", "secondary", "retracted_at")}
+            current["import"] = (run.get("import_record") or {}).get("metrics_sha256")
+            if old != current:
+                reasons.append("INPUT_CHANGED")
         return list(dict.fromkeys(reasons))
 
     def _recheck_bound(self, tx: _Tx, hyp_id: str, field: str, basis_exp: dict) -> bool:
@@ -6353,14 +5865,6 @@ class ResearchDB:
             hyp = tx.get(hyp_id)
             return (basis.get("method_spec_doc_id") == basis_exp.get("method_spec_doc_id")
                     and basis.get("code_ref") == basis_exp["code_ref"] and basis.get("claim_sha") == hyp.get("claim_sha"))
-        if basis_exp.get("method_spec_doc_id"):
-            return False  # a pass from before S1 cannot vouch for an experiment with a method identity
-        for edge in tx.edges("rel_based_on", source=decisions[-1]["id"]):
-            target = tx.get(edge["target_id"])
-            if target["_table"] == "evaluation":
-                target = tx.get(target["experiment_id"])
-            if target["_table"] == "experiment" and target["code_ref"] == basis_exp["code_ref"]:
-                return True
         return False
 
     def export_snapshot(self) -> dict:
@@ -6384,9 +5888,9 @@ def _sha(obj) -> str:
     return hashlib.sha256(_canonical(obj).encode("utf-8")).hexdigest()
 
 
-def scientific_config(config: dict, protocol: dict | None) -> dict:
+def scientific_config(config: dict, protocol: dict) -> dict:
     """The configuration minus the declared pure execution fields (S1 §5.1)."""
-    drop = set(EXECUTION_FIELDS) | set((protocol or {}).get("execution_fields") or [])
+    drop = set(EXECUTION_FIELDS) | set(protocol.get("execution_fields") or [])
     return {k: v for k, v in config.items() if k not in drop}
 
 
@@ -6408,6 +5912,8 @@ def _norm_text(text: str | None) -> str:
 
 
 def _git_commit(repo: str, ref: str) -> str | None:
+    if not repo or not Path(repo).is_dir() or not ref:
+        return None
     result = subprocess.run(
         ["git", "-C", repo, "rev-parse", "--verify", "--quiet", f"{ref}^{{commit}}"],
         capture_output=True, text=True,
@@ -6432,8 +5938,8 @@ VALID_RUN_HOW = ("A run becomes valid with update_run: exec_status planned -> su
 
 
 def _disposition(hyp: dict) -> str:
-    """A node's investment disposition; old records without one: retired when prunable, else active."""
-    return hyp.get("disposition") or ("retired" if hyp.get("status") == "prunable" else "active")
+    """The independently recorded investment decision, never inferred from a scientific result."""
+    return hyp["disposition"]
 
 
 def _fingerprint(source: str, pattern: str, excerpt: str) -> str:
@@ -6518,9 +6024,11 @@ def _norm_title(title: str) -> str:
     return " ".join(re.findall(r"\w+", (title or "").lower()))
 
 
-def default_worker_id(node_id: str, table: str) -> str:
-    """The worker identity a node gets by default: `root` for the project, `h0007` for H-0007."""
-    return "root" if table == "project" else re.sub(r"[^A-Za-z0-9_.]", "", node_id).lower()
+def default_worker_id(node_id: str) -> str:
+    """A hypothesis worker is named after its node, for example h0007."""
+    if table_of(node_id) != "hypothesis":
+        raise ResearchDBError("worker identities belong to hypothesis nodes only")
+    return re.sub(r"[^A-Za-z0-9_.]", "", node_id).lower()
 
 
 # ---------------------------------------------------------------------------

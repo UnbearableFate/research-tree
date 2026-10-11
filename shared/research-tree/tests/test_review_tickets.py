@@ -12,7 +12,7 @@ from pathlib import Path
 from unittest.mock import Mock, patch
 
 import test_review_call as fixture
-from test_review_call import NOVELTY, block
+from test_review_call import ABLATION, block
 
 import review_call
 import test_research_db as dbfixture
@@ -32,7 +32,7 @@ class ReviewTicketTest(unittest.TestCase):
         reap()
         self.addCleanup(reap)
         self.project()
-        self.argv = ["--kind", "novelty_precheck", "--brief", self.brief, "--about", "P-r"]
+        self.argv = ["--kind", "ablation_plan", "--brief", self.brief, "--about", "H-0001"]
         self.proc = Mock(pid=os.getpid())
         self.proc.poll.return_value = None
 
@@ -49,7 +49,7 @@ class ReviewTicketTest(unittest.TestCase):
             self.assertEqual(spawn.call_count, 1)
             job = review_call.wait_job(self.root, first, 0)
         self.assertEqual((job["status"], job["phase"]), ("running", "queued"))
-        self.assertEqual(job["request"]["basis"], {"subject": "P-r"})
+        self.assertEqual(job["request"]["basis"], {"claim_revision": 1, "claim_sha": "transport-fixture-claim"})
         self.assertTrue(review_call._job_answer(job)[0]["pending"])
 
     def test_concurrent_starts_are_deduplicated_under_the_job_lock(self):
@@ -126,8 +126,8 @@ class ReviewTicketTest(unittest.TestCase):
         ticket = self.pending()
         # Reproduce SIGKILL after _allocate persists ownership, before _update_job publishes the pointer.
         with review_call._Lock(self.root):
-            session, _, version, _, _ = review_call._allocate(self.root, None, "novelty_precheck", "P-r", "pi", ticket)
-            other, _, _, _, _ = review_call._allocate(self.root, None, "novelty_precheck", "P-r", "pi", "RJ-ffffffffffff")
+            session, _, version, _, _ = review_call._allocate(self.root, None, "ablation_plan", "H-0001", "pi", ticket)
+            other, _, _, _, _ = review_call._allocate(self.root, None, "ablation_plan", "H-0001", "pi", "RJ-ffffffffffff")
         review_call._update_job(self.root, ticket, worker_started_at=review_call.now())
         pending = review_call._read_job(self.root, ticket)
         self.assertNotIn("session", pending)
@@ -144,7 +144,7 @@ class ReviewTicketTest(unittest.TestCase):
         self.assertIsNone(states[session]["active_ticket"])
         self.assertTrue(states[other]["busy"])  # another job's reservation is untouched
         with review_call._Lock(self.root):
-            _, _, next_version, _, _ = review_call._allocate(self.root, session, "novelty_precheck", "P-r", "pi")
+            _, _, next_version, _, _ = review_call._allocate(self.root, session, "ablation_plan", "H-0001", "pi")
         self.assertEqual(next_version, version + 1)
 
     def test_worker_lease_prevents_duplicate_dispatch_and_collection_is_nonblocking(self):
@@ -173,7 +173,7 @@ class ReviewTicketTest(unittest.TestCase):
 
     def test_registered_receipt_survives_interruption_before_terminal_ticket_write(self):
         self.fake("pi")
-        with patch.dict(os.environ, {**self.env, "FAKE_ANSWERS": json.dumps([{"text": block(NOVELTY)}])}):
+        with patch.dict(os.environ, {**self.env, "FAKE_ANSWERS": json.dumps([{"text": block(ABLATION)}])}):
             ticket = review_call.start_job(self.cwd, self.root, self.argv)
             complete = review_call.wait_job(self.root, ticket, 30)
         self.assertTrue(complete["answer"]["ok"], complete)
@@ -214,7 +214,7 @@ class ReviewTicketTest(unittest.TestCase):
                        {"dimension": "numbers"}):
             with self.subTest(params=params), patch.object(review_call, "backend_for") as backend, \
                     patch.object(review_call.subprocess, "Popen") as spawn:
-                request = {"kind": "novelty_precheck", "brief": self.brief, "about": "P-r", **params}
+                request = {"kind": "ablation_plan", "brief": self.brief, "about": "H-0001", **params}
                 argv = [part for key, value in request.items() for part in ("--" + key.replace("_", "-"), value)]
                 with self.assertRaises(review_call.ReviewError):
                     review_call.start_job(self.cwd, self.root, argv)

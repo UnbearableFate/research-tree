@@ -2,7 +2,7 @@
 
 Reads the database (read-only, via research_db.ResearchDB) and the document library, and writes a single
 self-contained HTML file: inline CSS/JS/data, no network. Same inputs give the same page apart from the
-generation time. See schema/web_builder.md for the views.
+generation time. See schema/progress_page.md for the views.
 
 Usage:
     python tools/build_site.py --db research/P-x/research_tree.db [--out research/P-x/site/index.html]
@@ -39,7 +39,7 @@ ATTENTION_LABELS = {
 RECHECK_STATES = {"missing": "缺", "stale": "依据已变", "failed": "未通过", "uncertain": "不确定", "pass": "通过"}
 DISPOSITION_LABELS = {"active": "继续投入", "paused": "暂停", "retired": "不再投入"}
 OUTCOME_LABELS = {"positive_signal": "正向信号", "negative_signal": "负向信号", "inconclusive": "不确定", "invalid": "无效"}
-VERIFICATION_LABELS = {"record_recomputed": "记录级重算", "artifact_imported": "产物级导入", "legacy_unverified": "旧记录（未核验）"}
+VERIFICATION_LABELS = {"record_recomputed": "记录级重算", "artifact_imported": "产物级导入"}
 VERSION_RE = re.compile(r'<meta name="data-version" content="(\d+)">')
 
 
@@ -143,7 +143,7 @@ def load_curve(path_text: str | None, base: Path) -> tuple[dict | None, str | No
 
 
 def collect(db_path: Path) -> dict:
-    reader = ResearchDB(db_path, "web_builder/site")
+    reader = ResearchDB(db_path, "ui/ui")
     snap = reader.export_snapshot()
     root = db_path.parent
     tables, edges = snap["tables"], snap["edges"]
@@ -194,7 +194,7 @@ def collect(db_path: Path) -> dict:
     for x in tables["experiment"]:
         experiments[x["id"]] = {
             "id": x["id"], "hyp": x.get("hypothesis_id"), "kind": x["kind"], "method": x["method_name"],
-            "seeds": x["seeds"], "verdict": x.get("verdict"), "mean": x.get("metric_mean"), "sd": x.get("metric_sd"),
+            "seeds": x["seeds"], "outcome": evaluations.get(x.get("evaluation_id"), {}).get("outcome"), "mean": x.get("metric_mean"), "sd": x.get("metric_sd"),
             "code": x["code_ref"][:10], "baseline_experiment_id": x.get("baseline_experiment_id"),
             "parent_experiment_id": x.get("parent_experiment_id"), "evaluated": x.get("evaluated_at"), "created": x["created_at"],
             "stale_harness": bool(x.get("evaluated_at")) and x.get("harness_ref") != harness,
@@ -228,7 +228,7 @@ def collect(db_path: Path) -> dict:
         b = branches.get(h["id"])
         nodes.append({
             "id": h["id"], "title": h["title"], "statement": h["statement"], "parent": h["parent_id"],
-            **_lineage(h, h["parent_id"], latest), "relations": relations.get(h["id"], []),
+            **_lineage(h, h["parent_id"]), "relations": relations.get(h["id"], []),
             "status": h["status"], "exp_status": h["experiment_status"], "novelty": h["novelty_recheck"],
             "theory": h["theory_recheck"], "priority": h["priority"], "reason": h.get("status_reason", ""),
             "doc": h["doc_id"], "references": sorted(references.get(h["id"], [])),
@@ -241,7 +241,7 @@ def collect(db_path: Path) -> dict:
             # GO eligibility from current evidence (research_db.get_eligibility), never from the cached labels
             "eligibility": (eligibility := reader.get_eligibility(h["id"])),
             "go": eligibility["eligible"], "eligibility_checked": True,
-            "disposition": h.get("disposition") or ("retired" if h["status"] == "prunable" else "active"),
+            "disposition": h["disposition"],
             "outcome": eligibility.get("outcome"), "stage": eligibility.get("stage"),
             "stall": h.get("stall_state") or "none", "direction": h.get("direction"),
             "worker": _worker(h),
@@ -249,10 +249,9 @@ def collect(db_path: Path) -> dict:
 
     attention = []
     for e in experiments.values():
-        if e["verdict"] == "close":
-            attention.append({"kind": "extend_seeds", "id": e["hyp"], "text": f"{e['id']} 判定为差不多，需扩展到3个seed"})
-        if e["verdict"] == "needs_rld":
-            attention.append({"kind": "needs_rld", "id": e["hyp"], "text": f"{e['id']} 的统计代码无法判定，等待RLD决定"})
+        if e["outcome"] == "inconclusive":
+            attention.append({"kind": "needs_rld", "id": e["hyp"],
+                              "text": f"{e['id']} 的当前结果不确定；检查重复建议或选择下一个最有信息量的实验"})
         if e["stale_harness"]:
             attention.append({"kind": "stale_harness", "id": e["hyp"] or e["id"], "text": f"{e['id']} 用旧框架判定，结果不可比"})
         for r in e["runs"]:
@@ -262,9 +261,9 @@ def collect(db_path: Path) -> dict:
                 attention.append({"kind": "curve_missing", "id": r["id"], "text": f"{r['id']}：{r['curve_problem']}"})
     for n in nodes:
         latest = n["latest"] and experiments[n["latest"]]
-        if latest and latest["verdict"] in ("no_gain", "beats_parent", "beats_sota") and latest["verdict"] != n["exp_status"]:
+        if latest and latest["outcome"] and n["exp_status"] in ("todo", "running"):
             attention.append({"kind": "conclusion_outdated", "id": n["id"],
-                              "text": f"{n['id']} 最新判定为 {latest['verdict']}，节点结论仍为 {n['exp_status']}"})
+                              "text": f"{n['id']} 最新实验结果为 {latest['outcome']}，节点结论仍为 {n['exp_status']}"})
     factor = project.get("overrun_factor") or 2.0
     for x in tables["experiment"]:
         estimate = x.get("estimated_node_h")
@@ -330,7 +329,7 @@ def collect(db_path: Path) -> dict:
                               "text": f"{t['id']}（{t['kind']}，{t['assignee_role']}/{t.get('assignee_id') or '未指派'}）：{t['status']}"})
     attention += unanswered(root)
     attention += review_attention(root, project)
-    for d in ResearchDB(db_path, "web_builder/site").cleanup_due():
+    for d in ResearchDB(db_path, "ui/ui").cleanup_due():
         attention.append({"kind": "cleanup_due", "id": d["node"] if d["node"] in {h["id"] for h in tables["hypothesis"]} else None,
                           "text": f"{d['experiment_id']}（{d['reason']}）由 {d['owner']} 运行 run_cleanup"})
     for e in experiments.values():
@@ -351,10 +350,10 @@ def collect(db_path: Path) -> dict:
         a["label"] = ATTENTION_LABELS[a["kind"]]
     return {
         "meta": {**snap["meta"], "generated_at": now_utc(), "view": "full", "eligibility_checked": True},
-        "project": {k: v for k, v in project.items() if k != "_table"},
+        "project": {k: v for k, v in project.items() if k != "_table"} | {"architect": _architect(project)},
         "docs": docs, "nodes": nodes, "experiments": experiments, "decisions": decisions,
         "tasks": [{k: v for k, v in t.items() if k != "_table"} for t in tables["task"]],
-        "attention": attention, "node_hours": round(node_hours, 2), "project_worker": _worker(project),
+        "attention": attention, "node_hours": round(node_hours, 2),
         "active_worktrees": sorted(b["worktree_path"] for b in tables["branch"]
                                    if b["status"] == "active" and b.get("worktree_path")),
         "screen_seeds": _screen_seeds(experiments, project),
@@ -362,14 +361,10 @@ def collect(db_path: Path) -> dict:
     }
 
 
-def _lineage(hypothesis: dict, parent: str | None, latest: dict | None = None) -> dict:
-    """Legacy ancestry still supplies code lineage; fixed experiment comparisons are never inferred from ideas."""
-    comparator = hypothesis.get("comparator_experiment_id")
-    if comparator is None and latest:
-        comparator = latest.get("parent_experiment_id") or latest.get("baseline_experiment_id")
-    return {"intellectual_parent_id": parent, "code_parent_id": hypothesis.get("code_parent_id") or parent,
-            "comparator_experiment_id": comparator,
-            "lineage_mode": "explicit" if hypothesis.get("code_parent_id") else "legacy_parent"}
+def _lineage(hypothesis: dict, parent: str | None) -> dict:
+    """Keep intellectual ancestry, code ancestry and the recorded comparator separate."""
+    return {"intellectual_parent_id": parent, "code_parent_id": hypothesis.get("code_parent_id"),
+            "comparator_experiment_id": hypothesis.get("comparator_experiment_id")}
 
 
 def _cleaned(passes: dict | None) -> dict | None:
@@ -390,6 +385,12 @@ def unanswered(root: Path) -> list[dict]:
              "text": f"{m['id']}（{m['type']}）尚无RLD回执：{m['text'][:80]}"}
             for m in messages if m.get("from") == "ui/ui" and m.get("to") == "rld/main"
             and m.get("need") in ("ack", "answer") and m["id"] not in answered]
+
+
+def _architect(project: dict) -> dict:
+    """The root Architect has its own identity and session, separate from hypothesis workers."""
+    return {"id": project.get("architect_id"), "agent_id": project.get("architect_agent_id"),
+            "session_at": project.get("architect_session_at"), "resume": project.get("resume_doc_ids") or []}
 
 
 def _worker(node: dict) -> dict:
@@ -448,17 +449,18 @@ def summary(data: dict, db_path: Path) -> dict:
         deltas = {c["role"]: c["delta_mean"] for c in latest["comparisons"]} if latest else {}
         nodes.append({k: n[k] for k in ("id", "title", "parent", "status", "exp_status", "novelty", "theory", "go",
                                         "worker", "disposition", "outcome", "stage", "stall", "eligibility_checked",
-                                        "intellectual_parent_id", "code_parent_id", "comparator_experiment_id", "lineage_mode", "relations")}
-                     | {"verdict": latest and latest["verdict"], "seeds": latest and len(latest["seeds"]),
+                                        "intellectual_parent_id", "code_parent_id", "comparator_experiment_id", "relations")}
+                     | {"seeds": latest and len(latest["seeds"]),
                         "vs_sota": deltas.get("sota"), "vs_parent": deltas.get("parent", deltas.get("sota")),
                         "concluded_at": n["times"]["concluded_at"]})
-    count = lambda key: {v: sum(1 for n in nodes if n[key] == v) for v in sorted({n[key] for n in nodes})}
+    def count(key):
+        return {v: sum(1 for n in nodes if n[key] == v) for v in sorted({n[key] for n in nodes})}
     harness = project.get("harness_paths") or []
     return {
         "meta": data["meta"], "db_path": str(db_path.resolve()),
         "project": {k: project.get(k) for k in ("id", "title", "status", "stage", "sota_experiment_id", "go_margin",
                                                  "harness_ref", "repo_path", "max_parallel_workers", "alert_node_h",
-                                                 "config_doc_id")} | {"worker": data["project_worker"]},
+                                                 "config_doc_id")} | {"architect": project["architect"]},
         "counts": {"status": count("status"), "exp_status": count("exp_status"),
                    "go": sum(n["go"] for n in nodes), "node_hours": data["node_hours"],
                    "screen_seeds": data["screen_seeds"]},
@@ -490,7 +492,7 @@ def summary_or_empty(db_path: Path) -> dict:
     for one candidate or an explicit full build for the complete evidence/visualization diagnostics.
     """
     root = db_path.resolve().parent
-    with ResearchDB(db_path, "web_builder/site").reader() as tx:
+    with ResearchDB(db_path, "ui/ui").reader() as tx:
         meta = _meta(tx)
         projects = tx.ids("project")
         project = tx.get(projects[0]) if projects else None
@@ -514,7 +516,7 @@ def summary_or_empty(db_path: Path) -> dict:
         for edge in tx.query("MATCH (n:Hypothesis)-[r:RELATED]->(h:Hypothesis) "
                              "RETURN n.id AS id, r.kind AS kind, h.id AS target_id"):
             relations.setdefault(edge["id"], []).append({"kind": edge["kind"], "target_id": edge["target_id"]})
-        experiments = _rows(tx, "Experiment", "id kind seeds verdict evaluated_at harness_ref evaluation_id "
+        experiments = _rows(tx, "Experiment", "id kind seeds evaluated_at harness_ref evaluation_id "
                             "stage estimated_node_h walltime_s baseline_experiment_id parent_experiment_id")
         subjects = {r["id"]: r["hyp"] for r in tx.query(
             "MATCH (n:Experiment)-[:TESTS]->(h) RETURN n.id AS id, h.id AS hyp")}
@@ -543,20 +545,20 @@ def summary_or_empty(db_path: Path) -> dict:
         deltas = comparisons.get(latest["id"], {}) if latest else {}
         node = {"id": h["id"], "title": h["title"], "parent": parents.get(h["id"]), "status": h["status"],
                 "exp_status": h["experiment_status"], "novelty": h["novelty_recheck"], "theory": h["theory_recheck"],
-                **_lineage(h, parents.get(h["id"]), latest), "relations": relations.get(h["id"], []),
+                **_lineage(h, parents.get(h["id"])), "relations": relations.get(h["id"], []),
                 "go": None, "eligibility_checked": False, "evidence_state": "not_checked", "stage": None,
                 "outcome": ev.get("outcome"), "outcome_source": "recorded_evaluation", "worker": _worker(h),
-                "disposition": h["disposition"] or ("retired" if h["status"] == "prunable" else "active"),
+                "disposition": h["disposition"],
                 "stall": h["stall_state"] or "none", "concluded_at": h["concluded_at"],
-                "verdict": latest and latest["verdict"], "seeds": latest and len(latest["seeds"]),
+                "seeds": latest and len(latest["seeds"]),
                 "vs_sota": deltas.get("sota"), "vs_parent": deltas.get("parent", deltas.get("sota"))}
         result["nodes"].append(node)
-        if latest and latest["verdict"] in ("no_gain", "beats_parent", "beats_sota") and latest["verdict"] != node["exp_status"]:
+        if latest and node["outcome"] and node["exp_status"] in ("todo", "running"):
             attention.append({"kind": "conclusion_outdated", "id": h["id"],
-                              "text": f"{h['id']} 最新判定为 {latest['verdict']}，节点结论仍为 {node['exp_status']}"})
-        if latest and latest["verdict"] in ("close", "needs_rld"):
-            attention.append({"kind": "extend_seeds" if latest["verdict"] == "close" else "needs_rld", "id": h["id"],
-                              "text": f"{latest['id']}：{latest['verdict']}"})
+                              "text": f"{h['id']} 最新实验结果为 {node['outcome']}，节点结论仍为 {node['exp_status']}"})
+        if node["outcome"] == "inconclusive":
+            attention.append({"kind": "needs_rld", "id": h["id"],
+                              "text": f"{latest['id']}：当前结果不确定，需选择下一步实验或处置"})
         if node["stall"] in ("structural", "human"):
             attention.append({"kind": "stall", "id": h["id"], "text": f"{h['id']}：{node['stall']}"})
     usage_by_exp = {}
@@ -599,7 +601,7 @@ def summary_or_empty(db_path: Path) -> dict:
                                                                                  for r in sota_runs]}}, project)
     result["project"] = {k: project.get(k) for k in ("id", "title", "status", "stage", "sota_experiment_id", "go_margin",
                           "harness_ref", "repo_path", "max_parallel_workers", "alert_node_h", "config_doc_id")}
-    result["project"]["worker"] = _worker(project)
+    result["project"]["architect"] = _architect(project)
     result["counts"] = {"status": {}, "exp_status": {}, "go": None, "node_hours": round(node_hours, 2),
                         "screen_seeds": screen}
     for key in ("status", "exp_status"):
@@ -613,24 +615,21 @@ def summary_or_empty(db_path: Path) -> dict:
 
 
 def _screen_seeds(experiments: dict, project: dict) -> int | None:
+    """A cheap screen uses only its available, valid matched baseline seeds."""
     sota = experiments.get(project.get("sota_experiment_id") or "")
-    if not sota or not sota["runs"] or sota["runs"][0]["node_h"] is None:
+    if not sota:
         return None
-    by_seed = {r["seed"]: r for r in sota["runs"] if "seed" in r}
-    first = by_seed.get(project["seeds"][0], sota["runs"][0])
-    if first.get("valid") is False or first.get("node_h") is None:
+    by_seed = {r["seed"]: r for r in sota["runs"]}
+    first = by_seed.get(project["seeds"][0])
+    if not first or first.get("valid") is not True or first.get("node_h") is None:
         return None
+    available = 0
+    for seed in project["seeds"]:
+        if not by_seed.get(seed, {}).get("valid"):
+            break
+        available += 1
+    cap = min(project["gate_seeds"], project["screen_seeds"], available)
     cost, n = first["node_h"], 1
-    cap = min(project["gate_seeds"], project.get("screen_seeds") or project["gate_seeds"])
-    if project.get("workflow_mode") == "fast_screening":
-        available = 0
-        for seed in project["seeds"]:
-            if not by_seed.get(seed, {}).get("valid"):
-                break
-            available += 1
-        if not available:
-            return None
-        cap = min(cap, available)
     while n < cap and (n + 1) * cost < project["screen_budget_node_h"]:
         n += 1
     return n
@@ -701,7 +700,7 @@ def main(argv: list[str] | None = None) -> int:
     out = args.out or args.db.parent / "site" / "index.html"
     try:
         if args.check:
-            with ResearchDB(args.db, "web_builder/site").reader() as tx:
+            with ResearchDB(args.db, "ui/ui").reader() as tx:
                 current = _meta(tx)["data_version"]
             built = page_version(out)
             print(json.dumps({"page_version": built, "db_version": current, "stale": built != current}))
@@ -750,7 +749,7 @@ table { border-collapse:collapse; width:100%; font-size:13px; } th,td { border-b
 th { color:var(--muted); font-weight:500; cursor:default; } th.sort { cursor:pointer; }
 .badge { display:inline-block; padding:0 6px; border-radius:10px; font-size:12px; border:1px solid currentColor; margin-right:4px; white-space:nowrap; }
 .s-pending{color:var(--pending)} .s-verifying{color:var(--verifying)} .s-expandable{color:var(--expandable)} .s-prunable{color:var(--prunable)}
-.v-no_gain{color:var(--prunable)} .v-beats_parent{color:var(--expandable)} .v-beats_sota{color:var(--go)} .v-close{color:var(--verifying)} .v-needs_rld{color:var(--warn)}
+.v-no_gain,.v-negative_signal{color:var(--prunable)} .v-beats_sota,.v-positive_signal{color:var(--go)} .v-inconclusive{color:var(--verifying)} .v-invalid{color:var(--warn)}
 .go { color:var(--go); font-weight:600; } .warn { color:var(--warn); } .muted { color:var(--muted); }
 .layout { display:grid; grid-template-columns:minmax(260px,420px) 1fr; gap:16px; }
 @media (max-width: 860px) { .layout { grid-template-columns:1fr; } }
@@ -788,7 +787,7 @@ const P = D.project, NODES = Object.fromEntries(D.nodes.map(n => [n.id, n])), EX
 const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
 const fmt = (x, d = 3) => x == null ? "未知" : (Math.round(x * 10 ** d) / 10 ** d).toString();
 const LABEL = {pending:"待验证", verifying:"验证中", expandable:"可拓展", prunable:"可消灭", todo:"未开始", running:"进行中",
-  no_gain:"无提升", beats_parent:"优于父节点", beats_sota:"优于SOTA", close:"差不多", needs_rld:"需要RLD复核",
+  no_gain:"无提升", beats_sota:"优于SOTA", positive_signal:"正向信号", negative_signal:"负向信号", inconclusive:"不确定", invalid:"无效",
   pass:"通过", fail:"未通过", active:"进行中", go:"GO", not_go:"NOT GO", stopped:"已停止"};
 const L = k => LABEL[k] || k || "未知";
 const badge = (k, cls) => `<span class="badge ${cls}">${esc(L(k))}</span>`;
@@ -819,11 +818,11 @@ function show(k) {
 
 function overview() {
   const count = (arr, key) => arr.reduce((m, x) => (m[x[key]] = (m[x[key]] || 0) + 1, m), {});
-  const byStatus = count(D.nodes, "status"), byExp = count(D.nodes, "exp_status");
+  const byStatus = count(D.nodes, "status"), byOutcome = count(D.nodes, "outcome");
   const sota = EXP[P.sota_experiment_id];
   const cards = [
     ["节点", D.nodes.length], ["验证中", byStatus.verifying || 0], ["可拓展", byStatus.expandable || 0],
-    ["可消灭", byStatus.prunable || 0], ["优于SOTA", byExp.beats_sota || 0], ["GO候选", D.nodes.filter(n => n.go).length],
+    ["可消灭", byStatus.prunable || 0], ["正向信号", byOutcome.positive_signal || 0], ["GO候选", D.nodes.filter(n => n.go).length],
     ["已用资源", D.node_hours + " node·h"], ["筛选seed数", D.screen_seeds ?? "未知"],
   ];
   const recent = D.decisions.slice(-10).reverse();
@@ -832,7 +831,8 @@ function overview() {
     <div class="panel"><h2>研究设定</h2><table>
       <tr><th>研究目标</th><td>${docLink(P.goal_doc_id)}</td></tr>
       <tr><th>最小实验设定</th><td>${docLink(P.min_setup_doc_id)}</td></tr>
-      <tr><th>主指标</th><td>${esc(P.primary_metric)}（${P.metric_direction === "higher" ? "越高越好" : "越低越好"}${P.metric_is_percent ? "，百分比" : ""}）</td></tr>
+      <tr><th>主指标</th><td>${esc(P.primary_metric)}（${P.metric_direction === "higher" ? "越高越好" : "越低越好"}）</td></tr>
+      <tr><th>指标规范</th><td>${docLink(P.metric_spec_doc_id)}</td></tr>
       <tr><th>其他比较指标</th><td>${esc((P.secondary_metrics || []).join("、"))}</td></tr>
       <tr><th>SOTA基线</th><td>${sota ? `${esc(sota.id)} ${esc(sota.method)}，均值 ${fmt(sota.mean)} ± ${fmt(sota.sd)}（seeds ${esc(sota.seeds.join(", "))}）` : '<span class="warn">未设置</span>'}</td></tr>
       <tr><th>优于SOTA门槛</th><td>${P.gate_seeds} 个seed，主指标领先 &gt; ${P.go_margin}</td></tr>
@@ -904,16 +904,16 @@ function rootDetail() {
       <tr><th>冻结框架</th><td>${P.harness_ref ? esc(P.harness_ref.slice(0, 10)) + "：" + esc((P.harness_paths || []).join("、")) : '<span class="warn">未冻结</span>'}</td></tr>
       <tr><th>SOTA基线</th><td>${EXP[P.sota_experiment_id] ? `${esc(P.sota_experiment_id)} ${esc(EXP[P.sota_experiment_id].method)}` : '<span class="warn">未设置</span>'}</td></tr>
       <tr><th>筛选seed数</th><td>${esc(D.screen_seeds ?? "未知")}</td></tr>
-      <tr><th>worker</th><td>${workerCell(D.project_worker)}</td></tr>
+      <tr><th>Architect</th><td>${workerCell(P.architect, "architect")}</td></tr>
       <tr><th>根节点任务</th><td>${tasks.map(t => `${esc(t.id)}（${esc(t.status)}，${esc(t.assignee_role)}/${esc(t.assignee_id || "未指派")}）：${docLink(t.request_doc_id)}`).join("<br>") || "无"}</td></tr>
       <tr><th>子节点（初始假说等）</th><td>${D.nodes.filter(n => n.parent === P.id).map(n => nodeRef(n.id) + " " + esc(n.title)).join("<br>") || "无"}</td></tr>
     </table>
     <h3>基线实验</h3>${baselines.length ? baselines.map(expBlock).join("") : '<p class="muted">暂无基线实验</p>'}
     <h3>决定历史</h3>${decisionTable(D.decisions.filter(d => d.target_id === P.id))}`;
 }
-function workerCell(w) {
+function workerCell(w, role = "worker") {
   if (!w || !w.id) return '<span class="muted">未指派</span>';
-  return `worker/${esc(w.id)}；会话 ${w.agent_id ? esc(w.agent_id) + "（" + esc(w.session_at) + "）" : '<span class="muted">未绑定</span>'}` +
+  return `${esc(role)}/${esc(w.id)}；会话 ${w.agent_id ? esc(w.agent_id) + "（" + esc(w.session_at) + "）" : '<span class="muted">未绑定</span>'}` +
     `<br>恢复文档：${w.resume.length ? w.resume.map(docLink).join("<br>") : '<span class="muted">无</span>'}`;
 }
 function nodeDetail(id) {
@@ -934,7 +934,7 @@ function nodeDetail(id) {
       <tr><th>关键时间</th><td>${keyTimes(n)}</td></tr>
       <tr><th>思想来源</th><td>${nodeRef(n.intellectual_parent_id)}（假说树关系）</td></tr>
       <tr><th>思想关系</th><td>${n.relations.map(r => esc(r.kind) + " → " + nodeRef(r.target_id)).join("、") || "无"}</td></tr>
-      <tr><th>代码起点</th><td>${nodeRef(n.code_parent_id)}${n.lineage_mode === "legacy_parent" ? "（旧记录沿用父节点代码）" : ""}</td></tr>
+      <tr><th>代码起点</th><td>${nodeRef(n.code_parent_id)}</td></tr>
       <tr><th>比较参照</th><td>${esc(n.comparator_experiment_id || "尚未固定，以实验登记的比较身份为准")}</td></tr>
       <tr><th>worker</th><td>${workerCell(n.worker)}</td></tr>
       <tr><th>代码分支</th><td>${n.branch ? `${esc(n.branch.name)}（${esc(n.branch.status)}，基准 ${esc(n.branch.base_ref)} @ ${esc(n.branch.base_commit)}${n.branch.head ? "，交还 " + esc(n.branch.head) : ""}）` : "无"}</td></tr>
@@ -964,7 +964,7 @@ function expBlock(e) {
     <td class="num">${fmt(r.metric)}</td>${(P.secondary_metrics || []).map(k => `<td class="num">${fmt(r.secondary?.[k])}</td>`).join("")}<td class="num">${fmt(r.node_h, 2)}</td>
     <td>${r.curve_problem ? `<span class="warn">${esc(r.curve_problem)}</span>` : "有"}</td></tr>`).join("");
   return `<div class="panel"><b>${esc(e.id)}</b> ${esc(e.method)} · ${esc(e.kind)} · seeds ${esc(e.seeds.join(", "))} · 代码 ${esc(e.code)}
-    ${e.evaluation ? `<span class="muted">${esc(e.evaluation.id)} · ${esc(e.evaluation.level)}${e.evaluation.eval_type ? " · " + esc(e.evaluation.eval_type) : ""}${e.evaluation.guardrails_passed === false ? ' · <span class="warn">保护指标未通过</span>' : ""}</span> ` : ""}${e.verdict ? badge(e.verdict, "v-" + e.verdict) : e.kind === "baseline" ? `<span class="muted">${e.evaluated ? "基线结果已记录" : "基线结果未记录"}</span>` : '<span class="muted">未判定</span>'}${e.stale_harness ? '<span class="warn">框架已更换，结果不可比</span>' : ""}${e.cleaned ? `<span class="muted"> · 产物已清理（${esc(e.cleaned.at)}，释放 ${(e.cleaned.freed_bytes / 2 ** 30).toFixed(2)} GiB${e.cleaned.kept.length ? "，保留 " + esc(e.cleaned.kept.join("、")) : ""}）</span>` : ""}
+    ${e.evaluation ? `<span class="muted">${esc(e.evaluation.id)} · ${esc(e.evaluation.level)}${e.evaluation.eval_type ? " · " + esc(e.evaluation.eval_type) : ""}${e.evaluation.guardrails_passed === false ? ' · <span class="warn">保护指标未通过</span>' : ""}</span> ` : ""}${e.outcome ? badge(e.outcome, "v-" + e.outcome) : e.kind === "baseline" ? `<span class="muted">${e.evaluated ? "基线结果已记录" : "基线结果未记录"}</span>` : '<span class="muted">未判定</span>'}${e.stale_harness ? '<span class="warn">框架已更换，结果不可比</span>' : ""}${e.cleaned ? `<span class="muted"> · 产物已清理（${esc(e.cleaned.at)}，释放 ${(e.cleaned.freed_bytes / 2 ** 30).toFixed(2)} GiB${e.cleaned.kept.length ? "，保留 " + esc(e.cleaned.kept.join("、")) : ""}）</span>` : ""}
     <div>设计：${docLink(e.design)}；结果：${docLink(e.result)}</div>
     <div class="muted">固定基线：${esc(e.baseline_experiment_id || "无")}；指定比较实验：${esc(e.parent_experiment_id || e.baseline_experiment_id || "无")}</div>
     <table class="heat"><thead><tr><th>seed</th><th>执行</th><th>验收</th><th>${esc(P.primary_metric)}</th>${(P.secondary_metrics || []).map(k => `<th>${esc(k)}</th>`).join("")}<th>node·h</th><th>曲线</th></tr></thead><tbody>${runs}</tbody></table>
@@ -1031,7 +1031,7 @@ function results() {
   const body = () => {
     const data = rows.map(({n, e}) => { const c = cmp(e, "parent"); return {n, e, c, id: n.id, seeds: e.seeds.length, p: c?.delta_mean, ...(c?.deltas || {})}; });
     data.sort((a, b) => ((a[key] ?? -1e9) > (b[key] ?? -1e9) ? 1 : -1) * dir);
-    document.querySelector("#rtab tbody").innerHTML = data.map(r => `<tr><td>${nodeRef(r.id)} ${esc(r.n.title)}</td><td>${badge(r.e.verdict, "v-" + r.e.verdict)}</td><td>${r.seeds}</td>
+    document.querySelector("#rtab tbody").innerHTML = data.map(r => `<tr><td>${nodeRef(r.id)} ${esc(r.n.title)}</td><td>${badge(r.e.outcome, "v-" + r.e.outcome)}</td><td>${r.seeds}</td>
       ${heatCell(r.c?.delta_mean)}${(P.secondary_metrics || []).map(k => heatCell(r.c?.deltas[k])).join("")}<td>${esc(r.c?.target_id || "")}</td></tr>`).join("");
   };
   document.querySelector("#rtab thead").addEventListener("click", ev => { const k = ev.target.dataset.k; if (!k) return; dir = key === k ? -dir : -1; key = k; body(); });
@@ -1040,21 +1040,21 @@ function results() {
 
 // ---- findings ----
 function findings() {
-  const go = D.nodes.filter(n => n.exp_status === "beats_sota"), up = D.nodes.filter(n => n.exp_status === "beats_parent");
-  const dead = D.nodes.filter(n => n.status === "prunable");
+  const go = D.nodes.filter(n => n.outcome === "positive_signal"), up = D.nodes.filter(n => n.outcome === "inconclusive");
+  const dead = D.nodes.filter(n => n.disposition === "retired");
   const card = n => { const e = n.latest && EXP[n.latest], s = e && e.comparisons.find(c => c.role === "sota");
     return `<div class="panel"><h3>${nodeRef(n.id)} ${esc(n.title)} ${n.go ? '<span class="badge go">GO候选</span>' : ""}</h3><p>${esc(n.statement)}</p>
       <p>${s ? `相对SOTA ${s.delta_mean >= 0 ? "+" : ""}${fmt(s.delta_mean)}（${s.n_paired} seeds${s.passes_gate ? "，过门槛" : ""}）` : ""}
-      ${n.exp_status === "beats_sota" ? ` · 新颖性复核 ${esc(n.novelty === "pending" ? "未复核" : L(n.novelty))} · 理论复核 ${esc(n.theory === "pending" ? "未复核" : L(n.theory))}` : ""}</p>
+      ${n.outcome === "positive_signal" ? ` · 新颖性复核 ${esc(n.novelty === "pending" ? "未复核" : L(n.novelty))} · 理论复核 ${esc(n.theory === "pending" ? "未复核" : L(n.theory))}` : ""}</p>
       ${D.docs[n.doc]?.summary && D.docs[n.doc].summary !== n.statement ? `<p class="muted">${esc(D.docs[n.doc].summary)}</p>` : ""}</div>`; };
-  const why = n => { const d = [...D.decisions].reverse().find(x => x.target_id === n.id && x.field === "status" && x.to_value === "prunable");
+  const why = n => { const d = [...D.decisions].reverse().find(x => x.target_id === n.id && x.field === "disposition" && x.to_value === "retired");
     const user = d && d.based_on.some(b => D.docs[b]?.type === "user_instruction");
-    const kind = user ? "用户决定放弃" : n.exp_status === "no_gain" ? "无提升" : (n.novelty === "fail" || n.theory === "fail") ? "复核未通过" : "其他";
+    const kind = user ? "用户决定放弃" : n.outcome === "negative_signal" ? "负向信号" : (n.novelty === "fail" || n.theory === "fail") ? "复核未通过" : "其他";
     return `<tr><td>${nodeRef(n.id)} ${esc(n.title)}</td><td>${esc(kind)}</td><td>${esc(d ? d.reason : n.reason)}</td></tr>`; };
   document.getElementById("v-findings").innerHTML = `
-    <h2>候选方法（优于SOTA）</h2>${go.length ? go.map(card).join("") : '<p class="muted">暂无</p>'}
-    <h2>可拓展方向（优于父节点）</h2>${up.length ? up.map(card).join("") : '<p class="muted">暂无</p>'}
-    <div class="panel"><h2>负结果（已消灭的节点）</h2>${dead.length ? `<table><thead><tr><th>节点</th><th>原因</th><th>理由</th></tr></thead><tbody>${dead.map(why).join("")}</tbody></table>` : '<p class="muted">暂无</p>'}</div>`;
+    <h2>正向信号（独立确认前不代表 GO）</h2>${go.length ? go.map(card).join("") : '<p class="muted">暂无</p>'}
+    <h2>不确定结果</h2>${up.length ? up.map(card).join("") : '<p class="muted">暂无</p>'}
+    <div class="panel"><h2>不再投入的方向（处置与科学结果分别记录）</h2>${dead.length ? `<table><thead><tr><th>节点</th><th>原因</th><th>理由</th></tr></thead><tbody>${dead.map(why).join("")}</tbody></table>` : '<p class="muted">暂无</p>'}</div>`;
 }
 
 // ---- timeline ----
@@ -1066,7 +1066,7 @@ function timeline() {
       if (n.times[k]) ev.push([n.times[k], "节点" + TIME_LABEL[k], `${nodeRef(n.id)} ${esc(n.title)}（${since(n.created, n.times[k])}）`]);
   });
   Object.values(EXP).forEach(e => { ev.push([e.created, "创建实验", `${esc(e.id)} ${esc(e.method)}（${esc(e.kind)}）`]);
-    if (e.evaluated) ev.push([e.evaluated, "统计判定", `${esc(e.id)} ${e.verdict ? badge(e.verdict, "v-" + e.verdict) : "基线结果"}`]); });
+    if (e.evaluated) ev.push([e.evaluated, "统计判定", `${esc(e.id)} ${e.outcome ? badge(e.outcome, "v-" + e.outcome) : "基线结果"}`]); });
   D.decisions.forEach(d => ev.push([d.decided_at, "决定", `${nodeRef(d.target_id)} ${esc(d.field)} → <b>${esc(L(d.to_value))}</b>：${esc(d.reason)}`]));
   ev.sort((a, b) => a[0] < b[0] ? 1 : -1);
   document.getElementById("v-timeline").innerHTML = `<div class="panel"><table><thead><tr><th>时间</th><th>事件</th><th>内容</th></tr></thead><tbody>

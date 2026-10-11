@@ -57,12 +57,12 @@ SPEC_FIELDS = {"name", "direction", "input_unit", "canonical_unit", "effect_mode
 REQUIRED_SPEC_FIELDS = ("name", "direction", "input_unit", "canonical_unit", "effect_mode", "minimum_practical_gain",
                         "aggregation")
 PROTOCOL_FIELDS = {"version", "eval_type", "pair_fields", "match", "required_counts", "gate_comparison",
-                   "min_pairs", "require_artifact_import", "inference_mode", "description", "profile",
+                   "min_pairs", "require_artifact_import", "description", "profile",
                    "confirmation_seeds", "min_confirmation_pairs", "max_confirmation_candidates",
                    "independence_fields", "confirmation_materials", "execution_fields", "sanity_overrides_allowed",
                    "review_applicability", "repetition"}
-# 06 §2.4: screening ends at candidate_ready; stage1_confirmed needs an independent confirmation for GO.
-PROFILES = ("screening", "stage1_confirmed")
+# Every candidate needs independent confirmation before a project GO.
+PROFILES = ("stage1_confirmed",)
 OUTCOMES = ("positive_signal", "negative_signal", "inconclusive", "invalid")
 GATE_COMPARISONS = (">", ">=")
 
@@ -103,6 +103,8 @@ def check_spec(spec: Any) -> None:
     if not isinstance(spec, dict):
         raise MetricError("METRIC_UNIT_MISMATCH", f"a metric spec is an object, got {spec!r}")
     name = spec.get("name", "?")
+    if not isinstance(name, str) or not name.strip():
+        raise MetricError("METRIC_UNIT_MISMATCH", "a metric name is a nonempty string")
     missing = [f for f in REQUIRED_SPEC_FIELDS if spec.get(f) is None]
     extra = set(spec) - SPEC_FIELDS
     if missing or extra:
@@ -116,15 +118,15 @@ def check_spec(spec: Any) -> None:
                                                   f"{spec['canonical_unit']}")
     for field in ("minimum_practical_gain", "allowed_regression", "relative_min_denominator"):
         value = spec.get(field)
-        if value is not None and not (_number(value) and value >= 0):
-            raise MetricError("METRIC_UNIT_MISMATCH", f"metric {name}: {field} must be a number >= 0")
+        if value is not None and not (_number(value) and math.isfinite(value) and value >= 0):
+            raise MetricError("METRIC_UNIT_MISMATCH", f"metric {name}: {field} must be a finite number >= 0")
     if spec["effect_mode"] == "relative_to_reference_mean" and spec.get("relative_min_denominator") is None:
         raise MetricError("METRIC_UNIT_MISMATCH", f"metric {name}: a relative effect needs relative_min_denominator")
     rng = spec.get("valid_range")
     if spec["input_unit"] == "percentage" and rng is None:
         raise MetricError("METRIC_UNIT_MISMATCH", f"metric {name}: a percentage metric declares valid_range, narrow "
                                                   "enough that a fraction (0.7 for 70%) cannot pass unnoticed")
-    if rng is not None and not (isinstance(rng, list) and len(rng) == 2 and all(_number(v) for v in rng)
+    if rng is not None and not (isinstance(rng, list) and len(rng) == 2 and all(_number(v) and math.isfinite(v) for v in rng)
                                 and rng[0] <= rng[1]):
         raise MetricError("METRIC_UNIT_MISMATCH", f"metric {name}: valid_range is [low, high]")
 
@@ -138,34 +140,35 @@ def check_protocol(doc: Any) -> dict:
         raise MetricError("PROTOCOL_CHANGE_REQUIRED", f"protocol has unknown keys {sorted(extra)}")
     if doc.get("eval_type") not in EVAL_TYPES:
         raise MetricError("PROTOCOL_CHANGE_REQUIRED", f"protocol eval_type must be one of {EVAL_TYPES}")
-    pair = doc.get("pair_fields", ["seed"])
-    if not (isinstance(pair, list) and all(isinstance(f, str) and f for f in pair) and "seed" in pair):
-        raise MetricError("PROTOCOL_CHANGE_REQUIRED", "pair_fields is a list of manifest fields including seed")
+    pair = doc.get("pair_fields")
+    if not (isinstance(pair, list) and all(isinstance(f, str) and f for f in pair)
+            and len(set(pair)) == len(pair) and "seed" in pair):
+        raise MetricError("PROTOCOL_CHANGE_REQUIRED", "pair_fields is an explicit list of distinct manifest fields including seed")
     for key in ("match", "required_counts"):
         if not isinstance(doc.get(key, {}), dict):
             raise MetricError("PROTOCOL_CHANGE_REQUIRED", f"protocol {key} is an object")
     if any(not isinstance(v, (str, int, float, bool)) for v in doc.get("match", {}).values()):
         raise MetricError("PROTOCOL_CHANGE_REQUIRED", "protocol match values are scalars (string, number, boolean)")
-    if any(not (isinstance(v, int) and v > 0) for v in doc.get("required_counts", {}).values()):
+    if any(not (isinstance(v, int) and not isinstance(v, bool) and v > 0) for v in doc.get("required_counts", {}).values()):
         raise MetricError("PROTOCOL_CHANGE_REQUIRED", "required_counts values are positive integers")
     if doc.get("gate_comparison", ">") not in GATE_COMPARISONS:
         raise MetricError("PROTOCOL_CHANGE_REQUIRED", f"gate_comparison is one of {GATE_COMPARISONS}")
-    if doc.get("min_pairs") is not None and not (isinstance(doc["min_pairs"], int) and doc["min_pairs"] >= 1):
+    if doc.get("min_pairs") is not None and not (isinstance(doc["min_pairs"], int) and not isinstance(doc["min_pairs"], bool)
+                                               and doc["min_pairs"] >= 1):
         raise MetricError("PROTOCOL_CHANGE_REQUIRED", "min_pairs is a positive integer")
-    if doc.get("profile", "stage1_confirmed") not in PROFILES:
-        raise MetricError("PROTOCOL_CHANGE_REQUIRED", f"profile is one of {PROFILES}")
+    if doc.get("profile") not in PROFILES:
+        raise MetricError("PROTOCOL_CHANGE_REQUIRED", "profile must explicitly be stage1_confirmed; independent confirmation is required")
     seeds = doc.get("confirmation_seeds", [])
     if not (isinstance(seeds, list) and all(isinstance(x, int) and not isinstance(x, bool) for x in seeds)
             and len(set(seeds)) == len(seeds)):
         raise MetricError("PROTOCOL_CHANGE_REQUIRED", "confirmation_seeds is a list of distinct integers")
     for key in ("min_confirmation_pairs", "max_confirmation_candidates"):
-        if doc.get(key) is not None and not (isinstance(doc[key], int) and doc[key] >= 1):
+        if key in doc and not (isinstance(doc[key], int) and not isinstance(doc[key], bool) and doc[key] >= 1):
             raise MetricError("PROTOCOL_CHANGE_REQUIRED", f"{key} is a positive integer")
-    if doc.get("profile", "stage1_confirmed") == "stage1_confirmed":
-        need = doc.get("min_confirmation_pairs", 3)
-        if len(seeds) < need:
-            raise MetricError("PROTOCOL_CHANGE_REQUIRED", f"profile stage1_confirmed declares at least {need} "
-                                                          "confirmation_seeds, unused during the search")
+    need = doc.get("min_confirmation_pairs", 3)
+    if len(seeds) < need:
+        raise MetricError("PROTOCOL_CHANGE_REQUIRED", f"profile stage1_confirmed declares at least {need} "
+                                                      "confirmation_seeds, unused during the search")
     materials = doc.get("confirmation_materials", [])
     if not isinstance(materials, list):
         raise MetricError("PROTOCOL_CHANGE_REQUIRED", "confirmation_materials is a list")
@@ -189,8 +192,9 @@ def check_protocol(doc: Any) -> dict:
         if not (isinstance(doc.get(key, []), list) and all(isinstance(f, str) and f for f in doc.get(key, []))):
             raise MetricError("PROTOCOL_CHANGE_REQUIRED", f"{key} is a list of configuration field names")
     fields = doc.get("independence_fields", [])
-    if not (isinstance(fields, list) and all(isinstance(f, str) and f for f in fields)):
-        raise MetricError("PROTOCOL_CHANGE_REQUIRED", "independence_fields is a list of manifest fields")
+    if not (isinstance(fields, list) and all(isinstance(f, str) and f for f in fields)
+            and len(set(fields)) == len(fields)):
+        raise MetricError("PROTOCOL_CHANGE_REQUIRED", "independence_fields is a list of distinct manifest fields")
     # S4 §8.1: which recheck dimensions a claim may exempt as a whole (only novelty and theory; an empirical
     # result's numbers, protocol and method-code are always reviewed)
     allowed = doc.get("review_applicability", {})
@@ -202,17 +206,20 @@ def check_protocol(doc: Any) -> dict:
                                                       "method_code are never exempt")
     rep = doc.get("repetition")
     if rep is not None:
-        ok = (isinstance(rep, dict) and set(rep) <= {"enabled", "se_multiple", "batch", "seed_pool", "auto"}
+        ok = (isinstance(rep, dict) and set(rep) <= {"enabled", "se_multiple", "batch", "seed_pool"}
               and isinstance(rep.get("enabled"), bool) and _number(rep.get("se_multiple", 2.0))
-              and rep.get("se_multiple", 2.0) > 0 and isinstance(rep.get("batch", 2), int) and rep.get("batch", 2) >= 1
+              and math.isfinite(rep.get("se_multiple", 2.0)) and rep.get("se_multiple", 2.0) > 0
+              and isinstance(rep.get("batch", 2), int) and not isinstance(rep.get("batch", 2), bool)
+              and rep.get("batch", 2) >= 1
               and isinstance(rep.get("seed_pool", []), list)
               and all(isinstance(s, int) and not isinstance(s, bool) for s in rep.get("seed_pool", []))
+              and len(set(rep.get("seed_pool", []))) == len(rep.get("seed_pool", []))
               and not set(rep.get("seed_pool", [])) & set(doc.get("confirmation_seeds", []))
               and not any(set(rep.get("seed_pool", [])) & set(m.get("seeds", [])) for m in materials if isinstance(m, dict)))
         if not ok:
             raise MetricError("PROTOCOL_CHANGE_REQUIRED", "repetition is {enabled, se_multiple > 0, batch >= 1, "
-                                                          "seed_pool: search/replicate seeds (never confirmation seeds), "
-                                                          "auto?}, fixed before the experiments")
+                                                          "seed_pool: search/replicate seeds (never confirmation seeds)"
+                                                          "}, fixed before the experiments")
     return doc
 
 
@@ -224,7 +231,10 @@ def repetition_advice(spec: dict, pairs: list[dict], gain: float, policy: dict |
     SD of the differences, SE = SD / sqrt(n), and the comparison is unclear when |mean - gain| <= se_multiple x SE.
     A descriptive allocation heuristic, never a significance claim. More seeds come only from the protocol's
     search/replicate seed_pool, within the available budget; nothing is run here."""
+    check_spec(spec)
     policy = policy or {}
+    if not isinstance(policy, dict) or set(policy) - {"enabled", "se_multiple", "batch", "seed_pool"}:
+        raise MetricError("PROTOCOL_CHANGE_REQUIRED", "repetition advice accepts only enabled, se_multiple, batch and seed_pool")
     base = {"effect_mode": spec.get("effect_mode"), "unit": spec.get("canonical_unit"), "gain": gain,
             "policy": {k: policy.get(k) for k in ("enabled", "se_multiple", "batch")}}
     if not policy.get("enabled"):
@@ -265,26 +275,11 @@ def repetition_advice(spec: dict, pairs: list[dict], gain: float, policy: dict |
         if not proposed:
             return {**out, "advice": "hold_inconclusive", "reason": why + "; the available budget does not fit one more seed"}
     return {**out, "advice": "add_repeats", "seeds": proposed, "reason": why,
-            "cost": None if seed_cost is None else seed_cost * len(proposed), "available": available,
-            "auto": bool(policy.get("auto"))}
-
-
-def legacy_specs(project: dict) -> dict:
-    """The compatibility specification of a project without a metric_spec document (plans/design/10 §2.4): the
-    primary metric's direction from the project, values taken as they are, and the old go_margin semantics
-    (percentage-point difference when metric_is_percent, else relative difference in percent). Secondary
-    metrics have no known direction; their deltas cannot be recomputed and stay the caller's."""
-    percent = project["metric_is_percent"]
-    primary = {"name": project["primary_metric"], "direction": project["metric_direction"], "input_unit": "raw",
-               "canonical_unit": "raw", "effect_mode": "absolute" if percent else "relative_to_reference_mean",
-               "minimum_practical_gain": project["go_margin"], "aggregation": "paired_run_mean",
-               "relative_min_denominator": 0.0}
-    return {"version": 1, "primary": primary["name"], "metrics": [primary], "legacy": True,
-            "legacy_relative_percent": not percent}
+            "cost": None if seed_cost is None else seed_cost * len(proposed), "available": available}
 
 
 def spec_by_name(specs: dict) -> dict[str, dict]:
-    return {s["name"]: s for s in specs["metrics"]}
+    return {s["name"]: s for s in check_metric_specs(specs)["metrics"]}
 
 
 # ---------------------------------------------------------------------------
@@ -301,6 +296,7 @@ _number = is_number
 
 def canonical(spec: dict, value: Any, where: str) -> float:
     """One run value in the comparison unit; refuses non-finite and out-of-range inputs."""
+    check_spec(spec)
     if not _number(value):
         raise MetricError("NONFINITE_METRIC", f"{where}: {spec['name']} is not a number ({value!r})")
     if not math.isfinite(value):
@@ -339,10 +335,10 @@ def check_unit_mix(spec: dict, values: list[float], where: str) -> str | None:
     return None
 
 
-def pair_key(protocol: dict | None, run: dict) -> tuple:
+def pair_key(protocol: dict, run: dict) -> tuple:
     """The fields that must match for two runs to pair: the protocol's pair_fields, read from the run's imported
-    manifest; without a manifest only the seed is known."""
-    fields = (protocol or {}).get("pair_fields", ["seed"])
+    manifest. Seed-only pairing still needs an explicit protocol."""
+    fields = check_protocol(protocol)["pair_fields"]
     manifest = run.get("manifest") or {}
     key = []
     for field in fields:
@@ -376,8 +372,13 @@ def summary(values: list[float]) -> dict:
     return out
 
 
-def effect(spec: dict, xs: list[float], ys: list[float], legacy_percent: bool = False) -> dict:
+def effect(spec: dict, xs: list[float], ys: list[float]) -> dict:
     """The oriented effect of method values xs against reference values ys (paired, same order)."""
+    check_spec(spec)
+    if not xs or len(xs) != len(ys):
+        raise MetricError("PAIRING_MISMATCH", "an effect needs nonempty paired method and reference values")
+    if any(not _number(value) or not math.isfinite(value) for value in xs + ys):
+        raise MetricError("NONFINITE_METRIC", "paired effect values must be finite numbers")
     s = 1 if spec["direction"] == "higher" else -1
     n = len(xs)
     out: dict[str, Any] = {"n_paired": n, "effect_mode": spec["effect_mode"], "unit": spec["canonical_unit"]}
@@ -397,9 +398,9 @@ def effect(spec: dict, xs: list[float], ys: list[float], legacy_percent: bool = 
                           f"{spec['relative_min_denominator']}")
         return out
     rel = s * (statistics.fmean(xs) - ref) / abs(ref)
-    out.update(delta_mean=rel * 100 if legacy_percent else rel, delta_sd=None,
+    out.update(delta_mean=rel, delta_sd=None,
                delta_sd_missing="a relative effect is the ratio of means, not a mean of per-seed ratios",
-               unit="percent" if legacy_percent else "fraction")
+               unit="fraction")
     return out
 
 
@@ -413,11 +414,17 @@ def passes(value: float | None, threshold: float, comparison: str) -> bool:
     return value > threshold if comparison == ">" else value >= threshold
 
 
-def compare(specs: dict, protocol: dict | None, mine: list[dict], theirs: list[dict], metrics: list[str]) -> dict:
+def compare(specs: dict, protocol: dict, mine: list[dict], theirs: list[dict], metrics: list[str]) -> dict:
     """Pair two sets of valid runs on the protocol's pair keys and compute every metric's effect.
 
     Returns {"n_paired", "pair_keys", "metrics": {name: effect}, "unpaired": [...]}; a pair key that appears twice
     on one side is refused (no run counts twice)."""
+    by_name = spec_by_name(specs)
+    check_protocol(protocol)
+    for name in metrics:
+        if name not in by_name:
+            raise MetricError("METRIC_UNIT_MISMATCH", f"metric {name} has no specification")
+
     def keyed(runs):
         out = {}
         for run in runs:
@@ -432,7 +439,7 @@ def compare(specs: dict, protocol: dict | None, mine: list[dict], theirs: list[d
     keys = sorted(set(a) & set(b), key=key_text)
     seeds_a = {r["seed"] for r in mine}
     mismatched = sorted(r["seed"] for r in theirs if r["seed"] in seeds_a and pair_key(protocol, r) not in a)
-    independence = (protocol or {}).get("independence_fields") or []
+    independence = protocol.get("independence_fields") or []
     if independence:  # runs that share these (e.g. the same data order) are one independent repeat, not several
         # S3 §7.2: on both sides every declared field is present and a scalar; a missing value is never counted
         # as one more independent unit
@@ -445,23 +452,36 @@ def compare(specs: dict, protocol: dict | None, mine: list[dict], theirs: list[d
                     raise MetricError("INDEPENDENCE_UNVERIFIED", f"{side[k]['id']} lacks the independence fields {bad} "
                                                                  "the protocol declares (a missing value is not a new "
                                                                  "independent unit)")
-        distinct = {tuple((a[k].get("manifest") or {}).get(f) for f in independence) for k in keys}
-        n_independent = len(distinct)
+        # A pair is not an independent repeat when either its method or reference shares a declared unit
+        # with another pair. Count connected groups, including chains of shared method/reference units.
+        groups = list(range(len(keys)))
+        seen = {}
+
+        def group(index):
+            while groups[index] != index:
+                groups[index] = groups[groups[index]]
+                index = groups[index]
+            return index
+
+        for index, key in enumerate(keys):
+            for side in (a, b):
+                unit = tuple(side[key]["manifest"][field] for field in independence)
+                if unit in seen:
+                    groups[group(index)] = group(seen[unit])
+                else:
+                    seen[unit] = index
+        n_independent = len({group(index) for index in range(len(keys))})
     else:
         n_independent = len(keys)
     result = {"n_paired": len(keys), "n_independent": n_independent, "pair_keys": [key_text(k) for k in keys],
               "metrics": {}, "unpaired_same_seed": mismatched}
     if not keys:
         return result
-    legacy_pct = specs.get("legacy_relative_percent", False)
-    by_name = spec_by_name(specs)
     for name in metrics:
-        if name not in by_name:
-            continue  # legacy secondary metrics: no direction known
         xs = [run_values(specs, a[k], [name])[name] for k in keys]
         ys = [run_values(specs, b[k], [name])[name] for k in keys]
         hint = check_unit_mix(by_name[name], xs + ys, "the compared runs")
-        result["metrics"][name] = effect(by_name[name], xs, ys, legacy_pct)
+        result["metrics"][name] = effect(by_name[name], xs, ys)
         if hint:
             result.setdefault("hints", []).append(hint)
     return result
@@ -469,12 +489,16 @@ def compare(specs: dict, protocol: dict | None, mine: list[dict], theirs: list[d
 
 def guardrails(specs: dict, comparison: dict) -> dict:
     """Metrics with allowed_regression must not regress more than allowed; an undefined effect fails closed."""
+    by_name = spec_by_name(specs)
+    for name in comparison["metrics"]:
+        if name not in by_name:
+            raise MetricError("METRIC_UNIT_MISMATCH", f"metric {name} has no specification")
     out = {}
     for spec in specs["metrics"]:
         limit = spec.get("allowed_regression")
-        if limit is None or spec["name"] not in comparison["metrics"]:
+        if limit is None:
             continue
-        value = comparison["metrics"][spec["name"]].get("delta_mean")
+        value = comparison["metrics"].get(spec["name"], {}).get("delta_mean")
         out[spec["name"]] = {"allowed_regression": limit, "effect": value,
                              "passed": value is not None and value >= -limit}
     return out
@@ -533,4 +557,5 @@ def minimal_documents(primary: str, direction: str, secondary: list[str], gain: 
                 "minimum_practical_gain": mpg, "aggregation": "paired_run_mean"}
     specs = {"version": 1, "primary": primary,
              "metrics": [spec(primary, direction, gain)] + [spec(n, "lower", 0.0) for n in secondary]}
-    return specs, {"version": 1, "eval_type": "real_gt", "pair_fields": ["seed"], "profile": "screening"}
+    return specs, {"version": 1, "eval_type": "real_gt", "pair_fields": ["seed"],
+                   "profile": "stage1_confirmed", "confirmation_seeds": [1042, 1043, 1044]}

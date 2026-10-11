@@ -15,7 +15,6 @@ sys.path.insert(0, str(REPO / "tools"))
 
 from latticedb import Database  # noqa: E402
 from research_db import ResearchDB  # noqa: E402
-import metrics  # noqa: E402
 
 PLAN = """# 低秩优化器研究计划
 
@@ -61,7 +60,8 @@ class ResearchTreeTest(unittest.TestCase):
                          (REPO / "schema" / "cleanup.template.py").read_text(encoding="utf-8"))
         registry = json.loads((root / "agents.json").read_text())
         self.assertIn("ui/ui", registry)
-        self.assertIn("worker/root", registry)
+        self.assertIn("architect/root", registry)
+        self.assertNotIn("worker/root", registry)
 
         doc = ResearchDB(root / "research_tree.db", "rld/main").get(marker["plan_instruction"]["doc_id"])
         self.assertEqual((doc["doc_type"], doc["status"], doc["author_role"]), ("user_instruction", "current", "ui"))
@@ -120,7 +120,7 @@ class ResearchTreeTest(unittest.TestCase):
         self.assertEqual(data["nodes"], [])
         root = Path(out["result"]["root"]).resolve()
         plan_doc = root / "docs" / out["result"]["plan_instruction"]["path"]
-        spec_doc = root / "docs" / out["result"]["metric_spec"]["path"]  # a version-2 configuration's specification
+        spec_doc = root / "docs" / out["result"]["metric_spec"]["path"]  # a version-3 configuration's specification
         self.assertEqual(sorted(data["guards"]["frozen_docs"]), sorted([str(plan_doc), str(spec_doc)]))
 
     def test_init_takes_the_prepared_config_a_named_one_or_the_default(self):
@@ -135,20 +135,20 @@ class ResearchTreeTest(unittest.TestCase):
         # The file prepare copied and the user edited is the one used; it is checked first.
         prepared = self.cwd / "prepared"
         prepared.mkdir()
-        (prepared / "research-tree.yaml").write_text("budget:\n  per_run:\n    nodes: 0\n  typo: 1\n", encoding="utf-8")
+        (prepared / "research-tree.yaml").write_text("version: 3\nbudget:\n  per_run:\n    nodes: 0\n  typo: 1\n", encoding="utf-8")
         error = init("prepared")["error"]
         self.assertIn("budget.per_run.nodes", error)
         self.assertIn("'typo' was unexpected", error)
         self.assertFalse((prepared / "research").exists())
-        (prepared / "research-tree.yaml").write_text("budget:\n  screen_node_h: 4\n", encoding="utf-8")
+        (prepared / "research-tree.yaml").write_text("version: 3\nbudget:\n  screen_node_h: 4\n", encoding="utf-8")
         self.assertTrue(init("prepared")["ok"])
-        self.assertEqual((prepared / "research-tree.yaml").read_text(encoding="utf-8"), "budget:\n  screen_node_h: 4\n")
+        self.assertEqual((prepared / "research-tree.yaml").read_text(encoding="utf-8"), "version: 3\nbudget:\n  screen_node_h: 4\n")
 
         # Another file is named with --config; it does not replace a different one already there.
         good = self.cwd / "cluster.yaml"
-        good.write_text("budget:\n  screen_node_h: 4\n", encoding="utf-8")
+        good.write_text("version: 3\nbudget:\n  screen_node_h: 4\n", encoding="utf-8")
         (self.cwd / "named").mkdir()
-        (self.cwd / "named" / "research-tree.yaml").write_text("budget:\n  screen_node_h: 5\n", encoding="utf-8")
+        (self.cwd / "named" / "research-tree.yaml").write_text("version: 3\nbudget:\n  screen_node_h: 5\n", encoding="utf-8")
         self.assertIn("already exists", init("named", "--config", str(good))["error"])
         self.assertTrue(init("copied", "--config", str(good))["ok"])
         self.assertEqual((self.cwd / "copied" / "research-tree.yaml").read_text(encoding="utf-8"), good.read_text(encoding="utf-8"))
@@ -199,82 +199,85 @@ class ResearchTreeTest(unittest.TestCase):
         self.assertEqual([(r["agent"], r["event"], r["model"]) for r in records],
                          [("a1", "requested", "inherit"), ("a1", "observed", "m-1")])
 
-    def test_config_apply_registers_versions_and_writes_the_record(self):  # a version-1 configuration
-        (self.cwd / "research-tree.yaml").write_text(
-            (REPO / "schema" / "config.v1.template.yaml").read_text(encoding="utf-8"), encoding="utf-8")
-        _, out = self.run_tool("init", str(self.plan), "--project-id", "P-demo")
-        root, config = Path(out["result"]["root"]), self.cwd / "research-tree.yaml"
+    def test_config_apply_registers_versions_and_writes_only_active_controls(self):
+        code, out = self.run_tool("init", str(self.plan), "--project-id", "P-demo")
+        self.assertEqual(code, 0, out)
+        marker = out["result"]
+        root, config = Path(marker["root"]), self.cwd / "research-tree.yaml"
         shown = self.run_tool("config")[1]["result"]
         self.assertEqual((shown["source"], shown["pending"]), ("file", False))
-        self.assertEqual(shown["db_fields"]["max_walltime_s"], 3600)
-
-        # Before the project record exists: the file is registered, nothing else changes.
         code, out = self.run_tool("config", "apply", "--require-project")
         self.assertEqual(code, 2)
         self.assertIn("create_project", out["error"])
-        applied = self.run_tool("config", "apply")[1]["result"]
-        first = applied["config"]
-        self.assertEqual((applied["new_version"], applied["updated_fields"], first["path"]),
-                         (True, {}, "project/config.v1.yaml"))
-        self.assertEqual(self.run_tool("config", "apply")[1]["result"]["new_version"], False)
-
+        first = self.run_tool("config", "apply")[1]["result"]["config"]
+        self.assertFalse(self.run_tool("config", "apply")[1]["result"]["new_version"])
         rld = ResearchDB(root / "research_tree.db", "rld/main")
-        (root / "docs" / "project" / "min-setup.v1.md").write_text("setup\n", encoding="utf-8")
+        (root / "docs/project/min-setup.v1.md").write_text("setup\n")
         setup = rld.register_document("project/min-setup.v1.md", "min_setup", "setup")
         rld.set_document_current(setup)
-        docs = {}
-        for kind, content in zip(("metric_spec", "protocol"), metrics.minimal_documents("acc", "higher", ["loss"])):
-            (root / "docs" / "project" / f"{kind}.v1.json").write_text(json.dumps(content), encoding="utf-8")
-            docs[f"{kind}_doc_id"] = rld.register_document(f"project/{kind}.v1.json", kind, kind)
-            rld.set_document_current(docs[f"{kind}_doc_id"])
-        rld.create_project("P-demo", "demo", setup, "acc", "higher", True, ["loss"], [7, 8, 9], **docs)
-
-        # A gate that disagrees with the registered metric specification is refused before anything is registered.
-        registered_before = json.loads((self.cwd / ".research-tree.json").read_text())["config"]
-        config.write_text(config.read_text(encoding="utf-8").replace("go_margin: 0.05", "go_margin: 0.2"),
-                          encoding="utf-8")
-        code, out = self.run_tool("config", "apply", "--words", "/research-tree config apply")
+        protocol = {"version": 1, "eval_type": "real_gt", "pair_fields": ["seed"],
+                    **shown["protocol_requirements"]}
+        (root / "docs/project/protocol.v1.json").write_text(json.dumps(protocol))
+        proto = rld.register_document("project/protocol.v1.json", "protocol", "protocol")
+        rld.set_document_current(proto)
+        fields = dict(shown["db_fields"])
+        seeds = fields.pop("seeds")
+        rld.create_project("P-demo", "demo", setup, "accuracy", "higher", ["train_time_s"], seeds,
+                           metric_spec_doc_id=marker["metric_spec"]["doc_id"], protocol_doc_id=proto, **fields)
+        original = config.read_text()
+        before = rld.export_snapshot()
+        config.write_text(original.replace("replication_seeds: [43, 44]", "replication_seeds: [42]"))
+        code, out = self.run_tool("config", "apply")
         self.assertEqual(code, 2)
-        self.assertIn("must equal the project's go_margin 0.2", out["error"])
-        self.assertEqual(json.loads((self.cwd / ".research-tree.json").read_text())["config"], registered_before)
-        self.assertEqual(rld.get("P-demo")["go_margin"], 0.05)
-        config.write_text(config.read_text(encoding="utf-8").replace("go_margin: 0.2", "go_margin: 0.05"),
-                          encoding="utf-8")
-        config.write_text(config.read_text(encoding="utf-8")
-                          .replace("walltime: 1h", "walltime: 1h30m")
-                          .replace("max_parallel_workers: null", "max_parallel_workers: 2")
-                          .replace("gate_seeds: 3", "gate_seeds: 2"), encoding="utf-8")
+        self.assertIn("distinct", out["error"])
+        self.assertEqual(rld.export_snapshot(), before)
+        config.write_text(original.replace("walltime: 1h", "walltime: 1h30m")
+                         .replace("max_parallel_workers: null", "max_parallel_workers: 2")
+                         .replace("replication_seeds: [43, 44]", "replication_seeds: [43]"))
         self.assertTrue(self.run_tool("config")[1]["result"]["pending"])
         code, out = self.run_tool("config", "apply", "--words", "/research-tree config apply")
         self.assertEqual(code, 0, out)
         result = out["result"]
         self.assertEqual(result["config"]["path"], "project/config.v2.yaml")
-        self.assertEqual(result["updated_fields"], {"discovery_mode": "off", "max_walltime_s": 5400, "max_parallel_workers": 2,
-                                                    "gate_seeds": 2, "seeds": [7, 8]})
-        project = rld.get("P-demo")
-        self.assertEqual((project["config_doc_id"], project["seeds"], project["max_walltime_s"]),
-                         (result["config"]["doc_id"], [7, 8], 5400))
+        self.assertEqual(result["updated_fields"], {"max_walltime_s": 5400, "max_parallel_workers": 2,
+                                                   "gate_seeds": 2, "seeds": [42, 43]})
         self.assertEqual(rld.get(first["doc_id"])["status"], "superseded")
-        instruction = rld.get(result["instruction"]["doc_id"])
-        self.assertEqual(instruction["doc_type"], "user_instruction")
+        self.assertEqual(rld.get(result["instruction"]["doc_id"])["doc_type"], "user_instruction")
         shown = self.run_tool("config")[1]["result"]
         self.assertEqual((shown["source"], shown["pending"]), (result["config"]["doc_id"], False))
-
-        # Once an experiment exists the gates are fixed; a refused change registers nothing.
         with Database(root / "research_tree.db") as db, db.write() as txn:
             txn.create_node(labels=["Experiment"], properties={"id": "E-0001"})
             txn.commit()
-        config.write_text(config.read_text(encoding="utf-8").replace("gate_seeds: 2", "gate_seeds: 3"), encoding="utf-8")
+        config.write_text(config.read_text().replace("replication_seeds: [43]", "replication_seeds: [43, 44]"))
         code, out = self.run_tool("config", "apply")
         self.assertEqual(code, 2)
         self.assertIn("gate_seeds, seeds can no longer change", out["error"])
-        self.assertFalse((root / "docs" / "project" / "config.v3.yaml").exists())
-
-        # A broken file is reported; the registered version stays in effect.
-        config.write_text("budget: [", encoding="utf-8")
+        self.assertFalse((root / "docs/project/config.v3.yaml").exists())
+        config.write_text("budget: [")
         shown = self.run_tool("config")[1]["result"]
         self.assertIn("not valid YAML", shown["file_error"])
-        self.assertEqual(shown["effective"]["stage1"]["gate_seeds"], 2)
+        self.assertEqual(shown["effective"]["verification"]["replication_seeds"], [43])
+
+    def test_legacy_project_marker_is_rejected_before_any_metadata_write(self):
+        marker = {"project_id": "old", "root": str(self.cwd / "research/old"), "phase": "planning"}
+        path = self.cwd / ".research-tree.json"
+        path.write_text(json.dumps(marker))
+        before = path.read_bytes()
+        for args in (("phase", "--set", "confirmed"), ("config", "apply"), ("status",)):
+            code, out = self.run_tool(*args)
+            self.assertEqual(code, 2)
+            self.assertIn("UNSUPPORTED_PROJECT_VERSION", out["error"])
+            self.assertEqual(path.read_bytes(), before)
+        self.assertFalse((self.cwd / "research").exists())
+
+    def test_old_configuration_fails_init_without_creating_a_research_directory(self):
+        for version in (1, 2):
+            (self.cwd / "research-tree.yaml").write_text(f"version: {version}\n")
+            code, out = self.run_tool("init", str(self.plan))
+            self.assertEqual(code, 2)
+            self.assertIn("UNSUPPORTED_CONFIG_VERSION", out["error"])
+            self.assertFalse((self.cwd / "research").exists())
+            self.assertFalse((self.cwd / ".research-tree.json").exists())
 
     def test_requirements_are_clarified_in_drafts_and_submitted_with_the_words(self):
         _, out = self.run_tool("init", str(self.plan), "--project-id", "P-demo")
@@ -325,8 +328,8 @@ if __name__ == "__main__":
     unittest.main()
 
 
-class ConfigV2Test(unittest.TestCase):
-    """01 §3: version 2 states the gate once (metric_specs and verification); init registers the specification;
+class ConfigV3Test(unittest.TestCase):
+    """Version 3 states the gate once (metric_specs and verification); init registers the specification;
     the Leader's protocol must agree with the configured profile and confirmation settings."""
 
     def setUp(self):
@@ -343,7 +346,7 @@ class ConfigV2Test(unittest.TestCase):
 
     def test_display_model_name_reaches_effective_config_without_rewriting_user_file(self):
         path = self.cwd / "research-tree.yaml"
-        original = "discovery: {mode: off}\nmodels:\n  ui: {model: Haiku 5, effort: high}\n"
+        original = "version: 3\nmodels:\n  ui: {model: Haiku 5, effort: high}\n"
         path.write_text(original, encoding="utf-8")
         code, out = self.run_tool("init", "plan.md", "--project-id", "P-model-name")
         self.assertEqual(code, 0, out)
@@ -353,8 +356,8 @@ class ConfigV2Test(unittest.TestCase):
                          {"model": "claude-haiku-5-5", "effort": "high"})
         self.assertEqual(path.read_text(encoding="utf-8"), original)
 
-    def test_v2(self):
-        code, out = self.run_tool("init", "plan.md", "--project-id", "P-v2")
+    def test_current_configuration(self):
+        code, out = self.run_tool("init", "plan.md", "--project-id", "P-v3")
         self.assertEqual(code, 0, out)
         marker = out["result"]
         root = Path(marker["root"])
@@ -364,17 +367,19 @@ class ConfigV2Test(unittest.TestCase):
         (root / "docs" / "project" / "min-setup.v1.md").write_text("setup\n", encoding="utf-8")
         setup = rld.register_document("project/min-setup.v1.md", "min_setup", "setup")
         rld.set_document_current(setup)
-        protocol = {"version": 1, "eval_type": "real_gt", "pair_fields": ["seed"], "profile": "screening"}
+        protocol = {"version": 1, "eval_type": "real_gt", "pair_fields": ["seed"], "profile": "stage1_confirmed",
+                    "confirmation_seeds": [1042, 1043, 1044], "min_confirmation_pairs": 3,
+                    "max_confirmation_candidates": 3, "require_artifact_import": True}
         (root / "docs" / "project" / "protocol.v1.json").write_text(json.dumps(protocol), encoding="utf-8")
         proto = rld.register_document("project/protocol.v1.json", "protocol", "protocol")
         rld.set_document_current(proto)
         fields = {k: v for k, v in self.run_tool("config")[1]["result"]["db_fields"].items()
                   if k in ("go_margin", "gate_seeds")}
-        rld.create_project("P-v2", "v2", setup, "accuracy", "higher", True, ["train_time_s"], [42, 43, 44],
+        rld.create_project("P-v3", "v2", setup, "accuracy", "higher", ["train_time_s"], [42, 43, 44],
                            metric_spec_doc_id=marker["metric_spec"]["doc_id"], protocol_doc_id=proto, **fields)
         code, out = self.run_tool("config", "apply", "--require-project")
         self.assertEqual(code, 2)
-        self.assertIn("profile is 'screening', the configuration says 'stage1_confirmed'", out["error"])
+        self.assertIn("max_confirmation_candidates is 3, the configuration says 2", out["error"])
         agreeing = {**protocol, "profile": "stage1_confirmed", "confirmation_seeds": [1042, 1043, 1044],
                     "min_confirmation_pairs": 3, "max_confirmation_candidates": 2, "require_artifact_import": True}
         (root / "docs" / "project" / "protocol.v2.json").write_text(json.dumps(agreeing), encoding="utf-8")
@@ -389,7 +394,7 @@ class ConfigV2Test(unittest.TestCase):
                                                                      "minimum_practical_gain: 0.3"), encoding="utf-8")
         code, out = self.run_tool("config", "apply", "--words", "门槛改为 0.3 个百分点")
         self.assertEqual(code, 0, out)
-        project = rld.get("P-v2")
+        project = rld.get("P-v3")
         self.assertEqual((project["go_margin"], rld.get(project["metric_spec_doc_id"])["path"]),
                          (0.3, "project/metric-spec.v2.json"))
         # the budget cap is the user's: raising it in their file takes effect with their instruction recorded
@@ -399,7 +404,7 @@ class ConfigV2Test(unittest.TestCase):
                 encoding="utf-8")
             code, out = self.run_tool("config", "apply")
             self.assertEqual(code, 0, out)
-        self.assertEqual(rld.get("P-v2")["total_limit"], 90000)
+        self.assertEqual(rld.get("P-v3")["total_limit"], 90000)
         self.assertEqual(rld.get(out["result"]["instruction"]["doc_id"])["doc_type"], "user_instruction")
 
 
@@ -412,7 +417,7 @@ class RealRunFixesTest(unittest.TestCase):
         self.cwd = Path(self.tmp.name)
         (self.cwd / "plan.md").write_text("# 计划\n", encoding="utf-8")
         (self.cwd / "research-tree.yaml").write_text(
-            (REPO / "schema" / "config.template.yaml").read_text(encoding="utf-8").replace("mode: incremental", "mode: precheck"),
+            (REPO / "schema" / "config.template.yaml").read_text(encoding="utf-8"),
             encoding="utf-8")
 
     def tearDown(self):
@@ -438,7 +443,7 @@ class RealRunFixesTest(unittest.TestCase):
         proto = self.rld.register_document("project/protocol.v1.json", "protocol", "protocol")
         self.rld.set_document_current(proto)
         fields = {k: v for k, v in self.run_tool("config")[1]["result"]["db_fields"].items() if k in ("go_margin", "gate_seeds")}
-        self.rld.create_project("P-fix", "fix", setup, "accuracy", "higher", True, ["train_time_s"], [42, 43, 44],
+        self.rld.create_project("P-fix", "fix", setup, "accuracy", "higher", ["train_time_s"], [42, 43, 44],
                                 metric_spec_doc_id=marker["metric_spec"]["doc_id"], protocol_doc_id=proto, **fields)
         return marker
 
@@ -473,6 +478,29 @@ class RealRunFixesTest(unittest.TestCase):
             check = rt.check_skills(["miyabi-pbs-shell-templates", "miyabi-pbs-shell-template"], self.cwd)
         self.assertEqual(check["missing"], ["miyabi-pbs-shell-templates"])
         self.assertEqual(check["suggestions"]["miyabi-pbs-shell-templates"], ["miyabi-pbs-shell-template"])
+
+    def test_advanced_verification_applies_without_keyerror_and_detects_real_mismatch(self):
+        import project_config
+        self.project()
+        config = project_config.defaults()
+        config["verification"]["independence_fields"] = ["training_seed"]
+        config["verification"]["repetition"] = {"enabled": True, "batch": 1, "seed_pool": [43, 44]}
+        protocol = {"version": 1, "eval_type": "real_gt", "pair_fields": ["seed"],
+                    **project_config.protocol_requirements(config)}
+        (self.root / "docs/project/protocol.v2.json").write_text(json.dumps(protocol))
+        doc = self.rld.register_document("project/protocol.v2.json", "protocol", "advanced verification")
+        self.rld.set_document_current(doc)
+        self.rld.update_project(protocol_doc_id=doc)
+        (self.cwd / "research-tree.yaml").write_text(json.dumps(config))
+        for _ in range(2):
+            code, out = self.run_tool("config", "apply")
+            self.assertEqual(code, 0, out)
+        config["verification"]["repetition"]["batch"] = 2
+        (self.cwd / "research-tree.yaml").write_text(json.dumps(config))
+        code, out = self.run_tool("config", "apply")
+        self.assertEqual(code, 2)
+        self.assertIn("repetition", out["error"])
+        self.assertNotIn("KeyError", out["error"])
 
     def test_config_apply_does_not_revert_the_rlds_metric_specification(self):
         marker = self.project()
@@ -571,9 +599,8 @@ class NotifyTest(unittest.TestCase):
 
 
 class DiscoveryConfigTest(unittest.TestCase):
-    def test_unquoted_off(self):
+    def test_discovery_switches_including_unquoted_off_are_unsupported(self):
         import project_config
-        text = project_config.template_text().replace("  mode: incremental ", "  mode: off  ")
-        config = project_config.parse(text)
-        self.assertEqual(config["discovery"]["mode"], "off")
-        self.assertFalse(project_config.db_fields(config)["require_precheck"])
+        for value in ("off", "full", "precheck", "incremental"):
+            with self.subTest(value=value), self.assertRaisesRegex(project_config.ConfigError, "unsupported"):
+                project_config.parse(f"version: 3\ndiscovery: {{mode: {value}}}\n")
