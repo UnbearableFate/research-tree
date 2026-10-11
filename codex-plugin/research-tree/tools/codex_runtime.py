@@ -36,6 +36,9 @@ HELP = {
                     "understanding": "interpretation and scope", "kind": "指令", "about": ["project or node ID"]},
     "worker": {"node_id": "assigned project or H-id", "task": "this turn's task",
                "restart": "false; true starts a new session only when previous run is no longer active"},
+    "architect": {"node_id": "project/root ID", "task": "shared harness and baseline task", "restart": False},
+    "explorer": {"task": "literature, hypotheses, variants and negative-findings task", "restart": False},
+    "analyst": {"task": "compare evidence and recommend next experiments; no decision authority", "restart": False},
     "lens": {"lens": "configured discovery lens or variant/combination/competing/repair",
              "task": "candidate-generation task with read-only source paths; full discovery, planning only"},
     "agents": {}, "inbox": {}, "acknowledge": {"ids": ["event-id"]},
@@ -78,6 +81,7 @@ class Runtime:
     def _summary(self):
         result = build_site.summary_or_empty(Path(self.marker["db"]))
         write_json(self.cache / "summary.json", result)
+        (self.cache / "summary-error.json").unlink(missing_ok=True)
         threshold = result.get("project") and result["project"].get("alert_node_h")
         alert = next((a for a in result["attention"] if a["kind"] == "usage_alert"), None)
         previous = read_json(self.cache / "alert.json")
@@ -88,6 +92,16 @@ class Runtime:
         elif not alert and previous is not None:
             write_json(self.cache / "alert.json", None)
         return result
+
+    def refresh_after_write(self):
+        """Auxiliary display failure must never turn a committed write into a retryable failure."""
+        try:
+            self.summary()
+        except Exception as exc:
+            try:
+                write_json(self.cache / "summary-error.json", {"at": now_utc(), "error": str(exc), "stale": True})
+            except Exception:
+                pass  # even an unwritable display cache cannot invalidate a scientific write
 
     def say(self, role, text):
         with locked(self.cache / "chat.lock"):
@@ -154,7 +168,8 @@ class Runtime:
         validator = Draft202012Validator(read_json(ROOT / "schema/message.schema.json"))
         validator.validate({"v": 1, "id": f"{messaging.agent_id(sender)}-0001", **message, "project": "P-placeholder"})
         registry = messaging.load_registry(self.root)
-        if recipient not in registry or (sender not in registry and not sender.startswith("worker/")):
+        if not messaging.registered_address(recipient, registry) or (not messaging.registered_address(sender, registry)
+                and not sender.startswith(("worker/", "architect/"))):
             raise ValueError("unregistered message participant")
         message["project"] = messaging.check_references(self.root, message)
         return json.loads(messaging.append_message(self.root, message, validator))
@@ -202,7 +217,7 @@ class Runtime:
             tree.set_phase(self.cwd, "confirmed")
         self.say("note", f"立项确认已登记：{document['doc_id']}。")
         # The RLD answers a confirmation by starting the root's worker, not with a receipt.
-        result = self.relay("instruction", "用户确认立项计划，请指派根节点worker并实现框架与baselines。",
+        result = self.relay("instruction", "用户确认立项计划，请指派根节点 Experiment Architect 实现框架与baselines；Explorer 可继续发现，Worker 逐个筛选已就绪候选。",
                             [document["path"]], [marker["project_id"]], need="none")
         return {"document": document, **result}
 
@@ -237,16 +252,22 @@ class Runtime:
         finally:
             handle.close()  # the child holds the same open file description and lock
 
-    def start_worker(self, node_id, task, restart=False):
+    def start_worker(self, node_id, task, restart=False, role="worker"):
         self.require_rld()
         if self.marker["phase"] != "confirmed":
             raise ValueError("plan must be confirmed by the user before a worker starts")
         if not isinstance(task, str) or not task.strip():
             raise ValueError("worker needs a concrete task")
+        if role not in {"worker", "architect"}:
+            raise ValueError("unknown execution role")
+        if role == "architect" and node_id != self.marker["project_id"]:
+            raise ValueError("the architect only owns the project root harness and baselines")
         with locked(self.cache / "control.lock"):
             package = self.db().resume_package(node_id)
             if not package["worker"]:
                 raise ValueError("assign_worker before starting the node's session")
+            if role == "architect":
+                package = {**package, "worker": "architect/" + package["worker"].split("/", 1)[1]}
             agent = read_json(self.cache / "agents" / f"{actor_key(package['worker'])}.json", {})
             if lock_busy(self.cache / "agents" / f"{actor_key(package['worker'])}.lock"):
                 if restart:
@@ -254,7 +275,7 @@ class Runtime:
                 state = read_json(Path(agent["directory"]) / "state.json", {}) if agent else {}
                 if not state.get("thread_id"):
                     raise ValueError("worker is starting; its thread ID is not available yet")
-                return self.queue_worker(state["thread_id"], package["worker"], task)
+                return self.queue_worker(state["thread_id"], agent.get("actor", package["worker"]), task)
             worker_id = package["worker"].split("/", 1)[1]
             tasks = self.db().find("task")
             busy = busy_workers(tasks)
@@ -270,8 +291,27 @@ class Runtime:
             if not Path(workdir).is_dir():
                 raise ValueError(f"assigned worker checkout does not exist: {workdir}")
             return self.start_agent(package["worker"], codex_prompts.worker(self.marker, package, conf, task),
-                                    conf["models"]["worker"], node_id=node_id,
+                                    conf["models"].get(role, conf["models"]["worker"]), node_id=node_id,
                                     resume=None if restart else package.get("agent_id"), workdir=workdir)
+
+    def start_advisor(self, role, task, restart=False):
+        self.require_rld()
+        if role not in {"explorer", "analyst"}:
+            raise ValueError("unknown advisory role")
+        if not isinstance(task, str) or not task.strip():
+            raise ValueError(f"{role} needs a concrete task and source/evidence paths")
+        actor = f"{role}/main"
+        conf = tree.show_config(self.cwd)["effective"]
+        with locked(self.cache / "control.lock"):
+            previous = read_json(self.cache / "agents" / f"{actor_key(actor)}.json", {})
+            state = read_json(Path(previous["directory"]) / "state.json", {}) if previous else {}
+            if lock_busy(self.cache / "agents" / f"{actor_key(actor)}.lock"):
+                if restart or not state.get("thread_id"):
+                    raise ValueError(f"{actor} already has a live turn")
+                return self.queue_worker(state["thread_id"], actor, task)
+            return self.start_agent(actor, codex_prompts.advisor(self.marker, conf, role, task),
+                                    conf["models"].get(role, conf["models"].get("lens_assistant", conf["models"]["worker"])),
+                                    resume=None if restart else state.get("thread_id"))
 
     def queue_worker(self, thread_id, actor, text):
         receipt = {"id": uuid.uuid4().hex, "actor": actor, "thread_id": thread_id, "text": text,
@@ -382,14 +422,35 @@ class Runtime:
         directory read-only, and a worktree's index lives in the main checkout's .git/worktrees/, so the worker cannot
         commit itself; this server (outside the sandbox) does it for exactly that worktree and those files."""
         import subprocess as sp
+        if self.actor != "rld/main" and not self.actor.startswith(("worker/", "architect/")):
+            raise ValueError("only a node worker or architect can commit its assigned worktree")
+        if self.actor != "rld/main" and self.marker["phase"] != "confirmed":
+            raise ValueError("node commits require a confirmed plan")
         paths, message = params.get("paths"), params.get("message")
         if not (isinstance(paths, list) and paths and all(isinstance(x, str) and x for x in paths)) \
                 or not isinstance(message, str) or not message.strip():
             raise ValueError("commit needs paths (files in your node's worktree) and a message")
         agent = self.actor.split("/", 1)[1] if "/" in self.actor else self.actor
+        architect = self.actor.startswith("architect/")
+        projects = self.db().find("project") if architect else []
+        root = projects[0] if len(projects) == 1 else None
+        if architect and (not root or root.get("worker_id") != agent
+                          or (params.get("node_id") and params["node_id"] != root["id"])):
+            raise ValueError("architect commits only its assigned project root")
         branches = [b for b in self.db().find("branch") if b.get("worktree_path")
                     and (self.actor == "rld/main" or b.get("owner") == agent)
+                    and (not architect or b.get("hypothesis_id") == root["id"])
                     and (not params.get("node_id") or b.get("hypothesis_id") == params["node_id"])]
+        if not branches:
+            # A root harness lives in Project.repo_path, not a hypothesis Branch. Support the
+            # original root worker and its architect successor without granting other nodes access.
+            projects = projects or self.db().find("project")
+            root = projects[0] if len(projects) == 1 else None
+            if root and root.get("repo_path") and root.get("worker_id") == agent \
+                    and (not params.get("node_id") or params["node_id"] == root["id"]):
+                if self.marker["phase"] != "confirmed":
+                    raise ValueError("root commits require a confirmed plan")
+                branches = [{"worktree_path": root["repo_path"], "hypothesis_id": root["id"], "owner": agent}]
         if len(branches) != 1:
             raise ValueError(f"commit names one node worktree of yours (node_id); found {len(branches)}")
         tree_dir = Path(branches[0]["worktree_path"]).resolve()
@@ -415,7 +476,7 @@ class Runtime:
             self.require_rld()
             marker = tree.init(self.cwd, self.cwd / (params.get("plan") or "plan.md"), params.get("project_id"),
                                self.cwd / params["config"] if params.get("config") else None)
-            self.summary()
+            self.refresh_after_write()
             return {"project": marker, "next": codex_prompts.planning(marker, tree.show_config(self.cwd)["effective"])}
         if action in {"status", "refresh"}:
             # S1 real scenario a02: a resumed session finds the discovery and literature commands here
@@ -466,6 +527,10 @@ class Runtime:
             return {"path": str(page), "data_version": data["meta"]["data_version"]}
         if action == "worker":
             return self.start_worker(**params)
+        if action == "architect":
+            return self.start_worker(**params, role="architect")
+        if action in {"explorer", "analyst"}:
+            return self.start_advisor(action, **params)
         if action == "lens":
             return self.start_lens(**params)
         if action == "agents":
@@ -513,45 +578,44 @@ class Runtime:
                 return describe(**kwargs)
             if method not in CLI_METHODS:
                 raise ValueError("unknown research_db method; use help")
-            if (self.actor == "ui/ui" or self.actor.startswith("assistant/")) and method not in READS:
+            if (self.actor == "ui/ui" or self.actor.startswith(("assistant/", "explorer/", "analyst/"))) and method not in READS:
                 raise ValueError(f"{self.actor} may only read scientific records")
-            if self.actor.startswith("worker/") and self.marker["phase"] != "confirmed":
+            if self.actor.startswith(("worker/", "architect/")) and self.marker["phase"] != "confirmed":
                 raise ValueError("worker access requires a confirmed plan")
             result = getattr(self.db(), method)(**kwargs)
             if method not in READS:
-                self.summary()
+                self.refresh_after_write()
             return result
         if name == "research_control":
             return self.control(args["action"], args.get("params", {}))
         if name == "research_review":
             if self.actor != "rld/main":
                 raise ValueError("only the Leader organizes reviews")
-            if args.get("ticket"):  # a review started as a background job (the Claude host's process limit)
-                try:
-                    answer, _ = review_call._job_answer(review_call.wait_job(self.root, args["ticket"], 3600))
-                except review_call.ReviewError as exc:
-                    raise ValueError(str(exc)) from None
+            try:
+                if args.get("ticket"):
+                    if set(args) != {"ticket"}:
+                        raise ValueError("collect a review with only its ticket")
+                    answer, _ = review_call._job_answer(review_call.wait_job(self.root, args["ticket"], 0))
+                else:
+                    missing = [k for k in ("kind", "brief", "about") if not args.get(k)]
+                    if missing:
+                        raise ValueError(f"research_review needs {', '.join(missing)} (or only ticket, to collect a pending review)")
+                    argv = ["--actor", self.actor]
+                    for key in ("kind", "brief", "about", "dimension", "evaluation", "session", "code_ref", "evidence_set"):
+                        if args.get(key):
+                            argv.extend(["--" + key.replace("_", "-"), args[key]])
+                    for directory in args.get("add_dirs") or []:
+                        argv.extend(["--add-dir", directory])
+                    ticket = review_call.start_job(self.cwd, self.root, argv)
+                    answer = {"ok": True, "pending": True, "ticket": ticket,
+                              "next": "Collect this ticket later; do not start the same review again."}
                 if not answer.get("ok"):
                     raise ValueError(answer.get("error", "review failed"))
+                if not answer.get("pending"):
+                    self.refresh_after_write()
                 return answer.get("result", answer)
-            missing = [k for k in ("kind", "brief", "about") if not args.get(k)]
-            if missing:
-                raise ValueError(f"research_review needs {', '.join(missing)} (or only ticket, to collect a pending review)")
-            entry = {"kind": args["kind"], "about": args["about"], "dimension": args.get("dimension"),
-                     "session": args.get("session")}
-            try:
-                result = review_call.review(self.cwd, args["kind"], args["brief"], args["about"], args.get("dimension"),
-                                            args.get("evaluation"), args.get("session"), args.get("add_dirs") or [],
-                                            self.actor, args.get("code_ref"), evidence_set=args.get("evidence_set"))
             except review_call.ReviewError as exc:
-                review_call.record_failure(self.root, entry, exc)
-                self.summary()
                 raise ValueError(str(exc)) from None
-            review_call.log_call(self.root, {**entry, "outcome": "ok", "review_id": result["review_id"],
-                                             "session": result["session"], "backend": result["backend"],
-                                             "model": result["model_observed"], "cost_usd": result["cost_usd"]})
-            self.summary()
-            return result
         if name == "post_to_ui":
             return self.post(args)
         if name == "requirement_draft":

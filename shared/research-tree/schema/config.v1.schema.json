@@ -64,10 +64,13 @@
     "models": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["ui", "worker"],
+      "required": ["ui", "worker", "explorer", "architect", "analyst"],
       "properties": {
         "ui": {"$ref": "#/$defs/model"},
-        "worker": {"$ref": "#/$defs/model"}
+        "worker": {"$ref": "#/$defs/model"},
+        "explorer": {"$ref": "#/$defs/model"},
+        "architect": {"$ref": "#/$defs/model"},
+        "analyst": {"$ref": "#/$defs/model"}
       }
     }
   },

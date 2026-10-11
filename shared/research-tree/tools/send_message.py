@@ -57,7 +57,16 @@ def serialize(message: dict) -> str:
 
 
 def agent_id(address: str) -> str:
-    return address.split("/", 1)[1]
+    # Preserve every legacy message id/log and the architect's root-worker sequence.
+    # '--' cannot occur in a legacy agent id, so advisory roles never share main.jsonl.
+    role, ident = address.split("/", 1)
+    return f"{role}--{ident}" if role in {"explorer", "analyst"} else ident
+
+
+def registered_address(address: str, registry: set[str]) -> bool:
+    """Built-in advisors also work in existing projects with a legacy agents.json."""
+    return address in registry or address in {"explorer/main", "analyst/main"} or (
+        address.startswith("architect/") and "worker/" + address.split("/", 1)[1] in registry)
 
 
 def load_registry(root: Path) -> set[str]:
@@ -137,7 +146,7 @@ def append_message(root: Path, message: dict, validator: Draft202012Validator) -
         return line
 
 
-MESSAGE_ID_RE = re.compile(r"^[A-Za-z0-9_.]+-[0-9]{4,}$")
+MESSAGE_ID_RE = re.compile(r"^(?:(?:explorer|analyst)--)?[A-Za-z0-9_.]+-[0-9]{4,}$")
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -170,9 +179,9 @@ def main(argv: list[str] | None = None) -> int:
         if missing:
             p.error("required for a new message: " + ", ".join("--" + ("from" if m == "sender" else m) for m in missing))
         # Node workers are named after their node (worker/h0007) and only send; every other sender is registered.
-        if args.sender not in registry and not args.sender.startswith("worker/"):
+        if not registered_address(args.sender, registry) and not args.sender.startswith(("worker/", "architect/")):
             raise MessageError(f"{args.sender} is not in agents.json")
-        if args.to not in registry:
+        if not registered_address(args.to, registry):
             raise MessageError(f"recipient {args.to} is not in agents.json")
 
         message = {

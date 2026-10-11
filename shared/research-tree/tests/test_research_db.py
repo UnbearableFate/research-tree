@@ -2973,7 +2973,9 @@ class DesignTest(Fixture):
             if result == "blocking":
                 with self.assertRaisesRegex(ResearchDBError, "has blocking issues"):
                     self.submit(exp)
-        self.submit(exp)
+        # A new reviewer saying clear no longer erases an unresolved same-method blocker (R04).
+        with self.assertRaisesRegex(ResearchDBError, "has blocking issues"):
+            self.submit(exp)
         # X10: the reviewer is unavailable for other code: the Leader releases it with a decision record
         other = self.worker.create_experiment("method", "m", self.design(), self.commit(), 1, 60, hypothesis_id=h,
                                               n_seeds=1, method_config=METHOD_CONFIG, estimated_node_h=0.1, selection_rationale="x")

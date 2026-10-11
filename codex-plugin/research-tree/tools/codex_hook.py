@@ -24,9 +24,13 @@ READ_METHODS = {"help", "get", "find", "edges", "children", "history", "go_candi
 WORKFLOW = f"""research-tree 项目已启用。主会话是唯一 Research Leader。
 读取 {ROOT / 'skills/research-tree/SKILL.md'} 与 {ROOT / 'rules/research-tree-rules.md'}。
 只通过 research_db 修改研究数据库；已生效文档写新版本；节点不能修改冻结框架。
-用户确认立项前不启动worker；确认后先assign_worker和分配任务，再research_control worker。
-worker使用独立Codex会话，主会话不以原生spawn_agent绕开插件的身份/确认/并发门槛。
-需要用户决定时post_to_ui；研究UI由用户在第二个终端打开（research_control ui_path）。
+用户确认最小范围前不启动执行角色；确认后先assign_worker和分配任务，再research_control architect实现根节点框架与baseline，worker执行假说节点。
+research_control explorer与analyst是只读顾问；Explorer持续提出可证伪候选，Analyst整理证据与下一实验建议，由Leader登记并作方向、预算、争议与最终GO/NOT GO决定。
+执行角色使用独立Codex会话，同一节点共用worker身份/锁；主会话不以原生spawn_agent绕开身份/确认/并发门槛。
+新项目fast_screening/incremental按候选准入，不等待整批发现或每次廉价筛选的模型审批；旧strict/full项目保持原门槛，读取生效配置与research_db help。
+保留原始证据、方法身份、公平配对、预算与防重复门槛；positive_signal不是GO。选定少量候选、必要重复与控制后再独立确认，最后集中五维复核。
+research_review立即返回ticket，稍后以同一ticket收取；等待期间推进独立工作，不重复启动。
+需要用户决定时post_to_ui；主会话的明确授权同样有效。UI按需build/pane，只有交互需要时使用ui_path，不运行常驻UI。轻量摘要GO=null/eligibility_checked=false表示未检查，用get_eligibility核验。
 用research_control inbox处理未确认事件；已收到后acknowledge，收到回执不再回回执。
 """
 
@@ -112,11 +116,11 @@ def call_block(calls, actor):
             return f"{actor} 不运行 research_tree.py {method or ''}：它是插件与UI控制器的入口。"
         if script != "research_db.py":
             continue
-        if actor.startswith("worker/") and named != actor:
+        if actor.startswith(("worker/", "architect/")) and named != actor:
             return f"{actor} 只能以自己的身份调用 research_db（--actor {actor}）；MCP research_db 自动固定身份。"
-        if not actor.startswith("worker/") and named != actor:
+        if not actor.startswith(("worker/", "architect/")) and named != actor:
             return f"{actor} 只能以自己的只读身份查询 research_db（--actor {actor}）。"
-        if not actor.startswith("worker/") and method not in READ_METHODS:
+        if not actor.startswith(("worker/", "architect/")) and method not in READ_METHODS:
             return f"{actor} 只读研究数据库（{method or '未知方法'} 会写入）。"
     return None
 
@@ -166,9 +170,11 @@ def guard(event, cwd, summary, marker):
     if not isinstance(args, dict):
         return None
     if name in {"spawn_agent", "Agent"}:
-        return "项目代理通过 research_control worker 或 lens 启动；UI由用户的独立入口启动。"
+        return "项目代理通过research_control worker/architect/explorer/analyst/lens启动；UI仅按需由用户入口启动。"
     db = Path(marker["db"]).resolve()
     if name in {"apply_patch", "Edit", "Write", "NotebookEdit"}:
+        if os.environ.get("RESEARCH_TREE_ACTOR", "rld/main").startswith(("explorer/", "analyst/")):
+            return "研究顾问只读文件与科学记录；返回建议与来源，由Leader保存。"
         patch = args.get("command", args.get("input", ""))
         paths = re.findall(r"^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+)$", patch, re.M)
         paths += [args[k] for k in ("file_path", "notebook_path") if args.get(k)]
@@ -282,11 +288,17 @@ def handle(event):
     if kind == "SessionStart":
         if actor == "rld/main":
             workflow = WORKFLOW
-        elif actor.startswith("worker/"):
-            workflow = f"""research-tree 固定身份 {actor}；你是节点 worker，主会话是唯一 Research Leader。
+        elif actor.startswith(("worker/", "architect/")):
+            workflow = f"""research-tree 固定身份 {actor}；你是节点执行者（architect仅负责根节点框架与baseline），主会话是唯一 Research Leader。
 读取 {ROOT / 'rules/research-tree-rules.md'}，按本轮任务用 research_db resume_package 恢复。
 只以自己的身份处理已指派任务、登记运行和交付；已生效文档写新版本，不改冻结框架。
 用 research_message 的 delivery/alert 通知 Leader。主会话的收件箱、用户决定与代理调度由 Leader 处理。
+"""
+        elif actor.startswith(("explorer/", "analyst/")):
+            workflow = f"""research-tree 固定身份 {actor}；你是只读研究顾问，主会话是唯一 Research Leader。
+读取 {ROOT / 'rules/research-tree-rules.md'}，核对本轮文献、负向结果或当前成对证据，返回候选或下一实验建议及来源。
+不写文件/数据库/配置，不提交作业、调用评审或调度代理，不确认计划或决定GO/NOT GO。需要登记的文档、任务状态与交付由Leader保存。
+允许用research_message question/alert发送短建议；不得把建议当作用户授权。轻量GO=null表示未检查。
 """
         elif actor == "ui/ui":
             workflow = f"""research-tree 固定身份 ui/ui；主会话是唯一 Research Leader。

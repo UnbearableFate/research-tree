@@ -565,3 +565,305 @@ test('a prompt refused while a hook still holds the turn is submitted again, not
   expect(prompts).toEqual(['用户确认立项计划'])
   expect(window()).toEqual([])
 })
+
+test('Explorer and Analyst have real read-only registrations, while Architect uses its root role', async () => {
+  const agents: { name: string; prompt: string; tools?: string[] }[] = []
+  await internals.registerAgents({ agent: { register: async (agent: never) => { agents.push(agent) } } } as never, null)
+  for (const role of ['explorer', 'analyst']) {
+    const agent = agents.find(a => a.name === role)!
+    expect(agent.prompt).toContain(`${role}/main`)
+    expect(agent.tools).toContain('mcp__research-tree__research_db')
+    for (const writeTool of ['Write', 'Edit', 'Bash', 'Agent']) expect(agent.tools).not.toContain(writeTool)
+    expect(agent.prompt).toContain('不能修改文件')
+  }
+  expect(agents.find(a => a.name === 'architect')!.prompt).toContain('architect/<id>')
+  expect(agents.find(a => a.name === 'architect')!.prompt).toContain('仅根节点')
+})
+
+test('advisory sessions cannot mutate records, edit files, use shell execution or initiate reviews', async () => {
+  const { host, state, spawns } = uiHost({})
+  let writes = 0
+  const next = async () => { writes += 1; return { result: 'ran' } }
+  for (const role of ['explorer', 'analyst']) {
+    state.set('agents', { advisor: `${role}/main` })
+    const refused = await registeredTool('mcp__research-tree__research_db')(host, { agentId: 'advisor', method: 'update_project', kwargs: {} } as never)
+    expect(refused.isError).toBe(true)
+    expect(String(refused.result)).toContain('只读')
+    const read = await registeredTool('mcp__research-tree__research_db')(host, { agentId: 'advisor', method: 'get', kwargs: { entity_id: 'p' } } as never)
+    expect(read.isError).toBeUndefined()
+    for (const tool of ['Write', 'Edit', 'NotebookEdit', 'Bash']) {
+      const result = await registeredTool(tool)(host, { agentId: 'advisor', file_path: '/tmp/x', notebook_path: '/tmp/x', command: 'touch /tmp/x' } as never, next)
+      expect(result.deny).toContain('只读研究顾问')
+    }
+    const review = await registeredTool('mcp__research-tree__research_review')(host, { agentId: 'advisor', kind: 'code_review' } as never)
+    expect(review.isError).toBe(true)
+  }
+  expect(writes).toBe(0)
+  expect(spawns).toEqual([])
+})
+
+const LIGHT_SUMMARY = {
+  meta: { data_version: 3, generated_at: 'fixture', eligibility_checked: false }, db_path: '/w/study/research/p/research_tree.db',
+  project: { id: 'p', title: 'Study', status: 'active', stage: 'search', worker: { id: 'root', agent_id: null }, sota_experiment_id: null },
+  counts: { status: {}, exp_status: {}, go: null, node_hours: 0, screen_seeds: 1 },
+  nodes: [{ id: 'H-0001', title: 'Idea', parent: 'p', worker: { id: 'h1', agent_id: null }, go: null }],
+  attention: [], busy_workers: [], guards: { frozen_docs: [], harness: [] },
+} as unknown as ResearchSummary
+
+test('a burst coalesces lightweight display refresh and a failed display cannot fail a scientific write', async () => {
+  const { host, state } = uiHost({})
+  const timers: (() => void)[] = [], calls: string[][] = []
+  const h = host as unknown as { clock: { after: (ms: number, fn: () => void) => void }; process: { run: (argv: string[]) => Promise<unknown> } }
+  h.clock.after = (_ms, fn) => { timers.push(fn) }
+  h.process.run = async argv => {
+    calls.push(argv)
+    return { exitCode: 0, stderr: '', stdout: JSON.stringify(argv[1]!.endsWith('build_site.py') ? LIGHT_SUMMARY : { ok: true, result: { id: 'T-0001' } }) }
+  }
+  const write = registeredTool('mcp__research-tree__research_db')
+  for (let i = 0; i < 3; i += 1) {
+    expect((await write(host, { method: 'update_task', kwargs: { task_id: 'T-0001', status: 'in_progress' } } as never)).isError).toBeUndefined()
+  }
+  expect(calls.filter(argv => argv[1]!.endsWith('build_site.py'))).toHaveLength(0)
+  expect(timers).toHaveLength(1)
+  timers.shift()!()
+  await new Promise(resolve => setTimeout(resolve, 10))
+  expect(calls.filter(argv => argv[1]!.endsWith('build_site.py'))).toHaveLength(1)
+  expect(calls.at(-1)).toContain('--summary')
+  expect((state.get('summary') as ResearchSummary).counts.go).toBe(null)
+  h.clock.after = () => { throw new Error('display closed') }
+  expect((await write(host, { method: 'update_task', kwargs: {} } as never)).isError).toBeUndefined()
+})
+
+test('file writes see committed document, harness and worktree guards before the deferred display refresh', async () => {
+  const { host, state } = uiHost({})
+  state.set('summary', LIGHT_SUMMARY)  // the display still says every path is writable
+  const timers: (() => void)[] = [], calls: string[][] = []
+  const h = host as unknown as {
+    clock: { after: (ms: number, fn: () => void) => void };
+    process: { run: (argv: string[]) => Promise<unknown> };
+    ui: { status: () => void };
+  }
+  h.clock.after = (_ms, fn) => { timers.push(fn) }
+  h.ui.status = () => { throw new Error('display unavailable') }
+  const doc = '/w/study/research/p/docs/current.v1.md'
+  const harness1 = '/w/study/worktrees/H-0001/harness', harness2 = '/w/study/worktrees/H-0002/harness'
+  const current = { frozen_docs: [] as string[], harness: [] as string[] }
+  h.process.run = async argv => {
+    calls.push(argv)
+    if (argv[1]!.endsWith('research_db.py')) {
+      if (argv[6] === 'set_document_current') current.frozen_docs.push(doc)
+      if (argv[6] === 'update_project') current.harness.push(harness1)
+      if (argv[6] === 'create_branch') current.harness.push(harness2)
+      return { exitCode: 0, stderr: '', stdout: '{"ok":true,"result":"committed"}' }
+    }
+    return { exitCode: 0, stderr: '', stdout: JSON.stringify({ ...LIGHT_SUMMARY, guards: current }) }
+  }
+  let writes = 0
+  const next = async () => { writes += 1; return { result: 'ran' } }
+  const db = registeredTool('mcp__research-tree__research_db')
+  for (const [method, path] of [['set_document_current', doc], ['update_project', `${harness1}/stats.py`], ['create_branch', `${harness2}/stats.py`]]) {
+    const committed = await db(host, { method, kwargs: {} } as never)
+    expect(committed.isError).toBeUndefined()
+    expect(String(committed.result)).toContain('committed')
+    for (const tool of ['Write', 'Edit', 'NotebookEdit']) {
+      const result = await registeredTool(tool)(host, { file_path: path, notebook_path: path } as never, next)
+      expect(result.deny).toContain(method === 'set_document_current' ? '新版本' : '冻结的实验框架')
+    }
+  }
+  expect(writes).toBe(0)
+  expect(state.get('summary')).toBe(LIGHT_SUMMARY)
+  expect(timers).toHaveLength(1)  // no presentation callback was required for any guard
+  const reads = calls.filter(argv => argv[1]!.endsWith('build_site.py'))
+  expect(reads).toHaveLength(9)
+  for (const argv of reads) expect(argv.slice(2)).toEqual(['--db', LIGHT_SUMMARY.db_path, '--summary'])
+  expect((await registeredTool('Write')(host, { file_path: '/w/study/methods/new.py' } as never, next)).deny).toBeUndefined()
+  expect(writes).toBe(1)  // an unavailable display does not block an authoritatively permitted path
+  timers.shift()!()
+  await new Promise(resolve => setTimeout(resolve, 10))
+})
+
+test('each file mutation rechecks external guard changes instead of trusting either stale cache outcome', async () => {
+  const { host, state } = uiHost({})
+  const path = '/w/study/research/p/docs/shared.v1.md'
+  state.set('summary', { ...LIGHT_SUMMARY, guards: { frozen_docs: [path], harness: [] } })
+  let frozen = false, reads = 0, writes = 0
+  const h = host as unknown as { process: { run: (argv: string[]) => Promise<unknown> } }
+  h.process.run = async () => {
+    reads += 1
+    return { exitCode: 0, stderr: '', stdout: JSON.stringify({ ...LIGHT_SUMMARY, guards: { frozen_docs: frozen ? [path] : [], harness: [] } }) }
+  }
+  const next = async () => { writes += 1; return { result: 'ran' } }
+  for (const tool of ['Write', 'Edit', 'NotebookEdit']) {
+    const call = registeredTool(tool)
+    for (const state of [false, true, false]) {
+      frozen = state  // another session changed the DB, without scheduling our presentation timer
+      const result = await call(host, { file_path: path, notebook_path: path } as never, next)
+      if (frozen) expect(result.deny).toContain('新版本')
+      else expect(result.deny).toBeUndefined()
+    }
+  }
+  expect(reads).toBe(9)
+  expect(writes).toBe(6)
+})
+
+test('unavailable or invalid authoritative guards fail closed without undoing a successful DB write', async () => {
+  const { host, state, files } = uiHost({})
+  state.set('summary', LIGHT_SUMMARY)
+  const h = host as unknown as {
+    clock: { after: () => void };
+    process: { run: (argv: string[]) => Promise<unknown> };
+  }
+  h.clock.after = () => { throw new Error('display timer unavailable') }
+  const failures = [
+    async () => { throw new Error('guard subprocess unavailable') },
+    async () => ({ exitCode: 1, stderr: 'database locked', stdout: '' }),
+    ...['not JSON', 'null', '{}',
+      JSON.stringify({ ...LIGHT_SUMMARY, guards: { frozen_docs: [] } }),
+      JSON.stringify({ ...LIGHT_SUMMARY, guards: { frozen_docs: [42], harness: [] } }),
+      JSON.stringify({ ...LIGHT_SUMMARY, guards: { frozen_docs: [], harness: ['relative/path'] } }),
+      JSON.stringify({ ...LIGHT_SUMMARY, db_path: '/another/research_tree.db' }),
+    ].map(stdout => async () => ({ exitCode: 0, stderr: '', stdout })),
+  ]
+  let writes = 0
+  const next = async () => { writes += 1; return { result: 'ran' } }
+  const db = registeredTool('mcp__research-tree__research_db')
+  for (const failure of failures) {
+    h.process.run = async argv => argv[1]!.endsWith('research_db.py')
+      ? { exitCode: 0, stderr: '', stdout: '{"ok":true,"result":"committed"}' } : failure()
+    const committed = await db(host, { method: 'set_document_current', kwargs: {} } as never)
+    expect(committed.isError).toBeUndefined()
+    expect(String(committed.result)).toContain('committed')
+    for (const tool of ['Write', 'Edit', 'NotebookEdit']) {
+      const result = await registeredTool(tool)(host, { file_path: '/w/study/new.py', notebook_path: '/w/study/new.ipynb' } as never, next)
+      expect(result.deny).toContain('无法核验最新的研究文件保护状态')
+    }
+    expect(state.get('summary')).toBe(LIGHT_SUMMARY)
+  }
+  files.delete('/w/study/.venv/bin/python')
+  expect((await registeredTool('Write')(host, { file_path: '/w/study/new.py' } as never, next)).deny).toContain('无法核验')
+  expect((await registeredTool('Write')(host, { file_path: '/w/study/research-tree.yaml' } as never, next)).deny).toContain('由用户修改')
+  expect(writes).toBe(0)
+})
+
+test('file guard discovers an uncached project and refuses unreadable markers while allowing nonproject files', async () => {
+  const { host, state, files } = uiHost({})
+  const project = state.get('project')
+  const path = '/w/study/research/p/docs/discovered.v1.md'
+  state.delete('project')
+  files.set('/w/study/.research-tree.json', JSON.stringify(project))
+  let reads = 0, writes = 0
+  const h = host as unknown as { process: { run: (argv: string[]) => Promise<unknown> } }
+  h.process.run = async () => {
+    reads += 1
+    return { exitCode: 0, stderr: '', stdout: JSON.stringify({ ...LIGHT_SUMMARY, guards: { frozen_docs: [path], harness: [] } }) }
+  }
+  const next = async () => { writes += 1; return { result: 'ran' } }
+  const write = registeredTool('Write')
+  expect((await write(host, { file_path: path } as never, next)).deny).toContain('新版本')
+  expect(reads).toBe(1)
+  state.delete('project')
+  files.set('/w/study/.research-tree.json', '{invalid marker')
+  expect((await write(host, { file_path: path } as never, next)).deny).toContain('无法核验')
+  state.delete('project')
+  files.delete('/w/study/.research-tree.json')
+  expect((await write(host, { file_path: '/w/study/new.py' } as never, next)).deny).toBeUndefined()
+  expect(reads).toBe(1)
+  expect(writes).toBe(1)
+})
+
+test('review start and collection use immediate durable tickets without opening a UI', async () => {
+  const { host, spawns } = uiHost({})
+  const calls: string[][] = []
+  const h = host as unknown as { clock: { after: (ms: number, fn: () => void) => void }; process: { run: (argv: string[]) => Promise<unknown> } }
+  h.clock.after = () => undefined
+  h.process.run = async argv => {
+    calls.push(argv)
+    return { exitCode: 0, stderr: '', stdout: '{"ok":true,"pending":true,"ticket":"RJ-0123456789ab"}' }
+  }
+  const review = registeredTool('mcp__research-tree__research_review')
+  const started = await review(host, { kind: 'code_review', brief: 'docs/review.v1.md', about: 'H-0001' } as never)
+  expect(started.isError).toBeUndefined()
+  expect(String(started.result)).toContain('RJ-0123456789ab')
+  const first = calls.find(a => a[1]!.endsWith('review_call.py'))!
+  expect(first).toContain('--background')
+  expect(first[first.indexOf('--wait-s') + 1]).toBe('0')
+  const collected = await review(host, { ticket: 'RJ-0123456789ab' } as never)
+  expect(collected.isError).toBeUndefined()
+  expect(calls.at(-1)).not.toContain('--background')
+  expect(calls.at(-1)![calls.at(-1)!.indexOf('--wait-s') + 1]).toBe('0')
+  const bad = await review(host, { ticket: 'RJ-0123456789ab', kind: 'code_review' } as never)
+  expect(bad.isError).toBe(true)
+  expect(spawns).toEqual([])
+})
+
+test('Architect is confirmation-gated, root-only and shares the live root-worker slot', async () => {
+  const { host, state } = uiHost({})
+  const h = host as unknown as { process: { run: (argv: string[]) => Promise<unknown> } }
+  h.process.run = async argv => ({ exitCode: 0, stderr: '', stdout: JSON.stringify(argv[1]!.endsWith('build_site.py')
+    ? LIGHT_SUMMARY : { ok: true, result: [] }) })
+  type Hook = (host: never, event: never, next: (event: never) => Promise<Record<string, unknown>>) => Promise<Record<string, unknown>>
+  let spawn: Hook | undefined, complete: Hook | undefined
+  register(((event: string, fn: Hook) => {
+    if (event === 'agent.spawn') spawn = fn
+    if (event === 'turn.complete') complete = fn
+  }) as never, {})
+  const next = async () => ({ agentId: 'architect-root', model: 'fixture' })
+  state.set('project', { project_id: 'p', phase: 'planning', root: '/w/study/research/p', db: LIGHT_SUMMARY.db_path })
+  expect((await spawn!(host, { subagentType: 'research-tree:architect', prompt: '你是 architect/root' } as never, next)).deny).toContain('尚未经用户确认')
+  state.set('project', { project_id: 'p', phase: 'confirmed', root: '/w/study/research/p', db: LIGHT_SUMMARY.db_path })
+  expect((await spawn!(host, { subagentType: 'research-tree:architect', prompt: '你是 architect/h1' } as never, next)).deny).toContain('根节点')
+  expect((await spawn!(host, { subagentType: 'research-tree:architect', prompt: '你是 architect/root' } as never, next)).agentId).toBe('architect-root')
+  expect((state.get('agents') as Record<string, string>)['architect-root']).toBe('architect/root')
+  expect((await spawn!(host, { subagentType: 'research-tree:worker', prompt: '你是 worker/root' } as never, next)).deny).toContain('已有执行会话')
+  await complete!(host, { agentId: 'architect-root' } as never, async () => ({}))
+  expect((await spawn!(host, { subagentType: 'research-tree:architect', prompt: '你是 architect/root' } as never, next)).agentId).toBe('architect-root')
+})
+
+test('fast planning has per-candidate admission, lightweight design and final confirmation after screening', () => {
+  const project = { project_id: 'p', root: '/r/p', plan_instruction: { path: 'project/plan.v1.md' } } as Parameters<typeof internals.planningPrompt>[0]
+  const effective = { version: 2, workflow: { mode: 'fast_screening' }, discovery: { mode: 'incremental' },
+    platform: { dev: 'local', experiment: 'CPU', skills: [] }, budget: { per_run: { nodes: 1, walltime: 10 }, screen_node_h: 1 }, models: {} }
+  const view = { effective, db_fields: { gate_seeds: 3, seeds: [1, 2, 3], min_related_work: 3 } } as unknown as Parameters<typeof internals.planningPrompt>[2]
+  const prompt = internals.planningPrompt(project, '/plug', view)
+  expect(prompt).toContain('gate --candidate')
+  expect(prompt).toContain('A就绪即可执行')
+  expect(prompt).toContain('资源上限、停止与继续条件')
+  expect(prompt).toContain('research-tree:architect')
+  expect(prompt).toContain('主会话的明确确认同样有效')
+  expect(prompt).not.toContain('D5 查新')
+  expect(internals.workerPrompt(effective as never)).toContain('不逐次等待新模型代码审查')
+  expect(internals.workerPrompt({ ...effective, workflow: { mode: 'strict' } } as never)).toContain('strict/旧项目')
+  expect(internals.statusText(LIGHT_SUMMARY)).toContain('未核验')
+  expect(internals.statusLine(LIGHT_SUMMARY, { phase: 'confirmed' } as never)).toContain('未核验')
+})
+
+test('main-session confirmation authorizes Architect without opening or starting UI', async () => {
+  const { host, state, files, spawns, prompts } = uiHost({})
+  const project = { project_id: 'p', phase: 'awaiting_confirmation', root: '/w/study/research/p', db: LIGHT_SUMMARY.db_path }
+  state.set('project', project)
+  files.set('/w/study/.research-tree.json', JSON.stringify(project))
+  const calls: string[][] = []
+  const h = host as unknown as {
+    process: { run: (argv: string[]) => Promise<unknown> };
+    agent: { register?: (value: unknown) => Promise<void> };
+    ui: { open: () => Promise<void> };
+  }
+  h.agent.register = async () => undefined
+  h.ui.open = async () => { throw new Error('confirmation must not open UI') }
+  h.process.run = async argv => {
+    calls.push(argv)
+    if (argv[2] === 'phase') files.set('/w/study/.research-tree.json', JSON.stringify({ ...project, phase: 'confirmed' }))
+    const conf = { models: { ui: { model: 'fixture' }, worker: { model: 'fixture' } }, platform: { dev: 'local', experiment: 'CPU', skills: [] } }
+    return { exitCode: 0, stderr: '', stdout: argv[1]!.endsWith('build_site.py') ? JSON.stringify(LIGHT_SUMMARY)
+      : argv[1]!.endsWith('send_message.py') ? '{"id":"ui-0001","type":"instruction"}'
+      : JSON.stringify({ ok: true, result: argv[2] === 'instruction' ? { doc_id: 'D-0020', path: 'project/instructions/confirm.v1.md' }
+        : argv[2] === 'config' ? { effective: conf } : {} }) }
+  }
+  const words = '同意这个最小范围计划'
+  const answer = await internals.confirmPlan(host, { actor: 'rld/main' }, words)
+  expect(answer).toContain('Experiment Architect')
+  expect((state.get('project') as { phase: string }).phase).toBe('confirmed')
+  expect(calls.find(argv => argv[2] === 'instruction')).toContain(words)
+  expect(prompts[0]).toContain('research-tree:architect')
+  expect(spawns).toEqual([])
+})

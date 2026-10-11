@@ -51,11 +51,11 @@ def command(spec, directory):
         "mcp_servers.research_tree.args": [str(ROOT / "tools/codex_mcp.py"), "--project", spec["project"], "--actor", actor],
         "mcp_servers.research_tree.env_vars": ["CODEX_HOME", "RESEARCH_TREE_PROJECT", "RESEARCH_TREE_ACTOR",
                                               "CLAUDE_CONFIG_DIR", "PI_CODING_AGENT_DIR"],
-        "mcp_servers.research_tree.tool_timeout_sec": 3900,  # covers the runtime's review and cleanup waits
+        "mcp_servers.research_tree.tool_timeout_sec": 3900,  # covers cleanup; reviews return nonblocking tickets
         # Background exec sessions cannot answer approval prompts (approval_policy never): the plugin's own server
         # is pre-approved; it fixes the actor and applies every research gate itself.
         "mcp_servers.research_tree.default_tools_approval_mode": "approve",
-        "sandbox_mode": "read-only" if actor == "ui/ui" or actor.startswith("assistant/") else worker_sandbox(),
+        "sandbox_mode": "read-only" if actor == "ui/ui" or actor.startswith(("assistant/", "explorer/", "analyst/")) else worker_sandbox(),
         "approval_policy": "never",
     }
     if effort is not None:

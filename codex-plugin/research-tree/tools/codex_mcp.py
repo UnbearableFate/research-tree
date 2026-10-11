@@ -19,7 +19,7 @@ ROOT = Path(__file__).resolve().parents[1]
 
 
 def schema(properties, required=()):
-    return {"type": "object", "properties": {"project": {"type": "string", "description": "Main session: supply the absolute user workspace, not the plugin or research materials directory. Managed worker/UI/lens sessions: omit this field; the server already binds their workspace."}, **properties},
+    return {"type": "object", "properties": {"project": {"type": "string", "description": "Main session: supply the absolute user workspace, not the plugin or research materials directory. Managed worker/architect/explorer/analyst/UI/lens sessions: omit this field; the server already binds their workspace."}, **properties},
             "required": list(required), "additionalProperties": False}
 
 
@@ -28,16 +28,16 @@ OBJECT = {"type": "object"}
 TOOLS = [
     {"name": "research_db", "description": "Call the research database as this session's fixed role. Use help to discover methods and parameters. All shared scientific and ownership gates apply.",
      "inputSchema": schema({"method": STRING, "kwargs": OBJECT}, ["method"])},
-    {"name": "research_control", "description": "Project control: help, init, status, refresh, build, pane, check, config, confirm, instruction, worker, lens, agents, inbox, acknowledge, chat, ui_path, attach, commit. commit: a worker commits files of its own node worktree (the sandbox keeps .git read-only). lens starts a read-only candidate generator during full-discovery planning. Parameters depend on action; use help. Only RLD can control execution. User confirmations require their verbatim words.",
+    {"name": "research_control", "description": "Project control: help, init, status, refresh, build, pane, check, config, confirm, instruction, worker, architect, explorer, analyst, lens, agents, inbox, acknowledge, chat, ui_path, attach, commit. commit: a worker commits files of its own node worktree (the sandbox keeps .git read-only). lens starts a read-only candidate generator during full-discovery planning. Parameters depend on action; use help. Only RLD can control execution. User confirmations require their verbatim words.",
      "inputSchema": schema({"action": STRING, "params": OBJECT}, ["action"])},
-    {"name": "post_to_ui", "description": "RLD posts a notice, reply (requires re), or confirm_request (requires registered docs) to the independent research UI. A request is not approval.",
+    {"name": "post_to_ui", "description": "RLD records a notice, reply (requires re), or confirm_request (requires registered docs) in the on-demand research conversation. Main-session confirmation is valid; opening UI is optional. A request is not approval.",
      "inputSchema": schema({"type": {"enum": ["notice", "reply", "confirm_request"]}, "text": {"type": "string", "minLength": 1, "maxLength": 200},
                             "docs": {"type": "array", "items": STRING}, "re": STRING}, ["type", "text"])},
     {"name": "research_message", "description": "Send a validated short message to RLD, or resend an existing id unchanged. Use alert for a failure or blocker; text is at most 200 characters. Delivery state is returned separately from durable recording.",
      "inputSchema": schema({"type": {"enum": ["instruction", "task", "delivery", "question", "reply", "confirm_request", "ack", "alert"]},
                             "text": {"type": "string", "maxLength": 200}, "docs": {"type": "array", "items": STRING},
                             "about": {"type": "array", "items": STRING}, "re": STRING, "resend": STRING})},
-    {"name": "research_review", "description": "RLD: run one cross-model, non-interactive review (plans/design 09) through review_call.py: kind triage, novelty_precheck, critical_review, proposal_review, ablation_plan, code_review or candidate_recheck (with dimension numbers/protocol/method_code/novelty/theory and the evaluation it rechecks). brief is a file under the research root listing paths and structured metadata only, never your summary. The review is registered by the reviewer role; REVIEW_UNAVAILABLE / REVIEW_INVALID / REVIEW_BUDGET are never replaced by a self-review. On Codex the call waits for the review itself; ticket collects a review started in the background (a Claude-host job, review_call.py --background). Never start the same review again.",
+    {"name": "research_review", "description": "RLD: run one cross-model, non-interactive review (plans/design 09) through review_call.py: kind triage, novelty_precheck, critical_review, proposal_review, ablation_plan, code_review or candidate_recheck (with dimension numbers/protocol/method_code/novelty/theory and the evaluation it rechecks). brief is a file under the research root listing paths and structured metadata only, never your summary. The review is registered by the reviewer role; REVIEW_UNAVAILABLE / REVIEW_INVALID / REVIEW_BUDGET are never replaced by a self-review. Start returns a durable pending ticket immediately. Call with only ticket for nonblocking collection; a pending answer means it is still running. Never start the same review again.",
      "inputSchema": schema({"kind": {"enum": ["triage", "novelty_precheck", "critical_review", "proposal_review",
                                               "ablation_plan", "code_review", "candidate_recheck"]},
                             "brief": {"type": "string", "description": "Brief file relative to the research root, e.g. docs/reviews/briefs/H-0001-numbers.v1.md; include docs/ when the file is under docs/."}, "about": STRING,
@@ -86,9 +86,8 @@ def run_request(cwd: Path, actor: str, name: str, arguments: dict) -> dict:
                              "--actor", actor], input=json.dumps({"tool": name, "arguments": arguments}),
                             text=True, capture_output=True, cwd=cwd,
                             # a cleanup deletes run outputs and may take a while on shared storage
-                            # MAX_CALL_S (3600) < this cap < the client's 3900 s wait, so errors can return
-                            timeout=3800 if name == "research_review" else
-                            1800 if arguments.get("method") == "run_cleanup" else 90)
+                            # Reviews run detached and return tickets; only filesystem cleanup needs a longer RPC cap.
+                            timeout=1800 if arguments.get("method") == "run_cleanup" else 90)
     try:
         response = json.loads(result.stdout)
     except ValueError:

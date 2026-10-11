@@ -8,6 +8,8 @@ import shutil
 import subprocess
 import sys
 import unittest
+from contextlib import ExitStack
+from unittest.mock import patch
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "tools"))
@@ -137,6 +139,73 @@ class SummaryTest(Fixture):
                       data["guards"]["frozen_docs"], node_doc)
         self.assertEqual(data["guards"]["harness"], [str(Path(self.tmp.name) / "wt" / h / "harness")])
         self.assertTrue(any(a["kind"] == "conclusion_outdated" for a in data["attention"]))
+
+    def test_summary_is_db_only_and_never_claims_unchecked_go(self):
+        h, exp = self.candidate()
+        with ExitStack() as stack:
+            for name in ("collect", "load_curve", "render_markdown", "sha256_file", "unanswered", "review_attention"):
+                stack.enter_context(patch.object(build_site, name, side_effect=AssertionError(f"expensive {name}")))
+            for name in ("export_snapshot", "get_eligibility", "verify_document", "cleanup_due"):
+                stack.enter_context(patch.object(build_site.ResearchDB, name, side_effect=AssertionError(name)))
+            stack.enter_context(patch.object(Path, "read_text", side_effect=AssertionError("read presentation file")))
+            stack.enter_context(patch.object(Path, "read_bytes", side_effect=AssertionError("read evidence file")))
+            data = build_site.summary_or_empty(self.db)
+        node = next(n for n in data["nodes"] if n["id"] == h)
+        self.assertIsNone(data["counts"]["go"])
+        self.assertIsNone(node["go"])
+        self.assertEqual(node["outcome"], "positive_signal")
+        self.assertEqual(node["evidence_state"], "not_checked")
+        self.assertFalse(node["eligibility_checked"])
+        self.assertFalse(data["meta"]["eligibility_checked"])
+        self.assertEqual(data["meta"]["diagnostics"], "database_status_only")
+        self.assertFalse((self.root / "site").exists())
+
+    def test_summary_and_explicit_full_build_include_latest_committed_data(self):
+        page = self.root / "site/index.html"
+        build_site.build(self.db, page)
+        old_version = build_site.page_version(page)
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h)
+        self.evaluate(exp, "beats_sota")
+        data = build_site.summary_or_empty(self.db)
+        self.assertGreater(data["meta"]["data_version"], old_version)
+        self.assertEqual(build_site.page_version(page), old_version)  # cheap status does not rebuild
+        full = build_site.build(self.db, page)
+        self.assertEqual(full["meta"]["data_version"], data["meta"]["data_version"])
+        self.assertEqual(page_data(page)["meta"]["view"], "full")
+        node = next(n for n in page_data(page)["nodes"] if n["id"] == h)
+        self.assertEqual(node["latest"], exp)
+        self.assertTrue(node["eligibility_checked"])
+        self.assertEqual(node["intellectual_parent_id"], "P-test")
+        self.assertEqual(node["code_parent_id"], "P-test")
+        self.assertEqual(node["comparator_experiment_id"], self.sota)
+        self.assertEqual(node["branch"]["base_commit"], self.harness)
+        self.assertIn("思想来源", page.read_text())
+        self.assertIn("代码起点", page.read_text())
+        self.assertIn("比较参照", page.read_text())
+
+    def test_intellectual_ancestry_code_source_and_comparator_are_separate(self):
+        anchor = "底线问题: x；必须解决的瓶颈: x；非目标: x；约束: x；成功条件: x"
+        goal = self.doc(self.rld, "project/fast-goal.v1.md", "goal", body="## 问题锚点\n" + anchor)
+        instruction = self.doc(self.rld, "instructions/fast.v1.md", "user_instruction")
+        self.rld.update_project(workflow_mode="fast_screening", goal_doc_id=goal, user_instruction_doc_id=instruction)
+        body = ("## 问题锚点\n" + anchor + "\n## 可证伪预测\n改善指标\n## 干预\n改变配置\n"
+                '## 匹配对照\n相同种子基线\n## 资源上限\n{"nodes":1,"walltime_s":60,"n_seeds":1}\n'
+                "## 停止与继续条件\n正向复制，负向暂停\n")
+        idea_doc = self.doc(self.rld, "h/idea.v1.md", "hypothesis", body=body)
+        idea = self.rld.create_hypothesis("idea", "s", idea_doc, [])
+        doc = self.doc(self.rld, "h/variant/hypothesis.v1.md", "hypothesis", body=body)
+        variant = self.rld.create_hypothesis("parallel variant", "test another implementation", doc, self.literature,
+                        parent_id=idea, code_parent_id="P-test", comparator_experiment_id=self.sota)
+        full = build_site.build(self.db, self.root / "site/index.html")
+        compact = build_site.summary_or_empty(self.db)
+        for data in (full, compact):
+            node = next(n for n in data["nodes"] if n["id"] == variant)
+            self.assertEqual(node["intellectual_parent_id"], idea)
+            self.assertEqual(node["code_parent_id"], "P-test")
+            self.assertEqual(node["comparator_experiment_id"], self.sota)
+        self.assertEqual(self.rld.get(idea)["status"], "pending")
 
     def test_go_follows_eligibility_and_stale_evidence_shows(self):  # E01, K07-like display
         h, exp = self.concluded("beats_sota")

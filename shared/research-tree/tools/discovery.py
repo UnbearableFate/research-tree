@@ -1,5 +1,8 @@
-"""Discovery before the project starts (plans/design 02): resumable stage state, the candidate pool and its
-deterministic gates. Nothing here calls a model.
+"""Resumable discovery and deterministic candidate readiness. Nothing here calls a model.
+
+Full/precheck retain the original whole-batch gate. Incremental discovery continues alongside the shared
+framework after the user confirms the initial scope; each selected candidate is checked independently.
+Candidate readiness never grants scope authorization or replaces experiment/evidence admission checks.
 
 Stage state is ported from ARIS tools/run_state.py and the gate from tools/idea_discovery_gate.py
 (Auto-claude-code-research-in-sleep @ 3b19a22), adapted: a stage is `done` when the Leader finished it and
@@ -28,7 +31,7 @@ from pathlib import Path
 import review_rules
 
 STAGES = ("brief", "literature", "candidates", "feasibility", "triage", "novelty", "critique", "refine", "gate")
-SKIPPED_BY_MODE = {"full": (), "precheck": ("candidates", "feasibility", "triage")}
+SKIPPED_BY_MODE = {"full": (), "precheck": ("candidates", "feasibility", "triage"), "incremental": ()}
 REVIEW_STAGES = {"triage": "triage", "novelty": "novelty_precheck", "critique": "critical_review"}
 DETERMINISTIC_STAGES = ("literature", "feasibility")
 TERMINAL = ("accepted", "skipped")
@@ -84,12 +87,15 @@ def _save(root: Path, state: dict) -> None:
 
 
 def start(root: Path, mode: str, executor_model: str | None) -> dict:
-    """Create the stage list for discovery.mode full or precheck (idempotent: an existing run is returned)."""
+    """Create discovery state; incremental stages track ongoing work without gating other candidates."""
     if mode not in SKIPPED_BY_MODE:
-        raise DiscoveryError(f"discovery runs in mode full or precheck, not {mode!r} (off skips discovery)")
+        raise DiscoveryError(f"discovery runs in mode full, precheck or incremental, not {mode!r} (off skips discovery)")
     with _locked(root):
         state = load(root)
         if state is not None:
+            if state.get("mode") != mode:
+                raise DiscoveryError(f"discovery already started in {state.get('mode')!r}, not {mode!r}; "
+                                     "reconcile the existing run rather than silently changing its gates")
             return state
         state = {"mode": mode, "executor_model": executor_model, "created": now(), "gate": None,
                  "stages": [{"stage": s, "status": "skipped" if s in SKIPPED_BY_MODE[mode] else "pending",
@@ -199,7 +205,7 @@ def dedup_key(text: str) -> str:
 # What a candidate says (its content revision is over these); bookkeeping (found_by, selected, literature, ranks,
 # feasibility notes) is not content.
 CONTENT_FIELDS = ("title", "summary", "mechanism", "method", "claim", "statement", "closest_work", "hypothesis",
-                  "prediction", "estimated_run")
+                  "prediction", "estimated_run", "intervention", "comparator", "resource_ceiling", "stop_conditions")
 BOOKKEEPING = ("id", "revision", "content_sha", "revisions", "found_by", "selected", "literature", "triage_rank",
                "feasible", "feasibility_reasons", "present", "origin", "dedup_key", "legacy_ids")
 
@@ -291,6 +297,7 @@ def receipt_applies(review: dict, candidate: dict) -> bool:
     names that content, and the candidate did not change while the reviewer answered."""
     basis = review.get("review_basis") or {}
     return (not review.get("review_basis_changed") and basis.get("candidate_id") == candidate.get("id")
+            and basis.get("revision") == candidate.get("revision") and candidate.get("revision") is not None
             and basis.get("content_sha") == candidate.get("content_sha") and candidate.get("content_sha") is not None)
 
 
@@ -331,6 +338,24 @@ def select(candidates: list[dict], ranking: list[dict], top_n: int) -> list[dict
     return [{**c, "selected": c["id"] in chosen, "triage_rank": rank.get(c["id"])} for c in candidates]
 
 
+def select_candidate(root: Path, candidate_id: str) -> dict:
+    """Select one incremental candidate without changing another candidate's selection or requiring triage.
+
+    Selection is research prioritization, not a PASS receipt: admission rechecks current content and scope.
+    """
+    with _locked(root):
+        state = _require(root)
+        if state["mode"] != "incremental":
+            raise DiscoveryError("select --candidate is for incremental discovery; full/precheck keep triage selection")
+        candidates = read_candidates(root)
+        candidate = next((c for c in candidates if c.get("id") == candidate_id), None)
+        if candidate is None or candidate.get("present") is False:
+            raise DiscoveryError(f"{candidate_id} is not a current discovery candidate")
+        candidate["selected"] = True
+        write_candidates(root, candidates)
+        return candidate
+
+
 def cite(root: Path, candidate_id: str, literature: list[str]) -> dict:
     """Attach literature documents (D-…) to a candidate: the gate counts the verified ones."""
     candidates = read_candidates(root)
@@ -345,8 +370,11 @@ def cite(root: Path, candidate_id: str, literature: list[str]) -> dict:
 def write_candidates(root: Path, candidates: list[dict]) -> str:
     path = root / CANDIDATES_PATH
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(json.dumps({"updated": now(), "candidates": candidates}, ensure_ascii=False, indent=1) + "\n",
-                    encoding="utf-8")
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix=".candidates.", suffix=".tmp")
+    with os.fdopen(fd, "w", encoding="utf-8") as handle:
+        json.dump({"updated": now(), "candidates": candidates}, handle, ensure_ascii=False, indent=1)
+        handle.write("\n")
+    os.replace(tmp, path)
     return str(CANDIDATES_PATH)
 
 
@@ -363,6 +391,76 @@ def read_shards(root: Path) -> list[dict]:
 # -- the gate ------------------------------------------------------------------------------------------------------
 
 
+def _has_description(value) -> bool:
+    """Accept prose or structured descriptions, never an empty placeholder/bool/number alone."""
+    if isinstance(value, str):
+        return bool(value.strip())
+    if isinstance(value, dict):
+        return any(_has_description(v) for v in value.values())
+    if isinstance(value, list):
+        return bool(value) and all(_has_description(v) for v in value)
+    return False
+
+
+def evaluate_candidate(root: Path, candidate_id: str, *, workflow_mode: str = "strict",
+                       reviews: list[dict] | None = None, literature: dict[str, bool] | None = None,
+                       min_related_work: int = 0, max_nodes: int | None = None,
+                       max_walltime_s: int | None = None, screen_node_h: float | None = None) -> dict:
+    """Read-only readiness of exactly one candidate; no batch progress, report, or model call is required.
+
+    Fast screening requires a falsifiable prediction, intervention, matched comparator, positive per-run
+    resource ceiling within the supplied project limits, and stop/continue conditions. Strict readiness
+    retains current revision-bound novelty/critique receipts and verified related work. The database still
+    enforces negative-review adjudication, initial authorization, method identity and actual run limits.
+    """
+    if workflow_mode not in ("strict", "fast_screening"):
+        raise DiscoveryError(f"unknown workflow mode {workflow_mode!r}")
+    candidate = next((c for c in read_candidates(root) if c.get("id") == candidate_id), None)
+    result = {"verdict": "BLOCKED", "reasons": [], "candidate_id": candidate_id,
+              "revision": candidate.get("revision") if candidate else None,
+              "content_sha": candidate.get("content_sha") if candidate else None}
+    reasons = result["reasons"]
+    if candidate is None or candidate.get("present") is False:
+        reasons.append(f"{candidate_id} is not a current discovery candidate")
+        return result
+    if not candidate.get("selected"):
+        reasons.append(f"{candidate_id} is not selected (discovery select --candidate {candidate_id})")
+    if type(candidate.get("revision")) is not int or candidate["revision"] <= 0:
+        reasons.append(f"{candidate_id}: no valid content revision; merge again to record its identity")
+    if not candidate.get("content_sha") or candidate["content_sha"] != content_sha(candidate):
+        reasons.append(f"{candidate_id}: content changed outside discovery merge; merge again to record its revision")
+    if workflow_mode == "fast_screening":
+        for field in ("prediction", "intervention", "comparator", "stop_conditions"):
+            if not _has_description(candidate.get(field)):
+                reasons.append(f"{candidate_id}: screening needs {field}")
+        ceiling = candidate.get("resource_ceiling")
+        nodes = ceiling.get("nodes") if isinstance(ceiling, dict) else None
+        walltime = ceiling.get("walltime_s") if isinstance(ceiling, dict) else None
+        if type(nodes) is not int or type(walltime) is not int or nodes <= 0 or walltime <= 0:
+            reasons.append(f"{candidate_id}: resource_ceiling needs positive integer nodes and walltime_s")
+        else:
+            if max_nodes is not None and nodes > max_nodes:
+                reasons.append(f"{candidate_id}: resource_ceiling nodes {nodes} exceeds per-run cap {max_nodes}")
+            if max_walltime_s is not None and walltime > max_walltime_s:
+                reasons.append(f"{candidate_id}: resource_ceiling walltime_s {walltime} exceeds per-run cap {max_walltime_s}")
+            if screen_node_h is not None and nodes * walltime / 3600 > screen_node_h:
+                reasons.append(f"{candidate_id}: resource_ceiling exceeds screening budget {screen_node_h} node-h")
+    else:
+        mine = [r for r in reviews or [] if r.get("status") == "current" and r.get("review_about") == candidate_id]
+        applicable = [r for r in mine if receipt_applies(r, candidate)]
+        for kind in ("novelty_precheck", "critical_review"):
+            if not any(r.get("review_kind") == kind for r in applicable):
+                reasons.append(f"{candidate_id}: no {kind} receipt for its current revision {candidate.get('revision')}")
+        novelty = [r for r in applicable if r.get("review_kind") == "novelty_precheck"]
+        if novelty and max(novelty, key=lambda r: int(r["id"].split("-")[1])).get("review_result") == "NEEDS_EVIDENCE":
+            reasons.append(f"{candidate_id}: novelty receipt needs evidence (NEEDS_EVIDENCE); run literature_followup")
+        verified = {d for d in candidate.get("literature") or [] if (literature or {}).get(d)}
+        if len(verified) < min_related_work:
+            reasons.append(f"{candidate_id}: {len(verified)} verified literature documents, needs {min_related_work}")
+    result["verdict"] = "BLOCKED" if reasons else "PASS"
+    return result
+
+
 def evaluate(root: Path, reviews: list[dict], literature: dict[str, bool], min_related_work: int,
              report_path: str | None) -> dict:
     """D8: every stage terminal with its artifact; the report has its sections (用户假说, 新发现候选, 淘汰想法) and
@@ -370,6 +468,8 @@ def evaluate(root: Path, reviews: list[dict], literature: dict[str, bool], min_r
     min_related_work verified literature documents (`literature`: doc id -> verified). Returns {verdict PASS or
     BLOCKED, reasons} and records it in the state."""
     state = _require(root)
+    if state["mode"] == "incremental":
+        raise DiscoveryError("incremental discovery has no whole-batch gate; use gate --candidate CAND-…")
     reasons = []
     for s in state["stages"]:
         if s["stage"] == "gate":

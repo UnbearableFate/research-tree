@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "research-tree/config.schema.json",
   "title": "research-tree project configuration, version 2",
-  "description": "research-tree.yaml (version 2) after missing keys are filled from config.template.yaml. Version 1 files are checked against config.v1.schema.json.",
+  "description": "research-tree.yaml (version 2), completed and validated by project_config. Missing workflow stays strict; new templates explicitly opt in to fast screening.",
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -19,7 +19,8 @@
     "review",
     "notify",
     "literature",
-    "models"
+    "models",
+    "workflow"
   ],
   "properties": {
     "version": {
@@ -72,7 +73,8 @@
           "enum": [
             "off",
             "precheck",
-            "full"
+            "full",
+            "incremental"
           ]
         },
         "require_precheck": {
@@ -548,7 +550,10 @@
         "ui",
         "worker",
         "lens_assistant",
-        "reviewer"
+        "reviewer",
+        "explorer",
+        "architect",
+        "analyst"
       ],
       "properties": {
         "ui": {
@@ -593,6 +598,31 @@
               "minimum": 30
             }
           }
+        },
+        "explorer": {
+          "$ref": "#/$defs/model"
+        },
+        "architect": {
+          "$ref": "#/$defs/model"
+        },
+        "analyst": {
+          "$ref": "#/$defs/model"
+        }
+      }
+    },
+    "workflow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "mode"
+      ],
+      "properties": {
+        "mode": {
+          "enum": [
+            "strict",
+            "fast_screening"
+          ],
+          "description": "Fast screening defers deep review until promotion; scientific validity and independent final confirmation remain required."
         }
       }
     }

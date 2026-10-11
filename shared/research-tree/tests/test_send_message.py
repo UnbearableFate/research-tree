@@ -138,6 +138,38 @@ class SendMessageTest(unittest.TestCase):
         self.assertEqual(code, 2)
         self.assertIn("not in the message logs", err)
 
+    def test_advisors_keep_distinct_logs_and_replies_in_legacy_projects(self):
+        # No registry migration is needed, and existing Leader ids remain unchanged.
+        self.assertEqual(self.task()[0], 0)
+        messages = {}
+        for role in ("explorer", "analyst"):
+            code, out, err = self.run_tool("--from", f"{role}/main", "--to", "rld/main",
+                                           "--type", "question", "--text", "Evidence-backed next experiment?")
+            self.assertEqual(code, 0, err)
+            messages[role] = json.loads(out)
+            self.assertEqual(messages[role]["id"], f"{role}--main-0001")
+            code, replay, err = self.run_tool("--resend", messages[role]["id"])
+            self.assertEqual((code, replay), (0, out), err)
+            code, reply, err = self.run_tool("--from", "rld/main", "--to", f"{role}/main", "--type", "reply",
+                                             "--text", "Please check the matched raw runs.", "--re", messages[role]["id"])
+            self.assertEqual(code, 0, err)
+            self.assertEqual(json.loads(reply)["re"], messages[role]["id"])
+        self.assertEqual([m["id"] for m in self.log_lines("main")], ["main-0001", "main-0002", "main-0003"])
+        self.assertEqual(len(self.log_lines("explorer--main")), 1)
+        self.assertEqual(len(self.log_lines("analyst--main")), 1)
+        for role in ("explorer", "analyst"):
+            code, _, err = self.run_tool("--from", f"{role}/other", "--to", "rld/main", "--type", "question", "--text", "x")
+            self.assertEqual(code, 2, err)
+
+    def test_architect_reuses_its_root_worker_log_without_rewriting_legacy_ids(self):
+        for actor, expected in (("worker/root", "root-0001"), ("architect/root", "root-0002")):
+            code, out, err = self.run_tool("--from", actor, "--to", "rld/main", "--type", "alert", "--text", "Root harness ready")
+            self.assertEqual(code, 0, err)
+            self.assertEqual(json.loads(out)["id"], expected)
+        self.assertEqual(len(self.log_lines("root")), 2)
+        self.assertTrue(send_message.MESSAGE_ID_RE.fullmatch("explorer--main-0001"))
+        self.assertFalse(send_message.MESSAGE_ID_RE.fullmatch("../main-0001"))
+
     def test_gives_up_when_a_writer_holds_the_database(self):
         holder = subprocess.Popen(
             [sys.executable, "-c", textwrap.dedent(

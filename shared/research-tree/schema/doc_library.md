@@ -46,7 +46,7 @@
     │   │   └── stats.v1.json                # 统计代码的结构化输出（逐seed与配对比较），可选
     │   ├── decisions/prune-after-gate.v1.md # 节点决定的理由
     │   └── notes/                           # 补充分析、讨论（经rel_describes关联）
-    ├── project/discovery/                   # 立项前发现：user-hypotheses.json、candidates.json（候选池，CAND-编号）
+    ├── project/discovery/                   # 增量或整批发现：user-hypotheses.json、candidates.json（候选池，CAND-编号及 revision）
     ├── findings/                            # 研究发现（finding，08 §1.1）
     ├── lessons/                             # 运行经验（lesson，08 §1.2；front matter kind: execution_lesson）
     ├── reviews/                             # 跨模型非交互评审（review_call.py，作者 reviewer）
@@ -101,13 +101,13 @@ created_at: 2026-10-03T10:21:00Z
 
 ## 4. 各类文档的必需内容
 
-各类文档都有模板，存放在 `docs/workflow/templates/`。暂时未知的内容写“未知”，不得留空，也不得编造。
+各类文档都有模板，存放在 `docs/workflow/templates/`。暂时未知的内容写“未知”，不得留空，也不得编造。 Explorer 与 Analyst 提交只读建议，由 Leader 核验后按下面的作者权限登记；不另建可自批评估或决定的写入角色。廉价筛选使用最小设计，最终确认与强主张仍补齐适用论证和独立复核。
 
 | doc_type | 作者 | 必需内容 |
 |---|---|---|
 | `goal` | RLD（据用户指令） | 研究问题、目标场景、发表目标、范围与排除项、所依据的用户指令ID；**`## 问题锚点`**：底线问题、必须解决的瓶颈、非目标、约束、成功条件（版本 2 配置下，假说文档逐字复制，接口核对） |
 | `min_setup` | RLD | 模型、数据、训练量、评测（模型与数据集写 Hugging Face Hub 正式 ID，数据集含 config 与 split）；主指标及优劣方向、是否百分比指标；其他比较指标（过程loss、显存、训练时间等）；统一seed顺序；评测类型（与协议的 eval_type 相同）及它限制的结论措辞；SOTA基线方法与来源，以及每个基线家族的合理调参机会、训练量与数据处理（不能以一个未调好的单一配置代表现有方法）；单次运行上限与筛选预算；**冻结的实验框架与统计代码**：版本、文件清单、记录的指标与曲线、配对比较方法、判定规则（无提升/差不多/优于父节点/优于SOTA/需要RLD复核的具体口径） |
-| `hypothesis` | RLD | 版本 2 配置下必需的 `## ` 章节（接口检查）：问题锚点（与 goal 逐字一致）、方法步骤、技术缺口、可证伪预测与竞争解释、最接近工作与差异、Claim map（表格，主 claim 不超过 `design.max_primary_claims`）、实验块（每块一个 `### `，不超过 `design.max_core_blocks`，每块含“成功判据”“失败解释”）、成本估计、停止条件、有意舍弃的复杂度。另写：一句话可证伪假说；**创建理由**：参考了哪些相关研究（列出被引用的literature文档ID）、它们留下的空白、为什么本节点具有基本的新颖性和理论正确性；机制；**计划的代码改动**；可证伪预测与实验计划；竞争解释；与父节点的差异 |
+| `hypothesis` | RLD | fast_screening：问题锚点（与获准 goal 逐字一致）、可证伪预测、干预、匹配对照、资源上限、停止与继续条件六个 `## ` 章节；资源上限含 JSON `{nodes, walltime_s, n_seeds?}`，正数且不超授权。strict 保留方法步骤、技术缺口、可证伪预测与竞争解释、最接近工作与差异、Claim map、实验块、成本估计、停止条件、有意舍弃的复杂度等完整章节与上限。方法变化可为代码或科学配置；明确思想来源、代码起点、比较参照与已引用文献，不把未验证方向说成赢家 |
 | `novelty` | RLD | 节点优于SOTA后的复核：检索记录（查询词、来源、日期），范围不限于创建时引用的文献；最接近工作的逐项对比表（机制、适用条件、实验设定、已报告结果、差异）；结论 |
 | `theory` | RLD | 节点优于SOTA后的复核：推导或论证的逐步核对；关键假设；与实验结果是否一致；结论 |
 | `literature` | worker/助手 | 由 `literature.py note` 生成：front matter 含标题、作者、年份、arXiv ID/DOI/URL、访问日期、`verification`（verified/unverified，不手改）、核验方法、缓存路径与 sha256；正文章节：出处、核心方法、实验设定与结果、与本项目的关系、最近邻差异（机制是否相同、改变了什么假设、已有结果是否覆盖本项目声明） |
@@ -116,7 +116,7 @@ created_at: 2026-10-03T10:21:00Z
 | `decision` | RLD | 变更字段与前后取值；理由；依据（实验、文档、用户指令ID）；判定为“需要RLD复核”时RLD的判断理由 |
 | `user_instruction` | UI | 用户原话（逐字）；UI的理解；类型（指令/偏好/问题/讨论）；生效范围；取代的旧指令ID |
 | `task_request` | RLD | 章节（接口检查）：任务与节点、问题与预测、干预与对照、范围与权限、资源与预算、验收与停止条件、交付；各章节的内容见规则第4节 |
-| `task_delivery` | worker/助手/web builder | 章节（接口检查）：实际改动与版本、运行与产物、验证结果、资源观测、未完成与未知项；各章节的内容见规则第4节 |
+| `task_delivery` | worker/architect/助手/web builder；只读建议任务由 rld 代记 | 章节（接口检查）：实际改动与版本、运行与产物、验证结果、资源观测、未完成与未知项；Explorer/Analyst 的报告保持 rld 作者并用 about=[task_id] 绑定任务，引用 advisor 会话与真实来源；各章节的内容见规则第4节 |
 | `workflow` | RLD | 规则版本、模板、项目约定 |
 | `report` | RLD | 阶段总结、GO/NOT GO报告（第6、7节要求的内容） |
 | `metric_spec` | RLD | JSON：`{"version": 1, "primary": <主指标>, "metrics": [...]}`，每个指标 `name`、`direction`（higher/lower）、`input_unit`（run 报告的单位，如 fraction、percentage、seconds、gib）、`canonical_unit`（比较单位，如 percentage_point）、`effect_mode`（absolute 或 relative_to_reference_mean）、`minimum_practical_gain`、`aggregation`（paired_run_mean），可选 `allowed_regression`（保护指标允许的最大退化）、`valid_range`（输入单位的合法范围；fraction 默认 [0,1]、percentage 默认 [0,100]。百分数指标收到 0–1 的比例时默认范围查不出，需要时把 valid_range 收紧到实际可能的区间）、`relative_min_denominator`（相对效应必填）；指标恰为项目的主指标与其他比较指标。设为现行时接口校验 |
@@ -154,9 +154,9 @@ created_at: 2026-10-03T10:21:00Z
 
 每次写入是一个短事务，遇到锁冲突有限次重试。接口同时执行以下规则：
 
-- **冻结框架。** 根节点worker实现实验框架与统计代码，RLD审核后用 `update_project(harness_ref, harness_paths)` 冻结。此后所有实验的代码必须包含该版本，且框架文件与之完全一致（git核对），否则不能记录判定。更换框架会清空SOTA基线，必须用新框架重跑。
+- **冻结框架。** Experiment Architect（根执行者，兼容旧 worker/root）实现实验框架与统计代码，RLD审核后用 `update_project(harness_ref, harness_paths)` 冻结。此后所有实验的代码必须包含该版本，且框架文件与之完全一致（git核对），否则不能记录判定。更换框架会清空SOTA基线，必须用新框架重跑。
 - **SOTA基线与seed预算。** SOTA基线在统一seed上跑满 `gate_seeds`（默认3）个seed并记录结果后，才能设为项目的SOTA。节点实验的初始seed数由SOTA第一个seed的成本 c（节点数×时长）决定：满足 n×c < `screen_budget_node_h`（默认10 node·h）的最大n，至少1、至多3。判定为“差不多”或“优于父节点”时，worker可扩展到3个seed；RLD可随时扩展。
-- **创建节点**必须引用至少 `project.min_related_work`（默认3）篇现行的literature文档（`rel_references`）。根节点（项目本身）只存放 baselines；不指定父节点时新节点挂在根节点下（初始假说都是如此）；指定父节点时，父节点必须已是可拓展状态。
+- **创建节点。** strict 按 `project.min_related_work` 引用足量现行、已核验 literature，并保留旧父节点可拓展条件。fast_screening 用获准的五项最小设计逐候选准入，已有文献可复用；parent_id/relations 表示思想来源，code_parent_id/branch base_commit 是代码起点，comparator_experiment_id 是匹配参照，投入状态独立记录。思想父节点无需已胜出，但代码和比较身份仍须有效；不改变授权或最终 GO 门。
 - **开始验证**要求节点已有代码分支，且 `experiment_status` 为running；节点实验的代码必须是不同于分支基准的提交。
 - **运行**按 planned → submitted（→ running）→ succeeded/failed/cancelled 推进；主指标与其他指标只能记在已成功的运行上。设为有效需要主指标、其他指标、实际节点数与时长，以及日志或输出路径；设为无效需要写明原因。重新提交（attempt 加1）只适用于失败、取消，或已成功但被判为无效的运行；之前每次 attempt 的记录保留在运行的 `attempts` 中，其用量计入累计用量。
 - **产物导入**：运行成功后，owner 用 `import_run_result(run_id, attempt, manifest_path)` 导入运行写出的 manifest（实验与 seed、attempt、代码版本、退出状态、指标文件、每个指标的单位 `units`（须与指标规范的 input_unit 一致）、计数、数据版本、配置、环境）；冻结解析器核对身份、数值有限且在合法范围、计数与协议要求的设定，指标文件写入 run 的数值并登记为证据（`evidence_paths`）。同一 attempt 用相同文件重复导入不变，用不同文件导入被拒绝；导入的数值不能再用 `update_run` 改写。有效性仍由 `update_run(valid=...)` 决定：指标文件存在、进程返回0都不等于实验有效。

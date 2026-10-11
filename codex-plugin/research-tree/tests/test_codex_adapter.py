@@ -12,6 +12,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import patch
 
+# ruff: noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
 
@@ -23,7 +24,7 @@ from codex_runtime import Runtime
 from metrics import minimal_documents
 import build_site
 from research_db import READ_METHODS, TASK_SECTIONS
-from codex_state import lock_busy, locked, read_json, write_json
+from codex_state import actor_key, lock_busy, read_json, write_json
 
 
 class AdapterTest(unittest.TestCase):
@@ -111,7 +112,7 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         path = Path(run["directory"]) / "state.json"
         for _ in range(500):
             state = read_json(path)
-            if state.get("status") in {"completed", "failed", "interrupted"} and not lock_busy(self.runtime.cache / "agents" / f"{run['actor'].replace('/', '-')}.lock"):
+            if state.get("status") in {"completed", "failed", "interrupted"} and not lock_busy(self.runtime.cache / "agents" / f"{actor_key(run['actor'])}.lock"):
                 return state
             time.sleep(0.02)
         self.fail(f"supervisor did not finish: {read_json(path)}")
@@ -165,17 +166,22 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
             self.runtime.post({"type": "notice", "text": text})
         self.assertEqual([r["text"] for r in self.runtime.chat()[len(before):]], ["a", "😀" * 200])
 
-    def test_research_review_handler(self):
+    def test_research_review_handler_returns_ticket_without_waiting(self):
+        import review_call
         args = {"kind": "novelty_precheck", "brief": "docs/project/min-setup.v1.md", "about": "P-test"}
         worker = Runtime(self.cwd, "worker/root")
         with self.assertRaisesRegex(ValueError, "only the Leader"):
             worker.dispatch("research_review", args)
-        # this fixture's configuration is version 1: no models.reviewer, so the call is unavailable and logged
-        with self.assertRaisesRegex(ValueError, "REVIEW_UNAVAILABLE: research-tree.yaml has no models.reviewer"):
-            self.runtime.dispatch("research_review", args)
-        log = [json.loads(x) for x in (self.runtime.root / "logs/review_calls.jsonl").read_text().splitlines()]
-        self.assertEqual((log[-1]["kind"], log[-1]["about"], log[-1]["outcome"]),
-                         ("novelty_precheck", "P-test", "REVIEW_UNAVAILABLE"))
+        with patch.object(review_call, "start_job", return_value="RJ-0123456789ab") as start, \
+                patch.object(review_call, "wait_job", side_effect=AssertionError("start must never wait")):
+            result = self.runtime.dispatch("research_review", args)
+        self.assertTrue(result["pending"])
+        self.assertEqual(result["ticket"], "RJ-0123456789ab")
+        self.assertEqual(start.call_args.args[:2], (self.cwd, self.runtime.root))
+        self.assertIn("--kind", start.call_args.args[2])
+        with patch.object(review_call, "start_job", side_effect=review_call.ReviewError("REVIEW_UNAVAILABLE", "fixture")):
+            with self.assertRaisesRegex(ValueError, "REVIEW_UNAVAILABLE"):
+                self.runtime.dispatch("research_review", args)
 
     def test_research_review_ticket_collects_a_background_review(self):
         """A review started as a background job (review_call.py --background) is collected with its ticket."""
@@ -214,7 +220,7 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         from the YAML although discovery was off."""
         import codex_prompts
         import project_config
-        conf = project_config.parse((ROOT / "schema/config.template.yaml").read_text().replace("mode: full", "mode: off"))
+        conf = project_config.parse((ROOT / "schema/config.template.yaml").read_text().replace("mode: incremental", "mode: off"))
         text = codex_prompts.planning({"plan_instruction": "D-1", "root": "/r", "project_id": "P-x"}, conf)
         self.assertIn('"require_precheck": false', text)
         self.assertIn("不要从 yaml 原样抄写", text)
@@ -239,7 +245,7 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         with patch("codex_mcp.subprocess.run", return_value=subprocess.CompletedProcess([], 1, json.dumps(failure), "")) as run:
             self.assertEqual(codex_mcp.run_request(self.cwd, "rld/main", "research_review",
                              {"kind": "code_review", "brief": "docs/request.md", "about": "P-test"}), failure)
-        self.assertLess(MAX_CALL_S, run.call_args.kwargs["timeout"])
+        self.assertLess(run.call_args.kwargs["timeout"], MAX_CALL_S)  # detached model work is outside the RPC wait
         self.assertLess(run.call_args.kwargs["timeout"], client_timeout)
 
     def test_worker_honors_native_full_access_and_ui_remains_read_only(self):
@@ -288,6 +294,93 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
                 worker.dispatch("research_message", arguments)
         alert = worker.dispatch("research_message", {"type": "alert", "text": "test blocker", "about": [self.task]})
         self.assertEqual(alert["message"]["from"], "worker/root")
+
+    def test_advisors_are_real_bound_read_only_sessions_with_distinct_messages(self):
+        for role in ("explorer", "analyst"):
+            with self.subTest(role=role):
+                started = self.runtime.control(role, {"task": "Read the current evidence and propose the next experiment."})
+                self.assertEqual(started["actor"], f"{role}/main")
+                state = self.wait_run(started)
+                self.assertEqual(state["status"], "completed", state)
+                advisor = Runtime(self.cwd, started["actor"])
+                self.assertEqual(advisor.dispatch("research_db", {"method": "get", "kwargs": {"entity_id": "P-test"}})["id"], "P-test")
+                for method in ("create_experiment", "register_document", "update_task", "update_project", "decide"):
+                    with self.assertRaisesRegex(ValueError, "only read"):
+                        advisor.dispatch("research_db", {"method": method, "kwargs": {}})
+                for action in ("worker", "architect", "explorer", "analyst", "confirm", "instruction", "attach", "acknowledge"):
+                    with self.assertRaisesRegex(ValueError, "only RLD"):
+                        advisor.control(action, {})
+                with self.assertRaisesRegex(ValueError, "only the Leader"):
+                    advisor.dispatch("research_review", {})
+                with self.assertRaisesRegex(ValueError, "only a node"):
+                    advisor.control("commit", {"paths": ["x"], "message": "forged"})
+                with self.assertRaisesRegex(ValueError, "cannot switch"):
+                    codex_mcp.run_request(self.cwd, started["actor"], "research_db", {"project": str(self.cwd.parent), "method": "get"})
+                with patch.dict(os.environ, {"RESEARCH_TREE_ACTOR": started["actor"], "RESEARCH_TREE_PROJECT": str(self.cwd)}):
+                    denial = codex_hook.handle({"hook_event_name": "PreToolUse", "cwd": str(self.cwd), "tool_name": "apply_patch",
+                                               "tool_input": {"input": "*** Begin Patch\n*** Add File: proposed.py\n+x\n*** End Patch"}})
+                    self.assertEqual(denial["hookSpecificOutput"]["permissionDecision"], "deny")
+                    context = codex_hook.handle({"hook_event_name": "SessionStart", "cwd": str(self.cwd)})["hookSpecificOutput"]["additionalContext"]
+                    self.assertIn(started["actor"], context)
+                    self.assertNotIn("确认后先assign_worker", context)
+                message = advisor.dispatch("research_message", {"type": "question", "text": "Check another matched seed?"})
+                self.assertEqual(message["message"]["id"], f"{role}--main-0001")
+                self.assertEqual(advisor.dispatch("research_message", {"resend": message["message"]["id"]})["message"], message["message"])
+                spec = read_json(Path(started["directory"]) / "spec.json")
+                self.assertIn('sandbox_mode="read-only"', codex_agent.command(spec, self.cwd))
+                self.assertIn(role, spec["prompt"])
+        self.assertFalse(self.db.get("P-test").get("worker_agent_id"))
+        self.assertEqual(self.db.find("experiment"), [])
+        self.assertEqual(self.runtime.marker["phase"], "planning")
+
+    def test_architect_is_root_only_and_shares_the_legacy_worker_lock(self):
+        with self.assertRaisesRegex(ValueError, "confirmed"):
+            self.runtime.control("architect", {"node_id": "P-test", "task": "Build harness"})
+        self.confirm()
+        self.assign()
+        with self.assertRaisesRegex(ValueError, "root"):
+            self.runtime.control("architect", {"node_id": "H-0001", "task": "Take over hypothesis"})
+        self.assertEqual(actor_key("architect/root"), actor_key("worker/root"))
+        hold = Path(self.temp.name) / "hold"
+        hold.touch()
+        started = self.runtime.control("architect", {"node_id": "P-test", "task": "Build shared harness and baseline"})
+        self.assertEqual(started["actor"], "architect/root")
+        with self.assertRaisesRegex(ValueError, "live"):
+            self.runtime.start_worker("P-test", "Duplicate root", restart=True)
+        hold.unlink()
+        self.assertEqual(self.wait_run(started)["status"], "completed")
+        architect = Runtime(self.cwd, "architect/root")
+        architect.dispatch("research_db", {"method": "update_task", "kwargs": {"task_id": self.task, "status": "in_progress"}})
+        self.assertEqual(self.db.get(self.task)["status"], "in_progress")
+        self.assertIsNone(codex_hook.call_block([("research_db.py", "architect/root", "update_task")], "architect/root"))
+        self.assertIsNotNone(codex_hook.call_block([("research_db.py", "rld/main", "update_task")], "architect/root"))
+
+    def test_committed_write_survives_display_failure_and_ui_is_on_demand(self):
+        self.confirm()
+        self.assign()
+        worker = Runtime(self.cwd, "worker/root")
+        with patch.object(build_site, "summary_or_empty", side_effect=RuntimeError("display unavailable")), \
+                patch.object(build_site, "build", side_effect=AssertionError("write must not render")):
+            worker.dispatch("research_db", {"method": "update_task", "kwargs": {"task_id": self.task, "status": "in_progress"}})
+        self.assertEqual(self.db.get(self.task)["status"], "in_progress")
+        self.assertTrue(read_json(self.runtime.cache / "summary-error.json")["stale"])
+        self.assertEqual(self.runtime.agents(), [])  # neither confirmation nor writes start a persistent UI
+        with patch.object(build_site, "build", return_value={"meta": {"data_version": 123}}) as render:
+            page = self.runtime.control("build", {})
+        self.assertEqual(page["data_version"], 123)
+        render.assert_called_once()
+        self.assertEqual(self.runtime.agents(), [])
+
+    def test_pending_review_collection_is_nonblocking_and_does_not_restart(self):
+        import review_call
+        answer = {"ok": True, "pending": True, "ticket": "RJ-0123456789ab"}
+        with patch.object(review_call, "start_job", side_effect=AssertionError("never restart")), \
+                patch.object(review_call, "wait_job", return_value={}) as wait, \
+                patch.object(review_call, "_job_answer", return_value=(answer, 0)):
+            self.assertEqual(self.runtime.dispatch("research_review", {"ticket": answer["ticket"]}), answer)
+        self.assertEqual(wait.call_args.args, (self.runtime.root, answer["ticket"], 0))
+        with self.assertRaisesRegex(ValueError, "only its ticket"):
+            self.runtime.dispatch("research_review", {"ticket": answer["ticket"], "kind": "code_review"})
 
     def test_lens_has_a_fixed_read_only_identity_and_cannot_be_duplicated(self):
         (self.cwd / "research-tree.yaml").write_text(json.dumps({"version": 2,
@@ -504,7 +597,7 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         self.assertEqual(state["notification"]["delivery"], "queued")
 
     def test_hook_guards_paths_and_preserves_worker_leader_boundary(self):
-        summary = self.runtime.summary()
+        self.runtime.summary()
         path = self.runtime.root / "docs/project/min-setup.v1.md"
         event = {"hook_event_name": "PreToolUse", "cwd": str(self.cwd), "tool_name": "apply_patch",
                  "tool_input": {"command": f"*** Begin Patch\n*** Update File: {path}\n@@\n-old\n+new\n*** End Patch"}}
@@ -557,7 +650,7 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         self.assertEqual(prior, read_json(self.runtime.cache / "leader.json"))
         observed = json.loads((self.runtime.root / "logs/agent_models.jsonl").read_text().splitlines()[-1])
         self.assertEqual((observed["actor"], observed["event"], observed["model"]), ("worker/root", "observed", "child"))
-        for actor in ("ui/ui", "assistant/lens_123456789abc"):
+        for actor in ("ui/ui", "assistant/lens_123456789abc", "explorer/main", "analyst/main"):
             with patch.dict(os.environ, {"RESEARCH_TREE_ACTOR": actor, "RESEARCH_TREE_PROJECT": str(self.cwd)}):
                 context = codex_hook.handle({"hook_event_name": "SessionStart", "cwd": str(self.cwd)})["hookSpecificOutput"]["additionalContext"]
             self.assertIn(actor, context)
@@ -686,6 +779,7 @@ class WorkerCommitTest(unittest.TestCase):
 
             class Fake:
                 actor = "worker/h1"
+                marker = {"phase": "confirmed"}
 
                 def db(self):
                     class DB:
@@ -702,3 +796,76 @@ class WorkerCommitTest(unittest.TestCase):
                         Runtime.commit(Fake(), {"paths": bad, "message": "x"})
             log = subprocess.run(["git", "-C", str(wt), "log", "--oneline", "-1"], capture_output=True, text=True).stdout
             self.assertIn("zebra config", log)
+
+
+class PromptContractTest(unittest.TestCase):
+    def test_all_workflow_discovery_combinations_are_consistent(self):
+        import codex_prompts
+        import project_config
+        base = (ROOT / "schema/config.template.yaml").read_text()
+        project = {"plan_instruction": {"path": "project/plan.v1.md"}, "root": "/r", "project_id": "P-x"}
+        package = {"worker": "architect/root", "node": {"id": "P-x"}}
+        for mode in ("fast_screening", "strict"):
+            for discovery in ("incremental", "full", "precheck", "off"):
+                with self.subTest(mode=mode, discovery=discovery):
+                    conf = project_config.parse(base.replace("mode: fast_screening", f"mode: {mode}")
+                                               .replace("mode: incremental", f"mode: {discovery}"))
+                    plan = codex_prompts.planning(project, conf)
+                    worker = codex_prompts.worker(project, package, conf, "Build shared harness")
+                    self.assertIn(mode, plan)
+                    self.assertIn(discovery, plan)
+                    self.assertIn("architect/root", worker)
+                    self.assertIn("reserve_submission", worker)
+                    self.assertIn("import_run_result", worker)
+                    if mode == "fast_screening":
+                        self.assertIn("停止与继续条件", plan)
+                        self.assertIn("不等待每次新的模型 code_review", worker)
+                    if discovery == "incremental":
+                        self.assertIn("gate --candidate", plan)
+                    for role in ("explorer", "analyst"):
+                        advisor = codex_prompts.advisor(project, conf, role, "Read current evidence")
+                        self.assertIn(f"{role}/main", advisor)
+                        self.assertIn("不修改文件、数据库", advisor)
+                        self.assertIn("由 Leader 记录", advisor)
+        with self.assertRaisesRegex(ValueError, "advisor role"):
+            codex_prompts.advisor(project, conf, "rld", "Take over")
+
+
+class RootCommitTest(unittest.TestCase):
+    def test_architect_commits_only_the_confirmed_root_checkout(self):
+        with tempfile.TemporaryDirectory() as temp:
+            repo = Path(temp) / "root"
+            repo.mkdir()
+            git = lambda *args: subprocess.run(["git", "-C", str(repo), *args], check=True, capture_output=True)  # noqa: E731
+            git("init", "-q", "-b", "main")
+            (repo / "harness.py").write_text("print('initial')\n")
+            git("add", ".")
+            git("-c", "user.name=fixture", "-c", "user.email=test@example.invalid", "commit", "-qm", "init")
+            (repo / "harness.py").write_text("print('updated')\n")
+
+            class Fake:
+                actor = "architect/root"
+                marker = {"phase": "confirmed"}
+
+                def db(self):
+                    class DB:
+                        def find(self, table):
+                            if table == "project":
+                                return [{"id": "P-test", "repo_path": str(repo), "worker_id": "root"}]
+                            # A coincidentally matching worker id on another branch does not grant access.
+                            return [{"hypothesis_id": "H-0001", "owner": "root", "worktree_path": str(Path(temp) / "other")}]
+                    return DB()
+
+            fake = Fake()
+            with self.assertRaisesRegex(ValueError, "assigned project root"):
+                Runtime.commit(fake, {"node_id": "H-0001", "paths": ["harness.py"], "message": "wrong node"})
+            fake.marker = {"phase": "planning"}
+            with self.assertRaisesRegex(ValueError, "confirmed"):
+                Runtime.commit(fake, {"paths": ["harness.py"], "message": "premature"})
+            fake.marker = {"phase": "confirmed"}
+            result = Runtime.commit(fake, {"paths": ["harness.py"], "message": "maintain harness"})
+            self.assertEqual(result["worktree"], str(repo))
+            self.assertEqual(git("show", "HEAD:harness.py").stdout.decode(), "print('updated')\n")
+            fake.actor = "architect/other"
+            with self.assertRaisesRegex(ValueError, "assigned project root"):
+                Runtime.commit(fake, {"paths": ["harness.py"], "message": "wrong assignee"})

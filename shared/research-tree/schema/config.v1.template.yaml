@@ -43,6 +43,9 @@ search:
 # effort 为 low、medium、high、xhigh、max，或 null（使用模型默认）。
 # RLD 就是主会话，它的模型由你启动宿主 CLI 时选择，插件不改动。
 models:
+  explorer: {model: inherit, effort: null}
+  architect: {model: inherit, effort: null}
+  analyst: {model: inherit, effort: null}
   ui:
     model: inherit
     effort: null

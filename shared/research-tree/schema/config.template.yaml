@@ -19,10 +19,14 @@ platform:
   #   5. 不修改 research-tree.yaml、已生效文档与冻结框架。
   skills: []
 
-# 立项前发现（M6 起使用）
+# 新项目显式选择快速筛选；旧配置不写 workflow 时保留 strict，不自动迁移。
+workflow:
+  mode: fast_screening       # fast_screening | strict；不降低最终 GO 的证据标准
+
+# 先确认最小范围，再逐候选准入；框架、基线和文献发现可并行。
 discovery:
-  mode: full                 # off | precheck | full
-  require_precheck: true
+  mode: incremental          # incremental | off | precheck | full；full/precheck 保留整批严格门
+  require_precheck: true     # fast+incremental 检查五项筛选说明；strict 检查本候选回执；full/precheck 保留整批门
   lenses: [method-transfer, contradiction, untested-assumption, scaling-regime, diagnostic]
   seed_lenses: [variant, combination, competing, repair]
   max_candidates: 12   # 指引：本版本不由接口检查
@@ -36,7 +40,7 @@ design:
   max_core_blocks: 5
   max_baseline_families: 3     # 立项计划的指引（Leader 照此写基线家族）；本版本不由接口检查
   proposal_review_rounds: 1    # 指引：proposal_review 至多几轮；本版本不由接口检查
-  code_review: true
+  code_review: true           # strict 每次准入；fast_screening 对关键候选/确认保留，普通筛选不等模型评审
   sanity_first: true
   overrun_factor: 2.0         # 实际用量达到预估的倍数，写待处理项（不取消作业）
 
@@ -119,7 +123,7 @@ notify:
   timeout_s: 10
 
 literature:
-  min_related_work: 3         # 创建节点时至少引用的、经存在性核验的相关研究数
+  min_related_work: 3         # 严格路径/晋级时的相关研究数；快速筛选复用文献，引用仍须可追溯
   require_verified: true      # 只有 literature.py 核验存在的文献计入上面的数量
 
 models:
@@ -128,6 +132,9 @@ models:
   # Codex 示例：GPT 6 Luna → gpt-6-luna、GPT 6.1 Sol → gpt-6.1-sol；reviewer 自动补 openai/。
   ui: {model: inherit, effort: null}
   worker: {model: inherit, effort: null}
+  explorer: {model: inherit, effort: null}
+  architect: {model: inherit, effort: null}
+  analyst: {model: inherit, effort: null}
   lens_assistant: {model: inherit, effort: null}
   reviewer:                   # 基座按 provider 自动选择：anthropic/* → Claude Code CLI，其余 → pi
     model: openai/gpt-6-astra

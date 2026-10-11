@@ -10,8 +10,8 @@
     "v": { "const": 1, "description": "Message schema version." },
     "id": {
       "type": "string",
-      "pattern": "^[A-Za-z0-9_.]+-[0-9]{4,}$",
-      "description": "<sender-id>-<sequence>, unique within the sender's log, e.g. w3-0042."
+      "pattern": "^(?:(?:explorer|analyst)--)?[A-Za-z0-9_.]+-[0-9]{4,}$",
+      "description": "Legacy <sender-id>-<sequence>, e.g. w3-0042; advisors use role--id, e.g. explorer--main-0001. Architect retains its worker sequence."
     },
     "ts": { "type": "string", "format": "date-time", "description": "UTC send time." },
     "project": { "type": "string", "pattern": "^[A-Za-z0-9][A-Za-z0-9_.-]*$" },
@@ -23,7 +23,7 @@
     },
     "re": {
       "type": "string",
-      "pattern": "^[A-Za-z0-9_.]+-[0-9]{4,}$",
+      "pattern": "^(?:(?:explorer|analyst)--)?[A-Za-z0-9_.]+-[0-9]{4,}$",
       "description": "id of the message this one answers."
     },
     "about": {
@@ -57,7 +57,7 @@
   "$defs": {
     "agent": {
       "type": "string",
-      "pattern": "^(ui|rld|worker|assistant|web_builder)/[A-Za-z0-9_.]+$",
+      "pattern": "^(ui|rld|worker|architect|explorer|analyst|assistant|web_builder)/[A-Za-z0-9_.]+$",
       "description": "<role>/<agent-id>, e.g. worker/w3."
     }
   },

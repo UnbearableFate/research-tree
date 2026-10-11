@@ -83,6 +83,8 @@ CREATE TABLE project (
     require_selection_rationale BOOLEAN NOT NULL DEFAULT FALSE, -- 每个节点实验写 selection_rationale（search.require_selection_rationale，06 §4.3）
     allow_repair_from_retired BOOLEAN NOT NULL DEFAULT TRUE,     -- repairs 等关系可指向已不再投入的节点（search.allow_repair_from_retired_evidence）
     max_repairs_per_root_cause INTEGER NOT NULL DEFAULT 2,  -- 同一根因至多几次补丁（search.max_repairs_per_root_cause，03 §8）
+    workflow_mode       TEXT NOT NULL DEFAULT 'strict' CHECK (workflow_mode IN ('strict', 'fast_screening')),
+    discovery_mode      TEXT NOT NULL DEFAULT 'full' CHECK (discovery_mode IN ('full', 'precheck', 'incremental', 'off')),
     screen_seeds        INTEGER,               -- 筛选 seed 数上限（version 2：verification.screening_seeds 的个数）；空则只按筛选预算
     protocol_doc_id     TEXT,                  -- 现行实验协议（JSON 文档：评测类型、配对字段、必须一致的设定）
     metric_spec_doc_id  TEXT,                  -- 现行指标规范（JSON 文档：每个指标的方向、单位、效应、最小实际收益、保护阈值）
@@ -111,6 +113,9 @@ CREATE TABLE hypothesis (
     title               TEXT NOT NULL,
     statement           TEXT NOT NULL,         -- 一句话可证伪假说；完整内容见 doc
     doc_id              TEXT NOT NULL,         -- 假说文档
+    code_parent_id      TEXT,                  -- 代码来源节点；空值保留旧 parent_id 语义，分支的 base_commit 是确切起点
+    comparator_experiment_id TEXT,             -- 独立声明的比较实验；思想父节点无须已获胜
+    screening_contract  JSON,                  -- 创建时冻结的五项筛选设计与资源上限
     candidate_id        TEXT,                  -- 发现阶段的候选（CAND-编号）；其查新与评审回执在建节点时核对
     claim_revision      INTEGER,               -- 主张版本（S1）：statement、Claim map 与目标文档规范化后变化即递增；旧记录为空=未登记
     claim_sha           TEXT,                  -- 当前主张版本的内容指纹（复核依据比较它）
@@ -202,6 +207,8 @@ CREATE TABLE experiment (
     config_path         TEXT,
     config_hash         TEXT,
     ablation_of         TEXT,                  -- 消融：被消融的实验（同节点）；与它代码和配置都相同即 no-op，拒绝
+    predeclared_control_id TEXT,               -- 预先批准的最小对照身份，与 ablation_of 绑定
+    minimum_controls    JSON,                  -- Leader 在被测方法首次提交前批准的精确最小对照及依据
     source_review_id    TEXT,                  -- 消融：出题的 ablation_plan 评审文档
     code_review_waiver_doc_id TEXT,            -- 代码审查不可用时 RLD 放行的决定文档（03 §8）
     code_review_waiver_basis JSON,             -- 放行时系统记录的依据（方法身份与主张版本）；之后改变即失效（S1）
@@ -432,7 +439,7 @@ CREATE TABLE document (
                             'superseded'       -- 已被新版本或新指令取代
                         )),
     author_role         TEXT NOT NULL CHECK (author_role IN (
-                            'user', 'ui', 'rld', 'worker', 'assistant', 'web_builder', 'reviewer'
+                            'user', 'ui', 'rld', 'worker', 'architect', 'explorer', 'analyst', 'assistant', 'web_builder', 'reviewer'
                         )),
     author_id           TEXT NOT NULL,
     sha256              TEXT,
@@ -445,6 +452,7 @@ CREATE TABLE document (
     basis_code_ref      TEXT,                  -- 该 evaluation 的代码版本（只核实现的维度按它复用）
     review_session      TEXT,                  -- 评审会话（RV-编号）；同会话续接写新版本
     review_about        TEXT,                  -- 评审对象不是数据库实体时（发现阶段的候选 CAND-编号）
+    review_disputes     JSON,                  -- 代码评审异议与复核裁决；追加审计，原回执保留
     review_basis        JSON,                  -- review：调用时由系统捕获的依据（方法身份、主张版本、evaluation、候选 revision 等，S1）
     review_basis_changed BOOLEAN,              -- review：模型作答期间依据已变（回执只作历史，不能取得当前资格）
     reported_result     TEXT,                  -- review：评审者自报的顶层结论（S4；原样保存）
@@ -500,7 +508,7 @@ CREATE TABLE task (
                             'accepted', 'rejected', 'cancelled'
                         )),
     assignee_role       TEXT NOT NULL CHECK (assignee_role IN (
-                            'worker', 'assistant', 'web_builder'
+                            'worker', 'architect', 'explorer', 'analyst', 'assistant', 'web_builder'
                         )),
     assignee_id         TEXT,
     request_doc_id      TEXT NOT NULL,         -- 委派说明文档

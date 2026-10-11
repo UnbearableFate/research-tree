@@ -37,7 +37,7 @@ def _normalize_models(config: dict) -> None:
     models = config.get("models")
     if not isinstance(models, dict):
         return  # schema validation reports malformed configuration
-    for role in ("ui", "worker", "lens_assistant", "reviewer"):
+    for role in ("ui", "worker", "lens_assistant", "explorer", "architect", "analyst", "reviewer"):
         spec = models.get(role)
         if not isinstance(spec, dict) or not isinstance(spec.get("model"), str):
             continue
@@ -101,12 +101,16 @@ def parse(text: str, source: str = CONFIG_NAME) -> dict:
         raise ConfigError(f"{source}: version is 1 or 2")
     # metric_specs is a list: given whole, never merged with the template's example
     config = _merge(defaults(version), given)
+    if version == 2:
+        # A new template opts in explicitly. Reading an older/partial file must never silently
+        # remove its research gates just because today's template has faster defaults.
+        if isinstance(given.get("workflow", {}), dict) and "mode" not in given.get("workflow", {}):
+            config["workflow"]["mode"] = "strict"
+        if isinstance(given.get("discovery", {}), dict) and "mode" not in given.get("discovery", {}):
+            config["discovery"]["mode"] = "full"
     if version == 2 and "metric_specs" in given:
         config["metric_specs"] = given["metric_specs"]
-    if version == 2 and config["memory"]["cross_project"]:
-        raise ConfigError(f"{source}: memory.cross_project is not supported in this version (08 §1.5: it needs "
-                          "permission filtering first); keep it false")
-    if version == 2 and config.get("discovery", {}).get("mode") is False:
+    if version == 2 and isinstance(config.get("discovery"), dict) and config["discovery"].get("mode") is False:
         config["discovery"]["mode"] = "off"  # YAML 1.1 reads an unquoted off as false
     _normalize_models(config)
     validator = Draft202012Validator(json.loads((SCHEMA_PATH if version == 2 else V1_SCHEMA_PATH).read_text(encoding="utf-8")))
@@ -115,6 +119,9 @@ def parse(text: str, source: str = CONFIG_NAME) -> dict:
         raise ConfigError(f"{source}: " + "; ".join(f"{'.'.join(map(str, e.path)) or '<top>'}: {e.message}"
                                                      for e in errors))
     if version == 2:
+        if config["memory"]["cross_project"]:
+            raise ConfigError(f"{source}: memory.cross_project is not supported in this version (08 §1.5: it needs "
+                              "permission filtering first); keep it false")
         try:
             metrics.check_metric_specs(metric_spec_document(config))
         except metrics.MetricError as exc:
@@ -175,6 +182,8 @@ def db_fields(config: dict) -> dict:
         budget, v = config["budget"], config["verification"]
         seeds = v["screening_seeds"] + v["replication_seeds"]
         return {
+            "workflow_mode": config["workflow"]["mode"],
+            "discovery_mode": config["discovery"]["mode"],
             "max_nodes": budget["per_run"]["nodes"],
             "max_walltime_s": walltime_seconds(budget["per_run"]["walltime"]),
             "screen_budget_node_h": budget["screen_node_h"],
@@ -208,6 +217,7 @@ def db_fields(config: dict) -> dict:
         }
     budget, stage1 = config["budget"], config["stage1"]
     return {
+        "workflow_mode": "strict", "discovery_mode": "off",
         "max_nodes": budget["per_run"]["nodes"],
         "max_walltime_s": walltime_seconds(budget["per_run"]["walltime"]),
         "screen_budget_node_h": budget["screen_node_h"],

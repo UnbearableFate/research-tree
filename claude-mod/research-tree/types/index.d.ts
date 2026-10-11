@@ -7,7 +7,8 @@ export type ResearchNode = {
   exp_status: 'todo' | 'running' | 'no_gain' | 'beats_parent' | 'beats_sota'
   novelty: 'pending' | 'pass' | 'fail'
   theory: 'pending' | 'pass' | 'fail'
-  go: boolean
+  go: boolean | null
+  eligibility_checked?: boolean
   verdict: string | null
   seeds: number | null
   vs_sota: number | null
@@ -25,7 +26,7 @@ export type ResearchAttention = { kind: string; label: string; id: string | null
 
 /** The compact project view the pane, status line, prompt section and guards read. */
 export type ResearchSummary = {
-  meta: { data_version: number; generated_at: string }
+  meta: { data_version: number; generated_at: string; lightweight?: boolean; eligibility_checked?: boolean }
   db_path: string
   /** null until the RLD creates the project record (just after /research-tree init). */
   project: null | {
@@ -45,7 +46,7 @@ export type ResearchSummary = {
   counts: {
     status: Record<string, number>
     exp_status: Record<string, number>
-    go: number
+    go: number | null
     node_hours: number
     screen_seeds: number | null
   }
@@ -91,8 +92,9 @@ export type ResearchConfig = {
   }
   stage1?: { gate_seeds: number; go_margin: number; min_related_work: number }
   notify?: { url: string | null; timeout_s: number }
-  discovery?: { mode: 'off' | 'precheck' | 'full'; lenses: string[]; seed_lenses: string[] }
-  models: { ui: ResearchModel; worker: ResearchModel; lens_assistant?: ResearchModel; reviewer?: unknown }
+  discovery?: { mode: 'off' | 'precheck' | 'full' | 'incremental'; lenses: string[]; seed_lenses: string[] }
+  workflow?: { mode: 'fast_screening' | 'strict' }
+  models: { explorer?: ResearchModel; architect?: ResearchModel; analyst?: ResearchModel; ui: ResearchModel; worker: ResearchModel; lens_assistant?: ResearchModel; reviewer?: unknown }
 }
 
 /** `research_tree.py config`: the configuration in effect and the state of the file. */
@@ -131,7 +133,7 @@ declare module 'claude-code' {
       uiRun: { run: string; message: string; messageId?: string; attempt: number } | null
       /** The project of the session's directory; null when there is none. */
       project: ResearchProject | null
-      /** Subagent runs the mod started: agentId -> worker/<id> or assistant/lens_<name with hyphens replaced>. */
+      /** Subagent runs the mod started: agentId -> worker/architect node identity, explorer/main, analyst/main, or assistant/lens_<name>. */
       agents: Record<string, string>
       /** The project configuration in effect; null without a project environment. */
       config: ResearchConfigView | null

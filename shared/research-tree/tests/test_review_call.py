@@ -185,7 +185,7 @@ class ReviewCallTest(unittest.TestCase):
                 cwd.mkdir()
                 (cwd / "plan.md").write_text("# Fresh planning input\n")
                 text = (self.cwd / "research-tree.yaml").read_text().replace(
-                    "model: openai/gpt-6-astra", f"model: {model}").replace("mode: full", f"mode: {mode}")
+                    "model: openai/gpt-6-astra", f"model: {model}").replace("mode: incremental", f"mode: {mode}")
                 (cwd / "research-tree.yaml").write_text(text)
                 self.log.unlink(missing_ok=True)
                 with patch.dict(os.environ, {**self.env, "FAKE_CLAUDE_AUTH": auth, "FAKE_PI_AUTH": auth}):

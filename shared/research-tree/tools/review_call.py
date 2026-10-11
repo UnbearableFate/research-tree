@@ -4,8 +4,8 @@
                            candidate_recheck>
                    --brief <file under the research root, e.g. docs/reviews/briefs/H-0001-numbers.v1.md>
                    --about <candidate or node id> [--dimension D --evaluation EV-xxxx] [--session RV-xxxx]
-                   [--add-dir DIR ...] [--background --wait-s 540]
-    review_call.py --ticket RJ-xxxxxxxxxxxx --wait-s 540      # collect a background review
+                   [--add-dir DIR ...] [--background] [--wait-s 0]
+    review_call.py --ticket RJ-xxxxxxxxxxxx [--wait-s 0]      # collect a background review
 
 Run in the project directory (where .research-tree.json is). The reviewer backend follows models.reviewer.model's
 provider only: anthropic/* -> Claude Code CLI (`claude -p`), anything else -> pi (`pi -p --mode json`); neither
@@ -27,6 +27,7 @@ import argparse
 import hashlib
 import fcntl
 import json
+import os
 import time
 import re
 import shutil
@@ -354,10 +355,7 @@ def _sessions(root: Path) -> dict:
 
 def _save_sessions(root: Path, sessions: dict) -> None:
     path = root / "cache" / "reviews" / "sessions.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(".tmp")
-    tmp.write_text(json.dumps(sessions, ensure_ascii=False, indent=1), encoding="utf-8")
-    tmp.replace(path)
+    _atomic_json(path, sessions)
 
 
 def _next_rv(root: Path, sessions: dict) -> str:
@@ -371,10 +369,11 @@ def _front_matter(fields: dict) -> str:
     return "---\n" + "".join(f"{k}: {json.dumps(v, ensure_ascii=False)}\n" for k, v in fields.items()) + "---\n"
 
 
-def review(cwd: Path, kind: str, brief: str, about: str, dimension: str | None = None,
-           evaluation: str | None = None, session: str | None = None, add_dirs: list[str] | None = None,
-           actor: str = "rld/main", code_ref: str | None = None, deadline_s: int | None = None,
-           evidence_set: str | None = None) -> dict:
+def _prepare_review(cwd: Path, kind: str, brief: str, about: str, dimension: str | None = None,
+                    evaluation: str | None = None, session: str | None = None, add_dirs: list[str] | None = None,
+                    actor: str = "rld/main", code_ref: str | None = None,
+                    evidence_set: str | None = None) -> dict:
+    """Local validation and immutable request identity. Never construct or precheck a model backend here."""
     if not actor.startswith("rld/"):
         raise ReviewError("REVIEW_UNAVAILABLE", "the Leader (rld) organizes reviews; other roles ask the Leader")
     if kind not in REVIEW_KINDS:
@@ -382,25 +381,77 @@ def review(cwd: Path, kind: str, brief: str, about: str, dimension: str | None =
     if kind == "candidate_recheck" and (dimension not in RECHECK_DIMENSIONS or not evaluation):
         raise ReviewError("REVIEW_INVALID", f"a candidate_recheck names --dimension ({', '.join(RECHECK_DIMENSIONS)}) "
                                             "and --evaluation (the evaluation it rechecks)")
+    if kind != "candidate_recheck" and (dimension or evaluation):
+        raise ReviewError("REVIEW_INVALID", "dimension and evaluation belong to a candidate_recheck")
     if kind == "code_review" and not code_ref:
         raise ReviewError("REVIEW_INVALID", "a code_review names --code-ref, the commit the reviewer reads")
     if code_ref and kind != "code_review":
         raise ReviewError("REVIEW_INVALID", "code_ref belongs to a code_review")
+    if not about or not brief:
+        raise ReviewError("REVIEW_INVALID", "a review names --about and --brief")
     marker = tree.read_marker(cwd)
-    root = Path(marker["root"])
+    root = Path(marker["root"]).resolve()
     conf = tree.show_config(cwd)["effective"]
     reviewer = (conf.get("models") or {}).get("reviewer")
     if not reviewer:
         raise ReviewError("REVIEW_UNAVAILABLE", "research-tree.yaml has no models.reviewer (configuration version 2)")
+    brief_path = (Path(brief) if Path(brief).is_absolute() else root / brief).resolve()
+    if not brief_path.is_file() or not brief_path.is_relative_to(root):
+        raise ReviewError("REVIEW_INVALID", f"the brief is a file under {root}: {brief_path} is missing or outside it")
+    rld = ResearchDB(Path(marker["db"]), "rld/main")
+    try:
+        with rld.reader() as tx:
+            subject = tx.get(about)
+            if subject is None and not CANDIDATE_ID_RE.fullmatch(about):
+                raise ReviewError("REVIEW_INVALID", f"{about} is neither a record nor a discovery candidate (CAND-…)")
+            if CANDIDATE_ID_RE.fullmatch(about) and kind in ("code_review", "candidate_recheck", "ablation_plan"):
+                raise ReviewError("REVIEW_INVALID", f"REVIEW_SUBJECT_UNSUPPORTED: {kind} needs a hypothesis subject")
+            if kind == "candidate_recheck":
+                ev = tx.require(evaluation, ("evaluation",))
+                exp = tx.require(ev["experiment_id"], ("experiment",))
+                if exp.get("hypothesis_id") != about:
+                    raise ReviewError("REVIEW_INVALID", f"{evaluation} does not evaluate hypothesis {about}")
+        basis = rld.review_basis(about, kind, dimension, evaluation, code_ref)
+        if kind == "code_review" and (not basis.get("code_ref") or not basis.get("method_spec_doc_ids")):
+            raise ReviewError("REVIEW_INVALID", "REVIEW_SUBJECT_UNSUPPORTED: code_review needs a valid commit and "
+                                                "an exact method identity for this subject")
+    except ResearchDBError as exc:
+        raise ReviewError("REVIEW_INVALID", f"the review's basis cannot be determined: {exc}") from None
+    backend_name = "claude_code" if reviewer["model"].split("/", 1)[0] == "anthropic" else "pi"
+    if session:
+        state = _sessions(root).get(session)
+        if state is None or (state["kind"], state["about"], state["backend"]) != (kind, about, backend_name):
+            raise ReviewError("REVIEW_INVALID", f"{session} is not a {kind} session of {about} on {backend_name}")
+    evidence = followup_evidence(root, Path(marker["db"]), evidence_set, kind, about, basis) if evidence_set else None
+    identity = {"kind": kind, "about": about, "dimension": dimension, "evaluation": evaluation, "session": session,
+                "code_ref": basis.get("code_ref") if code_ref else None, "actor": actor, "basis": basis,
+                "brief": str(brief_path.relative_to(root)), "brief_sha256": hashlib.sha256(brief_path.read_bytes()).hexdigest(),
+                "configuration": conf, "leader_model": leader_model(root), "evidence_set": evidence,
+                "add_dirs": sorted({str((Path(d) if Path(d).is_absolute() else root / d).resolve()) for d in add_dirs or []})}
+    key = hashlib.sha256(json.dumps(identity, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode()).hexdigest()
+    return {"root": root, "marker": marker, "conf": conf, "reviewer": reviewer, "brief_path": brief_path,
+            "basis": basis, "evidence": evidence, "identity": identity, "request_key": key}
+
+
+def review(cwd: Path, kind: str, brief: str, about: str, dimension: str | None = None,
+           evaluation: str | None = None, session: str | None = None, add_dirs: list[str] | None = None,
+           actor: str = "rld/main", code_ref: str | None = None, deadline_s: int | None = None,
+           evidence_set: str | None = None, *, job_ticket: str | None = None,
+           request_key: str | None = None) -> dict:
+    prepared = _prepare_review(cwd, kind, brief, about, dimension, evaluation, session, add_dirs, actor, code_ref,
+                               evidence_set)
+    root, marker, conf = prepared["root"], prepared["marker"], prepared["conf"]
+    reviewer, basis, brief_path = prepared["reviewer"], prepared["basis"], prepared["brief_path"]
+    if request_key is not None and request_key != prepared["request_key"]:
+        raise ReviewError("REVIEW_INVALID", "the review basis, brief or configuration changed after the ticket was "
+                                            "created; no model was called; start a review of the current inputs")
     alert = (conf.get("budget") or {}).get("review_usd_alert")
     so_far = spent(root)
     if alert is not None and so_far >= alert:
         raise ReviewError("REVIEW_BUDGET", f"review cost {so_far:.4f} USD reached budget.review_usd_alert {alert}; "
                                            "the user decides (raise it in research-tree.yaml and config apply)")
-    backend = backend_for(reviewer, root)
-    backend.precheck()
     if reviewer.get("require_cross_family", True):
-        leader = leader_model(root)
+        leader = prepared["identity"]["leader_model"]
         if family(leader) is None:
             raise ReviewError("REVIEW_UNAVAILABLE", f"the Leader's observed model ({leader or 'none recorded'}) "
                                                     "cannot be placed in a model family; require_cross_family")
@@ -410,43 +461,45 @@ def review(cwd: Path, kind: str, brief: str, about: str, dimension: str | None =
         if family(leader) == family(reviewer["model"]):
             raise ReviewError("REVIEW_UNAVAILABLE", f"reviewer {reviewer['model']} is the Leader's family "
                                                     f"({leader}); require_cross_family refuses the call")
-    brief_path = Path(brief) if Path(brief).is_absolute() else root / brief
-    if not brief_path.is_file() or not brief_path.resolve().is_relative_to(root.resolve()):
-        why = ("no brief given" if not str(brief).strip() else f"{brief_path} does not exist"
-               if not brief_path.is_file() else f"{brief_path} is outside the research root")
-        raise ReviewError("REVIEW_INVALID", f"the brief is a file under {root}: {why}")
+    backend = backend_for(reviewer, root)
+    backend.precheck()
     schema = json.loads((REVIEWS_DIR / f"{kind}.schema.json").read_text(encoding="utf-8"))
     system_file = REVIEWS_DIR / f"{kind}.md"
     db = ResearchDB(Path(marker["db"]), "reviewer/" + backend.name)
-    with ResearchDB(Path(marker["db"]), "rld/main").reader() as tx:
-        if tx.get(about) is None and not CANDIDATE_ID_RE.fullmatch(about):
-            raise ReviewError("REVIEW_INVALID", f"{about} is neither a record nor a discovery candidate (CAND-…)")
-    try:  # S1: what the review rests on, captured by the system before the reviewer reads anything
-        basis = ResearchDB(Path(marker["db"]), "rld/main").review_basis(about, kind, dimension, evaluation, code_ref)
-    except ResearchDBError as exc:
-        raise ReviewError("REVIEW_INVALID", f"the review's basis cannot be determined: {exc}") from None
-
-    with _Lock(root):
-        rv, uid, version, first, state = _allocate(root, session, kind, about, backend.name)
-    log_call(root, {"kind": kind, "about": about, "dimension": dimension, "session": rv, "outcome": "started",
-                    "backend": backend.name})  # a call the host kills stays visible
-    # the whole call: both rounds within the reviewer's timeout, the hard cap, and the host's own process limit
-    deadline = time.monotonic() + min(2 * int(reviewer["timeout_s"]) + 120, MAX_CALL_S, deadline_s or MAX_CALL_S)
-    backend.deadline = deadline
-    backend.code_ref = code_ref
-    backend.basis = basis
-    backend.evidence = followup_evidence(root, Path(marker["db"]), evidence_set, kind, about, basis) \
-        if evidence_set else None
-    reviewed = code_ref if kind == "code_review" else basis.get("code_ref") if dimension == "method_code" else None
-    if reviewed:  # S4 §8.2: the reviewer reads the commit the receipt is bound to, not a working tree
-        with ResearchDB(Path(marker["db"]), "rld/main").reader() as tx:
-            repo = (tx.get(tx.ids("project")[0]) or {}).get("repo_path")
-        snapshot = code_snapshot(root, repo, basis.get("code_ref") or code_ref)
-        if snapshot:
-            add_dirs = [*(add_dirs or []), str(snapshot)]
-            backend.snapshot = snapshot
-    return _review(root, backend, reviewer, kind, brief_path, about, dimension, evaluation, add_dirs, schema,
-                   system_file, db, alert, so_far, rv, uid, version, first, state)
+    allocation = None
+    # Everything after reservation belongs to this finalizer, including publishing the ticket pointer.
+    # If publication fails, this process must release its session without ever entering a model call.
+    try:
+        with _Lock(root):
+            allocation = _allocate(root, session, kind, about, backend.name, job_ticket)
+        rv, uid, version, first, state = allocation
+        if job_ticket:
+            _update_job(root, job_ticket, session=rv, version=version)
+        log_call(root, {"kind": kind, "about": about, "dimension": dimension, "session": rv, "outcome": "started",
+                        "backend": backend.name, **({"ticket": job_ticket} if job_ticket else {})})
+        deadline = time.monotonic() + min(2 * int(reviewer["timeout_s"]) + 120, MAX_CALL_S, deadline_s or MAX_CALL_S)
+        backend.deadline, backend.code_ref, backend.basis = deadline, code_ref, basis
+        backend.evidence = prepared["evidence"]
+        reviewed = code_ref if kind == "code_review" else basis.get("code_ref") if dimension == "method_code" else None
+        if reviewed:
+            with ResearchDB(Path(marker["db"]), "rld/main").reader() as tx:
+                repo = (tx.get(tx.ids("project")[0]) or {}).get("repo_path")
+            snapshot = code_snapshot(root, repo, basis.get("code_ref") or code_ref)
+            if snapshot:
+                add_dirs = [*(add_dirs or []), str(snapshot)]
+                backend.snapshot = snapshot
+        return _run_review(root, backend, reviewer, kind, brief_path, about, dimension, evaluation, add_dirs, schema,
+                           system_file, db, alert, so_far, rv, uid, version, first, state)
+    finally:
+        if allocation is not None:
+            rv, _, _, _, state = allocation
+            with _Lock(root):
+                sessions = _sessions(root)
+                current = sessions.get(rv, state)
+                if current.get("allocation_token") == state.get("allocation_token"):
+                    sessions[rv] = {**current, "busy": False, "active_ticket": None, "active_version": None,
+                                    "allocation_token": None}
+                    _save_sessions(root, sessions)
 
 
 def followup_evidence(root: Path, db_path: Path, manifest: str, kind: str, about: str, basis: dict) -> dict:
@@ -483,24 +536,26 @@ def code_snapshot(root: Path, repo: str | None, ref: str | None) -> Path | None:
     if not sha:
         return None
     target = root / "cache" / "reviews" / "code" / sha
-    if not (target / ".complete").is_file():
-        tmp = target.with_name(sha + ".tmp")
-        shutil.rmtree(tmp, ignore_errors=True)
-        tmp.mkdir(parents=True)
-        archive = subprocess.run(["git", "-C", repo, "archive", sha], capture_output=True)
-        if archive.returncode != 0:
-            return None
-        subprocess.run(["tar", "-x", "-C", str(tmp)], input=archive.stdout, check=True)
-        (tmp / ".complete").write_text(sha + "\n")
-        shutil.rmtree(target, ignore_errors=True)
-        tmp.rename(target)
-        for path in target.rglob("*"):
-            if path.is_file():
-                path.chmod(0o444)
+    with _Lock(root):
+        if not (target / ".complete").is_file():
+            tmp = target.with_name(sha + ".tmp")
+            shutil.rmtree(tmp, ignore_errors=True)
+            tmp.mkdir(parents=True)
+            archive = subprocess.run(["git", "-C", repo, "archive", sha], capture_output=True)
+            if archive.returncode != 0:
+                return None
+            subprocess.run(["tar", "-x", "-C", str(tmp)], input=archive.stdout, check=True)
+            (tmp / ".complete").write_text(sha + "\n")
+            shutil.rmtree(target, ignore_errors=True)
+            tmp.rename(target)
+            for path in target.rglob("*"):
+                if path.is_file():
+                    path.chmod(0o444)
     return target
 
 
-def _allocate(root: Path, session: str | None, kind: str, about: str, backend: str) -> tuple:
+def _allocate(root: Path, session: str | None, kind: str, about: str, backend: str,
+              job_ticket: str | None = None) -> tuple:
     sessions = _sessions(root)
     if session:
         if session not in sessions:
@@ -509,27 +564,17 @@ def _allocate(root: Path, session: str | None, kind: str, about: str, backend: s
         if (state["kind"], state["about"], state["backend"]) != (kind, about, backend):
             raise ReviewError("REVIEW_INVALID", f"{session} is a {state['kind']} of {state['about']} on "
                                                 f"{state['backend']}")
-        rv, uid, version, first = session, state["uuid"], state["version"] + 1, False
+        rv, uid, version, first = session, state["uuid"], max(state["version"], state.get("allocated_version", 0)) + 1, False
     else:
         rv, uid, version, first = _next_rv(root, sessions), str(uuid.uuid4()), 1, True
         state = {"uuid": uid, "kind": kind, "about": about, "backend": backend, "version": 0, "doc_id": None}
     if session and state.get("busy"):
         raise ReviewError("REVIEW_INVALID", f"{session} has a round in progress")
-    sessions[rv] = {**state, "busy": True}
+    state = {**state, "busy": True, "allocated_version": version, "active_version": version,
+             "active_ticket": job_ticket, "allocation_token": uuid.uuid4().hex}
+    sessions[rv] = state
     _save_sessions(root, sessions)  # the number is taken before the call: a failed call never reuses it
     return rv, uid, version, first, state
-
-
-def _review(root, backend, reviewer, kind, brief_path, about, dimension, evaluation, add_dirs, schema, system_file,
-            db, alert, so_far, rv, uid, version, first, state) -> dict:
-    try:
-        return _run_review(root, backend, reviewer, kind, brief_path, about, dimension, evaluation, add_dirs, schema,
-                           system_file, db, alert, so_far, rv, uid, version, first, state)
-    finally:
-        with _Lock(root):
-            sessions = _sessions(root)
-            sessions[rv] = {**sessions.get(rv, state), "busy": False}
-            _save_sessions(root, sessions)
 
 
 def _run_review(root, backend, reviewer, kind, brief_path, about, dimension, evaluation, add_dirs, schema,
@@ -597,10 +642,12 @@ def _run_review(root, backend, reviewer, kind, brief_path, about, dimension, eva
         if (root / "docs" / rel).exists():  # never overwrite a review
             raise ReviewError("REVIEW_INVALID", f"{rel} exists already", cost)
         (root / "docs" / rel).write_text(body, encoding="utf-8")
+    previous = db.get(state["doc_id"]) if state.get("doc_id") else None
+    supersedes = state.get("doc_id") if not previous or previous.get("review_result") not in ("blocking", "fail") else None
     try:
         doc_id = db.register_review(rel, f"{kind} {about}{' ' + dimension if dimension else ''}", kind, [about],
                                     result, rv, backend.name, rec["model_observed"], cost, dimension=dimension,
-                                    evaluation_id=evaluation, supersedes=state.get("doc_id"),
+                                    evaluation_id=evaluation, supersedes=supersedes,
                                     code_ref=getattr(backend, "code_ref", None),
                                     summary=f"{backend.name} {rec['model_observed']}: {result}",
                                     basis=getattr(backend, "basis", None), payload=data,
@@ -611,7 +658,7 @@ def _run_review(root, backend, reviewer, kind, brief_path, about, dimension, eva
         raise ReviewError("REVIEW_INVALID", f"not registered: {exc}", cost) from None
     with _Lock(root):
         sessions = _sessions(root)
-        sessions[rv] = {**state, "version": version, "doc_id": doc_id, "busy": False}
+        sessions[rv] = {**state, "version": version, "doc_id": doc_id, "busy": True}
         _save_sessions(root, sessions)
     registered = db.reviews(kind=kind)
     doc = next((d for d in registered if d["id"] == doc_id), {})
@@ -641,6 +688,32 @@ def log_call(root: Path, entry: dict) -> None:
 
 
 JOBS_DIR = Path("cache") / "reviews" / "jobs"
+_JOB_CHILDREN: dict[str, subprocess.Popen] = {}
+_STARTUP_GRACE_S = 30
+
+
+class _JobLock(_Lock):
+    def __init__(self, root: Path):
+        self.path = root / JOBS_DIR / ".lock"
+
+
+def _atomic_json(path: Path, value: dict) -> None:
+    """Readers see either complete version, including when a writer is interrupted."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    temporary = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        with temporary.open("x", encoding="utf-8") as handle:
+            json.dump(value, handle, ensure_ascii=False, indent=1)
+            handle.flush()
+            os.fsync(handle.fileno())
+        temporary.replace(path)
+        fd = os.open(path.parent, os.O_RDONLY)
+        try:
+            os.fsync(fd)
+        finally:
+            os.close(fd)
+    finally:
+        temporary.unlink(missing_ok=True)
 
 
 def _job_file(root: Path, ticket: str) -> Path:
@@ -649,50 +722,289 @@ def _job_file(root: Path, ticket: str) -> Path:
     return root / JOBS_DIR / f"{ticket}.json"
 
 
+def _read_job(root: Path, ticket: str) -> dict:
+    path = _job_file(root, ticket)
+    try:
+        job = json.loads(path.read_text(encoding="utf-8"))
+    except FileNotFoundError:
+        raise ReviewError("REVIEW_INVALID", f"no review job {ticket}") from None
+    except (OSError, ValueError) as exc:
+        raise ReviewError("REVIEW_UNAVAILABLE", f"review job {ticket} cannot be read; inspect it before retrying: {exc}") from None
+    if (not isinstance(job, dict) or job.get("ticket") != ticket or job.get("status") not in ("running", "done")
+            or (job.get("status") == "done" and not isinstance(job.get("answer"), dict))):
+        raise ReviewError("REVIEW_UNAVAILABLE", f"review job {ticket} has invalid persisted state; do not resubmit it")
+    return job
+
+
+def _update_job(root: Path, ticket: str, **fields) -> dict:
+    with _JobLock(root):
+        job = _read_job(root, ticket)
+        if job["status"] == "running":
+            job = {**job, **fields}
+            _atomic_json(_job_file(root, ticket), job)
+        return job
+
+
+def _job_call_args(argv: list[str]):
+    try:
+        args = _parser().parse_args(argv)
+    except SystemExit:
+        raise ReviewError("REVIEW_INVALID", "invalid background review arguments") from None
+    if args.run_job or args.ticket or args.list_jobs:
+        raise ReviewError("REVIEW_INVALID", "a new review job cannot contain job-control arguments")
+    return args
+
+
+def _prepare_job(cwd: Path, args) -> dict:
+    return _prepare_review(cwd, args.kind, args.brief, args.about, args.dimension, args.evaluation, args.session,
+                           args.add_dir, args.actor, args.code_ref, args.evidence_set)
+
+
 def start_job(cwd: Path, root: Path, argv: list[str]) -> str:
-    """Run one review call as a detached job (real-run-error #10/#12): a host that kills a tool process after a
-    fixed time (Claude Code: 600 s) no longer kills the reviewer; the call keeps its own deadline (MAX_CALL_S) and
-    the Leader collects the result with the ticket. The job is logged like any call."""
-    ticket = f"RJ-{uuid.uuid4().hex[:12]}"
-    job = _job_file(root, ticket)
-    job.parent.mkdir(parents=True, exist_ok=True)
-    job.write_text(json.dumps({"ticket": ticket, "argv": argv, "status": "running", "started_at": now()},
-                              ensure_ascii=False, indent=1), encoding="utf-8")
-    subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "--run-job", ticket], cwd=cwd,
-                     start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
-                     stderr=subprocess.DEVNULL)
-    # the ticket is on record before anything is printed: a session the host killed finds it with --list-jobs
-    log_call(root, {"outcome": "background_started", "ticket": ticket, "argv": argv})
-    return ticket
+    """Persist a ticket immediately. Identical inputs reuse it, including completed or interrupted calls.
+
+    Deduplication covers the current scientific basis, brief contents, effective configuration/model and
+    review options. Only local validation runs here; backend setup and all model calls belong to the worker.
+    No interrupted job is silently paid for again. A changed request gets a new auditable ticket.
+    """
+    args = _job_call_args(argv)
+    prepared = _prepare_job(cwd, args)
+    root = Path(root).resolve()
+    if root != prepared["root"]:
+        raise ReviewError("REVIEW_INVALID", "review job root does not match the project marker")
+    with _JobLock(root):
+        for path in sorted((root / JOBS_DIR).glob("RJ-*.json")):
+            job = _read_job(root, path.stem)
+            if job.get("request_key") == prepared["request_key"]:
+                _refresh_job(root, job)
+                return job["ticket"]
+        ticket = f"RJ-{uuid.uuid4().hex[:12]}"
+        job = {"ticket": ticket, "argv": argv, "status": "running", "phase": "queued", "started_at": now(),
+               "request_key": prepared["request_key"], "request": prepared["identity"],
+               "db_path": str(Path(prepared["marker"]["db"]).resolve())}
+        _atomic_json(_job_file(root, ticket), job)
+        log_call(root, {"outcome": "background_started", "ticket": ticket, "argv": argv})
+        try:
+            proc = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "--run-job", ticket], cwd=cwd,
+                                    start_new_session=True, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                    stderr=subprocess.DEVNULL)
+        except (OSError, subprocess.SubprocessError) as exc:
+            failure = ReviewError("REVIEW_UNAVAILABLE", f"could not start background review: {exc}; no model was called")
+            record_failure(root, {"ticket": ticket, "kind": args.kind, "about": args.about,
+                                  "dimension": args.dimension}, failure)
+            _atomic_json(_job_file(root, ticket), {**job, "status": "done", "phase": "spawn_failed",
+                         "answer": {"ok": False, "error": str(failure), "ticket": ticket}, "finished_at": now()})
+        else:
+            _JOB_CHILDREN[ticket] = proc
+            _atomic_json(_job_file(root, ticket), {**job, "pid": proc.pid})
+        return ticket
+
+
+def _process_alive(pid: int | None) -> bool:
+    if not isinstance(pid, int) or pid <= 0:
+        return False
+    try:
+        os.kill(pid, 0)
+        stat = Path(f"/proc/{pid}/stat")
+        return not (stat.exists() and stat.read_text().rsplit(")", 1)[1].strip().split()[0] == "Z")
+    except ProcessLookupError:
+        return False
+    except (PermissionError, OSError):
+        return True  # absence cannot be established; never risk a duplicate paid worker
+
+
+def _lease_path(root: Path, ticket: str) -> Path:
+    return _job_file(root, ticket).with_suffix(".worker.lock")
+
+
+def _worker_active(root: Path, job: dict) -> bool:
+    proc = _JOB_CHILDREN.get(job["ticket"])
+    if proc is not None and proc.poll() is not None:
+        del _JOB_CHILDREN[job["ticket"]]
+    with _lease_path(root, job["ticket"]).open("a") as lease:
+        try:
+            fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return True
+    if job.get("worker_started_at"):
+        return False
+    if job.get("pid"):
+        return _process_alive(job["pid"])
+    try:
+        age = (datetime.now(timezone.utc) - datetime.fromisoformat(job["started_at"].replace("Z", "+00:00"))).total_seconds()
+    except (KeyError, TypeError, ValueError):
+        age = _STARTUP_GRACE_S
+    # Old-format jobs had no PID/lease. Give their documented maximum runtime before classifying interruption.
+    return age < (_STARTUP_GRACE_S if job.get("request_key") else MAX_CALL_S + 120)
+
+
+def _registered_answer(root: Path, job: dict) -> dict | None:
+    """Recover a committed receipt after a crash between registration and publishing the ticket answer."""
+    if not job.get("session") or not job.get("version"):
+        return None
+    path = f"reviews/{job['session']}.v{job['version']}.md"
+    db = ResearchDB(Path(job.get("db_path") or root / "research_tree.db"), "rld/main")
+    with db.reader() as tx:
+        found = tx.ids("document", "WHERE n.path = $path", path=path)
+        doc = tx.get(found[0]) if found else None
+    if not doc or doc.get("review_session") != job["session"] or doc.get("review_basis") != job["request"]["basis"]:
+        return None
+    file = root / "docs" / path
+    raw = file.read_bytes()
+    if hashlib.sha256(raw).hexdigest() != doc.get("sha256"):
+        return None
+    header = re.match(r"^---\n(.*?)\n---", raw.decode("utf-8"), re.S)
+    if not header:
+        return None
+    fields = {}
+    for line in header.group(1).splitlines():
+        key, value = line.split(": ", 1)
+        fields[key] = json.loads(value)
+    extra = {k: doc[k] for k in ("reported_result", "effective_result", "normalization_warnings") if doc.get(k) is not None}
+    return {"ok": True, "result": {"review_id": doc["id"], "path": path, "session": job["session"],
+            "kind": doc["review_kind"], "result": doc["review_result"], **extra, "backend": doc["review_backend"],
+            "model_observed": doc["reviewer_model"], "cost_usd": fields["cost_usd"],
+            "permission_denials": fields.get("permission_denials", []), "structured": doc.get("review_payload")}}
+
+
+def _finish_job(root: Path, job: dict, answer: dict, phase: str = "finished") -> dict:
+    job = {**job, "status": "done", "phase": phase, "answer": answer, "finished_at": now()}
+    _atomic_json(_job_file(root, job["ticket"]), job)
+    return job
+
+
+def _log_recovered(root: Path, job: dict, answer: dict) -> None:
+    # Registration already charged ResearchDB. Restore only the append-only call log, if not present.
+    log = root / CALL_LOG
+    logged = []
+    for line in log.read_text(encoding="utf-8").splitlines() if log.exists() else []:
+        try:
+            logged.append(json.loads(line))
+        except ValueError:
+            continue
+    if not any(c.get("ticket") == job["ticket"] and c.get("outcome") == "ok" for c in logged):
+        result = answer["result"]
+        log_call(root, {"ticket": job["ticket"], "outcome": "ok", "recovered": True,
+                        **{k: job["request"].get(k) for k in ("kind", "about", "dimension")},
+                        **{k: result[k] for k in ("review_id", "session", "backend", "cost_usd")},
+                        "model": result["model_observed"]})
+
+
+def _recover_session(root: Path, job: dict, answer: dict) -> None:
+    with _Lock(root):
+        sessions = _sessions(root)
+        session = job.get("session")
+        if not session:
+            # Allocation and job publication are separate atomic files. A killed process may have reserved
+            # its session without publishing session/version to the ticket. The ownership tag is authoritative.
+            owned = [name for name, state in sessions.items() if state.get("active_ticket") == job["ticket"]]
+            if len(owned) != 1:
+                return  # never guess at an unrelated or ambiguous session
+            session = owned[0]
+        state = sessions.get(session)
+        if not state or state.get("active_ticket") not in (None, job["ticket"]):
+            return
+        version = job.get("version") or state.get("active_version")
+        if not version or (state.get("active_version") and state["active_version"] != version):
+            return
+        # Keep the recovered pointer in the terminal ticket so repeated collection retains the audit trail.
+        job.update(session=session, version=version)
+        updated = {**state, "busy": False, "active_ticket": None, "active_version": None, "allocation_token": None}
+        if answer.get("ok") and state["version"] <= version:
+            updated.update(version=version, doc_id=answer["result"]["review_id"])
+        if updated != state:
+            sessions[session] = updated
+            _save_sessions(root, sessions)
+
+
+def _refresh_job(root: Path, job: dict) -> dict:
+    """Under the job lock: observe liveness/recover a receipt, never start or resume a model call."""
+    process = _JOB_CHILDREN.get(job["ticket"])
+    if process is not None and process.poll() is not None:
+        del _JOB_CHILDREN[job["ticket"]]
+    if job["status"] != "running" or _worker_active(root, job):
+        return job
+    try:
+        answer = _registered_answer(root, job)
+    except (OSError, ValueError, KeyError, ResearchDBError):
+        answer = None
+    if answer is None:
+        failure = ReviewError("REVIEW_UNAVAILABLE", "the background review was interrupted; inspect its session and "
+                              "raw output before requesting another review (cost may be unknown); it was not restarted")
+        answer = {"ok": False, "error": str(failure), "ticket": job["ticket"], "recovery_required": True}
+        record_failure(root, {"ticket": job["ticket"], **{k: job.get("request", {}).get(k)
+                               for k in ("kind", "about", "dimension")}}, failure)
+    else:
+        _log_recovered(root, job, answer)
+    _recover_session(root, job, answer)
+    return _finish_job(root, job, answer, "recovered" if answer.get("ok") else "interrupted")
 
 
 def list_jobs(root: Path) -> list[dict]:
-    """Every background review job and its state (running or done), oldest first."""
-    folder = root / JOBS_DIR
-    jobs = [json.loads(p.read_text(encoding="utf-8")) for p in folder.glob("RJ-*.json")] if folder.is_dir() else []
-    return sorted(({k: j.get(k) for k in ("ticket", "status", "started_at", "finished_at", "argv")} for j in jobs),
-                  key=lambda j: j["started_at"])
+    """Persistent jobs, oldest first. A dead worker is a collectable failure, never endless pending."""
+    with _JobLock(root):
+        jobs = [_refresh_job(root, _read_job(root, path.stem)) for path in (root / JOBS_DIR).glob("RJ-*.json")]
+    return sorted(({k: j.get(k) for k in ("ticket", "status", "phase", "started_at", "finished_at", "argv")}
+                   for j in jobs), key=lambda j: (j["started_at"], j["ticket"]))
 
 
 def wait_job(root: Path, ticket: str, wait_s: float) -> dict:
-    """The job's state after waiting at most wait_s: running, or its final answer as the call printed it."""
-    path = _job_file(root, ticket)
-    if not path.is_file():
-        raise ReviewError("REVIEW_INVALID", f"no review job {ticket}")
-    deadline = time.monotonic() + max(0.0, wait_s)
+    """Return current state immediately by default; an explicit bounded wait never owns the worker."""
+    deadline = time.monotonic() + max(0.0, min(float(wait_s), MAX_CALL_S))
     while True:
-        job = json.loads(path.read_text(encoding="utf-8"))
-        if job["status"] != "running" or time.monotonic() >= deadline:
+        with _JobLock(root):
+            job = _refresh_job(root, _read_job(root, ticket))
+        remaining = deadline - time.monotonic()
+        if job["status"] != "running" or remaining <= 0:
             return job
-        time.sleep(1.0)
+        time.sleep(min(0.1, remaining))
 
 
 def _job_answer(job: dict) -> tuple[dict, int]:
     if job["status"] == "running":
         return ({"ok": True, "pending": True, "ticket": job["ticket"], "started_at": job["started_at"],
-                 "next": f"the review is still running: call research_review again with ticket {job['ticket']} "
-                         "(it waits for the result); do not start the same review again"}, 0)
-    return job["answer"], (0 if job["answer"].get("ok") else 2)
+                 "next": f"continue independent work; collect research_review ticket {job['ticket']} when needed "
+                         "(collection returns immediately unless a wait is requested); do not restart this review"}, 0)
+    return {**job["answer"], "ticket": job["ticket"]}, (0 if job["answer"].get("ok") else 2)
+
+
+def _run_job(cwd: Path, root: Path, ticket: str) -> int:
+    """A single-use worker lease prevents duplicate dispatch even across processes or repeated run-job calls."""
+    path = _job_file(root, ticket)
+    with _lease_path(root, ticket).open("a") as lease:
+        try:
+            fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            return 0
+        with _JobLock(root):
+            job = _read_job(root, ticket)
+            if job["status"] != "running" or job.get("worker_started_at"):
+                return 0  # a claimed/interrupted job is never replayed
+            job = {**job, "phase": "reviewing", "worker_started_at": now(), "worker_pid": os.getpid()}
+            _atomic_json(path, job)
+        try:
+            call = _job_call_args(job["argv"])
+            call.deadline_s = None
+            answer, _ = _call(cwd, root, call, job_ticket=ticket, request_key=job.get("request_key"))
+        except BaseException as exc:  # noqa: BLE001 — publish interruptions too; SIGKILL is recovered on collection
+            current = _read_job(root, ticket)
+            try:
+                answer = _registered_answer(root, current)
+            except (OSError, ValueError, KeyError, ResearchDBError):
+                answer = None
+            if answer:
+                _log_recovered(root, current, answer)
+            else:
+                failure = ReviewError("REVIEW_UNAVAILABLE", f"the background review stopped: {type(exc).__name__}: {exc}")
+                record_failure(root, {"ticket": ticket, **{k: job.get("request", {}).get(k)
+                                       for k in ("kind", "about", "dimension")}}, failure)
+                answer = {"ok": False, "error": str(failure), "ticket": ticket, "recovery_required": True}
+        with _JobLock(root):
+            current = _read_job(root, ticket)
+            if current["status"] == "running":
+                _recover_session(root, current, answer)
+                _finish_job(root, current, answer)
+        return 0
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -710,8 +1022,7 @@ def _parser() -> argparse.ArgumentParser:
     p.add_argument("--actor", default="rld/main")
     p.add_argument("--deadline-s", type=int, help="the host's limit on this process (seconds); the call ends before it")
     p.add_argument("--background", action="store_true",
-                   help="run the call as a detached job and wait at most --wait-s for it; a longer review returns "
-                        "a ticket instead of being cut off by the host's process limit")
+                   help="return a persistent, deduplicated ticket immediately; only wait when --wait-s is explicitly set")
     p.add_argument("--ticket", help="collect a background review: wait at most --wait-s for its answer")
     p.add_argument("--wait-s", type=float, default=0.0)
     p.add_argument("--list-jobs", action="store_true", help="background review jobs and their state")
@@ -719,11 +1030,14 @@ def _parser() -> argparse.ArgumentParser:
     return p
 
 
-def _call(cwd: Path, root: Path, args) -> tuple[dict, int]:
-    entry = {"kind": args.kind, "about": args.about, "dimension": args.dimension, "session": args.session}
+def _call(cwd: Path, root: Path, args, *, job_ticket: str | None = None,
+          request_key: str | None = None) -> tuple[dict, int]:
+    entry = {"kind": args.kind, "about": args.about, "dimension": args.dimension, "session": args.session,
+             **({"ticket": job_ticket} if job_ticket else {})}
     try:
         result = review(cwd, args.kind, args.brief, args.about, args.dimension, args.evaluation, args.session,
-                        args.add_dir, args.actor, args.code_ref, args.deadline_s, args.evidence_set)
+                        args.add_dir, args.actor, args.code_ref, args.deadline_s, args.evidence_set,
+                        job_ticket=job_ticket, request_key=request_key)
     except ReviewError as exc:
         record_failure(root, entry, exc)
         return {"ok": False, "error": str(exc)}, 2
@@ -742,21 +1056,8 @@ def main(argv: list[str] | None = None) -> int:
         print(json.dumps({"ok": False, "error": f"REVIEW_UNAVAILABLE: no research project here ({exc})"}))
         return 2
     try:
-        if args.run_job:  # the detached job itself: the full call under its own deadline, answer kept in the file
-            path = _job_file(root, args.run_job)
-            job = json.loads(path.read_text(encoding="utf-8"))
-            call = _parser().parse_args(job["argv"])
-            call.deadline_s = None
-            try:
-                answer, _ = _call(cwd, root, call)
-            except Exception as exc:  # a crashed job is still collectable and visible, never pending forever
-                failure = ReviewError("REVIEW_UNAVAILABLE", f"the background review crashed: {type(exc).__name__}: {exc}")
-                record_failure(root, {"kind": call.kind, "about": call.about, "dimension": call.dimension,
-                                      "session": call.session}, failure)
-                answer = {"ok": False, "error": str(failure)}
-            path.write_text(json.dumps({**job, "status": "done", "answer": answer, "finished_at": now()},
-                                       ensure_ascii=False, indent=1), encoding="utf-8")
-            return 0
+        if args.run_job:
+            return _run_job(cwd, root, args.run_job)
         if args.list_jobs:
             print(json.dumps({"ok": True, "jobs": list_jobs(root)}, ensure_ascii=False))
             return 0

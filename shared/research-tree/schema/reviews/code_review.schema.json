@@ -43,12 +43,22 @@
        "dead_metric",
        "seed_config",
        "method_mismatch",
-       "other"
+       "other",
+       "input_unreadable",
+       "protocol_interpretation",
+       "novelty",
+       "argument",
+       "leakage",
+       "metric_error"
       ]
      },
      "description": {
       "type": "string",
       "minLength": 1
+     },
+     "verified": {
+      "type": "boolean",
+      "description": "true only for a reproduced validity defect backed by readable evidence"
      }
     }
    },
@@ -56,6 +66,42 @@
   },
   "method_implemented": {
    "type": "boolean"
+  },
+  "dispute_resolution": {
+   "type": "object",
+   "required": [
+    "review_id",
+    "dispute_id",
+    "evidence_doc_id",
+    "resolution",
+    "evidence_paths"
+   ],
+   "properties": {
+    "review_id": {
+     "type": "string"
+    },
+    "dispute_id": {
+     "type": "string"
+    },
+    "evidence_doc_id": {
+     "type": "string"
+    },
+    "resolution": {
+     "enum": [
+      "overturned",
+      "upheld",
+      "fixed"
+     ]
+    },
+    "evidence_paths": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     },
+     "minItems": 1
+    }
+   },
+   "additionalProperties": false
   }
  },
  "title": "code_review"

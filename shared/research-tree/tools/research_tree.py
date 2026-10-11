@@ -3,9 +3,9 @@
 The project is marked by `.research-tree.json` in the working directory, which records the research root
 (research/<project-id>/ with research_tree.db and docs/), the database path and the start-up phase:
 
-  planning               init done; the RLD turns the user's plan into goal, setup, nodes and the root task
+  planning               init done; the RLD prepares the goal, scope, budget, protocol and shared-framework task
   awaiting_confirmation  the RLD asked the user to confirm the plan
-  confirmed              the user confirmed; workers may start on the root node
+  confirmed              the user confirmed; Architect may start the shared framework, candidates admit separately
 
 The project id defaults to the uv project's name (pyproject.toml [project].name, which `uv init .` takes
 from the directory), else the directory's name, so research/<id>/ matches the uv project.
@@ -28,6 +28,8 @@ Usage (run with the project's own interpreter, ./.venv/bin/python, after prepare
     research_tree.py query METHOD ['{"kwarg": ...}']      # the UI's read-only access to the database
     research_tree.py agent-log --agent ID --actor ROLE/ID --event requested|observed --model M
     research_tree.py status                               # the marker as JSON
+    research_tree.py discovery select --candidate CAND-…   # incremental selection, no whole-pool triage required
+    research_tree.py discovery gate --candidate CAND-…     # read-only candidate readiness, no scope authorization
 
 init takes plan.md unless given another plan; a plan made from the template must have its research goal and
 initial hypotheses filled in. It uses the directory's research-tree.yaml (from prepare), --config FILE to start
@@ -70,7 +72,8 @@ PHASES = ("planning", "awaiting_confirmation", "confirmed")
 SUBDIRS = ("docs/project/reports", "docs/instructions", "docs/requirements", "docs/literature", "docs/hypotheses", "docs/tasks",
            "docs/baselines", "docs/workflow", "messages", "snapshots", "cache/literature", "outputs", "site", "logs")
 # Node workers are named after their node (worker/h0007) and only send; the root's worker also receives.
-AGENTS = ["ui/ui", "rld/main", "worker/root", "assistant/a1", "web_builder/site"]
+AGENTS = ["ui/ui", "rld/main", "architect/root", "worker/root", "explorer/main", "analyst/main",
+          "assistant/a1", "web_builder/site"]
 
 
 class TreeError(Exception):
@@ -350,7 +353,8 @@ def apply_config(cwd: Path, actor: str, words: str | None = None, require_projec
         write_marker(cwd, marker)
     instruction = None
     # The file is the user's (agents may not write it): a cap it raises or a document it changes rests on it.
-    if not words and project is not None and set(changes) & set(CAP_FIELDS + EVIDENCE_DOC_FIELDS):
+    authorization_fields = set(CAP_FIELDS + EVIDENCE_DOC_FIELDS + ("workflow_mode", "discovery_mode"))
+    if not words and project is not None and set(changes) & authorization_fields:
         words = f"（用户的 {CONFIG_NAME}，经 config apply 或立项确认生效）"
     if words and (new_version or changes):  # first: a new metric specification rests on the user's instruction
         updated = f"；项目记录中的 {', '.join(sorted(changes))} 随之更新" if changes else ""
@@ -359,7 +363,7 @@ def apply_config(cwd: Path, actor: str, words: str | None = None, require_projec
                                            [project["id"]] if project else [])
     if project is not None and (changes or project.get("config_doc_id") != registered["doc_id"]):
         extra = ({"user_instruction_doc_id": instruction["doc_id"]}
-                 if instruction and set(changes) & set(CAP_FIELDS + EVIDENCE_DOC_FIELDS) else {})
+                 if instruction and set(changes) & authorization_fields else {})
         rld.update_project(**changes, config_doc_id=registered["doc_id"], **extra)
     return {"config": registered, "new_version": new_version, "updated_fields": changes,
             "instruction": instruction, "effective": config}
@@ -617,6 +621,13 @@ def discovery_command(cwd: Path, args) -> dict:
                                         fields["screen_budget_node_h"])
         return {"path": discovery.write_candidates(root, checked), "candidates": checked}
     if args.action == "select":
+        if args.candidate:
+            if args.triage:
+                raise TreeError("select uses either --candidate (incremental) or --triage (batch), not both")
+            if conf.get("discovery", {}).get("mode") != "incremental":
+                raise TreeError("select --candidate requires discovery.mode incremental")
+            chosen = discovery.select_candidate(root, args.candidate)
+            return {"path": str(discovery.CANDIDATES_PATH), "candidate": chosen}
         review = reader.get(args.triage) if args.triage else None
         if not review or (review.get("doc_type"), review.get("review_kind"), review.get("status")) != (
                 "review", "triage", "current"):
@@ -631,7 +642,22 @@ def discovery_command(cwd: Path, args) -> dict:
         literature = {d["id"]: d.get("literature_check") == "verified" for d in reader.find("document")
                       if d["doc_type"] == "literature" and d["status"] == "current"}
         project = (reader.find("project") or [None])[0]
-        need = (project or project_config.db_fields(conf))["min_related_work"]
+        fields = project or project_config.db_fields(conf)
+        need = fields["min_related_work"]
+        mode = conf.get("discovery", {}).get("mode", "off")
+        if mode == "incremental":
+            if not args.candidate:
+                raise TreeError("incremental discovery checks one candidate: gate --candidate CAND-…; "
+                                "discovery check reports whether minimal scope may be put to the user")
+            if args.report:
+                raise TreeError("incremental candidate readiness does not use --report; use --candidate alone")
+            return discovery.evaluate_candidate(
+                root, args.candidate, workflow_mode=fields.get("workflow_mode", "strict"),
+                reviews=reviewer_records(reader), literature=literature, min_related_work=need,
+                max_nodes=fields["max_nodes"], max_walltime_s=fields["max_walltime_s"],
+                screen_node_h=fields["screen_budget_node_h"])
+        if args.candidate:
+            raise TreeError("gate --candidate requires discovery.mode incremental; full/precheck keep the batch gate")
         result = discovery.evaluate(root, reviewer_records(reader), literature, need, args.report)
         marker["discovery_gate"] = result["verdict"]
         write_marker(cwd, marker)
@@ -656,9 +682,12 @@ def reviewer_records(reader: ResearchDB) -> list[dict]:
 
 
 def discovery_blocks_confirmation(cwd: Path) -> str | None:
-    """02 §2 D8: with discovery on, the start-up plan is put to the user only after the discovery gate passed."""
+    """Incremental scope confirmation does not wait for candidate discovery; legacy batch modes still do.
+
+    Returning None only permits asking the user. The startup phase remains unconfirmed until their reply.
+    """
     conf = show_config(cwd)["effective"]
-    if conf["version"] != 2 or (conf.get("discovery") or {}).get("mode", "off") == "off":
+    if conf["version"] != 2 or (conf.get("discovery") or {}).get("mode", "off") in ("off", "incremental"):
         return None
     state = discovery.load(Path(read_marker(cwd)["root"]))
     if state is None or (state.get("gate") or {}).get("verdict") != "PASS":
@@ -720,8 +749,8 @@ def main(argv: list[str] | None = None) -> int:
     nt.add_argument("--text", required=True)
     nt.add_argument("--docs", nargs="*", default=[])
     sub.add_parser("inbox", help="messages to the RLD that still wait for its receipt or answer")
-    dv = sub.add_parser("discovery", help="discovery before the project starts (plans/design 02): stage state, "
-                                          "candidate pool, gates")
+    dv = sub.add_parser("discovery", help="ongoing incremental or legacy batch discovery: stage state, "
+                                          "candidate pool, readiness")
     dv.add_argument("action", choices=("start", "status", "set", "accept", "resume", "merge", "feasibility",
                                        "select", "gate", "check", "cite"))
     dv.add_argument("--stage")
@@ -733,7 +762,7 @@ def main(argv: list[str] | None = None) -> int:
                                               "relative to the research root like --artifact")
     dv.add_argument("--triage", help="select: the triage review document id")
     dv.add_argument("--report", help="gate: the discovery report, relative to the research root")
-    dv.add_argument("--candidate", help="cite: the candidate (CAND-…)")
+    dv.add_argument("--candidate", help="cite, or incremental select/gate: the candidate (CAND-…)")
     dv.add_argument("--literature", nargs="*", default=[], help="cite: literature document ids (D-…)")
     sub.add_parser("status")
     args = p.parse_args(argv)

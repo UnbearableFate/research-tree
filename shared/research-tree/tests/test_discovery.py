@@ -207,7 +207,7 @@ class CommandTest(unittest.TestCase):
     def test_precheck_flow(self):
         import research_tree
         config = (TOOLS.parent / "schema" / "config.template.yaml").read_text(encoding="utf-8")
-        (self.cwd / "research-tree.yaml").write_text(config.replace("  mode: full ", "  mode: precheck "),
+        (self.cwd / "research-tree.yaml").write_text(config.replace("  mode: incremental ", "  mode: precheck "),
                                                     encoding="utf-8")
         self.assertTrue(self.tool("init", "plan.md", "--project-id", "P-d")["ok"])
         blocked = self.tool("discovery", "check")["result"]["blocked"]

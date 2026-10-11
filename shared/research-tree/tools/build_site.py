@@ -12,6 +12,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import fcntl
 import html
 import json
 import re
@@ -169,6 +170,9 @@ def collect(db_path: Path) -> dict:
     references = {}
     for e in edges["rel_references"]:
         references.setdefault(e["source_id"], []).append(e["target_id"])
+    relations = {}
+    for edge in edges.get("rel_related", []):
+        relations.setdefault(edge["source_id"], []).append({"kind": edge["kind"], "target_id": edge["target_id"]})
     comparisons = {}
     for e in edges["rel_compared_with"]:
         comparisons.setdefault(e["source_id"], []).append(e)
@@ -191,7 +195,8 @@ def collect(db_path: Path) -> dict:
         experiments[x["id"]] = {
             "id": x["id"], "hyp": x.get("hypothesis_id"), "kind": x["kind"], "method": x["method_name"],
             "seeds": x["seeds"], "verdict": x.get("verdict"), "mean": x.get("metric_mean"), "sd": x.get("metric_sd"),
-            "code": x["code_ref"][:10], "evaluated": x.get("evaluated_at"), "created": x["created_at"],
+            "code": x["code_ref"][:10], "baseline_experiment_id": x.get("baseline_experiment_id"),
+            "parent_experiment_id": x.get("parent_experiment_id"), "evaluated": x.get("evaluated_at"), "created": x["created_at"],
             "stale_harness": bool(x.get("evaluated_at")) and x.get("harness_ref") != harness,
             "design": x["design_doc_id"], "result": x.get("result_doc_id"), "owner": x["owner"],
             "runs": sorted(runs_by_exp.get(x["id"], []), key=lambda r: r["seed"]),
@@ -218,11 +223,12 @@ def collect(db_path: Path) -> dict:
     nodes = []
     for h in tables["hypothesis"]:
         exps = sorted((e for e in experiments.values() if e["hyp"] == h["id"]), key=lambda e: int(e["id"].split("-")[1]))
-        evaluated = [e for e in exps if e["kind"] == "method" and e["verdict"] and not e["stale_harness"]]
+        evaluated = [e for e in exps if e["kind"] == "method" and e["evaluation"] and not e["stale_harness"]]
         latest = evaluated[-1] if evaluated else None
         b = branches.get(h["id"])
         nodes.append({
             "id": h["id"], "title": h["title"], "statement": h["statement"], "parent": h["parent_id"],
+            **_lineage(h, h["parent_id"], latest), "relations": relations.get(h["id"], []),
             "status": h["status"], "exp_status": h["experiment_status"], "novelty": h["novelty_recheck"],
             "theory": h["theory_recheck"], "priority": h["priority"], "reason": h.get("status_reason", ""),
             "doc": h["doc_id"], "references": sorted(references.get(h["id"], [])),
@@ -230,10 +236,11 @@ def collect(db_path: Path) -> dict:
             "times": {k: h.get(k) for k in NODE_TIMES},
             "experiments": [e["id"] for e in exps], "latest": latest and latest["id"],
             "branch": b and {"name": b["name"], "status": b["status"], "base": b["base_commit"][:10],
-                             "head": (b.get("head_commit") or "")[:10]},
+                             "head": (b.get("head_commit") or "")[:10], "base_ref": b["base_ref"],
+                             "base_commit": b["base_commit"]},
             # GO eligibility from current evidence (research_db.get_eligibility), never from the cached labels
             "eligibility": (eligibility := reader.get_eligibility(h["id"])),
-            "go": eligibility["eligible"],
+            "go": eligibility["eligible"], "eligibility_checked": True,
             "disposition": h.get("disposition") or ("retired" if h["status"] == "prunable" else "active"),
             "outcome": eligibility.get("outcome"), "stage": eligibility.get("stage"),
             "stall": h.get("stall_state") or "none", "direction": h.get("direction"),
@@ -343,7 +350,7 @@ def collect(db_path: Path) -> dict:
     for a in attention:
         a["label"] = ATTENTION_LABELS[a["kind"]]
     return {
-        "meta": {**snap["meta"], "generated_at": now_utc()},
+        "meta": {**snap["meta"], "generated_at": now_utc(), "view": "full", "eligibility_checked": True},
         "project": {k: v for k, v in project.items() if k != "_table"},
         "docs": docs, "nodes": nodes, "experiments": experiments, "decisions": decisions,
         "tasks": [{k: v for k, v in t.items() if k != "_table"} for t in tables["task"]],
@@ -353,6 +360,16 @@ def collect(db_path: Path) -> dict:
         "screen_seeds": _screen_seeds(experiments, project),
         "busy_workers": sorted(busy_workers(tables["task"])),
     }
+
+
+def _lineage(hypothesis: dict, parent: str | None, latest: dict | None = None) -> dict:
+    """Legacy ancestry still supplies code lineage; fixed experiment comparisons are never inferred from ideas."""
+    comparator = hypothesis.get("comparator_experiment_id")
+    if comparator is None and latest:
+        comparator = latest.get("parent_experiment_id") or latest.get("baseline_experiment_id")
+    return {"intellectual_parent_id": parent, "code_parent_id": hypothesis.get("code_parent_id") or parent,
+            "comparator_experiment_id": comparator,
+            "lineage_mode": "explicit" if hypothesis.get("code_parent_id") else "legacy_parent"}
 
 
 def _cleaned(passes: dict | None) -> dict | None:
@@ -430,7 +447,8 @@ def summary(data: dict, db_path: Path) -> dict:
         latest = n["latest"] and data["experiments"][n["latest"]]
         deltas = {c["role"]: c["delta_mean"] for c in latest["comparisons"]} if latest else {}
         nodes.append({k: n[k] for k in ("id", "title", "parent", "status", "exp_status", "novelty", "theory", "go",
-                                        "worker", "disposition", "outcome", "stage", "stall")}
+                                        "worker", "disposition", "outcome", "stage", "stall", "eligibility_checked",
+                                        "intellectual_parent_id", "code_parent_id", "comparator_experiment_id", "lineage_mode", "relations")}
                      | {"verdict": latest and latest["verdict"], "seeds": latest and len(latest["seeds"]),
                         "vs_sota": deltas.get("sota"), "vs_parent": deltas.get("parent", deltas.get("sota")),
                         "concluded_at": n["times"]["concluded_at"]})
@@ -453,28 +471,167 @@ def summary(data: dict, db_path: Path) -> dict:
     }
 
 
+def _rows(tx, label: str, fields: str, where: str = "") -> list[dict]:
+    """Small property projections, deliberately excluding document bodies and evidence blobs."""
+    columns = ", ".join(f"n.{field} AS {field}" for field in fields.split())
+    return tx.query(f"MATCH (n:{label}) {where} RETURN {columns}")
+
+
+def _meta(tx) -> dict:
+    return tx.query("MATCH (n:Meta) RETURN properties(n) AS p")[0]["p"]
+
+
 def summary_or_empty(db_path: Path) -> dict:
-    """summary(), or for a database whose project record the RLD has not created yet (just after
-    /research-tree init) the same shape with project null and only the documents to guard."""
-    snap = ResearchDB(db_path, "web_builder/site").export_snapshot()
-    if snap["tables"]["project"]:
-        return summary(collect(db_path), db_path)
+    """Current DB-only status, not a scientific eligibility check or a full presentation refresh.
+
+    One read transaction projects only status fields and guard paths. In particular this must not export
+    the database, read/hash/render documents, open curves, or recompute all nodes' eligibility. Unknown GO
+    eligibility is explicit (null), never a stale cached success or an inferred failure. Use get_eligibility
+    for one candidate or an explicit full build for the complete evidence/visualization diagnostics.
+    """
     root = db_path.resolve().parent
-    return {
-        "meta": {**snap["meta"], "generated_at": now_utc()}, "db_path": str(db_path.resolve()), "project": None,
-        "counts": {"status": {}, "exp_status": {}, "go": 0, "node_hours": 0, "screen_seeds": None},
-        "nodes": [], "attention": [], "busy_workers": [],
-        "guards": {"frozen_docs": sorted(str(root / "docs" / d["path"]) for d in snap["tables"]["document"]
-                                         if d["status"] != "draft"), "harness": []},
-    }
+    with ResearchDB(db_path, "web_builder/site").reader() as tx:
+        meta = _meta(tx)
+        projects = tx.ids("project")
+        project = tx.get(projects[0]) if projects else None
+        docs = _rows(tx, "Document", "path", "WHERE n.status <> 'draft'")
+        result = {
+            "meta": {**meta, "generated_at": now_utc(), "view": "lightweight", "eligibility_checked": False,
+                     "diagnostics": "database_status_only"},
+            "db_path": str(db_path.resolve()), "project": None,
+            "counts": {"status": {}, "exp_status": {}, "go": None, "node_hours": 0, "screen_seeds": None},
+            "nodes": [], "attention": [], "busy_workers": [],
+            "guards": {"frozen_docs": sorted(str(root / "docs" / d["path"]) for d in docs), "harness": []},
+        }
+        if project is None:
+            return result
+        hyps = _rows(tx, "Hypothesis", "id title status experiment_status novelty_recheck theory_recheck "
+                     "disposition stall_state concluded_at worker_id worker_agent_id worker_session_at resume_doc_ids "
+                     "code_parent_id comparator_experiment_id")
+        parents = {r["id"]: r["parent"] for r in tx.query(
+            "MATCH (n:Hypothesis)-[:CHILD_OF]->(p) RETURN n.id AS id, p.id AS parent")}
+        relations = {}
+        for edge in tx.query("MATCH (n:Hypothesis)-[r:RELATED]->(h:Hypothesis) "
+                             "RETURN n.id AS id, r.kind AS kind, h.id AS target_id"):
+            relations.setdefault(edge["id"], []).append({"kind": edge["kind"], "target_id": edge["target_id"]})
+        experiments = _rows(tx, "Experiment", "id kind seeds verdict evaluated_at harness_ref evaluation_id "
+                            "stage estimated_node_h walltime_s baseline_experiment_id parent_experiment_id")
+        subjects = {r["id"]: r["hyp"] for r in tx.query(
+            "MATCH (n:Experiment)-[:TESTS]->(h) RETURN n.id AS id, h.id AS hyp")}
+        evaluations = {e["id"]: e for e in _rows(tx, "Evaluation", "id outcome stage")}
+        comparisons = {}
+        for c in tx.query("MATCH (n:Experiment)-[c:COMPARED_WITH]->(e) "
+                          "RETURN n.id AS id, c.role AS role, c.delta_mean AS delta_mean"):
+            comparisons.setdefault(c["id"], {})[c["role"]] = c["delta_mean"]
+        runs = _rows(tx, "Run", "id seed exec_status valid nodes_used walltime_used_s attempts started_at")
+        tasks = _rows(tx, "Task", "id kind status assignee_role assignee_id blocked_reason")
+        obligations = _rows(tx, "Obligation", "id about severity source claim disappearance", "WHERE n.status = 'OPEN'")
+        reservations = _rows(tx, "Reservation", "submission_key submission_phase accounting_status")
+        worktrees = _rows(tx, "Branch", "worktree_path", "WHERE n.status = 'active'")
+    attention = result["attention"]
+    latest_by_hyp = {}
+    for e in sorted(experiments, key=lambda e: int(e["id"].split("-")[1])):
+        stale = bool(e["evaluated_at"]) and e["harness_ref"] != project.get("harness_ref")
+        if stale:
+            attention.append({"kind": "stale_harness", "id": subjects.get(e["id"], e["id"]),
+                              "text": f"{e['id']} 用旧框架判定，结果不可比"})
+        if e["kind"] == "method" and e["evaluation_id"] and not stale:
+            latest_by_hyp[subjects.get(e["id"])] = e
+    for h in hyps:
+        latest = latest_by_hyp.get(h["id"])
+        ev = evaluations.get(latest["evaluation_id"], {}) if latest else {}
+        deltas = comparisons.get(latest["id"], {}) if latest else {}
+        node = {"id": h["id"], "title": h["title"], "parent": parents.get(h["id"]), "status": h["status"],
+                "exp_status": h["experiment_status"], "novelty": h["novelty_recheck"], "theory": h["theory_recheck"],
+                **_lineage(h, parents.get(h["id"]), latest), "relations": relations.get(h["id"], []),
+                "go": None, "eligibility_checked": False, "evidence_state": "not_checked", "stage": None,
+                "outcome": ev.get("outcome"), "outcome_source": "recorded_evaluation", "worker": _worker(h),
+                "disposition": h["disposition"] or ("retired" if h["status"] == "prunable" else "active"),
+                "stall": h["stall_state"] or "none", "concluded_at": h["concluded_at"],
+                "verdict": latest and latest["verdict"], "seeds": latest and len(latest["seeds"]),
+                "vs_sota": deltas.get("sota"), "vs_parent": deltas.get("parent", deltas.get("sota"))}
+        result["nodes"].append(node)
+        if latest and latest["verdict"] in ("no_gain", "beats_parent", "beats_sota") and latest["verdict"] != node["exp_status"]:
+            attention.append({"kind": "conclusion_outdated", "id": h["id"],
+                              "text": f"{h['id']} 最新判定为 {latest['verdict']}，节点结论仍为 {node['exp_status']}"})
+        if latest and latest["verdict"] in ("close", "needs_rld"):
+            attention.append({"kind": "extend_seeds" if latest["verdict"] == "close" else "needs_rld", "id": h["id"],
+                              "text": f"{latest['id']}：{latest['verdict']}"})
+        if node["stall"] in ("structural", "human"):
+            attention.append({"kind": "stall", "id": h["id"], "text": f"{h['id']}：{node['stall']}"})
+    usage_by_exp = {}
+    for run in runs:
+        exp_id = run["id"].split("/", 1)[0]
+        usage_by_exp[exp_id] = usage_by_exp.get(exp_id, 0) + (run_node_hours(run) or 0)
+        if run["exec_status"] == "unknown":
+            attention.append({"kind": "run_unknown", "id": run["id"], "text": f"{run['id']} 执行状态 unknown"})
+    node_hours = sum(usage_by_exp.values())
+    factor = project.get("overrun_factor") or 2.0
+    for e in experiments:
+        estimate = e.get("estimated_node_h")
+        if estimate and usage_by_exp.get(e["id"], 0) >= factor * estimate:
+            attention.append({"kind": "overrun", "id": subjects.get(e["id"], project["id"]),
+                              "text": f"{e['id']} 用量达到预估的 {factor:g} 倍，由 RLD 决定是否继续"})
+    for ob in obligations:
+        attention.append({"kind": "obligation_open", "id": ob["about"],
+                          "text": f"{ob['id']}（{ob['severity']}，{ob['source']}）{ob['claim'][:100]}"})
+    for t in tasks:
+        if t["status"] not in ("accepted", "cancelled"):
+            attention.append({"kind": "task_blocked" if t["blocked_reason"] else "task", "id": t["id"],
+                              "text": f"{t['id']}（{t['kind']}，{t['assignee_role']}/{t['assignee_id']}）："
+                                      f"{t['blocked_reason'] or t['status']}"})
+    for r in reservations:
+        if r["accounting_status"] == "held_unknown" or (r["submission_phase"] == "claimed" and
+                                                         r["accounting_status"] == "reserved"):
+            attention.append({"kind": "submission_unknown", "id": None,
+                              "text": f"{r['submission_key']}：按提交身份核对，不要重新提交"})
+    if project.get("admission_paused"):
+        attention.insert(0, {"kind": "admission_paused", "id": project["id"], "text": project["admission_paused"]})
+    for field, value, kind in (("alert_node_h", node_hours, "usage_alert"),
+                               ("review_usd_alert", project.get("review_cost_usd") or 0, "review_budget")):
+        if project.get(field) is not None and value >= project[field]:
+            attention.insert(0, {"kind": kind, "id": project["id"], "text": f"{field} 已达到阈值 {project[field]}"})
+    for item in attention:
+        item["label"] = ATTENTION_LABELS[item["kind"]]
+    sota_runs = sorted((r for r in runs if r["id"].split("/", 1)[0] == project.get("sota_experiment_id")),
+                       key=lambda r: r["seed"])
+    screen = _screen_seeds({project.get("sota_experiment_id"): {"runs": [{"node_h": run_node_hours(r), "seed": r["seed"], "valid": r["valid"]}
+                                                                                 for r in sota_runs]}}, project)
+    result["project"] = {k: project.get(k) for k in ("id", "title", "status", "stage", "sota_experiment_id", "go_margin",
+                          "harness_ref", "repo_path", "max_parallel_workers", "alert_node_h", "config_doc_id")}
+    result["project"]["worker"] = _worker(project)
+    result["counts"] = {"status": {}, "exp_status": {}, "go": None, "node_hours": round(node_hours, 2),
+                        "screen_seeds": screen}
+    for key in ("status", "exp_status"):
+        for n in result["nodes"]:
+            result["counts"][key][n[key]] = result["counts"][key].get(n[key], 0) + 1
+    result["busy_workers"] = sorted(busy_workers(tasks))
+    result["guards"]["harness"] = sorted(f"{b['worktree_path'].rstrip('/')}/{p.strip('/')}"
+                                          for b in worktrees if b["worktree_path"]
+                                          for p in project.get("harness_paths") or [])
+    return result
 
 
 def _screen_seeds(experiments: dict, project: dict) -> int | None:
     sota = experiments.get(project.get("sota_experiment_id") or "")
     if not sota or not sota["runs"] or sota["runs"][0]["node_h"] is None:
         return None
-    cost, n = sota["runs"][0]["node_h"], 1
-    while n < project["gate_seeds"] and (n + 1) * cost < project["screen_budget_node_h"]:
+    by_seed = {r["seed"]: r for r in sota["runs"] if "seed" in r}
+    first = by_seed.get(project["seeds"][0], sota["runs"][0])
+    if first.get("valid") is False or first.get("node_h") is None:
+        return None
+    cost, n = first["node_h"], 1
+    cap = min(project["gate_seeds"], project.get("screen_seeds") or project["gate_seeds"])
+    if project.get("workflow_mode") == "fast_screening":
+        available = 0
+        for seed in project["seeds"]:
+            if not by_seed.get(seed, {}).get("valid"):
+                break
+            available += 1
+        if not available:
+            return None
+        cap = min(cap, available)
+    while n < cap and (n + 1) * cost < project["screen_budget_node_h"]:
         n += 1
     return n
 
@@ -514,19 +671,24 @@ def render_page(data: dict) -> str:
 def page_version(page: Path) -> int | None:
     if not page.is_file():
         return None
-    m = VERSION_RE.search(page.read_text(encoding="utf-8", errors="replace")[:4000])
+    with page.open(encoding="utf-8", errors="replace") as handle:
+        m = VERSION_RE.search(handle.read(4000))
     return int(m.group(1)) if m else None
 
 
 def build(db_path: Path, out: Path) -> dict:
-    data = collect(db_path)
+    # Explicit builds may overlap (for example two UI requests). Serialize presentation writes only;
+    # database writes remain independent, and --check makes changes committed during a build visible as stale.
     out.parent.mkdir(parents=True, exist_ok=True)
-    if out.is_file():
-        shutil.copyfile(out, out.with_name("previous.html"))
-    tmp = out.with_suffix(".tmp")
-    tmp.write_text(render_page(portable(data, project_dir(db_path))), encoding="utf-8")
-    tmp.replace(out)
-    return data
+    with out.with_suffix(".build.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        data = collect(db_path)
+        if out.is_file():
+            shutil.copyfile(out, out.with_name("previous.html"))
+        tmp = out.with_suffix(".tmp")
+        tmp.write_text(render_page(portable(data, project_dir(db_path))), encoding="utf-8")
+        tmp.replace(out)
+        return data
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -539,7 +701,8 @@ def main(argv: list[str] | None = None) -> int:
     out = args.out or args.db.parent / "site" / "index.html"
     try:
         if args.check:
-            current = ResearchDB(args.db, "web_builder/site").export_snapshot()["meta"]["data_version"]
+            with ResearchDB(args.db, "web_builder/site").reader() as tx:
+                current = _meta(tx)["data_version"]
             built = page_version(out)
             print(json.dumps({"page_version": built, "db_version": current, "stale": built != current}))
             return 0 if built == current else 1
@@ -725,7 +888,7 @@ function tree() {
 }
 function deltaText(n) {
   const e = n.latest && EXP[n.latest]; if (!e) return "";
-  return e.comparisons.map(c => `<span class="muted">${c.role === "sota" ? "vs SOTA" : "vs 父"} ${c.delta_mean >= 0 ? "+" : ""}${fmt(c.delta_mean)}</span>`).join(" ");
+  return e.comparisons.map(c => `<span class="muted">${c.role === "sota" ? "vs SOTA" : "vs 指定对照"} ${c.delta_mean >= 0 ? "+" : ""}${fmt(c.delta_mean)}</span>`).join(" ");
 }
 function rootDetail() {
   selected = P.id;
@@ -769,9 +932,12 @@ function nodeDetail(id) {
       <tr><th>实验结论</th><td>${badge(n.exp_status, "v-" + n.exp_status)} 最新判定实验：${esc(n.latest || "无")}</td></tr>
       <tr><th>复核（优于SOTA后）</th><td>新颖性 ${esc(n.novelty === "pending" ? "未复核" : L(n.novelty))}；理论 ${esc(n.theory === "pending" ? "未复核" : L(n.theory))}</td></tr>
       <tr><th>关键时间</th><td>${keyTimes(n)}</td></tr>
-      <tr><th>父节点</th><td>${n.parent === P.id ? nodeRef(P.id) + " 根节点 · baselines（与SOTA比较）" : nodeRef(n.parent)}</td></tr>
+      <tr><th>思想来源</th><td>${nodeRef(n.intellectual_parent_id)}（假说树关系）</td></tr>
+      <tr><th>思想关系</th><td>${n.relations.map(r => esc(r.kind) + " → " + nodeRef(r.target_id)).join("、") || "无"}</td></tr>
+      <tr><th>代码起点</th><td>${nodeRef(n.code_parent_id)}${n.lineage_mode === "legacy_parent" ? "（旧记录沿用父节点代码）" : ""}</td></tr>
+      <tr><th>比较参照</th><td>${esc(n.comparator_experiment_id || "尚未固定，以实验登记的比较身份为准")}</td></tr>
       <tr><th>worker</th><td>${workerCell(n.worker)}</td></tr>
-      <tr><th>代码分支</th><td>${n.branch ? `${esc(n.branch.name)}（${esc(n.branch.status)}，基准 ${esc(n.branch.base)}${n.branch.head ? "，交还 " + esc(n.branch.head) : ""}）` : "无"}</td></tr>
+      <tr><th>代码分支</th><td>${n.branch ? `${esc(n.branch.name)}（${esc(n.branch.status)}，基准 ${esc(n.branch.base_ref)} @ ${esc(n.branch.base_commit)}${n.branch.head ? "，交还 " + esc(n.branch.head) : ""}）` : "无"}</td></tr>
       <tr><th>假说文档</th><td>${docLink(n.doc)}</td></tr>
       <tr><th>创建时参考的相关研究</th><td>${n.references.map(docLink).join("<br>") || "无"}</td></tr>
       ${n.notes.length ? `<tr><th>其他文档</th><td>${n.notes.map(docLink).join("<br>")}</td></tr>` : ""}
@@ -800,9 +966,10 @@ function expBlock(e) {
   return `<div class="panel"><b>${esc(e.id)}</b> ${esc(e.method)} · ${esc(e.kind)} · seeds ${esc(e.seeds.join(", "))} · 代码 ${esc(e.code)}
     ${e.evaluation ? `<span class="muted">${esc(e.evaluation.id)} · ${esc(e.evaluation.level)}${e.evaluation.eval_type ? " · " + esc(e.evaluation.eval_type) : ""}${e.evaluation.guardrails_passed === false ? ' · <span class="warn">保护指标未通过</span>' : ""}</span> ` : ""}${e.verdict ? badge(e.verdict, "v-" + e.verdict) : e.kind === "baseline" ? `<span class="muted">${e.evaluated ? "基线结果已记录" : "基线结果未记录"}</span>` : '<span class="muted">未判定</span>'}${e.stale_harness ? '<span class="warn">框架已更换，结果不可比</span>' : ""}${e.cleaned ? `<span class="muted"> · 产物已清理（${esc(e.cleaned.at)}，释放 ${(e.cleaned.freed_bytes / 2 ** 30).toFixed(2)} GiB${e.cleaned.kept.length ? "，保留 " + esc(e.cleaned.kept.join("、")) : ""}）</span>` : ""}
     <div>设计：${docLink(e.design)}；结果：${docLink(e.result)}</div>
+    <div class="muted">固定基线：${esc(e.baseline_experiment_id || "无")}；指定比较实验：${esc(e.parent_experiment_id || e.baseline_experiment_id || "无")}</div>
     <table class="heat"><thead><tr><th>seed</th><th>执行</th><th>验收</th><th>${esc(P.primary_metric)}</th>${(P.secondary_metrics || []).map(k => `<th>${esc(k)}</th>`).join("")}<th>node·h</th><th>曲线</th></tr></thead><tbody>${runs}</tbody></table>
     ${e.comparisons.length ? `<table class="heat"><thead><tr><th>比较</th><th>配对seed</th><th>Δ${esc(P.primary_metric)}</th>${(P.secondary_metrics || []).map(k => `<th>Δ${esc(k)}</th>`).join("")}<th>过SOTA门槛</th></tr></thead><tbody>
-      ${e.comparisons.map(c => `<tr><td>${c.role === "sota" ? "SOTA " : "父节点 "}${esc(c.target_id)}</td><td>${c.n_paired}</td>${heatCell(c.delta_mean)}${(P.secondary_metrics || []).map(k => heatCell(c.deltas[k])).join("")}<td>${c.role === "sota" ? (c.passes_gate ? '<span class="go">是</span>' : "否") : ""}</td></tr>`).join("")}</tbody></table>` : ""}
+      ${e.comparisons.map(c => `<tr><td>${c.role === "sota" ? "SOTA " : "指定对照 "}${esc(c.target_id)}</td><td>${c.n_paired}</td>${heatCell(c.delta_mean)}${(P.secondary_metrics || []).map(k => heatCell(c.deltas[k])).join("")}<td>${c.role === "sota" ? (c.passes_gate ? '<span class="go">是</span>' : "否") : ""}</td></tr>`).join("")}</tbody></table>` : ""}
     ${curveSvg(e)}</div>`;
 }
 function heatCell(v) {
@@ -822,7 +989,7 @@ function meanCurve(exp, key) {
 function curveSvg(e) {
   const keys = Object.keys((e.runs.find(r => r.curve) || {}).curve || {}).filter(k => k !== "step");
   if (!keys.length) return "";
-  const series = [[e.id + " " + e.method, e]].concat(e.comparisons.map(c => [(c.role === "sota" ? "SOTA " : "父节点 ") + c.target_id, EXP[c.target_id]]));
+  const series = [[e.id + " " + e.method, e]].concat(e.comparisons.map(c => [(c.role === "sota" ? "SOTA " : "指定对照 ") + c.target_id, EXP[c.target_id]]));
   return keys.map(key => {
     const lines = series.map(([name, x], i) => ({name, color: PALETTE[i % PALETTE.length], c: x && meanCurve(x, key)})).filter(s => s.c);
     const xs = lines.flatMap(s => s.c.x), ys = lines.flatMap(s => s.c.y);

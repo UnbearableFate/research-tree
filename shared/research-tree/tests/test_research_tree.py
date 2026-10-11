@@ -249,7 +249,7 @@ class ResearchTreeTest(unittest.TestCase):
         self.assertEqual(code, 0, out)
         result = out["result"]
         self.assertEqual(result["config"]["path"], "project/config.v2.yaml")
-        self.assertEqual(result["updated_fields"], {"max_walltime_s": 5400, "max_parallel_workers": 2,
+        self.assertEqual(result["updated_fields"], {"discovery_mode": "off", "max_walltime_s": 5400, "max_parallel_workers": 2,
                                                     "gate_seeds": 2, "seeds": [7, 8]})
         project = rld.get("P-demo")
         self.assertEqual((project["config_doc_id"], project["seeds"], project["max_walltime_s"]),
@@ -412,7 +412,7 @@ class RealRunFixesTest(unittest.TestCase):
         self.cwd = Path(self.tmp.name)
         (self.cwd / "plan.md").write_text("# 计划\n", encoding="utf-8")
         (self.cwd / "research-tree.yaml").write_text(
-            (REPO / "schema" / "config.template.yaml").read_text(encoding="utf-8").replace("mode: full", "mode: precheck"),
+            (REPO / "schema" / "config.template.yaml").read_text(encoding="utf-8").replace("mode: incremental", "mode: precheck"),
             encoding="utf-8")
 
     def tearDown(self):
@@ -573,7 +573,7 @@ class NotifyTest(unittest.TestCase):
 class DiscoveryConfigTest(unittest.TestCase):
     def test_unquoted_off(self):
         import project_config
-        text = project_config.template_text().replace("  mode: full ", "  mode: off  ")
+        text = project_config.template_text().replace("  mode: incremental ", "  mode: off  ")
         config = project_config.parse(text)
         self.assertEqual(config["discovery"]["mode"], "off")
         self.assertFalse(project_config.db_fields(config)["require_precheck"])
