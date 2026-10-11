@@ -2950,9 +2950,15 @@ class ResearchDB:
             if not len(exp["seeds"]) < n_seeds <= project["gate_seeds"]:
                 raise ResearchDBError(f"{experiment_id} has {len(exp['seeds'])} seeds; extend to at most {project['gate_seeds']}")
             self._check_usage_alert(tx, project)
-            if exp["kind"] != "baseline" and self.role != "rld" and n_seeds > self._screen_seeds(tx, project) \
-                    and exp.get("verdict") not in ("close", "beats_parent"):
-                raise ResearchDBError("seeds beyond the screening budget need verdict close or beats_parent, or rld")
+            if exp["kind"] != "baseline" and self.role != "rld" and n_seeds > self._screen_seeds(tx, project):
+                ev = tx.get(exp["evaluation_id"]) if exp.get("evaluation_id") else None
+                current = ev is not None and not self._stale_reasons(tx, project, ev)
+                positive = current and ev.get("outcome") == "positive_signal"
+                # Deliberate compatibility: old verdicts remain valid only with their still-current evaluation.
+                legacy = current and exp.get("verdict") in ("close", "beats_parent")
+                if not (positive or legacy):
+                    raise ResearchDBError("seeds beyond the screening budget need a current positive_signal "
+                                          "(legacy close or beats_parent with current evidence), or rld")
             self._update(tx, experiment_id, {
                 "seeds": project["seeds"][:n_seeds], "verdict": None, "metric_mean": None, "metric_sd": None,
                 "result_doc_id": None, "harness_ref": None, "evaluated_at": None, "evaluation_id": None,
@@ -3389,7 +3395,16 @@ class ResearchDB:
             else:
                 branch = self._branch_of(tx, exp["hypothesis_id"])
                 if _git_commit(project["repo_path"], branch["base_commit"]) == exp["code_ref"]:
-                    raise ResearchDBError(f"{experiment_id} ran the branch base; a node needs a code change")
+                    # A shared runner is a legitimate intervention when its scientific configuration differs.
+                    # Execution metadata (output paths, seeds, queue settings) never supplies that difference.
+                    reference_id = exp.get("parent_experiment_id") or exp.get("baseline_experiment_id") or project.get("sota_experiment_id")
+                    reference = tx.get(reference_id) if reference_id else None
+                    protocol = self._protocol(tx, project) or {}
+                    if not reference or not exp.get("method_spec_doc_id") or not reference.get("method_spec_doc_id") or \
+                            scientific_config(exp.get("effective_config") or {}, protocol) == scientific_config(
+                                reference.get("effective_config") or {}, protocol):
+                        raise ResearchDBError(f"{experiment_id} ran the branch base; a node needs a code change "
+                                              "or a different scientific configuration from its explicit comparator")
             refs = self._references(tx, project, exp, baseline_id)
             signature = self._signature(tx, project, exp, refs)
             with _coded():
@@ -4663,6 +4678,8 @@ class ResearchDB:
             if kind == "novelty_precheck" and payload is not None:
                 result = self._novelty_effective(tx, payload, fields)
             if kind == "code_review":  # bound to the code it read (03 §8): a submission checks the same commit
+                if not code_ref and len(targets) == 1 and targets[0]["_table"] == "experiment":
+                    code_ref = targets[0]["code_ref"]
                 resolved = _git_commit(project.get("repo_path") or "", code_ref or "") if code_ref else None
                 if resolved is None:
                     raise ResearchDBError(f"a code_review names code_ref, a commit in {project.get('repo_path')}")
@@ -4976,7 +4993,21 @@ class ResearchDB:
                 raise ResearchDBError(f"{about} is not in the discovery candidate pool")
             return {"candidate_id": about, "revision": c.get("revision"), "content_sha": c.get("content_sha")}
         node = tx.require(about)
+        experiment = node if node["_table"] == "experiment" else None
+        if experiment is not None:
+            if kind != "code_review" or not experiment.get("hypothesis_id") or not experiment.get("method_spec_doc_id"):
+                raise CodedError("REVIEW_SUBJECT_UNSUPPORTED", "an experiment review supports code_review of a "
+                                 "method-bound hypothesis experiment; use the hypothesis for other review kinds")
+            resolved = _git_commit(self._project(tx).get("repo_path") or "", code_ref) if code_ref else experiment["code_ref"]
+            if resolved != experiment["code_ref"]:
+                raise CodedError("REVIEW_SUBJECT_UNSUPPORTED", "review code_ref differs from the experiment's method")
+            node = tx.require(experiment["hypothesis_id"], ("hypothesis",))
+            return {"claim_revision": node.get("claim_revision"), "claim_sha": node.get("claim_sha"),
+                    "hypothesis_id": node["id"], "experiment_id": experiment["id"],
+                    "code_ref": resolved, "method_spec_doc_ids": [experiment["method_spec_doc_id"]]}
         if node["_table"] != "hypothesis":
+            if kind in ("code_review", "candidate_recheck", "ablation_plan"):
+                raise CodedError("REVIEW_SUBJECT_UNSUPPORTED", f"{kind} needs a hypothesis or supported experiment subject")
             return {"subject": about}
         basis = {"claim_revision": node.get("claim_revision"), "claim_sha": node.get("claim_sha")}
         if kind == "code_review":

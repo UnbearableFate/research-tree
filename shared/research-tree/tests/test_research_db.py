@@ -559,7 +559,10 @@ class VerdictTest(Fixture):
         exp = self.method(self.h, code_ref=tampered)
         with self.assertRaisesRegex(ResearchDBError, "differ from the frozen harness"):
             self.evaluate(exp, "beats_sota")
-        unchanged = self.method(self.h, code_ref=self.harness)
+        # Equal code is not enough to call an intervention unchanged: preserve the comparator's scientific config.
+        unchanged = self.worker.create_experiment("method", "unchanged", self.doc(self.worker, "exp/noop.v1.md", "experiment_design"),
+            self.harness, 1, 1800, hypothesis_id=self.h,
+            method_config=self.rld.get(self.sota)["effective_config"], estimated_node_h=1.0)
         with self.assertRaisesRegex(ResearchDBError, "needs a code change"):
             self.evaluate(unchanged, "beats_sota")
         design = self.doc(self.worker, "exp/p.v1.md", "experiment_design")
