@@ -78,10 +78,11 @@ class S3Test(Fixture):
         self.respec(lambda s: self.mem(s, input_unit="mib"))  # read "42" as MiB (0.04 GiB): would pass
         with self.assertRaisesRegex(ResearchDBError, "METRIC_UNIT_MISMATCH: .*reported peak_mem_gb in gib"):
             self.owner_for(self.base).evaluate_experiment(self.base, self.result_doc(exp=self.base))
-        with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_STALE: the sota reference"):  # no reference under it
+        with self.assertRaisesRegex(ResearchDBError, "METRIC_UNIT_MISMATCH: .*reported peak_mem_gb in gib"):
             self.owner_for(exp).evaluate_experiment(exp, self.result_doc(exp=exp))
         self.assertEqual(len(self.rld.evaluations()), n_before)
         self.assertFalse(self.rld.evaluations(experiment_id=exp)[-1]["guardrails_passed"])
+        self.assertNotIn("METRIC_SPEC_CHANGED", self.rld.get_eligibility(self.h)["reasons"])  # the old one stands
         # a future run stating the new unit is read in it; a run still stating gib is refused at import
         later = self.method(self.h, n_seeds=1)
         run = f"{later}/s42"

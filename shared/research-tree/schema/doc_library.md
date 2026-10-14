@@ -149,7 +149,7 @@ created_at: 2026-10-03T10:21:00Z
 
 生效文档只增加新版本，不原地改写；每次数据库写入是短事务，锁冲突只有限重试。以下保护始终适用：
 
-- **确认与范围。** 先登记最小目标、协议、指标和预算，再由用户确认。候选准入不改变确认阶段，不能授权新目标、资源或权限；配置只由用户修改并显式应用。
+- **确认与范围。** 先登记最小目标、协议、指标和预算，再由用户确认。候选准入不改变确认阶段，不能授权新目标、资源或权限；配置由用户修改，或由 Leader 按用户指示只改用户要求的项（子代理不能写），并显式应用（Leader 代为应用时登记用户原话）。
 - **冻结框架。** Architect 实现训练、评测、统计与 manifest；Leader 检查后用 `update_project(harness_ref, harness_paths)` 冻结。实验代码必须包含且保持框架文件一致；换框架使依赖证据失效并需重建参照。
 - **增量候选。** 候选 JSON 必须含 prediction、intervention、comparator、resource_ceiling、stop_conditions。Leader 合并实际提案，逐候选 select/gate，`create_hypothesis` 再核验当前 revision/hash 与范围。候选 A 的通过不能放行 B；没有全池报告或固定篇数文献门。
 - **独立关系。** `parent_id`/typed relations 是思想来源；`code_parent_id` 与 branch `base_commit` 是代码起点；`comparator_experiment_id` 是实验比较参照；投入处置另记。思想父节点无需胜出，不允许循环，也不能把对照的相同科学方法改名作为新干预。
@@ -158,7 +158,7 @@ created_at: 2026-10-03T10:21:00Z
 - **运行与重试。** planned → submitted（→ running）→ succeeded/failed/cancelled；只有成功且通过有效性验收的运行支持科学结论。每次 attempt 保留原作业、结果、失败理由和实际用量；只重试允许重试的执行失败，不能撤回有效结果来挑选更好结果。查询失败和提交超时维持 unknown，核对原 submission_key，不盲目重提。
 - **原始导入。** `import_run_result(run_id, attempt, manifest_path)` 校验代码、配置、seed、attempt、数据/协议、实际计数、指标单位和原始路径。相同 attempt 同文件重复导入幂等，换文件或事后改导入数值被拒绝。manifest、哈希、原始指标与单位保留；缺失 provenance 不由当前配置倒填。
 - **程序计算。** `evaluate_experiment` 从有效 run 重算均值、样本 SD、配对效应、门槛和保护指标，产生 positive_signal/negative_signal/inconclusive。n=1 的 SD 为空并解释，不写成 0。调用者不提交 verdict 或权威统计数字；结果文档须引用每个已导入指标文件及可核验的汇总来源。相同输入幂等；计算中依据变化拒绝写入。
-- **证据时效。** evaluation 绑定实际用到的 run/attempt、代码、科学配置、框架、协议、指标与参照。增加未使用的 baseline seed 不改旧结果；更改或撤回实际使用的 run 则使其失效。独立单元、单位、配对字段和 required_counts 必须可核验，重复 attempt 不增加样本数。
+- **证据时效。** evaluation 绑定实际用到的 run/attempt、代码、科学配置、框架、协议、指标与参照。增加未使用的 baseline seed 不改旧结果；更改或撤回实际使用的 run 则使其失效。指标规范的新版本、只差 research-tree.yaml 规定字段（profile、确认设置、require_artifact_import、independence_fields、repetition）的协议版本只约束之后的评估，不使已有 evaluation、方法身份与研究发现失效，参照在同一 run 上重评也不算换参照；框架或比较协议本身（评测类型、配对字段、必须一致的设定、计数等）变化才使依赖证据待重评。独立单元、单位、配对字段和 required_counts 必须可核验，重复 attempt 不增加样本数。
 - **代码审查与最小对照。** 普通廉价搜索不逐次等待模型审查，但同方法 sanity、原始证据、数据/指标有效性、匹配、授权与预算仍检查。精确预声明的最小对照经 Leader 在目标提交前 `approve_minimum_controls` 批准后，只免除重复 ablation_plan；超范围实验保留适用审查。已验证的有效性缺陷不能绕过。
 - **争议。** `dispute_code_review` 保留原阻塞回执、具体问题和证据；独立 recheck 后 Leader 用 `adjudicate_code_review` 记录 upheld/overturned/fixed。真实缺陷不能 overturned 豁免。fixed 需要新方法身份、实际修复证据与独立 clear，只放行精确绑定的新实验；旧方法仍阻塞。换配置、节点、后代提交或沿用缺陷源码不能洗掉未解决问题。
 - **独立确认。** Leader 在充分搜索复制与关键控制后 `freeze_candidate` 冻结方法、主张、搜索依据和参照，再 `create_confirmation_batch` 固定名单与未使用的声明材料。Architect 运行冻结参照的确认 baseline，Worker 运行对应候选；身份、批次、比较和材料端到端绑定。确认材料从首次提交计入使用史，不因撤回、改名或重启清除，后续经反馈修改的方法须用另一份预声明材料或保持未确认。
@@ -167,7 +167,7 @@ created_at: 2026-10-03T10:21:00Z
 - **投入与 NOT GO。** 科学 outcome、节点生命周期、active/paused/retired 处置和项目 GO/NOT GO 分开。NOT GO 要求没有仍在投入的节点，Leader 无值得验证的新方向，报告覆盖未探索、工程失败、不确定、重复方向、明确反证与投入价值判断；预算不足或工程失败本身不构成 NOT GO。
 - **预算与防重复。** reserve → claim → 使用 submission_key 提交 → attach_job → 以真实调度用量 settle。预留须等于登记的总 node-seconds 并符合组合资源边界；开销预先声明。search/confirmation/repair 分池按实验依据固定，同 key 不能换 run、资源形状、池或平台；未知请求保留预留并对账。实际失败费用也入账，超额暂停准入，不静默取消作业或放宽预算。
 - **任务与恢复。** 请求和交付须具备规定章节；验收 `update_task(status=accepted, evidence_ids)` 引用真实依据，验收者不是执行者。`resume_package` 返回角色限定的 actor 和 first_unaccepted_task，沿用原会话与作业身份，不因 agent 一轮结束就宣告实验结束。
-- **指标变更。** 主指标的收益门槛和统一种子在开始实验后冻结；其他允许的协议/规范变更必须引用当前用户指令并使不适用证据失效。改单位必须与保留的原始单位一致且等价换算，不重新解释已导入值。
+- **指标变更。** 主指标的收益门槛和统一种子在开始实验后冻结；其他允许的协议/规范变更必须引用当前用户指令，只使按上面“证据时效”不再适用的证据失效。改单位必须与保留的原始单位一致且等价换算，不重新解释已导入值。
 - **清理与结项。** evaluation 登记后由实验 owner 按项目清理脚本清理非证据产物；保留日志、曲线、manifest、导入证据和声明仍需复用的产物，记录释放量与失败项。清理不是科学结论。GO/NOT GO/停止后不接受新的研究工作；重开须新的用户指令和范围记录。
 
 数据库位于共享文件系统时，跨主机锁是否有效取决于挂载方式。计算作业不直接打开数据库，只写输出目录；由固定执行 owner 导入。长作业不能持有数据库锁，文件锁也不替代角色或单 writer 检查。

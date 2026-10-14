@@ -43,6 +43,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterator
 
+import yaml
 from latticedb import Database, LatticeDatabaseLockedError
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -262,6 +263,10 @@ LIMIT_FIELDS = ("max_parallel_workers", "alert_node_h", "config_doc_id", "total_
                 "require_selection_rationale", "allow_repair_from_retired")
 # The documents evaluations are computed under (plans/design/04): protocol and metric specification.
 EVIDENCE_DOC_FIELDS = ("protocol_doc_id", "metric_spec_doc_id")
+# The protocol fields research-tree.yaml fixes (project_config.protocol_requirements): changing them through the
+# configuration governs later work and never voids earlier evaluations, method identities or findings.
+CONFIG_PROTOCOL_FIELDS = ("profile", "confirmation_seeds", "min_confirmation_pairs", "max_confirmation_candidates",
+                          "require_artifact_import", "confirmation_materials", "independence_fields", "repetition")
 # Caps the user authorizes (10 §1.5): an agent may lower them, raising one (or lifting it, None) needs the user.
 CAP_FIELDS = ("total_limit", "search_limit", "confirmation_limit", "repair_limit", "max_nodes", "max_walltime_s",
               "alert_node_h", "review_usd_alert", "max_repairs_per_root_cause")
@@ -769,8 +774,9 @@ class ResearchDB:
         specification documents; comparison settings (GATE_FIELDS) only until the first experiment exists. A new
         harness clears the SOTA baseline, which must then be re-run and re-evaluated. Once experiments exist, a new
         protocol_doc_id or metric_spec_doc_id needs user_instruction_doc_id (a current user_instruction: the user
-        decided the change, never an agent after seeing results); evaluations under the old ones stop supporting
-        GO."""
+        decided the change, never an agent after seeing results). Evaluations under the old protocol stop supporting
+        GO only when it differs outside the fields research-tree.yaml fixes (CONFIG_PROTOCOL_FIELDS); a new metric
+        specification governs later evaluations and leaves earlier ones standing."""
         self._require_role("rld")
         self._only_fields(changes, OPTIONAL_PARAMS["update_project"])
         with self._writer() as tx:
@@ -937,6 +943,17 @@ class ResearchDB:
             raise CodedError("PROTOCOL_CHANGE_REQUIRED", "a protocol_doc_id is required; start a version 3 project")
         with _coded():
             return metrics.check_protocol(self._json_doc(tx, project["protocol_doc_id"], "protocol"))
+
+    def _same_protocol(self, tx: _Tx, a: str | None, b: str | None) -> bool:
+        """Whether two protocol versions agree outside the fields research-tree.yaml fixes: a change of only those
+        (CONFIG_PROTOCOL_FIELDS) applies to later work and leaves earlier evidence standing."""
+        if a == b:
+            return True
+        if not a or not b:
+            return False
+        def comparison(doc_id: str) -> dict:
+            return {k: v for k, v in self._json_doc(tx, doc_id, "protocol").items() if k not in CONFIG_PROTOCOL_FIELDS}
+        return comparison(a) == comparison(b)
 
     # -- hypotheses -------------------------------------------------------------
 
@@ -2517,12 +2534,21 @@ class ResearchDB:
 
     def _register_spec(self, tx: _Tx, spec: dict) -> tuple[str, str]:
         """The method_spec document holding exactly this content (content-addressed: an identical spec is the same
-        document). Returns (doc_id, sha)."""
+        document), or the one registered under an earlier protocol version that differs only in the fields
+        research-tree.yaml fixes (a configuration change keeps the method's identity). Returns (doc_id, sha)."""
+        protocols = [spec["protocol_doc_id"]] if spec.get("protocol_doc_id") else []
+        if protocols:
+            protocols += sorted((d for d in tx.ids("document", "WHERE n.doc_type = $t", t="protocol")
+                                 if d != protocols[0] and self._same_protocol(tx, d, protocols[0])),
+                                key=lambda d: int(d.split("-")[1]))
+        for protocol_id in protocols or [None]:
+            sha = hashlib.sha256(_canonical({**spec, "protocol_doc_id": protocol_id} if protocols else spec)
+                                 .encode("utf-8")).hexdigest()
+            found = tx.ids("document", "WHERE n.sha256 = $s AND n.doc_type = $t", s=sha, t="method_spec")
+            if found:
+                return found[0], sha
         text = _canonical(spec)
         sha = hashlib.sha256(text.encode("utf-8")).hexdigest()
-        found = tx.ids("document", "WHERE n.sha256 = $s AND n.doc_type = $t", s=sha, t="method_spec")
-        if found:
-            return found[0], sha
         rel = f"{METHOD_SPEC_DIR}/MS-{sha[:16]}.v1.json"
         file = self.docs_root / rel
         file.parent.mkdir(parents=True, exist_ok=True)
@@ -3871,11 +3897,11 @@ class ResearchDB:
                     raise ResearchDBError(f"the {role} reference {refs[role]} is not evaluated")
                 refs[f"{role}_evaluation"] = target.get("evaluation_id")
                 ref_ev = tx.get(target["evaluation_id"]) if target.get("evaluation_id") else None
-                if ref_ev is not None and any(
-                        ref_ev.get(k) != project.get(k) for k in ("protocol_doc_id", "metric_spec_doc_id")):
+                if ref_ev is not None and not self._same_protocol(
+                        tx, ref_ev.get("protocol_doc_id"), project.get("protocol_doc_id")):
                     raise CodedError("EVIDENCE_STALE", f"the {role} reference {refs[role]} was evaluated under another "
-                                                       "protocol or metric specification; evaluate it again (its runs "
-                                                       "must meet the current protocol) before comparing with it")
+                                                       "protocol; evaluate it again (its runs must meet the current "
+                                                       "protocol) before comparing with it")
         return refs
 
     def _signature(self, tx: _Tx, project: dict, exp: dict, refs: dict) -> dict:
@@ -4479,7 +4505,7 @@ class ResearchDB:
             out["root_cause_status"] = data.get("root_cause_status")
             out["verification"] = {k: verification.get(k) for k in ("state", "reasons", "runs", "failure")}
             out["source_refs"] = [*(verification.get("runs") or []), *(data.get("evidence_runs") or [])]
-            recheck, why = memory.applicability(data, project)
+            recheck, why = memory.applicability(data, self._lesson_context(tx, project, data))
             if not out["scope"]:
                 why = ["scope not stated: applies only where it is checked again"] + why
             out["recheck_reasons"] = why
@@ -4509,6 +4535,33 @@ class ResearchDB:
             out.update(evidence_state="current", effective_status=declared)
         return out
 
+    def _lesson_context(self, tx: _Tx, project: dict, lesson: dict) -> dict:
+        """The project as a lesson's applicability compares it (09 §9.3: a configuration change invalidates only the
+        scope it touches). The lesson's recorded configuration still holds while the platform section is the same;
+        its protocol while only the fields research-tree.yaml fixes changed; a metric specification never bounds
+        how a run is executed."""
+        app = lesson.get("applicability") or {}
+        view = dict(project)
+
+        def doc(doc_id: Any, doc_type: str) -> dict | None:
+            found = tx.get(str(doc_id)) if doc_id else None
+            return found if found and found.get("_table") == "document" and found.get("doc_type") == doc_type else None
+
+        def platform(d: dict) -> Any:
+            try:
+                return (yaml.safe_load((self.docs_root / d["path"]).read_text(encoding="utf-8")) or {}).get("platform")
+            except (OSError, yaml.YAMLError, AttributeError):
+                return object()  # unreadable: never the same
+
+        if app.get("metric_spec_doc_id"):
+            view["metric_spec_doc_id"] = app["metric_spec_doc_id"]
+        old, now = doc(app.get("protocol_doc_id"), "protocol"), doc(project.get("protocol_doc_id"), "protocol")
+        if old and now and self._same_protocol(tx, old["id"], now["id"]):
+            view["protocol_doc_id"] = app["protocol_doc_id"]
+        old, now = doc(app.get("config_doc_id"), "config"), doc(project.get("config_doc_id"), "config")
+        if old and now and platform(old) == platform(now):
+            view["config_doc_id"] = app["config_doc_id"]
+        return view
 
     def context_pack(self, node_id: str, role: str = "worker") -> dict:
         # role: worker (its node's lineage) or rld (every open obligation and finding: decision batches)
@@ -5661,7 +5714,7 @@ class ResearchDB:
         (plans/design 05 §3.3): {eligible, basis_evaluation_id, experiment_id, evidence_state (none, current,
         stale), reasons, verification_level, gate_passed, guardrails_passed}. The basis is the node's latest
         evaluation; reasons name what is missing or no longer applies (HARNESS_CHANGED, BASELINE_CHANGED,
-        PROTOCOL_CHANGED, METRIC_SPEC_CHANGED, STATISTICS_CHANGED, RUN_RETRACTED, INPUT_CHANGED,
+        PROTOCOL_CHANGED, STATISTICS_CHANGED, RUN_RETRACTED, INPUT_CHANGED,
         RESULT_REVISION_PENDING, EVAL_TYPE_MISSING, GATE_NOT_PASSED, GUARDRAIL_FAILED,
         OBLIGATION_OPEN, DISPOSITION_RETIRED, RECHECK_PENDING, RECHECK_FAILED, RECHECK_STALE, RECHECK_UNCERTAIN,
         CONFIRMATION_REQUIRED,
@@ -5812,21 +5865,24 @@ class ResearchDB:
         if ev["harness_ref"] != project.get("harness_ref") or (
                 ev.get("harness_paths") is not None and ev["harness_paths"] != sorted(project.get("harness_paths") or [])):
             reasons.append("HARNESS_CHANGED")
-        if ev.get("protocol_doc_id") != project.get("protocol_doc_id"):
+        # A protocol change of only the fields research-tree.yaml fixes, and any metric specification change (its
+        # primary gate is frozen once experiments exist: _check_frozen_primary), govern later evaluations only: an
+        # evaluation keeps the versions it was computed under and still applies.
+        if not self._same_protocol(tx, ev.get("protocol_doc_id"), project.get("protocol_doc_id")):
             reasons.append("PROTOCOL_CHANGED")
-        if ev.get("metric_spec_doc_id") != project.get("metric_spec_doc_id"):
-            reasons.append("METRIC_SPEC_CHANGED")
         if ev.get("baseline_experiment_id"):
             baseline = tx.get(ev["baseline_experiment_id"])
             base_ev = tx.get(baseline["evaluation_id"]) if baseline.get("evaluation_id") else None
+            bound = tx.get(ev["baseline_evaluation_id"]) if ev.get("baseline_evaluation_id") else None
             reference = project.get("sota_experiment_id")
             if ev.get("stage") == "confirm":
                 # S2: a confirmation stays compared with the baseline fixed when it was created (its batch's);
                 # a later control or confirmation baseline does not move it
                 reference = tx.get(ev["experiment_id"]).get("baseline_experiment_id")
             incremental = ev.get("stage") != "confirm"
-            changed_revision = not incremental and (
-                baseline.get("evaluation_id") and baseline["evaluation_id"] != ev.get("baseline_evaluation_id"))
+            # the baseline evaluated again on the same runs (e.g. under a new metric specification) is the same baseline
+            changed_revision = not incremental and base_ev is not None and base_ev["id"] != ev.get("baseline_evaluation_id") and (
+                bound is None or base_ev.get("run_attempt_refs") != bound.get("run_attempt_refs"))
             changed_evidence = not incremental and base_ev is not None and self._stale_reasons(tx, project, {**base_ev, "baseline_experiment_id": None})
             if ev["baseline_experiment_id"] != reference or changed_revision or changed_evidence:
                 reasons.append("BASELINE_CHANGED")

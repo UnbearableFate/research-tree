@@ -41,12 +41,13 @@ def deny(reason):
                                     "permissionDecisionReason": f"research-tree: {reason}"}}
 
 
-def protected(path, cwd, summary, db):
+def protected(path, cwd, summary, db, actor="rld/main"):
     target = (cwd / path).resolve()
     if target == db or str(target).startswith(str(db) + "-"):
         return "不要直接改数据库文件；调用 research_db。"
-    if target == db.parent.parent.parent / CONFIG:
-        return f"{CONFIG} 由用户修改：请用户自己编辑它，再用 research_control config apply 生效；需要变更时向用户说明理由。"
+    if target == db.parent.parent.parent / CONFIG and actor != "rld/main":
+        # the Leader edits it when the user asks (then research_control config apply with the user's words)
+        return f"{CONFIG} 只由用户或按用户指示的 Leader（主会话）修改，{actor} 不写它；需要变更时交给 Leader。"
     guards = summary.get("guards", {})
     if any(target == Path(p).resolve() for p in guards.get("frozen_docs", [])):
         return "这是已生效文档；写 vN+1 并登记为新版本。"
@@ -192,17 +193,18 @@ def guard(event, cwd, marker, project):
     if name in {"spawn_agent", "Agent"}:
         return "项目代理通过research_control worker/architect/explorer/analyst启动；UI仅按需由用户入口启动。"
     db = Path(marker["db"]).resolve()
+    actor = os.environ.get("RESEARCH_TREE_ACTOR", "rld/main")
     authority = None
 
     def check(path):
         nonlocal authority
-        fixed = protected(path, cwd, {}, db)
+        fixed = protected(path, cwd, {}, db, actor)
         if fixed:
             return fixed
         try:
             if authority is None:
                 authority = authoritative_guards(project, marker)
-            return protected(path, cwd, authority, db)
+            return protected(path, cwd, authority, db, actor)
         except Exception as exc:
             return f"无法核验最新的研究文件保护状态，已拒绝本次写入；恢复项目数据库访问后重试：{str(exc)[:300]}"
 
@@ -230,7 +232,7 @@ def guard(event, cwd, marker, project):
         except ValueError:
             return None  # let the shell report its own syntax error
         blocked = (reviewer_bypass(tokens) or
-                   call_block(research_calls(tokens), os.environ.get("RESEARCH_TREE_ACTOR", "rld/main")))
+                   call_block(research_calls(tokens), actor))
         if blocked:
             return blocked
         writer = False

@@ -348,10 +348,12 @@ function projectDir(project: ResearchProject): string {
   return project.root.replace(/\/research\/[^/]+$/, '')
 }
 
-const CONFIG_REASON = `${CONFIG_FILE} 由用户修改：请用户自己编辑它，再运行 /${COMMAND} config apply 生效；需要变更时向用户说明理由。`
+const CONFIG_REASON = `${CONFIG_FILE} 只由用户或按用户指示的 RLD（主会话）修改，子代理不写它；需要变更时交给 RLD。`
+const APPLY_WORDS = `RLD 运行 research_tree.py config apply 时用 --words 写明用户要求修改配置的原话（登记为用户指令）；或请用户运行 /${COMMAND} config apply。`
 
-/** Paths a write must not touch: current/superseded documents, the harness inside node worktrees, and the
- *  project configuration (`config`, its absolute path). */
+/** Paths a write must not touch: current/superseded documents, the harness inside node worktrees, and — for a
+ *  subagent — the project configuration (`config`, its absolute path; the main session edits it when the user
+ *  asks). */
 function guardReason(s: Pick<ResearchSummary, 'guards'> | null | undefined, path: string, config?: string): string | undefined {
   if (config && path === config) return CONFIG_REASON
   if (!s || !path) return undefined
@@ -368,11 +370,12 @@ function guardReason(s: Pick<ResearchSummary, 'guards'> | null | undefined, path
 /** File authorization never uses the deferred presentation cache. Read the DB-only projection for every
  *  write, including changes made in other sessions, and fail closed if its guard state is unavailable.
  *  Do not call refresh(): a broken status pane or alert must not affect authorization or committed DB writes. */
-async function guard($: EngineInterface, cfg: Config, path: string): Promise<{ deny: string } | undefined> {
+async function guard($: EngineInterface, cfg: Config, path: string, agentId?: string): Promise<{ deny: string } | undefined> {
   try {
     const project = (await $.state.get(projectRef)).value ?? (await loadProject($, true))
     if (!project) return undefined
-    const fixed = guardReason(null, path, `${projectDir(project)}/${CONFIG_FILE}`)
+    // the project configuration is refused to a subagent; the main session edits it when the user asks
+    const fixed = guardReason(null, path, agentId !== undefined ? `${projectDir(project)}/${CONFIG_FILE}` : undefined)
     if (fixed) return { deny: `${PLUGIN}: ${fixed}` }
     const out = await runTool($, cfg, 'build_site.py', ['--db', project.db, '--summary'], 30_000)
     if (out.exitCode !== 0) throw new Error(out.stderr.trim() || `exit ${out.exitCode}`)
@@ -485,6 +488,23 @@ function shellTokens(command: string): ShellToken[] {
  *  research_tree.db (a scratch or test database) are not protected. */
 function writesDatabase(command: string, projectDb?: string | null): boolean {
   return writesTo(command, w => PROJECT_DB.test(w) || (!!projectDb && w.includes(projectDb)))
+}
+
+/** The arguments of a `research_tree.py config apply` in a shell command, or undefined when it runs none. */
+function configApply(command: string): string[] | undefined {
+  const tokens = shellTokens(command)
+  for (let k = 0; k < tokens.length; k++) {
+    const t = tokens[k]!
+    if (!('word' in t) || !/(^|\/)research_tree\.py$/.test(t.word)) continue
+    const args: string[] = []
+    for (let j = k + 1; j < tokens.length; j++) {
+      const a = tokens[j]!
+      if (!('word' in a)) break
+      args.push(a.word)
+    }
+    if (args[0] === 'config' && args[1] === 'apply') return args
+  }
+  return undefined
 }
 
 /** A shell command that writes the project configuration: research-tree.yaml named relatively, or by `config`,
@@ -787,7 +807,7 @@ function planningPrompt(project: ResearchProject, pluginRoot: string, view: Rese
 8. 少数有希望候选由Leader选定并冻结方法/claims，补足必要复制与关键控制，再使用独立确认材料，最后集中numbers/protocol/method_code/novelty/theory五维复核与get_eligibility。search-positive不是GO，不自动耗用确认材料；确认失败可以继续其他授权搜索。预算、范围或权限变化另请用户确认。
 UI仅按需/${COMMAND} build/pane；复杂交互才/${COMMAND} ui。research_review立即返回ticket，稍后以同一ticket收取；等待时推进独立工作，不重新启动同一评审。
 配置：${budgetText(view)}\n${platformText(view?.effective)}
-init评审基座检查：${JSON.stringify(project.reviewer_backend ?? null)}，这不是模型实际可调用的评审回执；不可用如实报告，不能伪造通过。${project.skills_check?.missing?.length ? `缺少配置技能：${JSON.stringify(project.skills_check)}；交用户决定，不自行改配置。` : ''}`
+init评审基座检查：${JSON.stringify(project.reviewer_backend ?? null)}，这不是模型实际可调用的评审回执；不可用如实报告，不能伪造通过。${project.skills_check?.missing?.length ? `缺少配置技能：${JSON.stringify(project.skills_check)}；交用户决定，用户要求时再由你修改 ${CONFIG_FILE}。` : ''}`
 }
 
 function startPrompt(project: ResearchProject, confirmation: { doc_id: string; path: string }): string {
@@ -805,7 +825,7 @@ const WORKFLOW = `## research-tree 工作流（由 research-tree mod 注入）
 - 不确定 research_db 的方法或参数时，先调用 method="help"（kwargs {"method": "<方法名>"} 看完整说明），不要猜；接口拒绝时按错误信息改正，不要绕过。
 - 根节点用assign_architect指派architect/root；假说节点用assign_worker指派worker/h<编号>。启动${ARCHITECT_AGENT}或${WORKER_AGENT}时任务说明以对应身份开头；mod分别用bind_architect_session或bind_worker_session绑定会话。节点的后续步骤用 SendMessage 续接这个 agent；无法续接或上下文过长时，用 resume_package 取恢复包，以同一身份新起一个 worker 接手。
 - 最小范围计划须经用户确认后才能启动Architect/Worker；持续增量发现允许共享框架与发现并行，候选逐个select/gate/create_hypothesis，A就绪不等待B。每个候选声明prediction、intervention、comparator、resource_ceiling={nodes,walltime_s}、stop_conditions。主会话明确授权有效，需要用户决定的事可用post_to_ui，无需UI再次确认。
-- 开发与实验平台、资源预算、阶段1门槛和子代理模型由项目目录的 ${CONFIG_FILE} 决定，用户改动后经 /${COMMAND} config apply 生效；不要自行改这个文件。同时有任务的worker数（max_parallel_workers）和累计用量提醒（alert_node_h）由 research_db 与 mod 执行：达到提醒阈值后新实验与扩展seed暂停，向用户报告进展与所需预算，由用户决定。
+- 开发与实验平台、资源预算、阶段1门槛和子代理模型由项目目录的 ${CONFIG_FILE} 决定。只在用户指示下修改它、只改用户要求的项（worker 等子代理不能写它），改后运行 research_tree.py config apply --words "<用户要求修改的原话>" 生效（或由用户运行 /${COMMAND} config apply）；配置变更只约束之后的工作，不使已有实验、评估与结论失效（框架或比较协议本身的变化除外）。同时有任务的worker数（max_parallel_workers）和累计用量提醒（alert_node_h）由 research_db 与 mod 执行：达到提醒阈值后新实验与扩展seed暂停，向用户报告进展与所需预算，由用户决定。
 - /${COMMAND} status/refresh是轻量状态，GO=null或eligibility_checked=false表示未检查，不是无GO资格；强决定用get_eligibility。/${COMMAND} pane/build按需生成展示，/${COMMAND} ui仅按需短时交互，无常驻UI。research_review立即返回ticket，之后同ticket非阻塞收取，不重复发起；期间推进独立工作。`
 
 // ---------------------------------------------------------------------------
@@ -1500,9 +1520,9 @@ export const register: Register = (on, options) => {
     }
   })
 
-  on('tool.call', { tool: 'Edit' }, async ($, e, next) => (await advisoryWriteBlock($, e.agentId)) ?? (await guard($, cfg, e.file_path)) ?? next(e))
-  on('tool.call', { tool: 'Write' }, async ($, e, next) => (await advisoryWriteBlock($, e.agentId)) ?? (await guard($, cfg, e.file_path)) ?? next(e))
-  on('tool.call', { tool: 'NotebookEdit' }, async ($, e, next) => (await advisoryWriteBlock($, e.agentId)) ?? (await guard($, cfg, e.notebook_path)) ?? next(e))
+  on('tool.call', { tool: 'Edit' }, async ($, e, next) => (await advisoryWriteBlock($, e.agentId)) ?? (await guard($, cfg, e.file_path, e.agentId)) ?? next(e))
+  on('tool.call', { tool: 'Write' }, async ($, e, next) => (await advisoryWriteBlock($, e.agentId)) ?? (await guard($, cfg, e.file_path, e.agentId)) ?? next(e))
+  on('tool.call', { tool: 'NotebookEdit' }, async ($, e, next) => (await advisoryWriteBlock($, e.agentId)) ?? (await guard($, cfg, e.notebook_path, e.agentId)) ?? next(e))
 
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
     const advisory = await advisoryWriteBlock($, e.agentId)
@@ -1511,7 +1531,11 @@ export const register: Register = (on, options) => {
     if (writesDatabase(e.command, project?.db)) {
       return { deny: `${PLUGIN}: 不要直接改动研究项目的数据库文件；通过 research_db 工具或 tools/research_db.py 写入，它会检查规则并记录决定。` }
     }
-    if (project && writesConfig(e.command, `${projectDir(project)}/${CONFIG_FILE}`)) return { deny: `${PLUGIN}: ${CONFIG_REASON}` }
+    if (project && e.agentId !== undefined && writesConfig(e.command, `${projectDir(project)}/${CONFIG_FILE}`)) {
+      return { deny: `${PLUGIN}: ${CONFIG_REASON}` }
+    }
+    const apply = e.agentId === undefined ? configApply(e.command) : undefined
+    if (apply && !apply.some(a => a === '--words' || a.startsWith('--words='))) return { deny: `${PLUGIN}: ${APPLY_WORDS}` }
     const bypass = reviewerBypass(e.command)
     if (bypass) return { deny: `${PLUGIN}: ${bypass}` }
     // A subagent is never the RLD: a worker acts as itself, other helpers read. (The UI's run has its own outbox.)
@@ -1523,6 +1547,10 @@ export const register: Register = (on, options) => {
       if (blocked) return { deny: `${PLUGIN}: ${blocked}` }
     }
     const ran = await next(e)
+    if (apply) {  // the RLD applied the configuration on the user's request: agents and state follow it
+      await loadProject($)
+      await registerAgents($, (await readConfig($, cfg))?.effective)
+    }
     if (project && /\b(research_db|send_message|make_demo|build_site|research_tree)\.py\b/.test(e.command)) refreshAfterWrite($, cfg, project.db)
     return ran
   })
@@ -1663,5 +1691,5 @@ function registerProgressPane(on: Parameters<Register>[0], cfg: Config): void {
 
 export const internals = {
   submitLater, guardReason, writesDatabase, writesConfig, researchCalls, subagentCallBlock, reviewerBypass, statusText, statusLine, workerBlock, parseInit, workerNode, workerActor, parallelBlock,
-  workerPrompt, platformText, uiPrompt, configCommand, prepareCommand, carryOutUi, confirmPlan, registerAgents, advisoryPrompt, refreshAfterWrite, advisoryWriteBlock, planningPrompt, startPrompt, WORKFLOW,
+  workerPrompt, platformText, uiPrompt, configCommand, prepareCommand, carryOutUi, confirmPlan, registerAgents, advisoryPrompt, refreshAfterWrite, advisoryWriteBlock, planningPrompt, startPrompt, WORKFLOW, configApply,
 }

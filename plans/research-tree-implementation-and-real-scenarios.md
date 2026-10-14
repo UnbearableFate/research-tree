@@ -640,7 +640,7 @@ lesson=verified 至少要求：
 
 统一提供 `memory_status(doc, current_context)`，返回 declared_status、effective_status、evidence_state、recheck_reasons、scope 与 source refs。context_pack、Leader 项目包、worker 包、resume 和页面用相同逻辑。
 
-来源 Evaluation 被撤回/重算、harness/协议变化、验证 attempt 变化，或者当前运行条件不在 scope 内时，知识不能继续作为当前 supported/verified 使用。历史观察保留，stale 不自动表示 contradicted；反证成立要有对应证据。
+来源 Evaluation 被撤回/重算、harness/比较协议变化（research-tree.yaml 规定的协议字段与指标规范的新版本只约束之后的评估，0.1.1）、验证 attempt 变化，或者当前运行条件不在 scope 内时，知识不能继续作为当前 supported/verified 使用。历史观察保留，stale 不自动表示 contradicted；反证成立要有对应证据。
 
 配置变化只使相关 scope 失效。纯调度 walltime 变化不应使关于代码路径修复的经验全部失效；库版本变化则可能使该经验需要复核。缺少适用条件显示 unknown/recheck，不能默认为全项目通用。
 
@@ -680,7 +680,8 @@ lesson=verified 至少要求：
 **SC-S5-03 协议改变后的知识降级**
 
 - 从真实 Evaluation 建立有范围的 finding，读取 Leader/worker 包确认来源与支持状态。
-- 通过虚构用户的合法入口更新 harness/协议，或撤回该 finding 的一个关键 run；再次读取两类包和恢复包。
+- 先通过虚构用户的配置入口改变 research-tree.yaml 规定的协议字段（如确认设置）；预期 finding 与 lesson 保持当前状态（0.1.1 起配置变更只约束之后的工作，见 CHANGELOG）。
+- 再通过虚构用户的合法入口更新 harness 或比较协议本身（配置规定字段以外，如 min_pairs），或撤回该 finding 的一个关键 run；再次读取两类包和恢复包。
 - 预期：旧 finding 保留为历史/待复核，当前不再无条件 supported；对不受此次变化影响的 lesson 不过度失效。
 - 在新条件下实际补验后建立新依据，恢复当前适用状态；不直接修改标签。
 
