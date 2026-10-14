@@ -1,6 +1,7 @@
 """R05/R13 regressions: only fake backends, persistent review tickets and local validation."""
 from __future__ import annotations
 
+import fcntl
 import json
 import os
 import threading
@@ -60,16 +61,32 @@ class ReviewTicketTest(unittest.TestCase):
         self.assertEqual(spawn.call_count, 1)
         self.assertEqual(len(review_call.list_jobs(self.root)), 1)
 
-    def test_spawn_failure_is_persisted_and_never_silently_repaid(self):
+    def test_spawn_failure_is_persisted_and_asking_again_is_a_new_job(self):
         with patch.object(review_call.subprocess, "Popen", side_effect=OSError("process limit")) as spawn:
             first = review_call.start_job(self.cwd, self.root, self.argv)
+            one = review_call.wait_job(self.root, first, 0)
             second = review_call.start_job(self.cwd, self.root, self.argv)
-        self.assertEqual(first, second)
-        self.assertEqual(spawn.call_count, 1)
-        one = review_call.wait_job(self.root, first, 0)
+        self.assertNotEqual(first, second)  # the failed job is history under its own ticket
+        self.assertEqual(spawn.call_count, 2)
         self.assertEqual(one, review_call.wait_job(self.root, first, 0))
         self.assertEqual(one["phase"], "spawn_failed")
         self.assertIn("no model was called", one["answer"]["error"])
+
+    def test_a_failed_review_can_be_requested_again_with_identical_inputs(self):
+        """A failure before any model call (here: not logged in) is fixed outside the project; the same request then
+        starts a new job, which deduplicates while it runs, and the failure stays collectable as it was."""
+        first = self.pending()
+        failure = {"ok": False, "error": "REVIEW_UNAVAILABLE: claude is not logged in (claude auth status)"}
+        with patch.object(review_call, "_call", return_value=(failure, 2)):
+            review_call._run_job(self.cwd, self.root, first)
+        failed = review_call.wait_job(self.root, first, 0)
+        self.assertEqual(failed["answer"], failure)
+        second = self.pending()
+        self.assertNotEqual(second, first)
+        self.assertEqual(self.pending(), second)
+        self.assertEqual(review_call.wait_job(self.root, second, 0)["status"], "running")
+        self.assertEqual(review_call.wait_job(self.root, first, 0), failed)
+        self.assertEqual(review_call._job_answer(failed), ({**failure, "ticket": first}, 2))
 
     def test_fingerprint_binds_brief_basis_configuration_and_model(self):
         with patch.object(review_call.subprocess, "Popen", return_value=self.proc):
@@ -116,8 +133,7 @@ class ReviewTicketTest(unittest.TestCase):
             job = review_call.wait_job(self.root, ticket, 0)
         self.assertEqual(job["phase"], "interrupted")
         self.assertTrue(job["answer"]["recovery_required"])
-        with patch.object(review_call.subprocess, "Popen", side_effect=AssertionError("duplicate spawn")):
-            self.assertEqual(review_call.start_job(self.cwd, self.root, self.argv), ticket)
+        self.assertNotEqual(self.pending(), ticket)  # asking again is a new job with its own ticket
         with patch.object(review_call, "_call", side_effect=AssertionError("duplicate paid call")):
             review_call._run_job(self.cwd, self.root, ticket)
         self.assertEqual(job, review_call.wait_job(self.root, ticket, 0))
@@ -135,8 +151,9 @@ class ReviewTicketTest(unittest.TestCase):
         with patch.object(review_call, "backend_for", side_effect=AssertionError("recovery cannot call a model")), \
                 patch.object(review_call.subprocess, "Popen", side_effect=AssertionError("recovery cannot spawn")):
             recovered = review_call.wait_job(self.root, ticket, 0)
-            self.assertEqual(review_call.start_job(self.cwd, self.root, self.argv), ticket)
             self.assertEqual(review_call.wait_job(self.root, ticket, 0), recovered)
+        self.assertNotEqual(self.pending(), ticket)  # asking again is a new job; this one stays interrupted
+        self.assertEqual(review_call.wait_job(self.root, ticket, 0), recovered)
         self.assertEqual((recovered["status"], recovered["phase"]), ("done", "interrupted"))
         self.assertEqual((recovered["session"], recovered["version"]), (session, version))
         states = review_call._sessions(self.root)
@@ -170,6 +187,35 @@ class ReviewTicketTest(unittest.TestCase):
                 release.set()
             first.result(timeout=5)
         self.assertEqual(review_call.wait_job(self.root, ticket, 0)["answer"], answer)
+
+    def test_a_liveness_probe_never_makes_the_starting_worker_give_up(self):
+        """A collection probes the lease while the spawned worker starts: the worker waits for the probe instead of
+        leaving the job unclaimed (which a later collection would report as interrupted)."""
+        ticket = self.pending()
+        probing, release = threading.Event(), threading.Event()
+        answer = {"ok": False, "error": "test-only completed call"}
+
+        def probe():  # what _worker_active does under the job lock, held a little longer
+            with review_call._JobLock(self.root), review_call._lease_path(self.root, ticket).open("a") as lease:
+                fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                probing.set()
+                release.wait(10)
+
+        with patch.object(review_call, "_call", return_value=(answer, 2)) as call, \
+                ThreadPoolExecutor(max_workers=2) as pool:
+            held = pool.submit(probe)
+            try:
+                self.assertTrue(probing.wait(10))
+                worker = pool.submit(review_call._run_job, self.cwd, self.root, ticket)
+                with self.assertRaises(TimeoutError):  # still waiting, not returned without a claim
+                    worker.result(timeout=0.5)
+            finally:
+                release.set()
+            held.result(timeout=5)
+            self.assertEqual(worker.result(timeout=10), 0)
+        self.assertEqual(call.call_count, 1)
+        job = review_call.wait_job(self.root, ticket, 0)
+        self.assertEqual((job["phase"], job["answer"]), ("finished", answer))
 
     def test_registered_receipt_survives_interruption_before_terminal_ticket_write(self):
         self.fake("pi")
@@ -323,6 +369,33 @@ class ReviewSubjectTest(dbfixture.Fixture):
         continued = self.review(session="RV-0001")
         self.assertEqual(continued["path"], "reviews/RV-0001.v2.md")
         self.assertEqual(self.backend.call.call_count, 1)
+
+    def test_recheck_receipt_states_the_effective_result_and_keeps_the_reported_one(self):
+        """S4 §8.1: a top-level pass over a failed checklist item, or over a cited file that cannot be found, is
+        written to the receipt and the registered summary as the effective result; the reviewer's value stays only
+        as reported_result."""
+        self.evaluate(self.exp)
+        evaluation = self.rld.get(self.exp)["evaluation_id"]
+        failed_item = dbfixture.recheck_payload(self, "numbers", "pass", evaluation)
+        failed_item["checklist"][1]["result"] = "fail"
+        unverified = {**dbfixture.recheck_payload(self, "numbers", "pass", evaluation),
+                      "evidence_paths": ["docs/not-written.md"]}
+        for payload, effective in ((failed_item, "fail"), (unverified, "uncertain")):
+            with self.subTest(effective=effective):
+                self.backend.call.return_value = ({"ok": True, "structured": payload, "text": block(payload),
+                        "cost_usd": 0.01, "provider": "openai", "model_observed": "openai/gpt-6-astra",
+                        "terminal_reason": "stop", "permission_denials": [], "usage": {}}, "fake raw output")
+                result = review_call.review(self.root, "candidate_recheck", self.brief, self.hyp,
+                                            dimension="numbers", evaluation=evaluation)
+                self.assertEqual((result["result"], result["reported_result"]), (effective, "pass"))
+                header = (self.root / "docs" / result["path"]).read_text(encoding="utf-8").split("---\n")[1]
+                fields = dict(line.split(": ", 1) for line in header.splitlines())
+                self.assertEqual((json.loads(fields["result"]), json.loads(fields["reported_result"])),
+                                 (effective, "pass"))
+                receipt = self.rld.get(result["review_id"])
+                self.assertEqual(receipt["review_result"], effective)
+                self.assertTrue(receipt["summary"].endswith(f": {effective}"), receipt["summary"])
+                self.assertFalse([w for w in receipt["normalization_warnings"] if "CALLER_RESULT_IGNORED" in w])
 
     def test_local_snapshot_error_releases_the_reserved_session_without_model_cost(self):
         with patch.object(review_call, "code_snapshot", side_effect=OSError("fixture extraction failed")), \

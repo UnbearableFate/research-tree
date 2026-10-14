@@ -1,7 +1,9 @@
 """Adapter tests run from the assembled plugin, including real supervisor subprocesses."""
 from __future__ import annotations
 
+import io
 import json
+import shlex
 import shutil
 import os
 import subprocess
@@ -66,6 +68,16 @@ base = Path(os.environ['FAKE_CODEX_DIR'])
 with (base / 'calls.jsonl').open('a') as log:
     log.write(json.dumps(args) + '\n')
 if args[0] == 'queue':
+    if os.environ.get('FAKE_LOCK'):  # whether an identity is free when its event reaches the Leader
+        import fcntl
+        with open(os.environ['FAKE_LOCK'], 'a') as lock:
+            try:
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                held = 'free'
+            except BlockingIOError:
+                held = 'held'
+        with (base / 'queue-lock.log').open('a') as out:
+            out.write(held + '\n')
     sys.exit(int(os.environ.get('FAKE_QUEUE_EXIT', '0')))
 prompt = sys.stdin.read()
 if os.environ.get('FAKE_CODEX_FAIL'):
@@ -73,6 +85,10 @@ if os.environ.get('FAKE_CODEX_FAIL'):
     sys.exit(3)
 thread = args[args.index('resume') + 1] if 'resume' in args else str(uuid.uuid4())
 print(json.dumps({'type':'thread.started', 'thread_id':thread}), flush=True)
+if os.environ.get('FAKE_CODEX_BACKGROUND'):  # a job the turn's shell leaves running (nohup ... &) inherits its fds
+    import subprocess
+    subprocess.Popen(['sleep', os.environ['FAKE_CODEX_BACKGROUND']], close_fds=False, start_new_session=True,
+                     stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
 while (base / 'hold').exists():
     time.sleep(0.02)
 answer = Path(args[args.index('--output-last-message') + 1])
@@ -121,7 +137,9 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         path = Path(run["directory"]) / "state.json"
         for _ in range(500):
             state = read_json(path)
-            if state.get("status") in {"completed", "failed", "interrupted"} and not lock_busy(self.runtime.cache / "agents" / f"{actor_key(run['actor'])}.lock"):
+            # a non-UI turn's end-of-turn event follows the lock's release
+            if state.get("status") in {"completed", "failed", "interrupted"} and not lock_busy(self.runtime.cache / "agents" / f"{actor_key(run['actor'])}.lock") \
+                    and (run["actor"] == "ui/ui" or "notification" in state):
                 return state
             time.sleep(0.02)
         self.fail(f"supervisor did not finish: {read_json(path)}")
@@ -732,10 +750,126 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
                   f"cp -T '{fresh}' '{config}'",
                   f"cp '{config}' '{fresh}'\nrm '{config}'")
         event = {"hook_event_name": "PreToolUse", "cwd": str(self.cwd), "tool_name": "exec_command"}
-        for command, expected in [(c, False) for c in allowed] + [(c, True) for c in denied]:
-            with self.subTest(command=command):
-                event["tool_input"] = {"cmd": command}
-                self.assertEqual(bool(codex_hook.handle(event)), expected)
+        # a node session, for which the configuration is protected too (the Leader may write it when the user asks)
+        with patch.dict(os.environ, {"RESEARCH_TREE_ACTOR": "architect/root"}):
+            for command, expected in [(c, False) for c in allowed] + [(c, True) for c in denied]:
+                with self.subTest(command=command):
+                    event["tool_input"] = {"cmd": command}
+                    self.assertEqual(bool(codex_hook.handle(event)), expected)
+
+    def test_shell_writes_reach_protected_files_as_the_shell_runs_them(self):
+        """In-place option clusters, dd of=, wildcards, cd and exec_command's workdir, and apply_patch run from the
+        shell reach the same protected files as a literal path does; reads and other writes stay allowed."""
+        self.install_guard_python()
+        self.runtime.summary()
+        root = os.path.relpath(self.runtime.root, self.cwd)
+        doc, db = f"{root}/docs/project/min-setup.v1.md", f"{root}/research_tree.db"
+        patch_text = f"*** Begin Patch\n*** Update File: {doc}\n@@\n-old\n+it's new\n*** End Patch"
+        code = self.cwd / "code"
+        code.mkdir()
+        cases = [(f"perl -pi -e 's/a/b/' {doc}", {}, True),
+                 (f"sed -Ei 's/a/b/' {doc}", {}, True),
+                 (f"sed -ni 's/a/b/p' {doc}", {}, True),
+                 ("sed --in-place 's/a/b/' research-tree.yaml", {}, True),
+                 (f"dd if=/dev/zero of={db} count=1", {}, True),
+                 (f"rm -f {db}*", {}, True),
+                 (f"sed -i 's/a/b/' {root}/docs/project/*.md", {}, True),
+                 (f"cd {root} && echo x > research_tree.db", {}, True),
+                 (f"cd {root}/docs/project && sed -i 's/a/b/' min-setup.v1.md", {}, True),
+                 ("sed -i 's/a/b/' docs/project/min-setup.v1.md", {"workdir": str(self.runtime.root)}, True),
+                 ('cd "$WORK" && rm -f notes.txt', {}, True),  # a directory only known when the shell runs
+                 ("cd - && rm -f notes.txt", {}, True),
+                 (f"apply_patch <<'EOF'\n{patch_text}\nEOF", {}, True),
+                 (["apply_patch", patch_text], {}, True),
+                 (f"sed -n 'p' {root}/docs/project/*.md", {}, False),
+                 (f"dd if={db} of=code/copy.db", {}, False),
+                 ("rm -f code/*.tmp", {}, False),
+                 ("cd code && echo x > notes.txt", {}, False),
+                 ('cd "$WORK" && ls notes.txt', {}, False),
+                 ("sed -i 's/a/b/' min-setup.v1.md", {"workdir": str(code)}, False),
+                 ("apply_patch <<'EOF'\n" + patch_text.replace(doc, "code/new.py") + "\nEOF", {}, False)]
+        with patch.dict(os.environ, {"RESEARCH_TREE_ACTOR": "architect/root"}):
+            for command, extra, denied in cases:
+                with self.subTest(command=command, **extra):
+                    tool, key = ("shell", "command") if isinstance(command, list) else ("exec_command", "cmd")
+                    event = {"hook_event_name": "PreToolUse", "cwd": str(self.cwd), "tool_name": tool,
+                             "tool_input": {key: command, **extra}}
+                    self.assertEqual(bool(codex_hook.handle(event)), denied)
+
+    def test_adapter_entry_points_and_in_process_records_stay_out_of_the_shell(self):
+        """A session cannot act as the Leader through the adapter's own entry points, and no session forges the
+        hook-observed model or the confirmed phase from a shell; the runtime never defaults to the Leader."""
+        import codex_runtime
+        runtime, cli, mcp, hook = (shlex.quote(str(ROOT / "tools" / name)) for name in
+                                   ("codex_runtime.py", "codex_cli.py", "codex_mcp.py", "codex_hook.py"))
+        cases = [("architect/root", f"python {runtime} --project ws --actor rld/main < request.json", True),
+                 ("worker/h0001", f"python {cli} --project ws config apply", True),
+                 ("explorer/main", f"python {mcp} --actor rld/main", True),
+                 ("rld/main", f"python {cli} --project ws status", False),
+                 ("rld/main", f"python3 {hook} < event.json", True),
+                 ("rld/main", "python tools/research_tree.py agent-log --agent s --actor rld/main --event observed "
+                              "--model m", True),
+                 ("rld/main", "python tools/research_tree.py phase --set confirmed", True),
+                 ("rld/main", "python tools/research_tree.py discovery status", False)]
+        for actor, command, denied in cases:
+            with self.subTest(actor=actor, command=command), patch.dict(os.environ, {"RESEARCH_TREE_ACTOR": actor}):
+                event = {"hook_event_name": "PreToolUse", "cwd": str(self.cwd), "tool_name": "exec_command",
+                         "tool_input": {"cmd": command}}
+                self.assertEqual(bool(codex_hook.handle(event)), denied)
+        request = json.dumps({"tool": "research_control", "arguments": {"action": "help"}})
+        with patch.object(sys, "argv", ["codex_runtime.py", "--project", str(self.cwd)]), \
+                patch("sys.stdin", io.StringIO(request)), patch("sys.stdout", io.StringIO()), \
+                patch("sys.stderr", io.StringIO()), self.assertRaises(SystemExit):
+            codex_runtime.main()
+
+    def test_hook_finds_the_project_from_a_subdirectory(self):
+        """A main session started in <ws>/code is still guarded and gets the project context."""
+        code = self.cwd / "code"
+        code.mkdir()
+        db = os.path.relpath(self.runtime.marker["db"], code)
+        with patch.dict(os.environ, {"RESEARCH_TREE_ACTOR": "rld/main"}):
+            os.environ.pop("RESEARCH_TREE_PROJECT", None)
+            denial = codex_hook.handle({"hook_event_name": "PreToolUse", "cwd": str(code), "tool_name": "exec_command",
+                                        "tool_input": {"cmd": f"rm -f {shlex.quote(db)}"}})
+            context = codex_hook.handle({"hook_event_name": "SessionStart", "cwd": str(code),
+                                         "session_id": "11111111-1111-4111-8111-111111111111", "model": "fixture-model"})
+        self.assertEqual(denial["hookSpecificOutput"]["permissionDecision"], "deny")
+        self.assertIn("项目 P-test", context["hookSpecificOutput"]["additionalContext"])
+
+    def test_confirmation_and_config_apply_carry_the_users_words(self):
+        with patch("research_tree.apply_config", wraps=research_tree.apply_config) as apply:
+            self.confirm()
+        self.assertEqual(apply.call_args.kwargs["words"], "同意上面的立项计划。")
+        for words in (None, "", "  ", ["应用配置"]):
+            with self.subTest(words=words), self.assertRaisesRegex(ValueError, "user's request"):
+                self.runtime.control("config", {"apply": True, "words": words})
+
+    def test_identity_lock_stays_with_the_supervisor(self):
+        """A job the turn leaves running does not keep its identity live, and the end-of-turn event reaches the
+        Leader only once the identity is free for its next turn."""
+        lock = self.runtime.cache / "agents" / f"{actor_key('explorer/main')}.lock"
+        with patch.dict(os.environ, {"FAKE_CODEX_BACKGROUND": "3", "FAKE_LOCK": str(lock)}):
+            run = self.runtime.control("explorer", {"task": "Read the current evidence and return advice."})
+            path = Path(run["directory"]) / "state.json"
+            for _ in range(500):
+                if "notification" in read_json(path):
+                    break
+                time.sleep(0.02)
+            self.assertEqual(read_json(path)["status"], "completed", read_json(path))
+            self.assertFalse(lock_busy(lock))  # the background job is still running
+        self.assertEqual((Path(self.temp.name) / "queue-lock.log").read_text().split(), ["free"])
+
+    def test_advisor_keeps_its_thread_after_a_start_that_failed_before_thread_started(self):
+        first = self.wait_run(self.runtime.control("explorer", {"task": "Survey the literature."}))
+        with patch.dict(os.environ, {"FAKE_CODEX_FAIL": "1"}):
+            failed = self.wait_run(self.runtime.control("explorer", {"task": "Continue the survey."}))
+        self.assertEqual(failed["status"], "failed")
+        self.assertNotIn("thread_id", failed)
+        resumed = self.wait_run(self.runtime.control("explorer", {"task": "Continue the survey."}))
+        self.assertEqual(resumed["thread_id"], first["thread_id"])
+        calls = [json.loads(line) for line in (Path(self.temp.name) / "calls.jsonl").read_text().splitlines()]
+        execs = [call for call in calls if call[0] == "exec"]
+        self.assertEqual(execs[-1][execs[-1].index("resume") + 1], first["thread_id"])
 
     def test_init_in_live_session_observes_the_model_on_the_first_tool_event(self):
         fresh = self.cwd / "fresh"
@@ -777,6 +911,30 @@ print(json.dumps({'type':'turn.completed'}), flush=True)
         self.assertEqual(len(responses[1]["result"]["tools"]), 6)  # with research_review (09 §4)
         self.assertTrue(responses[2]["result"]["isError"])
         self.assertEqual(responses[3]["result"], {})
+
+    def test_mcp_server_survives_malformed_arguments_and_handler_failures(self):
+        fresh = Path(self.temp.name) / "fresh"
+        fresh.mkdir()
+        requests = [
+            {"jsonrpc": "2.0", "id": 1, "method": "tools/call", "params": {"name": "research_control", "arguments": {
+                "project": str(fresh), "action": "init", "params": json.dumps({"plan": "plan.md"})}}},
+            {"jsonrpc": "2.0", "id": 2, "method": "ping"},
+        ]
+        proc = subprocess.run([sys.executable, str(ROOT / "tools/codex_mcp.py"), "--project", str(self.cwd),
+                               "--actor", "rld/main"], input="\n".join(map(json.dumps, requests)) + "\n",
+                              capture_output=True, text=True)
+        responses = [json.loads(x) for x in proc.stdout.splitlines()]
+        self.assertEqual([r["id"] for r in responses], [1, 2], proc.stderr)
+        self.assertTrue(responses[0]["result"]["isError"])
+        self.assertIn("params", json.loads(responses[0]["result"]["content"][0]["text"])["error"])
+        # any other failure while handling one request is that request's JSON-RPC error
+        with patch.object(codex_mcp, "run_request", side_effect=AttributeError("fixture")), \
+                patch("sys.stdin", io.StringIO("\n".join(map(json.dumps, requests)) + "\n")), \
+                patch("sys.stdout", new_callable=io.StringIO) as out:
+            codex_mcp.serve(self.cwd, "rld/main")
+        answers = [json.loads(x) for x in out.getvalue().splitlines()]
+        self.assertEqual([(a["id"], a.get("error", {}).get("code")) for a in answers], [(1, -32603), (2, None)])
+        self.assertEqual(answers[1]["result"], {})
 
 
 class PrepareEntryTest(unittest.TestCase):

@@ -22,7 +22,7 @@ Usage (run with the project's own interpreter, ./.venv/bin/python, after prepare
     research_tree.py instruction --text "..." [--understanding "..."] [--about ID ...]
     research_tree.py phase [--set awaiting_confirmation|confirmed]
     research_tree.py config [show]                        # the configuration in effect and the file's state
-    research_tree.py config apply [--words "..."] [--require-project]
+    research_tree.py config apply --words "..." [--require-project]   # the user's words: required for any change
     research_tree.py ui reply|confirm|instruction|question|submit --run RUN ...  # the UI agent's outbox
     research_tree.py requirement draft|list|submit ...    # the UI's requirement drafts and their documents
     research_tree.py query METHOD ['{"kwarg": ...}']      # the UI's read-only access to the database
@@ -64,8 +64,8 @@ import discovery  # noqa: E402
 import notify  # noqa: E402
 import project_config  # noqa: E402
 from project_config import CONFIG_NAME, ConfigError  # noqa: E402
-from research_db import (CAP_FIELDS, CLEANUP_SCRIPT, CLEANUP_TEMPLATE, EVIDENCE_DOC_FIELDS,  # noqa: E402
-                         GATE_FIELDS, READ_METHODS, ResearchDB, ResearchDBError, describe, table_of)
+from research_db import (CLEANUP_SCRIPT, CLEANUP_TEMPLATE, GATE_FIELDS, READ_METHODS,  # noqa: E402
+                         ResearchDB, ResearchDBError, describe, table_of)
 
 MARKER = Path(".research-tree.json")
 PHASES = ("planning", "awaiting_confirmation", "confirmed")
@@ -304,7 +304,12 @@ def show_config(cwd: Path) -> dict:
 def apply_config(cwd: Path, actor: str, words: str | None = None, require_project: bool = False,
                  replace_metric_spec: bool = False) -> dict:
     """Put research-tree.yaml in effect: register it as a new config version when it changed, write the budget
-    and gates into the project record, and register the user's words as an instruction when anything changed."""
+    and gates into the project record, and register the user's words as the instruction the change rests on.
+
+    A change is the user's decision (the user edits the file, or the RLD edits it on the user's request): applying
+    anything needs the user's words, never text made up in their place. Everything is checked before anything is
+    registered, so a refused apply leaves the configuration, the metric specification and the project record as
+    they were; applying an unchanged file changes nothing."""
     marker = read_marker(cwd)
     root, file = Path(marker["root"]), cwd / CONFIG_NAME
     if not file.is_file():
@@ -317,26 +322,37 @@ def apply_config(cwd: Path, actor: str, words: str | None = None, require_projec
     project = projects[0] if projects else None
     if require_project and project is None:
         raise TreeError("the RLD has not created the project record yet (create_project)")
-    spec = register_metric_spec(cwd, marker, rld, config, project, replace_metric_spec)
-    if project is not None and spec and spec["doc_id"] != project.get("metric_spec_doc_id"):
-        fields["metric_spec_doc_id"] = spec["doc_id"]
+    spec = plan_metric_spec(marker, rld, config, project, replace_metric_spec)
     changes = {k: v for k, v in fields.items() if project is not None and project.get(k) != v}
+    spec_moves = project is not None and ("text" in spec or spec["doc_id"] != project.get("metric_spec_doc_id"))
     if project is not None:
         check_protocol(root, project, config)
     locked = sorted(set(changes) & set(GATE_FIELDS))
     if locked and rld.find("experiment"):
         raise TreeError(f"experiments exist, so {', '.join(locked)} can no longer change; set them back in "
                         f"{CONFIG_NAME} to {', '.join(f'{k}={project[k]!r}' for k in locked)}")
-
-    if project is not None and changes:
+    registered = marker.get("config")
+    new_version = registered is None or (root / "docs" / registered["path"]).read_text(encoding="utf-8") != text
+    binds = project is not None and not new_version and project.get("config_doc_id") != registered["doc_id"]
+    if not (new_version or changes or spec_moves or binds or "text" in spec):
+        commit_metric_spec(cwd, marker, rld, spec, project)  # at most the marker takes over the version in effect
+        return {"config": registered, "new_version": False, "updated_fields": {}, "instruction": None,
+                "effective": config}
+    if not (words or "").strip():
+        raise TreeError(f"applying {CONFIG_NAME} registers the user's decision: pass --words with the user's own "
+                        "words asking for this configuration (the user runs /research-tree config apply, or the RLD "
+                        "applies a change the user asked for with their words)")
+    if project is not None and (changes or spec_moves):
         try:  # before anything is registered: a refused change leaves the configuration in effect as it was
-            rld.check_project_changes(**changes)
+            rld.check_project_changes(**changes, **({"metric_spec_doc_id": spec["doc_id"]} if spec.get("doc_id") and spec_moves else {}),
+                                      metric_spec=spec.get("content"))
         except ResearchDBError as exc:
             raise TreeError(f"{CONFIG_NAME} cannot take effect: {exc}. A new go_margin or gate_seeds needs a metric "
                             "specification (and protocol) that state the same gate; the RLD registers those first, "
                             "then apply again") from None
-    registered = marker.get("config")
-    new_version = registered is None or (root / "docs" / registered["path"]).read_text(encoding="utf-8") != text
+    spec = commit_metric_spec(cwd, marker, rld, spec, project)
+    if project is not None and spec and spec["doc_id"] != project.get("metric_spec_doc_id"):
+        changes["metric_spec_doc_id"] = spec["doc_id"]
     if new_version:
         numbers = [int(m.group(1)) for p in (root / "docs" / "project").glob("config.v*.yaml")
                    if (m := re.match(r"config\.v(\d+)\.yaml$", p.name))]
@@ -349,44 +365,41 @@ def apply_config(cwd: Path, actor: str, words: str | None = None, require_projec
             rld.supersede_document(registered["doc_id"], doc_id)
         registered = marker["config"] = {"doc_id": doc_id, "path": rel}
         write_marker(cwd, marker)
-    instruction = None
-    # The file is the user's (agents may not write it): a cap it raises or a document it changes rests on it.
-    authorization_fields = set(CAP_FIELDS + EVIDENCE_DOC_FIELDS)
-    if not words and project is not None and set(changes) & authorization_fields:
-        words = f"（用户的 {CONFIG_NAME}，经 config apply 或立项确认生效）"
-    if words and (new_version or changes):  # first: a new metric specification rests on the user's instruction
-        updated = f"；项目记录中的 {', '.join(sorted(changes))} 随之更新" if changes else ""
-        instruction = register_instruction(root, words, f"项目配置改为 {registered['path']}"
-                                           f"（{registered['doc_id']}）{updated}。", "配置变更",
-                                           [project["id"]] if project else [])
+    updated = f"；项目记录中的 {', '.join(sorted(changes))} 随之更新" if changes else ""
+    instruction = register_instruction(root, words, f"项目配置改为 {registered['path']}（{registered['doc_id']}）{updated}。",
+                                       "配置变更", [project["id"]] if project else [])
     if project is not None and (changes or project.get("config_doc_id") != registered["doc_id"]):
-        extra = ({"user_instruction_doc_id": instruction["doc_id"]}
-                 if instruction and set(changes) & authorization_fields else {})
-        rld.update_project(**changes, config_doc_id=registered["doc_id"], **extra)
+        # the instruction carries every change that is the user's decision: raised caps, lowered gates, new documents
+        rld.update_project(**changes, config_doc_id=registered["doc_id"], user_instruction_doc_id=instruction["doc_id"])
     return {"config": registered, "new_version": new_version, "updated_fields": changes,
             "instruction": instruction, "effective": config}
 
 
 def register_metric_spec(cwd: Path, marker: dict, rld: ResearchDB, config: dict, project: dict | None,
                          replace: bool = False) -> dict | None:
-    """A version-3 configuration states the metric specification: register it as the metric_spec document when its
-    content is new (rld/main, current; the previous version superseded). Returns {doc_id, path}.
+    """Register the metric specification a version-3 configuration states (plan_metric_spec, then
+    commit_metric_spec). Returns {doc_id, path}."""
+    return commit_metric_spec(cwd, marker, rld, plan_metric_spec(marker, rld, config, project, replace), project)
+
+
+def plan_metric_spec(marker: dict, rld: ResearchDB, config: dict, project: dict | None, replace: bool = False) -> dict:
+    """The metric specification a version-3 configuration states, without registering anything: {doc_id, path} of
+    the document that already holds it, or {text, content} of a new one (commit_metric_spec registers it).
 
     The specification in effect is the project record's (real-run-error #16-#18), not only the one this file last
     registered: when the RLD registered a newer version on a user instruction, a configuration whose content
     equals it just takes it over, and one that differs is refused — naming the differences — unless the user
     passes replace (config apply --replace-metric-spec). The file never silently undoes a recorded decision."""
     root = Path(marker["root"])
-    text = json.dumps(project_config.metric_spec_document(config), ensure_ascii=False, indent=1) + "\n"
+    content = project_config.metric_spec_document(config)
+    text = json.dumps(content, ensure_ascii=False, indent=1) + "\n"
     current = marker.get("metric_spec")
     in_effect = project.get("metric_spec_doc_id") if project else None
     if in_effect and (not current or current["doc_id"] != in_effect):
         doc = rld.get(in_effect)
         effect_text = (root / "docs" / doc["path"]).read_text(encoding="utf-8")
         if json.loads(effect_text) == json.loads(text):  # the file states what is in effect: take it over
-            marker["metric_spec"] = {"doc_id": in_effect, "path": doc["path"]}
-            write_marker(cwd, marker)
-            return marker["metric_spec"]
+            return {"doc_id": in_effect, "path": doc["path"]}
         if not replace:
             raise TreeError(
                 f"the metric specification in effect is {in_effect} ({doc['path']}), registered outside config apply "
@@ -396,15 +409,28 @@ def register_metric_spec(cwd: Path, marker: dict, rld: ResearchDB, config: dict,
                   "values are the user's decision — config apply --replace-metric-spec")
         current = {"doc_id": in_effect, "path": doc["path"]}
     if current and (root / "docs" / current["path"]).read_text(encoding="utf-8") == text:
-        return current
+        return dict(current)
+    return {"text": text, "content": content, "replaces": current}
+
+
+def commit_metric_spec(cwd: Path, marker: dict, rld: ResearchDB, plan: dict, project: dict | None) -> dict:
+    """Register what plan_metric_spec found (rld/main, current; the previous version superseded) and record it in
+    the marker. Returns {doc_id, path}."""
+    root = Path(marker["root"])
+    if "text" not in plan:
+        if marker.get("metric_spec") != plan:
+            marker["metric_spec"] = {"doc_id": plan["doc_id"], "path": plan["path"]}
+            write_marker(cwd, marker)
+        return marker["metric_spec"]
     numbers = [int(m.group(1)) for p in (root / "docs" / "project").glob("metric-spec.v*.json")
                if (m := re.match(r"metric-spec\.v(\d+)\.json$", p.name))]
     rel = f"project/metric-spec.v{max(numbers, default=0) + 1}.json"
-    (root / "docs" / rel).write_text(text, encoding="utf-8")
+    (root / "docs" / rel).write_text(plan["text"], encoding="utf-8")
     doc_id = rld.register_document(rel, "metric_spec", "指标规范（research-tree.yaml）",
                                    summary="research-tree.yaml 的 metric_specs：第一个为主指标",
                                    about=[project["id"]] if project else [])
     rld.set_document_current(doc_id)
+    current = plan.get("replaces")
     if current and rld.get(current["doc_id"]).get("status") == "current":
         rld.supersede_document(current["doc_id"], doc_id)
     marker["metric_spec"] = {"doc_id": doc_id, "path": rel}
@@ -665,7 +691,8 @@ def main(argv: list[str] | None = None) -> int:
     cf = sub.add_parser("config")
     cf.add_argument("action", nargs="?", choices=("show", "apply"), default="show")
     cf.add_argument("--actor", default="rld/main", help="the RLD identity that registers the configuration")
-    cf.add_argument("--words", help="the user's words, registered as an instruction when the configuration changed")
+    cf.add_argument("--words", help="apply: the user's own words asking for this configuration, registered as the "
+                                    "instruction it rests on; required whenever anything changes")
     cf.add_argument("--require-project", action="store_true", help="fail unless the project record exists")
     cf.add_argument("--replace-metric-spec", action="store_true",
                     help="the user's decision: the file's metric_specs replace a specification the RLD registered")

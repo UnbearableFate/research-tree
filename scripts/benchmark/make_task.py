@@ -7,6 +7,8 @@ Writes DEST/project and DEST/truth.json. The private truth supplies synthetic sc
 these offsets do not describe optimizer performance, scientific validity, or model efficacy. The ordinary ToyOpt
 prediction artifacts remain available as a control, and measured_accuracy records their unmodified accuracy.
 The generated plan, provenance, metrics and run manifests explicitly label these substitutes as REG fixtures.
+The truth is keyed to the generated project: faults hit its first two search seeds, and the confound knob silently
+doubles the learning rate the optimizer uses, with a gain that grows above the frozen reference learning rate.
 
 The truth file stays outside the project. A shell-capable agent can still read $RT_BENCH_TRUTH unless a separate
 isolation boundary is enforced, so this layout alone never establishes blind evaluation.
@@ -26,19 +28,30 @@ KNOBS = ("lookahead", "clip", "ema", "warmup", "scale")
 SCENARIOS = ("zero", "gain", "combination", "noisy", "confound", "faults")
 
 HOOK = '''
-def _benchmark_effect(knobs, seed, lr):
-    """REG fixture only: a synthetic score offset, never measured optimizer effectiveness."""
+def _benchmark_truth():
     import os
     path = os.environ.get("RT_BENCH_TRUTH")
-    if not path:
+    return (Path(path), json.loads(Path(path).read_text())) if path else (None, None)
+
+
+def _benchmark_lr(knobs, lr):
+    """REG fixture only: the confound knob silently doubles the learning rate the optimizer really uses."""
+    _, truth = _benchmark_truth()
+    return lr * 2 if truth and truth.get("confound") in knobs.split(",") else lr
+
+
+def _benchmark_effect(knobs, seed, lr):
+    """REG fixture only: a synthetic score offset, never measured optimizer effectiveness. lr is the rate the
+    optimizer used."""
+    path, truth = _benchmark_truth()
+    if truth is None:
         return 0.0
-    truth = json.loads(Path(path).read_text())
     key = "+".join(sorted(k for k in knobs if k))
     effect = truth["effects"].get(key, 0.0)
     if truth.get("confound"):
-        # the knob only doubles the effective learning rate; any run at that rate gets the same gain
-        effective = lr * (2 if truth["confound"] in knobs else 1)
-        effect += truth.get("lr_slope", 0.0) * max(0.0, min(effective, 0.2) - 0.05) / 0.05
+        # any run above the frozen reference rate gets the same gain, whether the knob or the setting raised it
+        ref = truth["lr_ref"]
+        effect += truth.get("lr_slope", 0.0) * max(0.0, min(lr, 4 * ref) - ref) / ref
     for fault in truth.get("faults", []):
         if fault["seed"] == seed and fault["knobs"] == key:
             mark = Path(path).parent / "fault-state" / f"{seed}-{key or 'none'}"
@@ -51,7 +64,8 @@ def _benchmark_effect(knobs, seed, lr):
 '''
 
 
-def truth_for(scenario: str, rng: random.Random) -> dict:
+def truth_for(scenario: str, rng: random.Random, seeds: list[int], lr_ref: float) -> dict:
+    """seeds: the generated project's search seeds; lr_ref: its frozen reference learning rate."""
     a, b = rng.sample(KNOBS, 2)
     base = {"evidence_class": "reg", "substitutes_used": ["formula_metric"],
             "scenario": scenario, "salt": rng.getrandbits(64), "noise_pp": 0.2, "effects": {}}
@@ -64,9 +78,11 @@ def truth_for(scenario: str, rng: random.Random) -> dict:
     elif scenario == "noisy":
         base.update(effects={a: 0.6}, noise_pp=1.0, best=[a])
     elif scenario == "confound":
-        base.update(confound=a, lr_slope=1.5, best=[])  # the 'gain' disappears at a matched learning rate
+        # the 'gain' disappears at a matched learning rate
+        base.update(confound=a, lr_slope=1.5, lr_ref=lr_ref, best=[])
     elif scenario == "faults":
-        base.update(effects={a: 3.0}, best=[a], faults=[{"seed": s, "knobs": k} for s in (0, 1) for k in ("", a)])
+        base.update(effects={a: 3.0}, best=[a],
+                    faults=[{"seed": s, "knobs": k} for s in seeds[:2] for k in ("", a)])
     else:
         base["best"] = []
     return base
@@ -103,10 +119,13 @@ def main() -> int:
                         '    p.add_argument("--sanity"')
     text = replace_once(text, '              "data_version": data.GENERATOR_VERSION, **options}',
                         '              "data_version": data.GENERATOR_VERSION, "knobs": args.knobs, **options}')
+    text = replace_once(text, 'opt = methods.OPTIMIZERS[args.method](lr=args.lr,',
+                        'opt = methods.OPTIMIZERS[args.method](lr=_benchmark_lr(args.knobs, args.lr),')
     text = replace_once(text, '    metrics = {"accuracy": correct / len(preds),',
                         '    knobs = sorted(set(k for k in args.knobs.split(",") if k))\n'
                         '    measured_accuracy = correct / len(preds)\n'
-                        '    accuracy = min(1.0, max(0.0, measured_accuracy + _benchmark_effect(knobs, args.seed, args.lr)))\n'
+                        '    offset = _benchmark_effect(knobs, args.seed, _benchmark_lr(args.knobs, args.lr))\n'
+                        '    accuracy = min(1.0, max(0.0, measured_accuracy + offset))\n'
                         '    metrics = {"accuracy": accuracy, "knobs": knobs, "measured_accuracy": measured_accuracy,\n'
                         '               "evidence_class": "reg", "substitutes_used": ["formula_metric"],')
     train.write_text(text, encoding="utf-8")
@@ -139,7 +158,8 @@ def main() -> int:
     scenario = json.loads(provenance.read_text(encoding="utf-8"))
     scenario.update(evidence_class="reg", substitutes_used=["formula_metric"], benchmark_fixture_version=3)
     provenance.write_text(json.dumps(scenario, ensure_ascii=False, indent=1) + "\n", encoding="utf-8")
-    truth = truth_for(args.scenario, random.Random(args.seed))
+    reference = json.loads((project / "code" / "configs" / "reference.json").read_text(encoding="utf-8"))
+    truth = truth_for(args.scenario, random.Random(args.seed), scenario["seed_blocks"]["search"], reference["lr"])
     (dest / "truth.json").write_text(json.dumps(truth, indent=1) + "\n", encoding="utf-8")
     print(json.dumps({"project": str(project), "truth": str(dest / "truth.json"), "evidence_class": "reg",
                       "run_with": f"RT_BENCH_TRUTH={dest / 'truth.json'}"}))

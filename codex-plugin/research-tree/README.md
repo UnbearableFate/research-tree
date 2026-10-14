@@ -120,10 +120,11 @@ UI、Explorer 和 Analyst 使用 read-only 沙箱。后台exec不提供交互式
 超时记为unknown，不自动重发；显式resend只会重投确认失败/未投递的原消息。
 UI动作执行前写入applying状态，异常或中断后保留账本，核对实际文档后再恢复，不盲目重放。
 
-hooks需要用户信任，文件保护是工作流护栏，不能防御任意shell程序绕过。没有hook上下文时，
-可用 `research_control attach` 登记实际主会话ID和模型。已有另一个Leader时不自动覆盖地址，
-交接前核对原会话与科研作业。此版本用终端窗口和HTML提供界面，不修改Codex的TUI源码。
-attach 支持地址与 inherit 模型登记，不构成 observed 模型证据；跨族评审仍需要可信 hooks 的实际观察记录，否则返回 REVIEW_UNAVAILABLE。
+hooks需要用户信任，文件保护是工作流护栏，不能防御任意shell程序绕过。必须信任 hooks：没有它们就不会记录
+主会话地址和实际观察到的模型，`inherit` 失败，跨族评审返回 REVIEW_UNAVAILABLE，文件保护也不生效。
+`research_control attach` 不是缺少 hooks 时的替代：它只把 Leader 交接给 hooks 已观察到的主会话（在该会话
+首次工具调用后由它自己 attach），模型取自 hook 的观察记录，传入不同的 model 会被拒绝。已有另一个Leader时
+不自动覆盖地址，交接前核对原会话与科研作业。此版本用终端窗口和HTML提供界面，不修改Codex的TUI源码。
 
 `status`/`refresh` 读取轻量摘要，不全量遍历文档和曲线。摘要里的 GO 为 `null` 表示尚未核验，
 不是不合格；真正判断资格时显式调用 `get_eligibility`。需要完整页面时再 `pane`/`build`，查看其数据版本。
@@ -134,8 +135,7 @@ attach 支持地址与 inherit 模型登记，不构成 observed 模型证据；
 
 ```bash
 python3 scripts/build_plugins.py --target all
-.venv/bin/python -m unittest discover -s dist/codex/plugins/research-tree/tests
-.venv/bin/python -m unittest discover -s tests
+.venv/bin/python scripts/run_tests.py   # 共享、仓库与 Codex 适配层测试；适配层先构建到临时目录
 .venv/bin/python scripts/check_codex_install.py dist/codex
 .venv/bin/python scripts/check_codex_sessions.py dist/codex/plugins/research-tree --evidence /tmp/new-session-check
 ```

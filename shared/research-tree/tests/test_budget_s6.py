@@ -30,6 +30,7 @@ class S6Test(trdb.BudgetTest):
     test_submit_timeout_before_submitted_is_unknown = None
     test_released_reservation_does_not_hide_usage = None
     test_b11_session_restart_keeps_the_attempt = None
+    test_a_released_reservation_takes_no_job = None
 
     def state(self) -> tuple:
         status = self.rld.budget_status()

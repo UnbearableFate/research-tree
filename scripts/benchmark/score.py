@@ -1,19 +1,23 @@
 #!/usr/bin/env python3
 """Score REG-only formula-fixture episodes from the current project/database contract.
 
-    python3 scripts/benchmark/score.py PROJECT_DIR --truth truth.json --system current --tools DIST/.../tools \
-        [--host claude|codex] [--version <commit>] [--out episode.json]
+    .venv/bin/python scripts/benchmark/score.py PROJECT_DIR --truth truth.json --system current \
+        --tools DIST/.../tools [--host claude|codex] [--version <commit>] [--out episode.json]
 
 Only version-3 project markers and schema-23 snapshots are accepted. GO candidates must be explicitly identified
-by a decision's based_on experiment/evaluation references and have marked REG knob evidence. Node verdict labels,
-free-text reasons, unrelated experiments and absent artifacts never substitute for that evidence. Missing evidence
+by a project_status GO decision's based_on edges (rel_based_on) to experiments/evaluations and have marked REG knob
+evidence: the imported metrics file of the experiment's valid runs. Node verdict labels, free-text reasons,
+unrelated experiments and absent or changed artifacts never substitute for that evidence. Missing evidence
 fails scoring rather than producing an empty successful GO. Formula-fixture scores are software regressions,
 never scientific or model-efficacy evidence. Outcomes remain separate and executor models cannot be mixed.
+The snapshot is exported by research_db.py under the repository's .venv interpreter when it exists (research_db
+needs the project's dependencies, which the system python3 lacks).
 """
 
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import subprocess
 import sys
@@ -21,22 +25,27 @@ from pathlib import Path
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "scenarios"))
+VENV_PYTHON = HERE.parents[1] / ".venv" / "bin" / "python"
+PYTHON = str(VENV_PYTHON) if VENV_PYTHON.is_file() else sys.executable
 
 OUTCOMES = ("go", "not_go", "blocked", "budget_stopped", "active", "incomplete")
 
 
 def _knobs(root: Path, runs: list[dict], exp_id: str) -> list[str] | None:
-    """The exact experiment's explicit fixture knobs, consistent across every available valid run."""
+    """The exact experiment's explicit fixture knobs, consistent across every valid run whose imported metrics file
+    (import_run_result keeps it first in evidence_paths, relative to the research root) still has the bytes the
+    import hashed."""
     observed = set()
     for run in runs:
         if run["experiment_id"] != exp_id or not run.get("valid"):
             continue
-        raw_path = run.get("metrics_path")
-        if not raw_path:
+        evidence = run.get("evidence_paths") or []
+        digest = (run.get("import_record") or {}).get("metrics_sha256")
+        if not evidence or not digest:
             continue
-        path = Path(raw_path)
+        path = Path(evidence[0])
         path = path if path.is_absolute() else root / path
-        if not path.is_file():
+        if not path.is_file() or hashlib.sha256(path.read_bytes()).hexdigest() != digest:
             continue
         metrics = json.loads(path.read_text(encoding="utf-8"))
         if metrics.get("evidence_class") != "reg" or "knobs" not in metrics:
@@ -50,8 +59,8 @@ def _knobs(root: Path, runs: list[dict], exp_id: str) -> list[str] | None:
     return list(next(iter(observed))) if observed else None
 
 
-def snapshot(project_dir: Path, tools: Path, python: str = sys.executable) -> tuple[dict, Path]:
-    """Read current-contract tables through the exact read-only ui/ui actor."""
+def snapshot(project_dir: Path, tools: Path, python: str = PYTHON) -> tuple[dict, dict, Path]:
+    """Read current-contract tables and relations through the exact read-only ui/ui actor."""
     marker = json.loads((project_dir / ".research-tree.json").read_text(encoding="utf-8"))
     if type(marker.get("format_version")) is not int or marker["format_version"] != 3:
         raise ValueError("benchmark scoring requires a version-3 project marker")
@@ -63,19 +72,19 @@ def snapshot(project_dir: Path, tools: Path, python: str = sys.executable) -> tu
     data = result["result"]
     if data["meta"]["schema_version"] != 23:
         raise ValueError("benchmark scoring requires database schema 23")
-    return data["tables"], Path(marker["root"])
+    return data["tables"], data["edges"], Path(marker["root"])
 
 
 def normalize(project_dir: Path, tools: Path, system: str, host: str | None, version: str | None,
               executor_model: str | None = None, ended: str | None = None) -> dict:
     """Plain events of one episode. ended: how the controller saw it stop (completed, budget, blocked, timeout)."""
     import attempt_metrics
-    tables, root = snapshot(project_dir, tools)
-    return events(tables, root, system, host, version, executor_model, ended,
+    tables, edges, root = snapshot(project_dir, tools)
+    return events(tables, edges, root, system, host, version, executor_model, ended,
                   attempt_metrics.metrics(project_dir, tables, root))
 
 
-def events(tables: dict, root: Path, system: str, host: str | None, version: str | None,
+def events(tables: dict, edges: dict, root: Path, system: str, host: str | None, version: str | None,
            executor_model: str | None, ended: str | None, attempts: dict | None) -> dict:
     project = tables["project"][0]
     runs = tables["run"]
@@ -83,13 +92,16 @@ def events(tables: dict, root: Path, system: str, host: str | None, version: str
     exps = {e["id"]: e for e in tables["experiment"]}
     evaluations = {e["id"]: e for e in tables["evaluation"]}
     decisions = sorted(tables["decision"], key=lambda d: (d.get("decided_at") or "", d["id"]))
+    based_on: dict[str, list[str]] = {}  # a decision's evidence is an edge, never a column of the decision
+    for edge in edges["rel_based_on"]:
+        based_on.setdefault(edge["source_id"], []).append(edge["target_id"])
     candidates = []
     for decision in decisions:
-        if (decision["target_id"] != project["id"] or decision["field"] != "status"
+        if (decision["target_id"] != project["id"] or decision["field"] != "project_status"
                 or decision["to_value"] != "go"):
             continue
         explicit = set()
-        for evidence in decision["based_on"]:
+        for evidence in based_on.get(decision["id"], []):
             exp_id = evaluations[evidence]["experiment_id"] if evidence in evaluations else evidence
             exp = exps.get(exp_id)
             if exp and exp["kind"] == "method" and exp.get("hypothesis_id") in hyps:

@@ -321,6 +321,44 @@ class MinimumControlTest(FastFixture):
             self.rld.approve_minimum_controls(other, self.decision_doc())
 
 
+    def test_a_configuration_change_keeps_the_approval(self):
+        """A protocol version differing only in what research-tree.yaml sets keeps the approval's basis."""
+        h, code, target = self.target()
+        self.rld.approve_minimum_controls(target, self.decision_doc())
+        protocol = self.doc(self.rld, "project/protocol-cfg.v1.json", "protocol",
+                            body=json.dumps({**self.protocol_content, "max_confirmation_candidates": 1}))
+        instruction = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-cfg.v1.md", "user_instruction")
+        self.rld.update_project(protocol_doc_id=protocol, user_instruction_doc_id=instruction)
+        exp = self.exp(h, code, {"a": True, "b": False}, kind="ablation", ablation_of=target,
+                       predeclared_control_id="without-b")
+        self.submit(exp)
+
+    def test_controls_are_not_approved_once_the_target_was_claimed(self):
+        """A claimed submission may already run at the scheduler although its run still reads planned."""
+        h, code, target = self.target()
+        seed = self.rld.get(target)["seeds"][0]
+        self.owner_for(target).create_run(target, seed)
+        self.worker.reserve_submission("k-target", [f"{target}/s{seed}@1"], {"nodes": 1, "walltime_s": 60})
+        self.worker.claim_submission("k-target")
+        with self.assertRaisesRegex(ResearchDBError, "before.*first submission"):
+            self.rld.approve_minimum_controls(target, self.decision_doc())
+
+    def test_a_lapsed_control_runs_again_under_an_ablation_plan(self):
+        """The same ablation, proposed by an ablation_plan review after its approval lapsed, keeps its id and seeds
+        and takes the new authority instead of staying blocked."""
+        h, code, target = self.target()
+        self.rld.approve_minimum_controls(target, self.decision_doc())
+        control = self.exp(h, code, {"a": True, "b": False}, kind="ablation", ablation_of=target,
+                           predeclared_control_id="without-b")
+        self.rld.update_hypothesis(h, statement="a changed claim")  # the approval lapses
+        plan = self.register(h, "ablation_plan", "planned", self.reviewer.review_basis(h, "ablation_plan"))
+        again = self.exp(h, code, {"a": True, "b": False}, kind="ablation", ablation_of=target, source_review_id=plan)
+        self.assertEqual(again, control)
+        self.assertEqual((self.rld.get(again).get("predeclared_control_id"), self.rld.get(again)["source_review_id"]),
+                         (None, plan))
+        self.submit(again)
+
+
 class ReviewDisputesTest(FastFixture):
     def blocked(self, verified=False):
         self.rld.update_project(code_review_required=True)
@@ -384,6 +422,13 @@ class ReviewDisputesTest(FastFixture):
             with self.assertRaisesRegex(ResearchDBError, "CODE_REVIEW_REQUIRED"):
                 self.submit(exp)
         self.assertEqual(self.rld.get(review)["review_result"], "blocking")
+
+    def test_a_verified_defect_does_not_block_code_without_its_file(self):
+        """Another node's code that neither descends from the reviewed commit nor holds the file the defect was
+        found in, unchanged, is not blocked by it."""
+        self.blocked(verified=True)
+        unrelated = self.exp(self.node(), self.harness, {"lr": 0.7})  # the harness has no method.txt
+        self.submit(unrelated)
 
     def test_same_identity_cannot_claim_a_verified_defect_was_fixed(self):
         _, _, exp, review, evidence, dispute = self.blocked(verified=True)

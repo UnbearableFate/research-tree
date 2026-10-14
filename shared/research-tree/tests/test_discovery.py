@@ -73,6 +73,70 @@ class StateTest(unittest.TestCase):
         self.assertEqual(merged[1]["found_by"], ["explorer/repairs", "explorer/variants"])
         self.assertEqual(merged[1]["origin"], "explorer")
 
+    def test_titles_sharing_only_their_ascii_words_are_different_ideas(self):
+        proposals = [{"source": "explorer/main", "candidates": [
+            {"title": "LoRA 秩自适应", "intervention": "adapt the rank"},
+            {"title": "LoRA 低秩初始化", "intervention": "initialise low rank"}]},
+            {"source": "explorer/variants", "candidates": [{"title": "ＬｏＲＡ秩自适应！", "summary": "same idea"}]}]
+        users = [{"title": "SGD 动量预热"}, {"title": "SGD 学习率重启"}]
+        merged = discovery.merge(proposals, users)
+        self.assertEqual(sorted(c["title"] for c in merged),
+                         ["LoRA 低秩初始化", "LoRA 秩自适应", "SGD 动量预热", "SGD 学习率重启"])
+        by_title = {c["title"]: c for c in merged}
+        self.assertEqual(by_title["LoRA 秩自适应"]["intervention"], "adapt the rank")
+        self.assertEqual(by_title["LoRA 秩自适应"]["found_by"], ["explorer/main", "explorer/variants"])
+        self.assertEqual(by_title["LoRA 低秩初始化"]["intervention"], "initialise low rank")
+        self.assertEqual(len({c["id"] for c in merged}), 4)
+        # pure-ASCII titles keep the key they always had
+        self.assertEqual(discovery.dedup_key("Adam, with linear Warmup!"), "adam-with-linear-warmup")
+        self.assertEqual(discovery.dedup_key("Café: résumé_v2"), "cafe-resume_v2")
+        # a later idea sharing only the ASCII word is a new candidate, not a revision of the first
+        first = discovery.merge([], [{"title": "SGD 动量预热", "intervention": "warm up momentum"}])
+        both = discovery.merge([], [{"title": "SGD 动量预热", "intervention": "warm up momentum"},
+                                    {"title": "SGD 学习率重启", "intervention": "restart the rate"}], first)
+        self.assertEqual([(c["id"], c["revision"]) for c in both if c["title"] == "SGD 动量预热"],
+                         [(first[0]["id"], 1)])
+        self.assertEqual([c["id"] for c in both if c["title"] == "SGD 学习率重启"], ["CAND-0002"])
+
+    def test_candidates_keyed_by_the_older_rule_keep_their_identity(self):
+        # pools written before non-ASCII words were kept store 'zebra' and 'lora' as keys
+        old = discovery.merge([{"source": "explorer/main", "candidates": [{"title": "LoRA 秩自适应", "summary": "a"}]}],
+                              [{"title": "Zebra：重球动量在固定更新预算下收敛更快"}])
+        for c, stored in zip(old, ("zebra", "lora")):
+            c["dedup_key"] = stored
+            c["selected"] = True
+        merged = discovery.merge([{"source": "explorer/main", "candidates": [
+            {"title": "LoRA 秩自适应", "summary": "a"}, {"title": "LoRA 低秩初始化", "summary": "b"}]}],
+            [{"title": "Zebra：重球动量在固定更新预算下收敛更快"}], old)
+        by_title = {c["title"]: c for c in merged}
+        for c in old:
+            current = by_title[c["title"]]
+            self.assertEqual((current["id"], current["revision"], current["selected"], current["present"]),
+                             (c["id"], c["revision"], True, True))
+            self.assertEqual(current["dedup_key"], discovery.dedup_key(c["title"]))
+        self.assertEqual(by_title["LoRA 低秩初始化"]["id"], "CAND-0003")
+        self.assertNotIn("selected", by_title["LoRA 低秩初始化"])
+
+    def test_a_proposal_cannot_set_selection_feasibility_or_identity(self):
+        claimed = {"selected": True, "feasible": True, "feasibility_reasons": [], "id": "CAND-0042",
+                   "candidate_id": "CAND-0042", "origin": "user", "found_by": ["user"], "revision": 9,
+                   "content_sha": "0" * 64, "revisions": [], "present": True}
+        asserted = {**candidate("Self-selected"), **claimed}
+        merged = discovery.merge([{"source": "explorer/main", "candidates": [asserted]},
+                                  {"source": "explorer/other", "candidates": [asserted]}], [])
+        self.assertEqual(len(merged), 1)
+        c = merged[0]
+        self.assertEqual((c["id"], c["origin"], c["revision"]), ("CAND-0001", "explorer", 1))
+        self.assertEqual(c["found_by"], ["explorer/main", "explorer/other"])
+        self.assertEqual(c["content_sha"], discovery.content_sha(candidate("Self-selected")))
+        for field in ("selected", "feasible", "feasibility_reasons", "candidate_id"):
+            self.assertNotIn(field, c)
+        # nor can a proposal unselect what the Leader selected
+        c["selected"] = True
+        again = discovery.merge([{"source": "explorer/main", "candidates": [{**candidate("Self-selected"),
+                                                                             "selected": False}]}], [], merged)
+        self.assertTrue(again[0]["selected"])
+
     def test_legacy_lens_shards_and_malformed_proposals_are_rejected(self):
         for proposal in ({"lens": "variant", "candidates": [candidate()]}, {"candidates": []},
                          {"source": "", "candidates": []}, {"source": "explorer/main", "candidates": {}},

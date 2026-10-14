@@ -44,6 +44,7 @@ from __future__ import annotations
 
 import re
 import sys
+import unicodedata
 from typing import List, Optional, Tuple
 
 # Each entry: (regex, pattern_id, scope), scope ∈ {"all", "context", "strict"}
@@ -126,6 +127,20 @@ INVISIBLE_CHARS = frozenset({
     '⁦', '⁧', '⁨', '⁩',
 })
 
+# Characters that render as nothing: category Cf (zero-width and bidi marks and controls, soft hyphen, invisible
+# operators, tags) and these outside it (combining grapheme joiner, Hangul fillers, Khmer inherent vowels, Mongolian
+# and other variation selectors). One inside a keyword ("ig\u00adnore") would hide it from every pattern.
+_INVISIBLE_OTHER = re.compile("[\u034f\u115f\u1160\u17b4\u17b5\u180b-\u180d\u180f\u3164\ufe00-\ufe0f\uffa0"
+                              "\U000e0100-\U000e01ef]")
+
+
+def _as_read(content: str) -> str:
+    """``content`` as a reader sees it: invisible characters removed and compatibility forms (fullwidth letters,
+    ligatures) folded by NFKC."""
+    text = "".join(ch for ch in _INVISIBLE_OTHER.sub("", content) if unicodedata.category(ch) != "Cf")
+    return unicodedata.normalize("NFKC", text)
+
+
 _COMPILED: dict[str, List[Tuple[re.Pattern, str]]] = {}
 
 
@@ -155,7 +170,8 @@ _compile()
 def scan_for_threats(content: str, scope: str = "context") -> List[str]:
     """Return matched pattern IDs in ``content`` at ``scope`` (empty = clean).
 
-    Invisible-unicode hits are returned as ``invisible_unicode_U+XXXX``.
+    Invisible-unicode hits are returned as ``invisible_unicode_U+XXXX``. Patterns match the text as written or as
+    read (_as_read), so an invisible character or a fullwidth letter inside a keyword does not hide it.
     """
     if not content:
         return []
@@ -165,8 +181,10 @@ def scan_for_threats(content: str, scope: str = "context") -> List[str]:
     patterns = _COMPILED.get(scope)
     if patterns is None:
         raise ValueError(f"scan_for_threats: unknown scope {scope!r}")
+    read = _as_read(content)
+    texts = (content,) if read == content else (content, read)
     for compiled, pid in patterns:
-        if compiled.search(content):
+        if any(compiled.search(text) for text in texts):
             findings.append(pid)
     return findings
 

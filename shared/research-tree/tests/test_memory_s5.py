@@ -13,7 +13,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "tools"))
 
-from test_research_db import Fixture, ResearchDBError, rdb  # noqa: E402
+from test_research_db import Fixture, ResearchDB, ResearchDBError, rdb  # noqa: E402
 
 CHECKS = [{"id": "C1", "type": "exit_status"}, {"id": "C2", "type": "import_valid"},
           {"id": "C3", "type": "launch_config", "field": "data_dir", "expected": "data/good"},
@@ -42,20 +42,21 @@ class S5Fixture(Fixture):
         self.exp = self.method(h, n_seeds=1)
         self.run = f"{self.exp}/s42"
 
-    def criterion(self, checks=CHECKS) -> str:
+    def criterion(self, checks=CHECKS, current: bool = True) -> str:
         body = "".join(f"## {name}\n\n未知\n\n" for name in rdb.TASK_SECTIONS["task_request"])
         body += "## 检查项\n\n```json\n" + json.dumps({"checks": checks}) + "\n```\n"
-        return self.doc(self.rld, f"tasks/check-{self.n}.v1.md", "task_request", body=body)
+        return self.doc(self.rld, f"tasks/check-{self.n}.v1.md", "task_request", body=body, current=current)
 
-    def fail_then_fix(self, data_dir: str = "data/good", checks=CHECKS) -> tuple[str, str]:
-        """attempt 1 fails with a log; the criterion is frozen; attempt 2 runs with data_dir and is imported."""
+    def fail_then_fix(self, data_dir: str = "data/good", checks=CHECKS, draft: bool = False) -> tuple[str, str]:
+        """attempt 1 fails with a log; the criterion is frozen (only registered as a draft: draft); attempt 2 runs
+        with data_dir and is imported."""
         self.owner_for(self.exp).create_run(self.exp, 42)
         self.owner_for_run(self.run).update_run(self.run, exec_status="submitted")
         log = self.root / "outputs" / self.exp / "s42" / "fail.log"
         log.parent.mkdir(parents=True, exist_ok=True)
         log.write_text("FileNotFoundError: data/missing/train.jsonl\n")
         self.owner_for_run(self.run).update_run(self.run, exec_status="failed", log_path=f"outputs/{self.exp}/s42/fail.log")
-        criterion = self.criterion(checks)
+        criterion = self.criterion(checks, current=not draft)
         self.owner_for_run(self.run).update_run(self.run, attempt=2, exec_status="submitted", started_at=rdb.now_utc())
         self.owner_for_run(self.run).update_run(self.run, exec_status="succeeded")
         config = {**(self.rld.get(self.exp).get("effective_config") or {"lr": 0.05}), "data_dir": data_dir}
@@ -148,7 +149,26 @@ class VerificationTest(S5Fixture):
         weird = self.criterion([{"id": "C9", "type": "custom_python", "code": "print(1)"}])
         doc = self.lesson(lesson_text(self.verification(weird, verified, check_evidence_refs=[{"check": "C9", "run": verified}])))
         self.assertTrue(any("unknown check type" in r for r in self.rld.memory_status(doc)["recheck_reasons"]))
-        self.assertTrue(any("written after" in r for r in self.rld.memory_status(doc)["recheck_reasons"]))
+        self.assertTrue(any("not frozen before" in r for r in self.rld.memory_status(doc)["recheck_reasons"]))
+
+    def test_a_criterion_frozen_after_the_check_ran_is_not_frozen_first(self):
+        """A draft registered before the retry can still be edited: only the freeze time counts, against the time
+        the system recorded the verifying attempt's submission (never a reported started_at)."""
+        criterion, verified = self.fail_then_fix(draft=True)
+        time.sleep(1.1)  # timestamps have one-second resolution
+        self.rld.set_document_current(criterion)
+        doc = self.lesson(lesson_text(self.verification(criterion, verified)))
+        status = self.rld.memory_status(doc)
+        self.assertEqual(status["effective_status"], "unverified")
+        self.assertTrue(any("not frozen before" in r for r in status["recheck_reasons"]))
+
+    def test_an_expected_zero_is_a_fix_too(self):
+        checks = [c if c["id"] != "C3" else {**c, "expected": 0} for c in CHECKS]
+        criterion, verified = self.fail_then_fix(data_dir=0, checks=checks)
+        status = self.rld.memory_status(self.lesson(lesson_text(self.verification(
+            criterion, verified, applied_fix_ref={"kind": "execution_config", "field": "data_dir", "expected": 0},
+            check_evidence_refs=[{"check": c["id"], "run": verified} for c in checks]))))
+        self.assertEqual(status["effective_status"], "verified", status["recheck_reasons"])
 
     def test_reg_s5_04_checkers_read_the_artifacts(self):
         criterion, verified = self.fail_then_fix()
@@ -181,6 +201,39 @@ class CurrencyTest(S5Fixture):
             kept = next(x for x in pack["lessons"] if x["id"] == lesson)
             self.assertEqual(kept["status"], "verified")  # a harness change outside the lesson's scope: still verified
         self.assertIn("finding", json.dumps(self.rld.resume_package(self.h), ensure_ascii=False))
+
+    def test_a_finding_citing_an_experiment_or_a_run_goes_stale_with_it(self):
+        ev = self.rld.get(self.sota)["evaluation_id"]
+        finding = self.doc(self.rld, "findings/fe.v1.md", "finding", current=False, about=(self.h,), body=(
+            f"---\nkind: finding\nclaim: \"the reference reaches 70\"\nevidence_ids: [{self.sota}, {self.sota}/s43]\n"
+            "interpretation: \"the toy task is easy\"\nlimitations: \"one setting\"\nstatus: supported\n---\n"))
+        self.rld.set_document_current(finding)
+        self.assertEqual(self.rld.memory_status(finding)["effective_status"], "supported")
+        self.rld.retract_run(f"{self.sota}/s43", "corrupted metrics file", self.decision_doc())
+        status = self.rld.memory_status(finding)
+        self.assertEqual(status["effective_status"], "stale", status)
+        self.assertTrue(any("retracted" in r for r in status["recheck_reasons"]), status["recheck_reasons"])
+        self.assertTrue(ev)
+
+    def test_applicability_is_a_mapping_and_a_free_text_scope_breaks_no_pack(self):
+        bad = self.doc(self.worker, "lessons/text-scope.v1.md", "lesson", current=False,
+                       body=lesson_text(None, status="proposed", extra={"applicability": "single-node CPU runs"}))
+        with self.assertRaisesRegex(ResearchDBError, "applicability is a mapping"):
+            self.worker.set_document_current(bad)
+        # a scope naming something that is not a record's id is only unmatched, never a failed read
+        odd = self.lesson(lesson_text(None, status="proposed", extra={"applicability": {
+            "config_doc_id": "project/config.v1.yaml", "protocol_doc_id": "not an id"}}))
+        self.assertEqual(self.rld.memory_status(odd)["effective_status"], "proposed")
+        self.assertTrue(self.rld.context_pack(self.h)["text"])
+
+    def test_a_worker_pack_shows_findings_about_its_own_experiments(self):
+        ev = self.rld.get(self.sota)["evaluation_id"]
+        finding = self.doc(self.rld, "findings/own.v1.md", "finding", current=False, about=(self.exp,), body=(
+            f"---\nkind: finding\nclaim: \"its own run\"\nevidence_ids: [{ev}]\ninterpretation: \"x\"\n"
+            "limitations: \"y\"\nstatus: observed\n---\n"))
+        self.rld.set_document_current(finding)
+        pack = self.worker_for(self.h).context_pack(self.h, role="worker")
+        self.assertIn(finding, [f["id"] for f in pack["findings"]])
 
     def test_configuration_changes_reach_only_their_scope(self):
         """A research-tree.yaml change (budget, confirmation settings) leaves findings and run lessons current; a

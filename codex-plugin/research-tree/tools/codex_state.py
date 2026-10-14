@@ -54,8 +54,12 @@ def actor_key(actor: str) -> str:
 
 
 def project_dir(cwd: Path) -> Path:
-    """An explicit project wins for workers in worktrees; otherwise use this directory."""
-    return Path(os.environ.get("RESEARCH_TREE_PROJECT", str(cwd))).resolve()
+    """An explicit project wins for workers in worktrees; otherwise the nearest of this directory and its parents
+    holding the project marker, as research_tree.find_project (a main session started in <ws>/code)."""
+    if os.environ.get("RESEARCH_TREE_PROJECT"):
+        return Path(os.environ["RESEARCH_TREE_PROJECT"]).resolve()
+    start = cwd.resolve()
+    return next((d for d in (start, *start.parents) if (d / ".research-tree.json").is_file()), start)
 
 
 def cache_dir(cwd: Path) -> Path:

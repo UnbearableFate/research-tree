@@ -3,7 +3,10 @@
 The research database says which run attempts exist and how they ended; the execution adapter's own ledgers say
 which processes really started (launches.jsonl) and which calls were made (events.jsonl); the controller's fault
 file says which failures were injected. A duplicate job is a process start that no legitimate attempt accounts
-for — computed from the launch ledger against the run intents, never as sum(attempt - 1). A failure is avoidable
+for — computed from the launch ledger against the run intents, never as sum(attempt - 1): every start beyond the
+first of a submission key, and, when the project has a total budget (every submission then runs under a
+reservation), every start of a key no reservation explains. Without one reservations are optional, so the first
+start of an unreserved key is an ordinary submission. A failure is avoidable
 only when a fix for the same fault class was already verified (the lesson's memory_basis) before it happened, and
 it was not injected again by the controller; nothing is matched on root-cause wording.
 """
@@ -64,8 +67,10 @@ def metrics(project_dir: Path, tables: dict, root: Path, duplicate_import_reques
         if n > 1 and prev is not None and (prev.get("exec_status") in ("failed", "cancelled")
                                            or prev.get("valid") is False or prev.get("retracted_at")):
             authorized += 1
-    # every start beyond the first of a key, and every start of a key no reservation (no run intent) explains
-    duplicates = sum(max(0, n - 1) if k in reserved_keys else n for k, n in starts.items())
+    # every start beyond the first of a key, and, under a total budget, every start of a key no reservation (no run
+    # intent) explains; without total_limit a submission needs no reservation (research_db._check_submission)
+    budgeted = (tables.get("project") or [{}])[0].get("total_limit") is not None
+    duplicates = sum(max(0, n - 1) if k in reserved_keys or not budgeted else n for k, n in starts.items())
     # avoidable repeated failures: a fault class whose fix was verified before this failure, not injected again
     verified = []
     for d in tables.get("document", []):

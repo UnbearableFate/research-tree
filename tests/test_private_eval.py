@@ -63,6 +63,28 @@ class EvaluatorTest(unittest.TestCase):
         ledger = json.loads((self.private / "evaluator-ledger.json").read_text())
         self.assertEqual(len(ledger["scored"]), 2)
 
+    def test_malformed_requests_are_refused_and_leave_the_queue(self):
+        """A field that is not a string, an unreadable request or a model path no file can have is refused with a
+        reason and moved out of the queue: the service never stops on it, nor meets it again after a restart."""
+        queue = self.work / "spool" / "requests"
+        for rid, change in (("m1", {"material": 7}), ("m2", {"request_id": 5}), ("m3", {"run_ref": ["E-0007/s42@1"]}),
+                            ("m4", {"model": None}), ("m5", {"model": "model\u0000.json"})):
+            with self.subTest(change=change):
+                path = queue / f"{rid}.json"
+                path.write_text(json.dumps({"request_id": rid, "run_ref": "E-0007/s42@1", "material": "p1",
+                                            "model": "model.json", **change}))
+                answer = self.ev.handle(path)
+                self.assertFalse(answer["ok"])
+                self.assertTrue(answer["refused"])
+                self.assertFalse(path.exists())
+                self.assertTrue(path.with_suffix(".done").exists())
+        (queue / "deep.json").write_text("[" * 100000 + "]" * 100000)
+        (queue / "dir.json").mkdir()
+        self.assertEqual([a["ok"] for a in self.ev.once()], [False, False])
+        self.assertEqual(self.ev.once(), [])  # nothing is left to fail again
+        self.assertTrue(self.ask("r1")["ok"])  # legal requests are still served
+        self.assertEqual(len(json.loads((self.private / "evaluator-ledger.json").read_text())["scored"]), 1)
+
     def test_reg_s7_06_reconstructible_material_is_refused(self):
         self.assertTrue(private_material.check(self.private, None, tries=200)["ok"])
         bad = Path(self.tmp.name) / "bad"

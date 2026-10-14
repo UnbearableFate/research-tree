@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Read-only observer of a ToyOpt Lab test project: what the database, the run files and the job ledger say.
 
-    python3 scripts/scenarios/observe.py PROJECT_DIR [--tools DIST/plugins/research-tree/tools] [--out FILE]
+    .venv/bin/python scripts/scenarios/observe.py PROJECT_DIR [--tools DIST/plugins/research-tree/tools] [--out FILE]
+
+Run it with the repository's .venv interpreter: it imports research_db, which needs latticedb.
 
 It never writes the research database (the file's SHA-256 is compared before and after) and takes no number from
 the product's outputs as the expected value: every imported run is rescored from its model and evaluation split

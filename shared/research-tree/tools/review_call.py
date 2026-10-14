@@ -65,11 +65,12 @@ CODE_SUFFIXES = (".py", ".pyx", ".c", ".cc", ".cpp", ".cu", ".h", ".hpp", ".rs",
 
 
 class ReviewError(Exception):
-    """code is REVIEW_UNAVAILABLE, REVIEW_INVALID or REVIEW_BUDGET."""
+    """code is REVIEW_UNAVAILABLE, REVIEW_INVALID or REVIEW_BUDGET. partial: what a backend printed before it was
+    stopped at its timeout (the billed part of its cost is read from it)."""
 
-    def __init__(self, code: str, message: str, cost: float = 0.0):
+    def __init__(self, code: str, message: str, cost: float = 0.0, partial: str = ""):
         super().__init__(f"{code}: {message}")
-        self.code, self.cost = code, cost
+        self.code, self.cost, self.partial = code, cost, partial
 
 
 def now() -> str:
@@ -120,8 +121,11 @@ def _run(cmd: list[str], cwd: Path, timeout: int, deadline: float | None = None,
         input_args = {"stdin": subprocess.DEVNULL} if input_text is None else {"input": input_text}
         return subprocess.run(cmd, cwd=cwd, capture_output=True, text=True, timeout=timeout, check=False,
                               **input_args)
-    except subprocess.TimeoutExpired:
-        raise ReviewError("REVIEW_UNAVAILABLE", f"{cmd[0]} did not answer within {timeout} s") from None
+    except subprocess.TimeoutExpired as exc:
+        # run() keeps what the killed process printed so far (bytes, also with text=True)
+        partial = exc.stdout.decode("utf-8", "replace") if isinstance(exc.stdout, bytes) else exc.stdout or ""
+        raise ReviewError("REVIEW_UNAVAILABLE", f"{cmd[0]} did not answer within {timeout} s",
+                          partial=partial) from None
     except OSError as exc:
         raise ReviewError("REVIEW_UNAVAILABLE", f"{cmd[0]}: {exc}") from None
 
@@ -156,7 +160,11 @@ class PiBackend:
                "--append-system-prompt", str(system_file)]
         # the same --session-id continues the session (pi 1.0.4 creates it on the first call; checked 2026-10-07:
         # a second call with the id answered from the first one's context, so -c is not needed)
-        out = _run(cmd + [prompt], self.root, self.timeout, self.deadline)
+        try:
+            out = _run(cmd + [prompt], self.root, self.timeout, self.deadline)
+        except ReviewError as exc:  # the turns a run finished before its timeout were billed
+            exc.cost += self.parse(exc.partial, "")["cost_usd"]
+            raise
         return self.parse(out.stdout, out.stderr), out.stdout
 
     def parse(self, stdout: str, stderr: str) -> dict:
@@ -306,7 +314,8 @@ def problems(kind: str, data: dict | None, schema: dict, dimension: str | None) 
 
 
 def result_of(kind: str, data: dict) -> str:
-    """The review's recorded conclusion; the positive/negative reading follows 09 §3."""
+    """The review's conclusion as the reviewer states it; the positive/negative reading follows 09 §3. A
+    candidate_recheck records its effective result instead (research_db.recheck_outcome)."""
     if kind == "candidate_recheck":
         return data["result"]
     if kind == "code_review":
@@ -534,12 +543,14 @@ def code_snapshot(root: Path, repo: str | None, ref: str | None) -> Path | None:
             if archive.returncode != 0:
                 return None
             subprocess.run(["tar", "-x", "-C", str(tmp)], input=archive.stdout, check=True)
+            # A committed symlink stays a link and is never followed: its target may be anything outside the
+            # snapshot. .complete comes last, so a snapshot that failed part way is extracted again.
+            for path in tmp.rglob("*"):
+                if path.is_file() and not path.is_symlink():
+                    path.chmod(0o444)
             (tmp / ".complete").write_text(sha + "\n")
             shutil.rmtree(target, ignore_errors=True)
             tmp.rename(target)
-            for path in target.rglob("*"):
-                if path.is_file():
-                    path.chmod(0o444)
     return target
 
 
@@ -599,8 +610,12 @@ def _run_review(root, backend, reviewer, kind, brief_path, about, dimension, eva
     data = extract(rec)
     found = problems(kind, data, schema, dimension)
     if found:  # one follow-up in the same session, then invalid
-        retry, raw2 = backend.call(FOLLOW_UP.format(problem="; ".join(found)[:500]), uid, system_file, False,
-                                   add_dirs or [], schema, budget)
+        try:
+            retry, raw2 = backend.call(FOLLOW_UP.format(problem="; ".join(found)[:500]), uid, system_file, False,
+                                       add_dirs or [], schema, budget)
+        except ReviewError as exc:  # the first round was billed already
+            exc.cost += cost
+            raise
         (raw_dir / f"{rv}.v{version}.retry.{suffix}").write_text(raw2, encoding="utf-8")
         cost += retry["cost_usd"]
         if not retry["ok"]:
@@ -612,11 +627,19 @@ def _run_review(root, backend, reviewer, kind, brief_path, about, dimension, eva
         if found:
             raise ReviewError("REVIEW_INVALID", "; ".join(found)[:600], cost)
         rec["text"] += "\n\n(follow-up)\n" + retry["text"]
-    result = result_of(kind, data)
+    result, reported = result_of(kind, data), None
+    if kind == "candidate_recheck":  # S4 §8.1: the receipt states the result register_review records
+        try:
+            outcome = db.recheck_outcome(about, dimension, evaluation, data)
+        except ResearchDBError as exc:
+            raise ReviewError("REVIEW_INVALID", f"the receipt's result cannot be determined: {exc}", cost) from None
+        if outcome["invalid"]:
+            raise ReviewError("REVIEW_INVALID", "; ".join(outcome["invalid"])[:600], cost)
+        result, reported = outcome["effective_result"], outcome["reported_result"]
 
     rel = f"reviews/{rv}.v{version}.md"
     fields = {"kind": kind, "about": about, "dimension": dimension, "evaluation_id": evaluation,
-              "code_ref": getattr(backend, "code_ref", None), "result": result,
+              "code_ref": getattr(backend, "code_ref", None), "result": result, "reported_result": reported,
               "backend": backend.name, "provider": rec["provider"], "model_requested": reviewer["model"],
               "model_observed": rec["model_observed"], "thinking": reviewer["thinking"], "session": rv,
               "session_id": uid, "brief": str(brief_path.relative_to(root)), "terminal_reason": rec["terminal_reason"],
@@ -750,11 +773,12 @@ def _prepare_job(cwd: Path, args) -> dict:
 
 
 def start_job(cwd: Path, root: Path, argv: list[str]) -> str:
-    """Persist a ticket immediately. Identical inputs reuse it, including completed or interrupted calls.
+    """Persist a ticket immediately. Identical inputs reuse a running or successfully completed job's ticket.
 
     Deduplication covers the current scientific basis, brief contents, effective configuration/model and
     review options. Only local validation runs here; backend setup and all model calls belong to the worker.
-    No interrupted job is silently paid for again. A changed request gets a new auditable ticket.
+    A failed or interrupted job is never resumed or replayed: it stays collectable under its own ticket, and
+    asking again for the same review is a new job with a new ticket. A changed request gets a new auditable ticket.
     """
     args = _job_call_args(argv)
     prepared = _prepare_job(cwd, args)
@@ -765,8 +789,9 @@ def start_job(cwd: Path, root: Path, argv: list[str]) -> str:
         for path in sorted((root / JOBS_DIR).glob("RJ-*.json")):
             job = _read_job(root, path.stem)
             if job.get("request_key") == prepared["request_key"]:
-                _refresh_job(root, job)
-                return job["ticket"]
+                job = _refresh_job(root, job)
+                if job["status"] == "running" or job["answer"].get("ok"):
+                    return job["ticket"]
         ticket = f"RJ-{uuid.uuid4().hex[:12]}"
         job = {"ticket": ticket, "argv": argv, "status": "running", "phase": "queued", "started_at": now(),
                "request_key": prepared["request_key"], "request": prepared["identity"],
@@ -810,6 +835,8 @@ def _worker_active(root: Path, job: dict) -> bool:
     proc = _JOB_CHILDREN.get(job["ticket"])
     if proc is not None and proc.poll() is not None:
         del _JOB_CHILDREN[job["ticket"]]
+    # Probed only under the job lock (_refresh_job), the lock a worker claims its lease under (_run_job): this brief
+    # hold can never make a starting worker give up.
     with _lease_path(root, job["ticket"]).open("a") as lease:
         try:
             fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
@@ -961,11 +988,13 @@ def _run_job(cwd: Path, root: Path, ticket: str) -> int:
     """A single-use worker lease prevents duplicate dispatch even across processes or repeated run-job calls."""
     path = _job_file(root, ticket)
     with _lease_path(root, ticket).open("a") as lease:
-        try:
-            fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
-        except BlockingIOError:
-            return 0
         with _JobLock(root):
+            # Liveness probes hold the lease only under this lock, so it is busy here only while another worker
+            # owns the job.
+            try:
+                fcntl.flock(lease, fcntl.LOCK_EX | fcntl.LOCK_NB)
+            except BlockingIOError:
+                return 0
             job = _read_job(root, ticket)
             if job["status"] != "running" or job.get("worker_started_at"):
                 return 0  # a claimed/interrupted job is never replayed

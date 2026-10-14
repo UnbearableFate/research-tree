@@ -2,6 +2,7 @@
 """Codex workflow/context and file guards. This guardrail is not an OS security boundary."""
 from __future__ import annotations
 
+import fnmatch
 import json
 import os
 import re
@@ -16,6 +17,16 @@ from codex_state import actor_key, cache_dir, locked, project_dir, read_json, wr
 ROOT = Path(__file__).resolve().parents[1]
 CONFIG = "research-tree.yaml"
 SHELL_BOUNDARIES = {";", "&&", "||", "|", "&", "\n"}
+REDIRECTS = re.compile(r"[<>]+|>\||&>|>&|<&")
+WRITE_REDIRECTS = {">", ">>", ">|", "&>", ">&"}
+WRITERS = {"rm", "mv", "dd", "truncate", "sqlite3", "shred", "tee"}
+WILDCARD = re.compile(r"[*?[]")
+HEREDOC = re.compile(r"(?<!<)<<(?!<)(-?)[ \t]*(['\"]?)([A-Za-z_][\w.-]*)\2")
+PATCH_PATHS = re.compile(r"^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+)$", re.M)
+# The adapter's own entry points run as the identity they are given (codex_runtime.py --actor rld/main) or record
+# what a hook observed; Codex starts them, a session's shell does not.
+ADAPTER_ENTRIES = {"codex_runtime.py", "codex_cli.py", "codex_mcp.py", "codex_agent.py", "codex_hook.py"}
+ADVISOR_READ_ONLY = "研究顾问只读文件与科学记录；返回建议与来源，由Leader保存。"
 # research_db.READ_METHODS; the hook runs without the project's packages, so the list is repeated (a test keeps
 # the two equal).
 READ_METHODS = {"help", "get", "find", "edges", "children", "history", "go_candidates", "latest_result",
@@ -41,29 +52,49 @@ def deny(reason):
                                     "permissionDecisionReason": f"research-tree: {reason}"}}
 
 
-def protected(path, cwd, summary, db, actor="rld/main"):
-    target = (cwd / path).resolve()
-    if target == db or str(target).startswith(str(db) + "-"):
+def operand(path, cwd):
+    """A path operand as the shell reaches it: ~ expanded and the literal components resolved against cwd;
+    components from the first shell wildcard on stay patterns (see reaches)."""
+    parts = Path(os.path.expanduser(str(path))).parts
+    first = next((i for i, part in enumerate(parts) if WILDCARD.search(part)), len(parts))
+    literal = Path(*parts[:first])
+    return (literal if literal.is_absolute() else cwd / literal).resolve().joinpath(*parts[first:])
+
+
+def reaches(target, path, inside=False):
+    """Whether target names path (inside: path or anything under it). A wildcard component matches one name, as
+    in the shell, against the protected name itself: a WAL file that appears only while the database is open is
+    protected before it exists."""
+    if not WILDCARD.search(str(target)):
+        return target == path or (inside and path in target.parents)
+    if len(target.parts) < len(path.parts) or (len(target.parts) > len(path.parts) and not inside):
+        return False
+    return all(fnmatch.fnmatchcase(name, pattern) for pattern, name in zip(target.parts, path.parts))
+
+
+def protected(path, cwd, summary, db, actor):
+    target = operand(path, cwd)
+    if reaches(target, db) or str(target).startswith(f"{db}-") or any(
+            reaches(target, Path(f"{db}-{suffix}")) for suffix in ("wal", "shm", "journal")):
         return "不要直接改数据库文件；调用 research_db。"
-    if target == db.parent.parent.parent / CONFIG and actor != "rld/main":
+    if reaches(target, db.parent.parent.parent / CONFIG) and actor != "rld/main":
         # the Leader edits it when the user asks (then research_control config apply with the user's words)
         return f"{CONFIG} 只由用户或按用户指示的 Leader（主会话）修改，{actor} 不写它；需要变更时交给 Leader。"
     guards = summary.get("guards", {})
-    if any(target == Path(p).resolve() for p in guards.get("frozen_docs", [])):
+    if any(reaches(target, Path(p).resolve()) for p in guards.get("frozen_docs", [])):
         return "这是已生效文档；写 vN+1 并登记为新版本。"
-    for prefix in guards.get("harness", []):
-        base = Path(prefix).resolve()
-        if target == base or base in target.parents:
-            return "节点不能修改冻结的实验框架或统计代码。"
+    if any(reaches(target, Path(prefix).resolve(), inside=True) for prefix in guards.get("harness", [])):
+        return "节点不能修改冻结的实验框架或统计代码。"
     return None
 
 
 def research_calls(tokens):
-    """The research_db.py / research_tree.py calls among shell tokens: (script, actor named, method or subcommand)."""
+    """The research tools and adapter entry points among shell tokens: (script, actor named, method or
+    subcommand)."""
     calls = []
     for i, token in enumerate(tokens):
         script = Path(token).name
-        if script not in {"research_db.py", "research_tree.py", "review_call.py"}:
+        if script not in {"research_db.py", "research_tree.py", "review_call.py"} | ADAPTER_ENTRIES:
             continue
         actor = method = None
         j = i + 1
@@ -105,12 +136,20 @@ def reviewer_bypass(tokens):
 
 def call_block(calls, actor):
     """Only the RLD drives the tools from a shell; a worker acts as itself, any other session only reads. No one
-    writes as the reviewer: reviews are registered by review_call.py alone."""
+    writes as the reviewer: reviews are registered by review_call.py alone. The observed model and the
+    confirmation phase are recorded in-process by the adapter (hooks, confirm), never from a shell."""
     for script, named, method in calls:
         if script == "research_db.py" and (named or "").startswith("reviewer/"):
             return "reviewer 身份只属于 review_call.py；评审用 research_review。"
         if script == "review_call.py" and actor != "rld/main":
             return f"{actor} 不发起评审：由 Leader 用 research_review 组织。"
+        if script == "codex_hook.py":
+            return "codex_hook.py 只由 Codex hooks 运行：会话地址与观察到的模型不从 shell 记录。"
+        if script == "research_tree.py" and method in {"agent-log", "phase"}:
+            return (f"research_tree.py {method} 由插件在进程内调用（hook 观察到的模型、立项确认流程），不从 shell 运行；"
+                    "确认用 research_control confirm，阶段用 research_control status 查看。")
+        if script in ADAPTER_ENTRIES and actor != "rld/main":
+            return f"{actor} 不运行插件入口 {script}：身份由控制器固定，用本会话的 MCP research_tree 工具。"
     if actor == "rld/main":
         return None
     for script, named, method in calls:
@@ -128,11 +167,12 @@ def call_block(calls, actor):
 
 
 def copy_destinations(tokens, start, cwd):
-    """Literal cp operands: sources are reads, including when copying into a directory."""
+    """Literal cp operands: sources are reads, including when copying into a directory. cwd is None after a cd
+    that cannot be resolved: a relative destination is then returned as written (and refused)."""
     operands, target = [], None
     no_directory = parents = literal = False
     i = start
-    while i < len(tokens) and tokens[i] not in SHELL_BOUNDARIES and not re.fullmatch(r"[<>]+|>\||&>", tokens[i]):
+    while i < len(tokens) and tokens[i] not in SHELL_BOUNDARIES and not REDIRECTS.fullmatch(tokens[i]):
         token = tokens[i]
         if literal:
             operands.append(token)
@@ -159,11 +199,72 @@ def copy_destinations(tokens, start, cwd):
         if len(operands) < 2:
             return [], i
         target = operands.pop()
-    destination = (cwd / target).resolve()
+    if cwd is None and not os.path.isabs(os.path.expanduser(target)):
+        return [target], i
+    destination = operand(target, cwd)
     paths = [destination]
     if not no_directory and destination.is_dir():
         paths += [destination / (source.lstrip("/") if parents else Path(source).name) for source in operands]
     return paths, i
+
+
+def cd_target(tokens, start, cwd):
+    """The directory a cd (operands from tokens[start]) moves to, or None when it is not known statically: a
+    variable, command substitution, wildcard, cd -, ~+/~-, or a relative move from an unknown directory."""
+    operands, i = [], start
+    while i < len(tokens) and tokens[i] not in SHELL_BOUNDARIES:
+        token = tokens[i]
+        if REDIRECTS.fullmatch(token):
+            i += 2  # the redirection and its target
+            continue
+        descriptor = token.isdigit() and i + 1 < len(tokens) and REDIRECTS.fullmatch(tokens[i + 1])
+        if not descriptor and not (not operands and re.fullmatch(r"-[LPe@]+|--", token)):
+            operands.append(token)
+        i += 1
+    if not operands:
+        return Path(os.environ["HOME"]).resolve() if os.environ.get("HOME") else None
+    target = os.path.expanduser(operands[0])
+    if len(operands) > 1 or target == "-" or target.startswith("~") or re.search(r"[$`*?[]", target) \
+            or (cwd is None and not os.path.isabs(target)):
+        return None
+    return (Path(target) if os.path.isabs(target) else cwd / target).resolve()
+
+
+def in_place(program, tokens, start):
+    """sed/perl options that edit files in place: -i alone or in an option cluster before any option that takes the
+    rest as its argument (-i.bak, -Ei, -ni, -pi), or sed's --in-place (getopt also accepts it abbreviated)."""
+    cluster = r"-[^-efl]*i" if program == "sed" else r"-[^-eEMmIxCdDF]*i"
+    for token in tokens[start:]:
+        if token in SHELL_BOUNDARIES:
+            return False
+        flag = token.partition("=")[0]
+        if re.match(cluster, token) or (program == "sed" and flag.startswith("--i") and "--in-place".startswith(flag)):
+            return True
+    return False
+
+
+def words(command):
+    """Shell words and operators (boundaries, redirections) of one command text."""
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|<>\n")
+    lexer.whitespace = " \t\r"
+    return [part for token in lexer for part in (re.findall(r"&&|\|\||&>|>&|<&|>\||>>|<<|[;&|<>\n]", token)
+                                                  if re.fullmatch(r"[;&|<>\n]+", token) else [token])]
+
+
+def heredocs(command):
+    """Split here-document bodies off a command: (the command without them, the bodies). A body is data, often
+    with unbalanced quotes (a patch), or a script its reader runs (bash <<EOF)."""
+    lines, kept, bodies, i = command.split("\n"), [], [], 0
+    while i < len(lines):
+        kept.append(lines[i])
+        i += 1
+        for match in HEREDOC.finditer(kept[-1]):
+            end = i
+            while end < len(lines) and (lines[end].lstrip("\t") if match.group(1) else lines[end]) != match.group(3):
+                end += 1
+            bodies.append("\n".join(lines[i:end]))
+            i = end + 1
+    return "\n".join(kept), bodies
 
 
 def authoritative_guards(project, marker):
@@ -196,23 +297,26 @@ def guard(event, cwd, marker, project):
     actor = os.environ.get("RESEARCH_TREE_ACTOR", "rld/main")
     authority = None
 
-    def check(path):
+    def check(path, base=cwd):
         nonlocal authority
-        fixed = protected(path, cwd, {}, db, actor)
+        if base is None and not os.path.isabs(os.path.expanduser(str(path))):
+            return ("命令中 cd 的目标无法静态确定（变量、命令替换、通配符或 cd -），其后的相对路径写入不放行；"
+                    "改用确定的目录或绝对路径。")
+        fixed = protected(path, base, {}, db, actor)
         if fixed:
             return fixed
         try:
             if authority is None:
                 authority = authoritative_guards(project, marker)
-            return protected(path, cwd, authority, db, actor)
+            return protected(path, base, authority, db, actor)
         except Exception as exc:
             return f"无法核验最新的研究文件保护状态，已拒绝本次写入；恢复项目数据库访问后重试：{str(exc)[:300]}"
 
     if name in {"apply_patch", "Edit", "Write", "NotebookEdit"}:
-        if os.environ.get("RESEARCH_TREE_ACTOR", "rld/main").startswith(("explorer/", "analyst/")):
-            return "研究顾问只读文件与科学记录；返回建议与来源，由Leader保存。"
+        if actor.startswith(("explorer/", "analyst/")):
+            return ADVISOR_READ_ONLY
         patch = args.get("command", args.get("input", ""))
-        paths = re.findall(r"^\*\*\* (?:Add File|Update File|Delete File|Move to): (.+)$", patch, re.M)
+        paths = PATCH_PATHS.findall(patch)
         paths += [args[k] for k in ("file_path", "notebook_path") if args.get(k)]
         for path in paths:
             reason = check(path)
@@ -220,45 +324,93 @@ def guard(event, cwd, marker, project):
                 return reason
     if name in {"Bash", "exec_command", "shell", "shell_command"}:
         command = args.get("command", args.get("cmd", ""))
-        if isinstance(command, list):
-            command = shlex.join(command)
-        # Shell parsing is deliberately bounded: direct writes, redirection, wrappers,
+        if isinstance(command, list):  # argv, e.g. ["apply_patch", patch]
+            text, (command, bodies) = "\n".join(command), (shlex.join(command), [])
+        else:
+            text = command if isinstance(command, str) else ""
+            command, bodies = heredocs(text)
+        workdir = args.get("workdir")  # exec_command runs there; relative operands start from it
+        start = (cwd / os.path.expanduser(workdir)).resolve() if isinstance(workdir, str) and workdir else cwd
+
+        def writes(tokens, base):
+            """The first refused write among shell words, and the directory the shell ends in (None: unknown)."""
+            writer = moved = previous = None
+            copy_end = -1
+            for i, token in enumerate(tokens):
+                if i < copy_end:
+                    continue
+                if token in SHELL_BOUNDARIES:
+                    if moved and moved[1] != "|" and token not in {"|", "&"}:
+                        base = moved[0]  # a cd in a pipeline or background job changes only its subshell
+                    writer = moved = None
+                    previous = token
+                    continue
+                if REDIRECTS.fullmatch(token) or (token.isdigit() and i + 1 < len(tokens)
+                                                  and REDIRECTS.fullmatch(tokens[i + 1])):
+                    continue
+                if i > 0 and REDIRECTS.fullmatch(tokens[i - 1]):
+                    # the redirection's target; >&2 and >&- duplicate or close a descriptor
+                    if tokens[i - 1] in WRITE_REDIRECTS and not (tokens[i - 1] == ">&"
+                                                                 and (token.isdigit() or token == "-")):
+                        reason = check(token, base)
+                        if reason:
+                            return reason, base
+                    continue
+                name = Path(token).name
+                if name == "cd" and (i == 0 or tokens[i - 1] in SHELL_BOUNDARIES):
+                    moved = (cd_target(tokens, i + 1, base), previous)
+                    continue
+                if name == "cp":
+                    paths, copy_end = copy_destinations(tokens, i + 1, base)
+                    for path in paths:
+                        reason = check(path, base)
+                        if reason:
+                            return reason, base
+                    continue
+                if name in {"apply_patch", "applypatch"}:  # Codex's patch tool, run from the shell
+                    if actor.startswith(("explorer/", "analyst/")):
+                        return ADVISOR_READ_ONLY, base
+                    for path in PATCH_PATHS.findall(text):
+                        reason = check(path, base)
+                        if reason:
+                            return reason, base
+                    continue
+                if name in WRITERS or (name in {"sed", "perl"} and in_place(name, tokens, i + 1)):
+                    writer = name
+                    continue
+                if writer == "dd" and token.startswith("of="):
+                    token = token[3:]  # dd writes only its of= operand
+                elif writer in {None, "dd"} or token.startswith("-"):
+                    continue
+                reason = check(token, base)
+                if reason:
+                    return reason, base
+            if moved and moved[1] != "|":
+                base = moved[0]
+            return None, base
+
+        # Shell parsing is deliberately bounded: direct writes, redirection, wrappers, cd, wildcards
         # and literal protected paths. Arbitrary Python/shell indirection is not sandboxed.
         try:
-            lexer = shlex.shlex(command, posix=True, punctuation_chars=";&|<>\n")
-            lexer.whitespace = " \t\r"
-            tokens = [part for token in lexer for part in (re.findall(r"&&|\|\||&>|>\||>>|<<|[;&|<>\n]", token)
-                      if re.fullmatch(r"[;&|<>\n]+", token) else [token])]
+            tokens = words(command)
         except ValueError:
             return None  # let the shell report its own syntax error
-        blocked = (reviewer_bypass(tokens) or
-                   call_block(research_calls(tokens), actor))
-        if blocked:
-            return blocked
-        writer = False
-        copy_end = -1
-        for i, token in enumerate(tokens):
-            if i < copy_end:
-                continue
-            if token in SHELL_BOUNDARIES:
-                writer = False
-                continue
-            if Path(token).name == "cp":
-                paths, copy_end = copy_destinations(tokens, i + 1, cwd)
-                for path in paths:
-                    reason = check(path)
-                    if reason:
-                        return reason
-                continue
-            if Path(token).name in {"rm", "mv", "dd", "truncate", "sqlite3", "shred", "tee"}:
-                writer = True
-            if Path(token).name in {"sed", "perl"} and any(t.startswith("-i") for t in tokens[i + 1:]):
-                writer = True
-            redirect = i > 0 and tokens[i - 1] in {">", ">>", ">|", "&>"}
-            if writer or redirect:
-                reason = check(token)
-                if reason:
-                    return reason
+        scripts = [tokens]
+        for body in bodies:
+            if body.lstrip().startswith("*** Begin Patch"):
+                continue  # apply_patch's input: writes() checks its file headers where apply_patch runs
+            try:
+                scripts.append(words(body))
+            except ValueError:
+                continue  # data that is not shell words
+        for script in scripts:
+            blocked = reviewer_bypass(script) or call_block(research_calls(script), actor)
+            if blocked:
+                return blocked
+        reason, end = writes(tokens, start)
+        for script in scripts[1:]:  # a here-document read as a script (bash <<EOF) starts where its command ran
+            reason = reason or writes(script, end)[0]
+        return reason
     return None
 
 

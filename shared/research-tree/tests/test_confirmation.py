@@ -118,6 +118,33 @@ class S2Test(ConfirmationTest):
         self.owner_for_run(run).update_run(run, exec_status="cancelled")
         self.assertEqual(len([e for e in self.rld.material_usage()["events"] if e["experiment"] == conf]), 1)
 
+    def test_material_is_in_use_once_a_submission_is_claimed(self):
+        """A claimed submission may reach the scheduler even when the run is later reported cancelled from planned."""
+        self.confirm_baseline()
+        conf = self.confirm(self.h, self.exp)
+        run = f"{conf}/s1042"
+        owner = self.owner_for(conf)
+        owner.create_run(conf, 1042)
+        owner.reserve_submission("k-confirm", [f"{run}@1"], {"nodes": 1, "walltime_s": 60})
+        owner.claim_submission("k-confirm")
+        events = [(e["run"], e["event"]) for e in self.rld.material_usage()["events"] if e["experiment"] == conf]
+        self.assertEqual(events, [(f"{run}@1", "claimed")])
+        self.owner_for_run(run).update_run(run, exec_status="cancelled")
+        h2, _ = self.candidate_ready()
+        cand2 = self.rld.freeze_candidate(h2, self.rld.get_eligibility(h2)["basis_evaluation_id"])
+        with self.assertRaisesRegex(ResearchDBError, "CONFIRMATION_MATERIAL_REUSED"):
+            self.rld.create_confirmation_batch([cand2], "c1")
+
+    def test_a_failed_confirmation_is_not_tried_again_on_new_material(self):
+        """INV-03: a method is confirmed once; a negative confirmation stands."""
+        self.confirm_baseline()
+        first = self.confirm(self.h, self.exp)
+        self.assertEqual(self.evaluate(first, sota=(-0.3, 0.0, 0.0))["outcome"], "negative_signal")
+        candidate = self._batch(self.batch_id)["candidates"][0]
+        with self.assertRaisesRegex(ResearchDBError, "CONFIRMATION_REUSED"):
+            self.rld.create_confirmation_batch([candidate], "c2")
+        self.assertIn("CONFIRMATION_FAILED", self.rld.get_eligibility(self.h)["reasons"])
+
     def test_reg_s2_05_distinct_methods_share_a_frozen_batch_and_baseline(self):
         # Distinct methods share one predeclared batch and matching baseline, not duplicate trials
         code = self.commit()

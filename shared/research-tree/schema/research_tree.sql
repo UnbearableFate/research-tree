@@ -280,6 +280,7 @@ CREATE TABLE run (
     output_path         TEXT,
     started_at          TEXT,
     finished_at         TEXT,
+    submitted_at        TEXT,                  -- 本 attempt 首次进入 submitted/unknown/running 的时间；由接口写入，不能报告
     -- 产物导入（import_run_result）：冻结解析器从 manifest 读出的指标与身份
     manifest_path       TEXT,                  -- 运行 manifest（JSON），相对研究根目录
     manifest            JSON,                  -- manifest 中配对与协议核对用的字段（seed、数据版本、计数等）
@@ -441,6 +442,7 @@ CREATE TABLE document (
     followup            JSON,                  -- review：为本回执的 requested_queries 执行的补查 {manifest, sha256, queries, at}
     literature_check    TEXT,                  -- literature：verify_literature 的可追溯性结果（verified / unverified）
     literature_check_detail TEXT,              -- 核验方法与说明（arxiv / crossref / semantic_scholar_title …）
+    frozen_at           TEXT,                  -- 设为现行（set_document_current，记录哈希）的时间；由接口写入
     created_at          TEXT NOT NULL
 );
 

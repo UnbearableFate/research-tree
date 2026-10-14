@@ -124,14 +124,17 @@ declare module 'claude-code' {
       error: string | null
       refreshedAt: string | null
       chat: ResearchChatEntry[]
-      /** The UI subagent run answering the person's last message, while it runs. */
+      /** The UI subagent run answering the person's message, while it runs (one run at a time: a message sent
+       *  meanwhile waits for it). */
       uiAgentId: string | null
       /** That run's outbox id, the person's message it answers (verbatim, with its window id) and which attempt
        *  at it this is (a run that left nothing is retried once). */
       uiRun: { run: string; message: string; messageId?: string; attempt: number } | null
       /** The project of the session's directory; null when there is none. */
       project: ResearchProject | null
-      /** Subagent runs the mod started: agentId -> worker/architect node identity, explorer/main, analyst/main, or ui/ui. */
+      /** Subagent runs the mod started: agentId -> worker/architect node identity, explorer/main, analyst/main, or ui/ui.
+       *  A node identity belongs to one session: a takeover drops the replaced session's entry, and the database's
+       *  session binding outranks an entry it contradicts. */
       agents: Record<string, string>
       /** The project configuration in effect; null without a project environment. */
       config: ResearchConfigView | null

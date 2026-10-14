@@ -33,8 +33,14 @@ c1 / c2 随项目交付，因此这些是非盲功能测试；私有评估必须
 2. `python3 scripts/make_rt_test_project.py <新项目目录> --host claude --stage FAST --case SC-FAST-01`
 3. 用实际宿主加载本次构建，从当前入口开始新项目；采用 `rld/main`、`ui/ui`、`architect/root`、
    `worker/h…`、`explorer/main`、`analyst/main` 的唯一角色合同。根框架与基线由 architect 负责
-4. `python3 scripts/scenarios/observe.py <项目目录> --tools dist/<host>/plugins/research-tree/tools --out <记录目录>/observer.json`
+4. `.venv/bin/python scripts/scenarios/observe.py <项目目录> --tools dist/<host>/plugins/research-tree/tools --out <记录目录>/observer.json`
 5. 用 `record.py new` 建立记录，保存实际会话、观测模型与 effort、评审原始输出、恢复前后快照，最后 `record.py validate`
 
+`observe.py`、`db_snapshot.py`、`usage_snapshot.py` 在进程内导入 research_db，须用仓库的 `.venv/bin/python` 运行
+（系统 `python3` 没有 latticedb）；`../benchmark/score.py` 在 `.venv` 存在时用它启动 research_db。
+`record.py` 只认非空普通文件作为会话、原始证据、评审原始输出与恢复前后快照，且须位于该场景的证据位置：
+记录目录、记录树中同阶段同宿主的目录（如 `evidence-aNN/`）、场景项目及其 `<项目>.ctl/`。
+
 回归检查：`python3 scripts/run_tests.py --suite repo test_scenarios test_benchmark test_attempt_metrics test_private_eval`。
-完整检查按仓库要求执行全部套件。回归 fixture 与单元测试通过不能替代真实宿主会话的验证。
+完整检查按仓库要求执行全部套件；Codex 适配器套件每次从当前源码构建到临时目录后运行，不读取也不改写 `dist/`。
+回归 fixture 与单元测试通过不能替代真实宿主会话的验证。

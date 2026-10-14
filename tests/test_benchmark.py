@@ -53,50 +53,71 @@ class ScoreTest(unittest.TestCase):
             score.group(mixed)
 
     def event_tables(self, status="go"):
-        return {"project": [{"id": "P-1", "status": status}], "run": [],
-                "hypothesis": [{"id": "H-1", "disposition": "active"}],
-                "experiment": [{"id": "E-1", "hypothesis_id": "H-1", "kind": "method"}], "evaluation": [],
-                "decision": [{"id": "DEC-1", "target_id": "P-1", "field": "status", "to_value": "go",
-                              "decided_at": "t", "based_on": []}], "reservation": [], "document": []}
+        """The parts of a real export_snapshot the scorer reads: a project decision's field is project_status and
+        its evidence is the rel_based_on edge, never a column of the decision."""
+        tables = {"project": [{"id": "P-1", "status": status, "admission_paused": None, "review_cost_usd": 0.0}],
+                  "run": [], "hypothesis": [{"id": "H-0001", "disposition": "active", "experiment_status": "running"}],
+                  "experiment": [{"id": "E-0002", "hypothesis_id": "H-0001", "kind": "method", "stage": "screen"}],
+                  "evaluation": [],
+                  "decision": [{"id": "DEC-0004", "target_id": "P-1", "field": "project_status", "from_value": "active",
+                                "to_value": "go", "reason": "GO", "doc_id": "D-0010", "decided_by": "main",
+                                "decided_at": "2026-10-14T00:00:00Z", "basis": None}],
+                  "reservation": [], "document": []}
+        return tables, {"rel_based_on": []}
+
+    def imported_run(self, root: Path, exp_id: str, metrics: dict, seed: int = 42) -> dict:
+        """A valid run as import_run_result leaves it: its metrics file first in evidence_paths (relative to the
+        research root) and that file's hash in import_record."""
+        rel = f"outputs/{exp_id}/s{seed}/metrics.json"
+        (root / rel).parent.mkdir(parents=True, exist_ok=True)
+        (root / rel).write_text(json.dumps(metrics))
+        return {"id": f"{exp_id}/s{seed}", "experiment_id": exp_id, "seed": seed, "attempt": 1,
+                "exec_status": "succeeded", "valid": True, "manifest_path": f"outputs/{exp_id}/s{seed}/run_manifest.json",
+                "evidence_paths": [rel, f"outputs/{exp_id}/s{seed}/predictions.jsonl"],
+                "import_record": {"metrics_sha256": hashlib.sha256((root / rel).read_bytes()).hexdigest()}}
 
     def test_go_requires_exact_candidate_evidence(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            tables = self.event_tables()
-            tables["decision"][0]["reason"] = "E-1 seems to help"
+            tables, edges = self.event_tables()
+            tables["decision"][0]["reason"] = "E-0002 seems to help"
             # A status label or a mention in prose cannot identify a GO candidate.
             tables["hypothesis"][0]["experiment_status"] = "beats_sota"
             with self.assertRaisesRegex(ValueError, "explicit based_on"):
-                score.events(tables, root, "current", "codex", "v", "gpt-6-luna", "completed", None)
-            tables["decision"][0]["based_on"] = ["E-1"]
+                score.events(tables, edges, root, "current", "codex", "v", "gpt-6-luna", "completed", None)
+            # nor can another decision's evidence
+            edges["rel_based_on"] = [{"source_id": "DEC-0003", "target_id": "E-0002"}]
+            with self.assertRaisesRegex(ValueError, "explicit based_on"):
+                score.events(tables, edges, root, "current", "codex", "v", "gpt-6-luna", "completed", None)
+            edges["rel_based_on"] = [{"source_id": "DEC-0004", "target_id": "E-0002"}]
             with self.assertRaisesRegex(ValueError, "lacks explicit REG knob artifacts"):
-                score.events(tables, root, "current", "codex", "v", "gpt-6-luna", "completed", None)
-            (root / "metrics.json").write_text(json.dumps({"evidence_class": "reg", "knobs": ["ema"]}))
-            tables["run"] = [{"id": "E-1/s42", "experiment_id": "E-1", "valid": True,
-                              "metrics_path": "metrics.json"}]
-            tables["evaluation"] = [{"id": "EV-1", "experiment_id": "E-1"}]
-            tables["decision"][0]["based_on"] = ["E-1", "EV-1"]
+                score.events(tables, edges, root, "current", "codex", "v", "gpt-6-luna", "completed", None)
+            tables["run"] = [self.imported_run(root, "E-0002", {"accuracy": 0.81, "evidence_class": "reg",
+                                                                 "knobs": ["ema"]})]
+            tables["evaluation"] = [{"id": "EV-0003", "experiment_id": "E-0002"}]
+            edges["rel_based_on"] = [{"source_id": "DEC-0004", "target_id": "E-0002"},
+                                     {"source_id": "DEC-0004", "target_id": "EV-0003"}]
             # A later unrelated method must not replace the explicitly cited experiment.
-            tables["experiment"].append({"id": "E-10", "hypothesis_id": "H-1", "kind": "method"})
-            ep = score.events(tables, root, "current", "codex", "v", "gpt-6-luna", "completed", None)
+            tables["experiment"].append({"id": "E-0010", "hypothesis_id": "H-0001", "kind": "method"})
+            ep = score.events(tables, edges, root, "current", "codex", "v", "gpt-6-luna", "completed", None)
             self.assertEqual([(c["node"], c["experiment_id"], c["knobs"]) for c in ep["go_candidates"]],
-                             [("H-1", "E-1", ["ema"])])
+                             [("H-0001", "E-0002", ["ema"])])
             self.assertIsNone(ep["tested"][1]["knobs"])
-            tables["decision"][0]["based_on"] = ["E-10"]
-            with self.assertRaisesRegex(ValueError, "E-10 lacks"):
-                score.events(tables, root, "current", "codex", "v", "gpt-6-luna", "completed", None)
+            edges["rel_based_on"] = [{"source_id": "DEC-0004", "target_id": "E-0010"}]
+            with self.assertRaisesRegex(ValueError, "E-0010 lacks"):
+                score.events(tables, edges, root, "current", "codex", "v", "gpt-6-luna", "completed", None)
 
     def test_zero_usage_and_missing_knob_evidence_are_not_reinterpreted(self):
-        tables = self.event_tables("active")
+        tables, edges = self.event_tables("active")
         tables["decision"] = []
         tables["reservation"] = [{"actual_units": 0, "reserved_units": 100, "accounting_status": "settled"}]
-        ep = score.events(tables, Path("/nonexistent"), "current", None, None, None, None, None)
+        ep = score.events(tables, edges, Path("/nonexistent"), "current", None, None, None, None, None)
         self.assertEqual(ep["node_seconds"], 0)
         scored = score.score_episode(ep, {"evidence_class": "reg", "best": []})
-        self.assertEqual((scored["coverage"], scored["unscored_experiments"]), (0, ["E-1"]))
+        self.assertEqual((scored["coverage"], scored["unscored_experiments"]), (0, ["E-0002"]))
         tables["project"][0]["status"] = "closed_not_go"
         with self.assertRaisesRegex(ValueError, "unsupported project status"):
-            score.events(tables, Path("/nonexistent"), "current", None, None, None, None, None)
+            score.events(tables, edges, Path("/nonexistent"), "current", None, None, None, None, None)
 
     def test_formula_scoring_cannot_masquerade_as_real_evidence(self):
         episode = self.episode(candidates=[["ema"]])
@@ -122,28 +143,46 @@ class ScoreTest(unittest.TestCase):
             project = Path(tmp)
             (project / ".research-tree.json").write_text(json.dumps({"format_version": 3, "db": "fixture.db", "root": tmp}))
             for version in (22, 23):
-                exported = {"ok": True, "result": {"meta": {"schema_version": version}, "tables": {}}}
+                exported = {"ok": True, "result": {"meta": {"schema_version": version}, "tables": {}, "edges": {}}}
                 with mock.patch.object(score.subprocess, "run", return_value=subprocess.CompletedProcess(
                         args=[], returncode=0, stdout=json.dumps(exported))) as run:
                     if version == 22:
                         with self.assertRaisesRegex(ValueError, "schema 23"):
                             score.snapshot(project, Path("/tools"))
                     else:
-                        self.assertEqual(score.snapshot(project, Path("/tools")), ({}, project))
+                        self.assertEqual(score.snapshot(project, Path("/tools")), ({}, {}, project))
                     argv = run.call_args.args[0]
                     self.assertEqual(argv[argv.index("--actor") + 1], "ui/ui")
+
+    def test_snapshot_runs_research_db_under_the_repository_environment(self):
+        """The system python3 lacks the database's dependencies: the export runs under the repository's .venv
+        whenever it exists, whichever interpreter runs the scorer."""
+        venv = ROOT / ".venv" / "bin" / "python"
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            (project / ".research-tree.json").write_text(json.dumps({"format_version": 3, "db": "fixture.db", "root": tmp}))
+            exported = {"ok": True, "result": {"meta": {"schema_version": 23}, "tables": {}, "edges": {}}}
+            with mock.patch.object(score.subprocess, "run", return_value=subprocess.CompletedProcess(
+                    args=[], returncode=0, stdout=json.dumps(exported))) as run:
+                score.snapshot(project, Path("/tools"))
+            self.assertEqual(run.call_args.args[0][0], str(venv) if venv.is_file() else sys.executable)
 
     def test_conflicting_or_unmarked_artifacts_never_identify_a_candidate(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            runs = [{"experiment_id": "E-1", "valid": True, "metrics_path": f"{i}.json"} for i in (1, 2)]
-            for i, knobs in ((1, ["ema"]), (2, ["clip"])):
-                (root / f"{i}.json").write_text(json.dumps({"evidence_class": "reg", "knobs": knobs}))
+            runs = [self.imported_run(root, "E-0002", {"evidence_class": "reg", "knobs": knobs}, seed)
+                    for seed, knobs in ((42, ["ema"]), (43, ["clip"]))]
             with self.assertRaisesRegex(ValueError, "disagree"):
-                score._knobs(root, runs, "E-1")
-            for i in (1, 2):
-                (root / f"{i}.json").write_text(json.dumps({"knobs": ["ema"]}))
-            self.assertIsNone(score._knobs(root, runs, "E-1"))
+                score._knobs(root, runs, "E-0002")
+            runs = [self.imported_run(root, "E-0002", {"knobs": ["ema"]}, seed) for seed in (42, 43)]
+            self.assertIsNone(score._knobs(root, runs, "E-0002"))
+            # a metrics file changed after its import is not the imported artifact
+            run = self.imported_run(root, "E-0002", {"evidence_class": "reg", "knobs": ["ema"]})
+            self.assertEqual(score._knobs(root, [run], "E-0002"), ["ema"])
+            (root / run["evidence_paths"][0]).write_text(json.dumps({"evidence_class": "reg", "knobs": ["clip"]}))
+            self.assertIsNone(score._knobs(root, [run], "E-0002"))
+            # a run reported without an import (no import_record) carries no artifact
+            self.assertIsNone(score._knobs(root, [{**run, "import_record": None}], "E-0002"))
 
     def test_task_truth_stays_outside_the_project(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -176,12 +215,19 @@ def make(dest: Path, scenario: str) -> dict:
     return json.loads((dest / "truth.json").read_text())
 
 
-def run(dest: Path, knobs, seed=1, lr=0.05):
+def run(dest: Path, knobs, seed=1, lr=0.05, epochs=8):
     env = {"PATH": "/usr/bin:/bin", "RT_BENCH_TRUTH": str(dest / "truth.json")}
     done = subprocess.run([sys.executable, "-m", "toytrain.train", "--seed", str(seed), "--out", str(dest / "o"),
-                           "--knobs", ",".join(knobs), "--lr", str(lr)], cwd=dest / "project" / "code", env=env,
-                          capture_output=True, text=True)
+                           "--knobs", ",".join(knobs), "--lr", str(lr), "--epochs", str(epochs)],
+                          cwd=dest / "project" / "code", env=env, capture_output=True, text=True)
     return json.loads(done.stdout)["accuracy"] if done.returncode == 0 else None
+
+
+def search_seeds(dest: Path) -> list[int]:
+    """The seeds the generated project's configuration runs its search on."""
+    import yaml
+    verification = yaml.safe_load((dest / "project" / "research-tree.yaml").read_text())["verification"]
+    return verification["screening_seeds"] + verification["replication_seeds"]
 
 
 class ScenarioTest(unittest.TestCase):
@@ -214,11 +260,12 @@ class ScenarioTest(unittest.TestCase):
     def test_runner_fault_leaves_a_real_failed_manifest_then_recovers(self):
         with tempfile.TemporaryDirectory() as tmp:
             dest = Path(tmp) / "t"
-            make(dest, "faults")
+            truth = make(dest, "faults")
+            seed = str(truth["faults"][0]["seed"])
             env = {**os.environ, "RT_BENCH_TRUTH": str(dest / "truth.json")}
             for attempt in (1, 2):
                 out = dest / f"out-{attempt}"
-                done = subprocess.run([sys.executable, "-m", "toytrain.run", "--experiment", "E-1", "--seed", "0",
+                done = subprocess.run([sys.executable, "-m", "toytrain.run", "--experiment", "E-1", "--seed", seed,
                                        "--attempt", str(attempt), "--out", str(out), "--knobs", "", "--epochs", "1"],
                                       cwd=dest / "project/code", env=env, capture_output=True, text=True)
                 self.assertEqual(done.returncode, 1 if attempt == 1 else 0, done.stderr)
@@ -240,30 +287,45 @@ class ScenarioTest(unittest.TestCase):
             dest = Path(tmp) / "t"
             truth = make(dest, "confound")
             knob = truth["confound"]
-            self.assertGreater(run(dest, [knob]) - run(dest, []), 0.01)  # the knob seems to help
-            self.assertAlmostEqual(run(dest, [knob]), run(dest, [], lr=0.1), delta=0.012)  # matched lr: same
+            # at the generated project's frozen reference setting, where its baseline and screening runs train
+            reference = json.loads((dest / "project/code/configs/reference.json").read_text())
+            lr, epochs = reference["lr"], reference["epochs"]
+            self.assertGreater(run(dest, [knob], lr=lr, epochs=epochs) - run(dest, [], lr=lr, epochs=epochs),
+                               0.01)  # the knob seems to help
+            self.assertAlmostEqual(run(dest, [knob], lr=lr, epochs=epochs), run(dest, [], lr=2 * lr, epochs=epochs),
+                                   delta=0.012)  # matched lr: same
 
     def test_faults_fail_once_then_recover(self):
         with tempfile.TemporaryDirectory() as tmp:
             dest = Path(tmp) / "t"
-            make(dest, "faults")
-            self.assertIsNone(run(dest, [], seed=0))
+            truth = make(dest, "faults")
+            seeds = {f["seed"] for f in truth["faults"]}
+            # the faults hit seeds the generated project really runs, not seeds no version-3 run uses
+            self.assertTrue(seeds and seeds <= set(search_seeds(dest)))
+            seed = min(seeds)
+            self.assertIsNone(run(dest, [], seed=seed))
+            self.assertIsNotNone(run(dest, [], seed=seed))
             self.assertIsNotNone(run(dest, [], seed=0))
 
 
 class GatherTest(unittest.TestCase):
-    def test_gather_reads_a_project_database(self):
+    def fixture(self):
+        """A real project database (the shared tests' Fixture) and the version-3 marker that points at it."""
         sys.path.insert(0, str(ROOT / "shared" / "research-tree" / "tests"))
         from test_research_db import Fixture
         fixture = type("F", (Fixture,), {"runTest": lambda self: None})()
         fixture.setUp()
         self.addCleanup(fixture.tearDown)
+        marker = fixture.root.parent.parent / ".research-tree.json"
+        marker.write_text(json.dumps({"format_version": 3, "db": str(fixture.db), "root": str(fixture.root)}))
+        return fixture, marker
+
+    def test_gather_reads_a_project_database(self):
+        fixture, marker = self.fixture()
         h = fixture.hypothesis()
         fixture.start(h)
         exp = fixture.method(h, n_seeds=1)
         fixture.finish_runs(fixture.worker, exp)
-        marker = fixture.root.parent.parent / ".research-tree.json"
-        marker.write_text(json.dumps({"format_version": 3, "db": str(fixture.db), "root": str(fixture.root)}))
         ep = score.normalize(marker.parent, ROOT / "shared" / "research-tree" / "tools", "C", "claude", "test")
         self.assertEqual(ep["outcome"], "active")
         self.assertGreaterEqual(ep["valid_runs"], 1)
@@ -278,6 +340,26 @@ class GatherTest(unittest.TestCase):
             result = json.loads(path.read_text())
             self.assertIn("tables" if name == "db_snapshot" else "material_usage", result)
         self.assertEqual(hashlib.sha256(fixture.db.read_bytes()).hexdigest(), before)
+
+    def test_a_recorded_go_names_its_candidate_from_the_snapshot(self):
+        """A GO made through the interface (a project_status decision whose evidence is a rel_based_on edge), on a
+        method whose runs were imported from REG-marked metrics files, yields exactly that candidate and knobs."""
+        fixture, marker = self.fixture()
+        h = fixture.hypothesis()
+        fixture.start(h)
+        exp = fixture.method(h)
+        fixture.effects[exp] = (fixture.sota, (0.3, 0.1, 0.1))
+        fixture.imported(exp, values={**fixture.values_for(exp), "evidence_class": "reg", "knobs": ["ema"]})
+        actor = fixture.owner_for(exp)
+        evaluation = actor.evaluate_experiment(exp, fixture.result_doc(actor=actor, exp=exp))["evaluation_id"]
+        fixture.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
+        fixture.recheck_pass(h, exp)
+        fixture.complete_confirmation(h, exp)
+        fixture.rld.decide("P-test", {"status": "go"}, "GO", doc_id=fixture.report_doc("go"), based_on=[evaluation])
+        ep = score.normalize(marker.parent, ROOT / "shared" / "research-tree" / "tools", "C", "claude", "test")
+        self.assertEqual(ep["outcome"], "go")
+        self.assertEqual([(c["node"], c["experiment_id"], c["knobs"]) for c in ep["go_candidates"]],
+                         [(h, exp, ["ema"])])
 
 if __name__ == "__main__":
     unittest.main()

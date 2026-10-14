@@ -202,6 +202,29 @@ class EffectTest(unittest.TestCase):
         self.assertTrue(metrics.passes(0.2, 0.2, ">="))
         self.assertFalse(metrics.passes(None, 0.0, ">="))
 
+    def test_a_rounded_tie_at_a_zero_gain_is_decided_by_the_comparison(self):
+        spec = {**ACC, "minimum_practical_gain": 0.0}
+        # 0.6 + 0.6 == 0.607 + 0.593: a zero mean difference in decimals, a few 1e-15 after conversion to points
+        effect = metrics.effect(spec, [metrics.canonical(spec, v, "x") for v in (0.6, 0.6)],
+                                [metrics.canonical(spec, v, "y") for v in (0.607, 0.593)])["delta_mean"]
+        for value in (effect, -effect, 0.0):
+            with self.subTest(value=value):
+                self.assertEqual(metrics.outcome(value, 0.0, 2, 2, ">")[0], "inconclusive")
+                self.assertEqual(metrics.outcome(value, 0.0, 2, 2, ">=")[0], "positive_signal")
+        self.assertFalse(metrics.passes(-4e-10, 0.0, ">="))  # a small real effect is not a tie
+        self.assertEqual(metrics.outcome(-4e-10, 0.0, 2, 2, ">")[0], "negative_signal")
+
+    def test_guardrail_and_repetition_advice_use_the_same_tie(self):
+        guard = {**ACC, "name": "acc_guard", "allowed_regression": 0.2}
+        specs = {"version": 1, "primary": "acc", "metrics": [ACC, guard]}
+        # exactly the allowed 0.2 points worse in decimals
+        effect = metrics.effect(guard, [metrics.canonical(guard, 0.699, "x")], [metrics.canonical(guard, 0.701, "y")])
+        self.assertTrue(metrics.guardrails(specs, {"metrics": {"acc_guard": effect}})["acc_guard"]["passed"])
+        diff = 0.701 * 100 - 0.699 * 100  # 0.2 in decimals, as the exact pairs of the advice test above
+        pairs = [{"diff": diff, "unit": "a"}, {"diff": diff, "unit": "b"}]
+        policy = {"enabled": True, "se_multiple": 2.0, "batch": 1, "seed_pool": [43]}
+        self.assertEqual(metrics.repetition_advice(ACC, pairs, 0.2, policy, [42], 10, 100)["advice"], "add_repeats")
+
 
 class GivenTest(unittest.TestCase):
     def test_rounding_cross_check(self):

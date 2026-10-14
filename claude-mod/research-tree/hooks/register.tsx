@@ -19,6 +19,7 @@ const VENV_PYTHON = '.venv/bin/python'
 const MARKER = '.research-tree.json'
 const CONFIG_FILE = 'research-tree.yaml'
 const ALERT_KIND = 'usage_alert'
+const STARTING = 'starting'  // an execution session being spawned, before the host returned its id
 // The host's longest wait for one process (process.run accepts 1..600000 ms).
 const MAX_PROCESS_MS = 600_000  // the host's cap on one process (ms)
 // research_db.READ_METHODS (a test keeps the two equal)
@@ -349,7 +350,7 @@ function projectDir(project: ResearchProject): string {
 }
 
 const CONFIG_REASON = `${CONFIG_FILE} 只由用户或按用户指示的 RLD（主会话）修改，子代理不写它；需要变更时交给 RLD。`
-const APPLY_WORDS = `RLD 运行 research_tree.py config apply 时用 --words 写明用户要求修改配置的原话（登记为用户指令）；或请用户运行 /${COMMAND} config apply。`
+const APPLY_WORDS = `RLD 运行 research_tree.py config apply 时用 --words 写明用户要求修改配置的原话（非空，登记为用户指令）；或请用户运行 /${COMMAND} config apply。`
 
 /** Paths a write must not touch: current/superseded documents, the harness inside node worktrees, and — for a
  *  subagent — the project configuration (`config`, its absolute path; the main session edits it when the user
@@ -369,23 +370,30 @@ function guardReason(s: Pick<ResearchSummary, 'guards'> | null | undefined, path
 
 /** File authorization never uses the deferred presentation cache. Read the DB-only projection for every
  *  write, including changes made in other sessions, and fail closed if its guard state is unavailable.
- *  Do not call refresh(): a broken status pane or alert must not affect authorization or committed DB writes. */
-async function guard($: EngineInterface, cfg: Config, path: string, agentId?: string): Promise<{ deny: string } | undefined> {
+ *  Do not call refresh(): a broken status pane or alert must not affect authorization or committed DB writes.
+ *  `written` are the paths one tool call writes (an edit's file, or a shell command's targets); a relative one is
+ *  taken from the session's directory, and devices (/dev/null) are no files. */
+async function guard($: EngineInterface, cfg: Config, written: string[], agentId?: string): Promise<{ deny: string } | undefined> {
+  if (!written.some(p => p && !p.startsWith('/dev/'))) return undefined
   try {
+    const cwd = written.some(p => p && !p.startsWith('/')) ? await $.session.cwd() : '/'
+    const paths = written.filter(Boolean).map(p => resolvePath(cwd, p)).filter(p => !p.startsWith('/dev/'))
+    if (!paths.length) return undefined
     const project = (await $.state.get(projectRef)).value ?? (await loadProject($, true))
     if (!project) return undefined
     // the project configuration is refused to a subagent; the main session edits it when the user asks
-    const fixed = guardReason(null, path, agentId !== undefined ? `${projectDir(project)}/${CONFIG_FILE}` : undefined)
+    const config = agentId !== undefined ? `${projectDir(project)}/${CONFIG_FILE}` : undefined
+    const fixed = paths.map(path => guardReason(null, path, config)).find(Boolean)
     if (fixed) return { deny: `${PLUGIN}: ${fixed}` }
     const out = await runTool($, cfg, 'build_site.py', ['--db', project.db, '--summary'], 30_000)
     if (out.exitCode !== 0) throw new Error(out.stderr.trim() || `exit ${out.exitCode}`)
     const snapshot = JSON.parse(out.stdout) as { db_path?: unknown; guards?: { frozen_docs?: unknown; harness?: unknown } } | null
-    const paths = (value: unknown): value is string[] => Array.isArray(value) && value.every(p => typeof p === 'string' && p.startsWith('/'))
+    const absolute = (value: unknown): value is string[] => Array.isArray(value) && value.every(p => typeof p === 'string' && p.startsWith('/'))
     const frozenDocs = snapshot?.guards?.frozen_docs, harness = snapshot?.guards?.harness
-    if (snapshot?.db_path !== project.db || !paths(frozenDocs) || !paths(harness)) {
+    if (snapshot?.db_path !== project.db || !absolute(frozenDocs) || !absolute(harness)) {
       throw new Error('数据库未返回本项目的完整文件保护状态')
     }
-    const reason = guardReason({ guards: { frozen_docs: frozenDocs, harness } }, path)
+    const reason = paths.map(path => guardReason({ guards: { frozen_docs: frozenDocs, harness } }, path)).find(Boolean)
     return reason ? { deny: `${PLUGIN}: ${reason}` } : undefined
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err)
@@ -393,14 +401,28 @@ async function guard($: EngineInterface, cfg: Config, path: string, agentId?: st
   }
 }
 
+/** `path` as an absolute path from the shell's directory `cwd`, with . and .. resolved (symbolic links are not). */
+function resolvePath(cwd: string, path: string): string {
+  const parts: string[] = []
+  for (const part of `${path.startsWith('/') ? '' : cwd}/${path}`.split('/')) {
+    if (part === '..') parts.pop()
+    else if (part && part !== '.') parts.push(part)
+  }
+  return `/${parts.join('/')}`
+}
+
 // A project database lives at research/<project-id>/research_tree.db (its write-ahead log beside it).
 const PROJECT_DB = /(^|[=/])research\/[^\s/]+\/research_tree\.db/
-// Commands that write or remove the files named among their arguments.
-const DB_WRITERS = new Set(['rm', 'mv', 'cp', 'dd', 'truncate', 'sqlite3', 'shred', 'tee'])
-// Editors that write the files they name when given -i.
-const IN_PLACE = new Set(['sed', 'perl'])
+// Commands that write or remove every file operand they name.
+const WRITERS = new Set(['rm', 'shred', 'tee', 'sqlite3'])
 // Prefixes that run the next word as the command.
 const WRAPPERS = new Set(['sudo', 'env', 'command', 'exec', 'nice', 'nohup', 'time', 'timeout', 'xargs'])
+// Shell words after which the next word is a command again.
+const KEYWORDS = new Set(['!', '{', 'if', 'then', 'elif', 'else', 'while', 'until', 'do'])
+// The research tools, and the interpreters that run a script named as their operand.
+const SCRIPTS = new Set(['research_db.py', 'research_tree.py', 'review_call.py'])
+const PYTHON = /^(python|pypy)[0-9.]*$/
+const basename = (path: string) => path.replace(/\/+$/, '').split('/').pop() ?? ''
 
 type ShellToken = { word: string } | { op: string }
 
@@ -483,114 +505,209 @@ function shellTokens(command: string): ShellToken[] {
   return tokens
 }
 
-/** A shell command that writes a project database directly instead of going through the tools. The database is
- *  the current project's, or any research/<id>/research_tree.db; other files that happen to be named
- *  research_tree.db (a scratch or test database) are not protected. */
-function writesDatabase(command: string, projectDb?: string | null): boolean {
-  return writesTo(command, w => PROJECT_DB.test(w) || (!!projectDb && w.includes(projectDb)))
-}
-
-/** The arguments of a `research_tree.py config apply` in a shell command, or undefined when it runs none. */
-function configApply(command: string): string[] | undefined {
+/** A shell command as the guards read it: its simple commands — each program (after assignments, wrappers such as
+ *  sudo, env or timeout, and shell keywords) with its words — and the files output is redirected to. Bounded:
+ *  variables, globs, substitutions and what an interpreter's code opens are not followed. */
+function parseShell(command: string): { commands: { program: string; words: string[] }[]; redirects: string[] } {
   const tokens = shellTokens(command)
-  for (let k = 0; k < tokens.length; k++) {
-    const t = tokens[k]!
-    if (!('word' in t) || !/(^|\/)research_tree\.py$/.test(t.word)) continue
-    const args: string[] = []
-    for (let j = k + 1; j < tokens.length; j++) {
-      const a = tokens[j]!
-      if (!('word' in a)) break
-      args.push(a.word)
-    }
-    if (args[0] === 'config' && args[1] === 'apply') return args
-  }
-  return undefined
-}
-
-/** A shell command that writes the project configuration: research-tree.yaml named relatively, or by `config`,
- *  its absolute path. */
-function writesConfig(command: string, config?: string): boolean {
-  return writesTo(command, w => w.split('/').pop() === CONFIG_FILE && (!w.startsWith('/') || w === config))
-}
-
-/** A shell command that writes a file `isTarget` picks: a redirection into it, or a writing command (rm, cp,
- *  sqlite3, sed -i, ...) naming it. */
-function writesTo(command: string, isTarget: (word: string) => boolean): boolean {
-  const tokens = shellTokens(command)
-  let start = true
+  const commands: { program: string; words: string[] }[] = []
+  const redirects: string[] = []
+  let current: { program: string; words: string[] } | undefined
   let wrapped = false
-  let writer = false
   for (let k = 0; k < tokens.length; k++) {
     const t = tokens[k]!
     if ('op' in t) {
       if (t.op === '>' || t.op === '>>') {
         const target = tokens[k + 1]
-        if (target && 'word' in target && isTarget(target.word)) return true
+        if (target && 'word' in target) redirects.push(target.word)
         k++
       } else if (t.op === '<' || t.op === '<<<') {
         k++
       } else if (t.op !== '<<') {
-        start = true
+        current = undefined
         wrapped = false
-        writer = false
       }
       continue
     }
-    if (start) {
-      if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(t.word) || (wrapped && /^(-|\d+[smhd]?$)/.test(t.word))) continue
-      if (WRAPPERS.has(t.word)) {
-        wrapped = true
-        continue
-      }
-      const name = t.word.split('/').pop() ?? ''
-      writer = DB_WRITERS.has(name) || (IN_PLACE.has(name) && inPlace(tokens, k + 1))
-      start = false
+    if (current) {
+      current.words.push(t.word)
       continue
     }
-    if (writer && isTarget(t.word)) return true
+    if (/^[A-Za-z_][A-Za-z0-9_]*=/.test(t.word) || (wrapped && /^(-|\d+[smhd]?$)/.test(t.word))) continue
+    if (WRAPPERS.has(basename(t.word)) || KEYWORDS.has(t.word)) {
+      wrapped = WRAPPERS.has(basename(t.word))
+      continue
+    }
+    current = { program: t.word.replace(/^`+/, ''), words: [] }
+    commands.push(current)
   }
-  return false
+  return { commands, redirects }
 }
 
-/** Whether the command starting before token `from` has an -i option (an in-place edit). */
-function inPlace(tokens: ShellToken[], from: number): boolean {
-  for (let k = from; k < tokens.length; k++) {
-    const t = tokens[k]!
-    if ('op' in t) {
-      if (!['>', '>>', '<', '<<<', '<<'].includes(t.op)) return false
-      continue
+/** The files a shell command writes, as written (relative to the shell's directory): redirection targets; the
+ *  operands of rm, shred, tee and sqlite3, truncate, sed/perl -i and dd of=; cp and mv destinations. */
+function writeTargets(command: string): string[] {
+  const { commands, redirects } = parseShell(command)
+  return [...redirects, ...commands.flatMap(({ program, words }) => commandTargets(basename(program), words))]
+}
+
+/** The files one writing command names. */
+function commandTargets(program: string, words: string[]): string[] {
+  // operands: words that are not options, nor the values of the options in `valued`; after `--`, every word
+  const operands = (valued: string[] = []) => {
+    const found: string[] = []
+    for (let i = 0; i < words.length; i++) {
+      const w = words[i]!
+      if (w === '--') return [...found, ...words.slice(i + 1)]
+      if (valued.includes(w)) i++
+      else if (!w.startsWith('-') || w === '-') found.push(w)
     }
-    if (/^-i/.test(t.word)) return true
+    return found
   }
-  return false
+  if (WRITERS.has(program)) return operands()
+  if (program === 'truncate') return operands(['-s', '-r', '--size', '--reference'])
+  if (program === 'dd') return words.filter(w => w.startsWith('of=')).map(w => w.slice(3))
+  if (program === 'cp' || program === 'mv') return copyTargets(words, program === 'mv')
+  // in place: GNU sed -i[SUFFIX] (alone or after flags, -Ei), --in-place[=SUFFIX]; perl -i[ext] (-pi, -0777 -pi)
+  if (program === 'sed' && words.some(w => /^-[nErsuzb]*i/.test(w) || /^--in-place(=|$)/.test(w))) {
+    return operands(['-e', '-f', '-l', '--expression', '--file', '--line-length'])
+  }
+  if (program === 'perl' && words.some(w => /^-(?:[acnpsStTuUwWX]|l[0-7]*|0[0-9a-fA-FxX]*)*i/.test(w))) {
+    return operands(['-e', '-E'])
+  }
+  return []
+}
+
+/** cp and mv destinations: -t DIR (--target-directory) or the last operand, and — unless -T — that destination as a
+ *  directory holding each source under its name (its whole path with --parents). cp only reads its sources; mv
+ *  removes them, so they are written too. A directory destination is assumed whenever it may be one. */
+function copyTargets(words: string[], move: boolean): string[] {
+  const operands: string[] = []
+  let dir: string | undefined
+  let noDir = false, parents = false, literal = false
+  for (let i = 0; i < words.length; i++) {
+    const w = words[i]!
+    if (literal || !w.startsWith('-') || w === '-') operands.push(w)
+    else if (w === '--') literal = true
+    else if (w === '--target-directory') dir = words[++i]
+    else if (w.startsWith('--target-directory=')) dir = w.slice('--target-directory='.length)
+    else if (w === '--suffix' || w === '-S') i++
+    else if (w.startsWith('-S')) continue  // -SSUFFIX: a backup suffix, not a path
+    else if (w.startsWith('--')) {
+      noDir ||= w === '--no-target-directory'
+      parents ||= w === '--parents'
+    } else {  // short options; -t takes the rest of its word, or the next word
+      const t = w.indexOf('t', 1)
+      noDir ||= w.slice(1, t < 0 ? undefined : t).includes('T')
+      if (t >= 0) dir = w.slice(t + 1) || words[++i]
+    }
+  }
+  if (dir === undefined && operands.length < 2) return []
+  const destination = dir ?? operands.pop()!
+  const inside = noDir && dir === undefined ? []
+    : operands.map(source => `${destination.replace(/\/+$/, '')}/${parents ? source.replace(/^\/+/, '') : basename(source)}`)
+  return [...(move ? operands : []), destination, ...inside]
+}
+
+/** A shell command that writes a project database directly instead of going through the tools. The database is
+ *  the current project's, or any research/<id>/research_tree.db; other files that happen to be named
+ *  research_tree.db (a scratch or test database) are not protected. */
+function writesDatabase(command: string, projectDb?: string | null): boolean {
+  return writeTargets(command).some(w => PROJECT_DB.test(w) || (!!projectDb && w.includes(projectDb)))
+}
+
+/** A shell command that writes the project configuration: research-tree.yaml named relatively, or by `config`,
+ *  its absolute path. */
+function writesConfig(command: string, config?: string): boolean {
+  return writeTargets(command).some(w => basename(w) === CONFIG_FILE && (!w.startsWith('/') || w.replace(/\/+$/, '') === config))
+}
+
+/** The research tool a simple command runs, with its arguments: the program itself, or the script operand of a
+ *  Python interpreter (python3 [options] x.py, uv run [options] [python] x.py). A command that only names the file
+ *  (grep, sed -n, cat or ls on it) runs none; neither do python -c and -m. */
+function toolRun(program: string, words: string[]): { script: ToolCall['script']; args: string[] } | undefined {
+  const all = [program, ...words]
+  let i = 0
+  if (basename(program) === 'uv') {
+    if (words[0] !== 'run') return undefined
+    for (i = 2; i < all.length; i++) {  // uv run's options; a word after an option given without = is its value
+      const w = all[i]!
+      if (w.startsWith('-')) continue
+      if (PYTHON.test(basename(w)) || SCRIPTS.has(basename(w))) break
+      if (!/^(--[^=]+|-[A-Za-z])$/.test(all[i - 1]!)) return undefined  // another program
+    }
+  }
+  if (PYTHON.test(basename(all[i] ?? ''))) {
+    for (i++; i < all.length; i++) {
+      const w = all[i]!
+      if (w === '-c' || w === '-m' || w === '-') return undefined
+      if (w === '-W' || w === '-X') i++
+      else if (!w.startsWith('-')) break
+    }
+  }
+  const script = basename(all[i] ?? '')
+  return SCRIPTS.has(script) ? { script: script as ToolCall['script'], args: all.slice(i + 1) } : undefined
+}
+
+// research_tree.py config's options, which argparse also accepts as unique prefixes (--word for --words)
+const CONFIG_OPTIONS = ['--actor', '--words', '--require-project', '--replace-metric-spec', '--help']
+
+/** The user's words of a `research_tree.py config apply` in a shell command, parsed as argparse reads it (`apply`
+ *  anywhere among config's arguments; options with or without =, or as unique prefixes): '' when one names no
+ *  words or empty words, undefined when the command applies nothing. */
+function configApply(command: string): string | undefined {
+  let found: string | undefined
+  for (const { program, words } of parseShell(command).commands) {
+    const run = toolRun(program, words)
+    if (run?.script !== 'research_tree.py' || run.args[0] !== 'config') continue
+    let action: string | undefined
+    let given = ''
+    for (let j = 1; j < run.args.length; j++) {
+      const a = run.args[j]!
+      if (a === '--') {
+        action ??= run.args[j + 1]
+        break
+      }
+      if (!a.startsWith('-') || a === '-') {
+        action ??= a
+        continue
+      }
+      const [flag, inline] = a.split(/=(.*)/s, 2) as [string, string | undefined]
+      const prefixed = CONFIG_OPTIONS.filter(o => o.startsWith(flag))
+      const option = CONFIG_OPTIONS.includes(flag) ? flag : prefixed.length === 1 && flag.startsWith('--') ? prefixed[0] : undefined
+      if (option === '--actor' || option === '--words') {
+        const value = inline ?? run.args[++j] ?? ''
+        if (option === '--words') given = value
+      }
+    }
+    if (action !== 'apply') continue
+    if (!given.trim()) return ''
+    found ??= given
+  }
+  return found
 }
 
 type ToolCall = { script: 'research_db.py' | 'research_tree.py' | 'review_call.py'; actor?: string; method?: string }
 
-/** The research_db.py and research_tree.py calls in a shell command: the actor named, and the method (the
- *  subcommand for research_tree.py). */
+/** The research_db.py, research_tree.py and review_call.py runs in a shell command: the actor named, and the method
+ *  (the subcommand for research_tree.py). Only a run counts; reading or listing the files is no call. */
 function researchCalls(command: string): ToolCall[] {
-  const tokens = shellTokens(command)
-  const calls: ToolCall[] = []
-  for (let k = 0; k < tokens.length; k++) {
-    const t = tokens[k]!
-    const script = 'word' in t ? t.word.split('/').pop() : undefined
-    if (script !== 'research_db.py' && script !== 'research_tree.py' && script !== 'review_call.py') continue
-    const call: ToolCall = { script }
-    for (let j = k + 1; j < tokens.length; j++) {
-      const a = tokens[j]!
-      if ('op' in a) break
-      const [flag, inline] = a.word.split(/=(.*)/s, 2) as [string, string | undefined]
+  return parseShell(command).commands.flatMap(({ program, words }) => {
+    const run = toolRun(program, words)
+    if (!run) return []
+    const call: ToolCall = { script: run.script }
+    for (let j = 0; j < run.args.length; j++) {
+      const a = run.args[j]!
+      const [flag, inline] = a.split(/=(.*)/s, 2) as [string, string | undefined]
       if (flag === '--actor' || flag === '--db' || flag === '--root') {
-        const value = inline ?? (tokens[j + 1] && 'word' in tokens[j + 1]! ? (tokens[++j] as { word: string }).word : undefined)
+        const value = inline ?? run.args[++j]
         if (flag === '--actor') call.actor = value
-      } else if (!a.word.startsWith('-') && call.method === undefined) {
-        call.method = a.word
+      } else if (!a.startsWith('-') && call.method === undefined) {
+        call.method = a
       }
     }
-    calls.push(call)
-  }
-  return calls
+    return [call]
+  })
 }
 
 /** A review goes through research_review (review_call.py), which records it: never pi or claude -p directly, and
@@ -678,11 +795,42 @@ function workerActor(s: ResearchSummary | null | undefined, agentId: string): st
   return found?.id && found.id !== 'root' ? `worker/${found.id}` : undefined
 }
 
+/** The session the database binds to an execution identity's node now (bind_worker_session /
+ *  bind_architect_session), or undefined when it binds none. */
+function boundSession(s: ResearchSummary | null | undefined, actor: string): string | undefined {
+  if (!s) return undefined
+  if (actor === 'architect/root') return s.project?.architect?.agent_id ?? undefined
+  return s.nodes.find(n => `worker/${n.worker?.id}` === actor)?.worker?.agent_id ?? undefined
+}
+
+/** The research identity of a subagent run. The database's session binding decides an execution role: a session a
+ *  later one took over is no longer its node's executor, whatever the mod recorded when it started it. */
+async function actorOf($: EngineInterface, agentId: string): Promise<string | undefined> {
+  const summary = (await $.state.get(summaryRef)).value
+  const bound = workerActor(summary, agentId)
+  const mapped = (await $.state.get(agentsRef)).value?.[agentId]
+  if (bound || !mapped || !validActor(mapped) || !/^(worker|architect)\//.test(mapped)) return bound ?? mapped
+  const current = boundSession(summary, mapped)
+  return current && current !== agentId ? undefined : mapped
+}
+
+/** Whether the engine still runs an agent (starting, in a turn, or waiting on work it owns); an idle or ended one
+ *  is continued with SendMessage. Without a listing it counts as not running. */
+async function agentRunning($: EngineInterface, agentId: string): Promise<boolean> {
+  try {
+    const status = (await $.agent.list()).find(a => a.id === agentId)?.status
+    return status === 'pending' || status === 'running' || status === 'waiting'
+  } catch {
+    return false
+  }
+}
+
 /** Why a worker may not start yet, or undefined once the user confirmed the plan. */
 function workerBlock(project: ResearchProject | null | undefined): string | undefined {
   if (!project) return `当前目录没有研究项目；先运行 /${COMMAND} prepare，填写 plan.md 后运行 /${COMMAND} init。`
   if (project.phase !== 'confirmed') {
-    return `立项计划尚未经用户确认（当前：${L(project.phase)}）。请用 post_to_ui(type=confirm_request) 请用户确认，确认后再启动 worker。`
+    return `立项计划尚未经用户确认（当前：${L(project.phase)}）。请用 post_to_ui(type=confirm_request) 请用户确认；` +
+      `用户在主会话明确同意时用 post_to_ui(type=confirm, words=用户原话) 登记，确认后再启动 worker。`
   }
   return undefined
 }
@@ -723,7 +871,7 @@ function uiPrompt(pluginRoot: string, project: ResearchProject, run: string, pyt
 
 处理每条用户消息时按下面的顺序判断，选第一条符合的：
 1. 立即生效的指令（停止、暂停、收回授权、纠正重大约束）：用 instruction 立即登记转交，不先追问。
-2. 立项计划正等待确认，且用户明确表示同意：用 confirm。用户对计划提出修改，按第4条处理，不要确认。
+2. RLD 的确认请求正等待用户决定（立项计划，或确认后的预算、范围、权限请求），且用户明确表示同意：用 confirm。用户提出修改，按第4条处理，不要确认。
 3. 只是问题（进度、结果、规则）：查共享记录后回答；需要RLD回答时用 question。
 4. 其他要求、偏好或变更：先判断是否清楚——只凭用户说过的话，目标和范围能否直接执行，而不必猜测频率、对象、程度、期限等关键细节。
    - 不清楚：不要登记，也不要替用户假设。回复里只问最关键的一两个问题，同时把已明确的部分写进需求草稿（新建或更新）。
@@ -732,7 +880,7 @@ function uiPrompt(pluginRoot: string, project: ResearchProject, run: string, pyt
 
 你的回复与动作只通过本次的发件箱交给 mod（本次编号 ${run}），mod 在你结束后执行；参数用单引号括起：
 - 回复用户（必须有，可多次，按顺序显示）：${outbox} reply --run ${run} --text '<给用户的回复>'
-- 确认立项计划：${outbox} confirm --run ${run}
+- 用户同意 RLD 的确认请求（立项计划或之后的请求）：${outbox} confirm --run ${run}
 - 立即生效的指令：${outbox} instruction --run ${run} --understanding '<你的理解、生效范围、取代的旧指令>' --kind <停止|暂停|收回授权|约束纠正> --about <相关的节点或项目ID>
 - 向RLD提问：${outbox} question --run ${run} --text '<不超过200字的问题>' --about <ID>
 - 提交澄清完成的需求：${outbox} submit --run ${run} --req REQ-<编号>
@@ -799,7 +947,7 @@ function planningPrompt(project: ResearchProject, pluginRoot: string, view: Rese
 目标是尽快得到可信且能改变投入决定的实验。Leader负责方向、预算、优先级、争议裁决和项目GO/NOT GO；Explorer提出候选，Architect维护共享框架/baseline，Workers筛选，Analyst整理证据与建议，Reviewer独立复核关键候选。
 1. 先写并登记goal（含问题锚点：底线问题、瓶颈、非目标、约束、成功条件）、min_setup、MetricSpec和Protocol。明确模型/数据/切分的正式ID或路径、固定训练与匹配字段、单位/主指标方向/保护指标、统一搜索seed、独立确认材料与结论上限。协议pair_fields/match对应manifest顶层字段，required_counts对应manifest.counts；禁止看到结果后改口径。${specText(view)}
 2. create_project(id=${project.project_id}, repo_path=真实仓库绝对路径)，其余参数先help；使用生效字段 ${JSON.stringify(view?.db_fields ?? {})}。准备根节点harness任务及版本化请求，包含任务与节点、问题与预测、干预与对照、范围与权限、资源与预算、验收与停止条件、交付。
-3. 提交最小范围的init-plan（目标、共享框架/baseline、数据/指标、允许的搜索边界、资源上限、停止/继续条件），用post_to_ui(confirm_request, docs=[已登记计划路径])请用户确认。主会话的明确确认同样有效；无需打开UI或重复授权。确认之前不能启动Architect/Worker、提交作业。不要等待所有候选或全部文献就绪才提交最小范围计划。
+3. 提交最小范围的init-plan（目标、共享框架/baseline、数据/指标、允许的搜索边界、资源上限、停止/继续条件），用post_to_ui(confirm_request, docs=[已登记计划路径])请用户确认。主会话的明确确认同样有效：用post_to_ui(type=confirm, words=用户原话, text=你的理解)登记，mod登记原话、使配置生效并改为已确认（不要用Bash改phase）；无需打开UI或重复授权。确认之前不能启动Architect/Worker、提交作业。不要等待所有候选或全部文献就绪才提交最小范围计划。
 4. 确认后用assign_architect(architect_id="root")为根节点指派Architect，分配harness任务，再启动${ARCHITECT_AGENT}（任务以“你是 architect/root”开头）。Architect先登记sanity并验收，Leader审核冻结框架，之后按匹配seed增量提供baseline。有效且匹配的首个baseline seed可支持方法同seed筛选，其余baseline继续补；部分baseline不等于完整SOTA/晋级/GO证据。
 5. 并行启动${EXPLORER_AGENT}只读研究文献、基础假说与负向/不确定发现。Leader核对实际会话、模型与来源，保存返回材料到cache/discovery/proposals/*.json（{source:"explorer/main",candidates:[...]}），discovery start/merge逐步合并；每个候选明确prediction、intervention、comparator（三个非空字符串）、resource_ceiling={nodes:正整数,walltime_s:正整数}、stop_conditions（停止与继续条件字符串）。用discovery select --candidate CAND-编号，再discovery gate --candidate CAND-编号核对该候选，create_hypothesis(candidate_id=...)按当前身份重新检查。A就绪即可执行，不能让未完成B阻塞A或共享框架。便宜授权筛选不以逐候选模型排序、查新/批判回执作为前置门；文献与深入论证继续并行，为晋级和扩大投入服务。
 6. 轻量假说使用精确二级标题：问题锚点、可证伪预测、干预、匹配对照、资源上限、停止与继续条件；问题锚点复制已批准goal，资源上限写JSON {"nodes":1,"walltime_s":上限秒数,"n_seeds":本轮数}，实验设计同样包含后五节。具体参数先help。思想来源可用variant_of/combines/repairs/tests_assumption，不要求祖先先胜出；parent_id表达思想祖先，code_parent_id指定代码父节点，comparator_experiment_id指定匹配比较实验，branch.base_commit记录代码起点；投入状态独立记录。未知文献不能伪造，核验用literature.py search/verify/note/text/fetch，相关材料可共享。
@@ -819,12 +967,12 @@ Architect先登记sanity并提交/导入，Leader审核后冻结框架，再在�
 
 const WORKFLOW = `## research-tree 工作流（由 research-tree mod 注入）
 - 研究项目的状态、节点、实验、判定和决定都在当前目录 research/<项目ID>/ 的 LatticeDB 研究数据库里；只能通过 ${'`'}${TOOL}${'`'} 工具（或 tools/research_db.py）读写，不要直接改数据库文件。
-- 仅支持version 3配置、schema 23数据库与固定快速筛选/增量发现；旧项目须明确迁移到新项目，不静默改写。实验优先：干预来自代码或科学配置；同代码、不同科学配置可测试，操作元数据变化不算新方法；统计数字由 research_db 从 run 重算并记为 evaluation，每次计算给出确定性的 outcome（正向信号、负向信号、不确定；达到 seed 上限也可停在不确定，工程失败不是反证）。positive_signal只是搜索信号，满足完整复制与保护指标才candidate_ready。Leader选少量有希望候选、冻结方法/claims、补必要复制与关键控制，先完成必需的独立确认，再集中最终五维复核与Leader新颖性/理论判断；不要提前做两轮numbers/protocol复核，也不要每个正信号自动耗用确认材料：你先用 freeze_candidate(hypothesis_id, search_evaluation_id=当前搜索依据) 冻结候选，再用 create_confirmation_batch([候选…], material=协议声明的确认材料名，如 c1) 冻结名单、参照与材料（材料一旦用过就不能给之后的新候选再用；反馈之后改了配置就是新候选，用另一份已声明的材料，没有就保持未确认）；Architect 先登记确认基线 create_experiment(kind="baseline", stage="confirm", confirmation_batch_id, confirmation_of=批次冻结的参照实验, method_config=参照的有效配置)，对应Worker登记候选确认 create_experiment(kind="method", stage="confirm", candidate_spec_id, confirmation_batch_id, method_config=候选的方法配置)；确认 run 的评测切分必须是批次材料。执行失败可按新 attempt 重试；已导入的有效结果不能标为无效或撤回后重跑来换一个更好的结果。material_usage 查看材料使用史。是否继续投入是单独的决定：decide_disposition（继续、暂停、不再投入，写理由、依据与复议条件）；转为可消灭也须写 reconsider_when。基于不确定结果的决定，决定文档写“缺失证据”“下一实验”。每个决策批次用 note_findings(node_id, finding_ids=[本批次新的现行 finding 文档], doc_id=本批次的现行决定文档, rationale=为何是新信息) 登记子树的新发现（只给数字不能复位停滞，已计入的发现或同一主张与证据的重新包装不算新）；repetition_advice(experiment_id) 给出协议预设的追加重复建议；同节点/同文档重复调用不再计数或复位，改计数须用新的决定文档（连续无新发现须换向）。复核发现与 STAT_MISMATCH 等记入未决问题账本（obligations），只能带证据 resolve_obligation 或由用户 waive，未关闭时不能 GO；复核回执的 fail 项自动成为 OPEN，只能用之后同维度、绑定当前依据且该项 pass 的复核回执 ID 来 resolve（新的整体 pass 不自动关闭）。复核的结论由回执清单决定（effective_result；顶层 pass 但某项 fail 即 fail），不要让 reviewer 把合法的 fail 改成 pass。reviewer 返回 NEEDS_EVIDENCE（或 novelty 复核 uncertain）并列出 requested_queries 时，用 literature_followup(review_id) 执行一次补查，再以原会话 research_review(session, evidence_set=返回的 manifest) 让它重新判断。NOT GO 要求没有仍在投入的节点，报告逐项写未探索、工程失败、不确定、重复方向、明确反证、投入价值判断。验收任务用 update_task(status=accepted, evidence_ids)。GO 资格看 get_eligibility：只有当前仍适用的 evaluation（框架、协议、指标规范、基线、run 都未变）过门槛与保护指标、且复核绑定到同一代码时才可 GO。GO 候选还须五个维度（numbers、protocol、method_code、novelty、theory）各一次 research_review(kind=candidate_recheck, dimension, evaluation=当前依据)：先在 docs/reviews/briefs/ 写 brief（只列文件路径与结构化元数据：评估ID、代码版本与目录、结果文档、协议、指标文件；不写你的总结或倾向），代码目录在研究目录外时传 add_dirs；REVIEW_UNAVAILABLE/REVIEW_INVALID/REVIEW_BUDGET 如实上报，不自评代替；不直接运行 pi 或 claude -p。get_eligibility 的 rechecks 列出每个维度由谁、基于哪次评估复核。每个决策批次前读 context_pack(node_id=项目ID, role="rld")；验收实验、确认修复、完成关键对照或转向时写 finding 或 lesson（规则 §6）。sanity、数据/指标、方法身份、公平配对、原始可追溯、预算与防重复始终保留。已授权的廉价搜索不逐次等待模型审查；现行真实泄漏/指标阻塞仍先修复。确认/更强主张按design.code_review要求代码审查：worker登记方法实验之后，你写brief（代码目录与提交、假说文档、协议；不写结论）并 research_review(kind=code_review, about=节点, code_ref=提交, add_dirs=[代码目录])；reviewer不可用时只有已有用户授权并满足API限制才可登记waive_code_review决定；真实有效性缺陷不能豁免。目标实验设计的“## 预声明最小对照”JSON controls列出{id,code_ref,method_config,nodes,walltime_s,n_seeds}，Leader在目标提交前approve_minimum_controls(experiment_id,decision_doc_id)；消融以ablation_of+predeclared_control_id匹配精确声明，无须单独ablation_plan；新的复杂消融/扩大主张/高成本矩阵仍需适用评审和授权，消融登记kind=ablation并引用来源。遇到评审误读，保留原回执和当前身份绑定证据，用dispute_code_review(experiment_id,review_id,category,evidence_doc_id,reason)提出异议，经绑定dispute的独立结构化recheck，再由Leader adjudicate_code_review(review_id,dispute_id,recheck_review_id,resolution,decision_doc_id,reason)作overturned/upheld裁决，不能重复换reviewer抹去阻塞。任务因失败预算阻塞（task_blocked）时，换计划、修环境或停止，写决定文档后 unblock_task。create_hypothesis 写 direction（所检验的机制，改名不改方向）；建新节点时可用 relations=[{kind, target}] 写科学依据（与代码父版本分开）：combines（组合两个节点的机制，至少两个）、repairs（修正某节点结果揭示的具体缺陷）、tests_assumption（检验另一节点的前提）可以基于负向或不确定的历史（目标须已有评估），competes、shares_control、variant_of 记录对照关系；与已不再投入节点相同方向（direction）的新节点必须 repairs 它，同一根因至多修复 search.max_repairs_per_root_cause 次（REPEATED_DIRECTION）。每个决策批次比较三类行动（推进已有正向方向、减少关键不确定性、探索不同机制）并写 selection_rationale；探索不同机制的节点标 exploration=true，可使用搜索预算中保留的探索份额（search.exploration_fraction），其他工作不能占用这部分；没有值得验证的新机制时不为用完份额而建任务。relations(node) 查看节点的类型化关系（含 tested_by、supports、invalidates）。
+- 仅支持version 3配置、schema 23数据库与固定快速筛选/增量发现；旧项目须明确迁移到新项目，不静默改写。实验优先：干预来自代码或科学配置；同代码、不同科学配置可测试，操作元数据变化不算新方法；统计数字由 research_db 从 run 重算并记为 evaluation，每次计算给出确定性的 outcome（正向信号、负向信号、不确定；达到 seed 上限也可停在不确定，工程失败不是反证）。positive_signal只是搜索信号，满足完整复制与保护指标才candidate_ready。Leader选少量有希望候选、冻结方法/claims、补必要复制与关键控制，先完成必需的独立确认，再集中最终五维复核与Leader新颖性/理论判断；不要提前做两轮numbers/protocol复核，也不要每个正信号自动耗用确认材料：你先用 freeze_candidate(hypothesis_id, search_evaluation_id=当前搜索依据) 冻结候选，再用 create_confirmation_batch([候选…], material=协议声明的确认材料名，如 c1) 冻结名单、参照与材料（材料一旦用过就不能给之后的新候选再用；反馈之后改了配置就是新候选，用另一份已声明的材料，没有就保持未确认）；Architect 先登记确认基线 create_experiment(kind="baseline", stage="confirm", confirmation_batch_id, confirmation_of=批次冻结的参照实验, method_config=参照的有效配置)，对应Worker登记候选确认 create_experiment(kind="method", stage="confirm", candidate_spec_id, confirmation_batch_id, method_config=候选的方法配置)；确认 run 的评测切分必须是批次材料。执行失败可按新 attempt 重试；已导入的有效结果不能标为无效或撤回后重跑来换一个更好的结果。material_usage 查看材料使用史。是否继续投入是单独的决定：decide_disposition（继续、暂停、不再投入，写理由、依据与复议条件）；转为可消灭也须写 reconsider_when。基于不确定结果的决定，决定文档写“缺失证据”“下一实验”。每个决策批次用 note_findings(node_id, finding_ids=[本批次新的现行 finding 文档], doc_id=本批次的现行决定文档, rationale=为何是新信息) 登记子树的新发现（只给数字不能复位停滞，已计入的发现或同一主张与证据的重新包装不算新）；repetition_advice(experiment_id) 给出协议预设的追加重复建议；同节点/同文档重复调用不再计数或复位，改计数须用新的决定文档（连续无新发现须换向）。复核发现与 STAT_MISMATCH 等记入未决问题账本（obligations），只能带证据 resolve_obligation 或由用户 waive，未关闭时不能 GO；复核回执的 fail 项自动成为 OPEN，只能用之后同维度、绑定当前依据且该项 pass 的复核回执 ID 来 resolve（新的整体 pass 不自动关闭）。复核的结论由回执清单决定（effective_result；顶层 pass 但某项 fail 即 fail），不要让 reviewer 把合法的 fail 改成 pass。reviewer 返回 NEEDS_EVIDENCE（或 novelty 复核 uncertain）并列出 requested_queries 时，用 literature_followup(review_id) 执行一次补查，再以原会话 research_review(session, evidence_set=返回的 manifest) 让它重新判断。NOT GO 要求没有仍在投入的节点，报告逐项写未探索、工程失败、不确定、重复方向、明确反证、投入价值判断。验收任务用 update_task(status=accepted, evidence_ids)。GO 资格看 get_eligibility：只有当前仍适用的 evaluation（框架、比较协议、基线及其所用 run 都未变；收紧独立性字段或新要求工件导入、所比较指标的方向/单位/保护阈值/合法范围变化也使其失效；其他配置变更只约束之后的工作）过门槛与保护指标、且复核绑定到同一代码时才可 GO。GO 候选还须五个维度（numbers、protocol、method_code、novelty、theory）各一次 research_review(kind=candidate_recheck, dimension, evaluation=当前依据)：先在 docs/reviews/briefs/ 写 brief（只列文件路径与结构化元数据：评估ID、代码版本与目录、结果文档、协议、指标文件；不写你的总结或倾向），代码目录在研究目录外时传 add_dirs；REVIEW_UNAVAILABLE/REVIEW_INVALID/REVIEW_BUDGET 如实上报，不自评代替；不直接运行 pi 或 claude -p。get_eligibility 的 rechecks 列出每个维度由谁、基于哪次评估复核。每个决策批次前读 context_pack(node_id=项目ID, role="rld")；验收实验、确认修复、完成关键对照或转向时写 finding 或 lesson（规则 §6）。sanity、数据/指标、方法身份、公平配对、原始可追溯、预算与防重复始终保留。已授权的廉价搜索不逐次等待模型审查；现行真实泄漏/指标阻塞仍先修复。确认/更强主张按design.code_review要求代码审查：worker登记方法实验之后，你写brief（代码目录与提交、假说文档、协议；不写结论）并 research_review(kind=code_review, about=节点, code_ref=提交, add_dirs=[代码目录])；reviewer不可用时只有已有用户授权并满足API限制才可登记waive_code_review决定；真实有效性缺陷不能豁免。目标实验设计的“## 预声明最小对照”JSON controls列出{id,code_ref,method_config,nodes,walltime_s,n_seeds}，Leader在目标提交前approve_minimum_controls(experiment_id,decision_doc_id)；消融以ablation_of+predeclared_control_id匹配精确声明，无须单独ablation_plan；新的复杂消融/扩大主张/高成本矩阵仍需适用评审和授权，消融登记kind=ablation并引用来源。遇到评审误读，保留原回执和当前身份绑定证据，用dispute_code_review(experiment_id,review_id,category,evidence_doc_id,reason)提出异议，经绑定dispute的独立结构化recheck，再由Leader adjudicate_code_review(review_id,dispute_id,recheck_review_id,resolution,decision_doc_id,reason)作overturned/upheld裁决，不能重复换reviewer抹去阻塞。任务因失败预算阻塞（task_blocked）时，换计划、修环境或停止，写决定文档后 unblock_task。create_hypothesis 写 direction（所检验的机制，改名不改方向）；建新节点时可用 relations=[{kind, target}] 写科学依据（与代码父版本分开）：combines（组合两个节点的机制，至少两个）、repairs（修正某节点结果揭示的具体缺陷）、tests_assumption（检验另一节点的前提）可以基于负向或不确定的历史（目标须已有评估），competes、shares_control、variant_of 记录对照关系；与已不再投入节点相同方向（direction）的新节点必须 repairs 它，同一根因至多修复 search.max_repairs_per_root_cause 次（REPEATED_DIRECTION）。每个决策批次比较三类行动（推进已有正向方向、减少关键不确定性、探索不同机制）并写 selection_rationale；探索不同机制的节点标 exploration=true，可使用搜索预算中保留的探索份额（search.exploration_fraction），其他工作不能占用这部分；没有值得验证的新机制时不为用完份额而建任务。relations(node) 查看节点的类型化关系（含 tested_by、supports、invalidates）。
 - Explorer（只读文献、基础假说/负向结果）→Architect（根节点公共框架/baseline）与Workers（并行筛选）→Analyst（只读证据排序/下一实验建议）→Explorer形成持续循环。Leader保存顾问产物，负责方向、预算、优先级、争议与最终GO/NOT GO。思想来源、代码起点、匹配比较实验、投入状态分开：基础假说未胜出也可用variant_of等关系派生变体，具体parent/comparator字段先help。
 - 已生效的文档不可修改，改动写新版本；节点代码中不能改动冻结框架。
 - 不确定 research_db 的方法或参数时，先调用 method="help"（kwargs {"method": "<方法名>"} 看完整说明），不要猜；接口拒绝时按错误信息改正，不要绕过。
-- 根节点用assign_architect指派architect/root；假说节点用assign_worker指派worker/h<编号>。启动${ARCHITECT_AGENT}或${WORKER_AGENT}时任务说明以对应身份开头；mod分别用bind_architect_session或bind_worker_session绑定会话。节点的后续步骤用 SendMessage 续接这个 agent；无法续接或上下文过长时，用 resume_package 取恢复包，以同一身份新起一个 worker 接手。
-- 最小范围计划须经用户确认后才能启动Architect/Worker；持续增量发现允许共享框架与发现并行，候选逐个select/gate/create_hypothesis，A就绪不等待B。每个候选声明prediction、intervention、comparator、resource_ceiling={nodes,walltime_s}、stop_conditions。主会话明确授权有效，需要用户决定的事可用post_to_ui，无需UI再次确认。
+- 根节点用assign_architect指派architect/root；假说节点用assign_worker指派worker/h<编号>。启动${ARCHITECT_AGENT}或${WORKER_AGENT}时任务说明以对应身份开头；mod分别用bind_architect_session或bind_worker_session绑定会话。节点的后续步骤用 SendMessage 续接这个 agent（一个节点同时只有一个会话，重复启动被拒绝）；无法续接或上下文过长时，先停止原会话，用 resume_package 取恢复包，以同一身份新起一个 worker 接手：任务说明在身份之后写明“接手会话 <原会话ID>”，mod 改绑会话，原会话失去身份。只有主会话启动 Architect、Worker 与顾问。
+- 最小范围计划须经用户确认后才能启动Architect/Worker；持续增量发现允许共享框架与发现并行，候选逐个select/gate/create_hypothesis，A就绪不等待B。每个候选声明prediction、intervention、comparator、resource_ceiling={nodes,walltime_s}、stop_conditions。主会话明确授权有效：用户在主会话同意（立项计划，或之后的预算、范围、权限请求）时，用 post_to_ui(type=confirm, words=用户原话, text=你的理解) 登记原话（立项计划随之确认、配置生效）；需要用户决定的事用 post_to_ui(type=confirm_request)，无需UI再次确认。不要用 Bash 运行 research_tree.py phase 或 agent-log：阶段与模型记录由 mod 写入。
 - 开发与实验平台、资源预算、阶段1门槛和子代理模型由项目目录的 ${CONFIG_FILE} 决定。只在用户指示下修改它、只改用户要求的项（worker 等子代理不能写它），改后运行 research_tree.py config apply --words "<用户要求修改的原话>" 生效（或由用户运行 /${COMMAND} config apply）；配置变更只约束之后的工作，不使已有实验、评估与结论失效（框架或比较协议本身的变化除外）。同时有任务的worker数（max_parallel_workers）和累计用量提醒（alert_node_h）由 research_db 与 mod 执行：达到提醒阈值后新实验与扩展seed暂停，向用户报告进展与所需预算，由用户决定。
 - /${COMMAND} status/refresh是轻量状态，GO=null或eligibility_checked=false表示未检查，不是无GO资格；强决定用get_eligibility。/${COMMAND} pane/build按需生成展示，/${COMMAND} ui仅按需短时交互，无常驻UI。research_review立即返回ticket，之后同ticket非阻塞收取，不重复发起；期间推进独立工作。`
 
@@ -912,22 +1060,37 @@ async function loadChat($: EngineInterface, project: ResearchProject): Promise<v
 
 type UiRun = { run: string; message: string; messageId?: string; attempt: number }
 
-/** Hands the person's message to a fresh UI subagent run with the recent conversation and the project view. */
+// One UI run at a time: the slot is claimed synchronously and held through a retry. A message sent meanwhile
+// waits here, in order, for the next run — a second run would take over uiAgentId and uiRun, so the first run's
+// calls would be refused and its outbox never carried out.
+const uiWaiting: Promise<Omit<UiRun, 'run'>>[] = []
+let uiClaimed = false
+
+/** Hands the person's message to a fresh UI subagent run with the recent conversation and the project view; while
+ *  a run is in progress, the message (logged at once) waits for it. */
 async function askUi($: EngineInterface, cfg: Config, text: string): Promise<void> {
   const message = text.trim()
   if (!message) return
-  if ((await $.state.get(uiAgentRef)).value) {
-    await say($, 'note', 'UI 还在处理上一条消息，请稍候。')
+  // queued and claimed before any await, so a second message cannot start a run beside this one
+  uiWaiting.push(say($, 'user', message).then(messageId => ({ message, messageId, attempt: 1 }), () => ({ message, attempt: 1 })))
+  if (uiClaimed) {
+    await say($, 'note', 'UI 还在处理上一条消息；这条已记下，随后处理。')
     return
   }
-  const messageId = await say($, 'user', message)
-  const project = (await $.state.get(projectRef)).value ?? (await loadProject($))
-  const env = await venv($)
-  if (!project || 'problem' in env) {
-    await say($, 'note', project ? (env as { problem: string }).problem : `当前目录没有研究项目：先运行 /${COMMAND} prepare，填写 plan.md 后运行 /${COMMAND} init。`)
-    return
+  uiClaimed = true
+  await nextUi($, cfg)
+}
+
+/** Starts a run for the next waiting message, or frees the slot when none is left (or none could start). */
+async function nextUi($: EngineInterface, cfg: Config): Promise<void> {
+  for (let waiting = uiWaiting.shift(); waiting; waiting = uiWaiting.shift()) {
+    try {
+      if (await startUi($, cfg, await waiting)) return
+    } catch (err) {
+      await say($, 'note', `无法启动 UI agent：${err instanceof Error ? err.message : String(err)}`).catch(() => undefined)
+    }
   }
-  await startUi($, cfg, { message, messageId, attempt: 1 })
+  uiClaimed = false
 }
 
 /** Starts one UI run for the person's message; false when it could not start (said in the window). A later
@@ -935,7 +1098,10 @@ async function askUi($: EngineInterface, cfg: Config, text: string): Promise<voi
 async function startUi($: EngineInterface, cfg: Config, ask: Omit<UiRun, 'run'>): Promise<boolean> {
   const project = (await $.state.get(projectRef)).value ?? (await loadProject($))
   const env = await venv($)
-  if (!project || 'problem' in env) return false
+  if (!project || 'problem' in env) {
+    await say($, 'note', project ? (env as { problem: string }).problem : `当前目录没有研究项目：先运行 /${COMMAND} prepare，填写 plan.md 后运行 /${COMMAND} init。`)
+    return false
+  }
   const run = `r${Date.now().toString(36)}`
   const summary = (await $.state.get(summaryRef)).value
   const history = ((await $.state.get(chatRef)).value ?? [])
@@ -992,8 +1158,9 @@ type UiEntry = { type: 'reply' | 'confirm' | 'instruction' | 'question' | 'submi
 /** What a UI run left in its outbox, carried out in order once the run ended: replies shown in the window, the
  *  person's message registered verbatim as a confirmation or an instruction, questions passed to the RLD. A run
  *  that ended with an empty outbox (not interrupted) is retried once; if that one leaves nothing either, the
- *  person's message goes to the RLD verbatim, so a message is never left unanswered and unforwarded. */
-async function carryOutUi($: EngineInterface, cfg: Config, run: UiRun, answer: string, aborted: boolean): Promise<void> {
+ *  person's message goes to the RLD verbatim, so a message is never left unanswered and unforwarded. True when
+ *  the retry run started (it keeps the window's UI slot). */
+async function carryOutUi($: EngineInterface, cfg: Config, run: UiRun, answer: string, aborted: boolean): Promise<boolean> {
   const project = (await $.state.get(projectRef)).value
   const file = project ? `${project.root}/cache/ui/${run.run}.jsonl` : ''
   const entries: UiEntry[] = []
@@ -1009,13 +1176,13 @@ async function carryOutUi($: EngineInterface, cfg: Config, run: UiRun, answer: s
   if (!entries.length && !aborted) {
     if (run.attempt < 2) {
       await say($, 'note', 'UI 没有留下回复，正在重新处理这条消息。')
-      if (await startUi($, cfg, { message: run.message, messageId: run.messageId, attempt: run.attempt + 1 })) return
+      if (await startUi($, cfg, { message: run.message, messageId: run.messageId, attempt: run.attempt + 1 })) return true
     }
     const id = run.messageId ? `${run.messageId}，` : ''
     const failed = await relayToRld($, cfg, 'question',
       `用户在研究对话窗口的消息（${id}UI 未能处理，原文转交；全文见 messages/window.jsonl）：${run.message}`, [], [])
     await say($, 'note', failed ?? 'UI 没能处理这条消息；已把原文转交RLD，RLD 会在这里回复。')
-    return
+    return false
   }
   if (!entries.some(x => x.type === 'reply')) {
     await say($, 'ui', answer.trim() || (aborted ? '（UI 被中断）' : '（UI 没有给出回复）'))
@@ -1024,7 +1191,7 @@ async function carryOutUi($: EngineInterface, cfg: Config, run: UiRun, answer: s
     if (entry.type === 'reply') {
       await say($, 'ui', entry.text ?? '')
     } else if (entry.type === 'confirm') {
-      await say($, 'note', await confirmPlan($, cfg, run.message))
+      await say($, 'note', await uiConsent($, cfg, run.message))
     } else if (entry.type === 'instruction') {
       const about = entry.about ?? []
       const registered = await tree($, cfg, ['instruction', '--text', run.message, '--kind', entry.kind || '指令',
@@ -1050,6 +1217,30 @@ async function carryOutUi($: EngineInterface, cfg: Config, run: UiRun, answer: s
       await say($, 'note', failed ?? `已转交RLD：${entry.text ?? ''}`)
     }
   }
+  return false
+}
+
+/** The person's agreement in the window: before the plan is confirmed it confirms the plan; afterwards it is consent
+ *  to the RLD's latest confirmation request (budget, scope, permissions), registered verbatim and passed to the RLD. */
+async function uiConsent($: EngineInterface, cfg: Config, words: string): Promise<string> {
+  const project = await loadProject($)  // the marker as it is now, never a cached phase
+  if (project?.phase !== 'confirmed') return confirmPlan($, cfg, words)
+  const asked = [...((await $.state.get(chatRef)).value ?? [])].reverse()
+    .find(m => m.role === 'rld' && m.text.startsWith('【需要你决定】'))?.text.replace('【需要你决定】', '')
+  const understanding = `用户在研究对话窗口同意RLD的确认请求${asked ? `：${asked.slice(0, 150)}` : '。'}`
+  const registered = await registerConsent($, cfg, words, understanding)
+  if (!registered.ok) return `确认未能登记：${registered.error}`
+  const failed = await relayToRld($, cfg, 'instruction', `用户确认 ${registered.result.doc_id}：${understanding}`,
+    [registered.result.path], [project.project_id])
+  return failed ?? `已登记为用户确认 ${registered.result.doc_id} 并转交RLD。`
+}
+
+/** The user's consent after the plan was confirmed (to a budget, scope or permission request of the RLD): their
+ *  words registered verbatim as a user instruction of kind 确认. */
+async function registerConsent($: EngineInterface, cfg: Config, words: string, understanding: string) {
+  const project = (await $.state.get(projectRef)).value
+  return tree($, cfg, ['instruction', '--text', words, '--kind', '确认', '--understanding', understanding,
+    ...(project ? ['--about', project.project_id] : [])])
 }
 
 /** A plugin tool's answer when its hook fails: the error itself, rather than the engine's "no hook answered". */
@@ -1065,16 +1256,20 @@ async function logMessage($: EngineInterface, cfg: Config, args: string[]) {
   return { ok: out.exitCode === 0, line: out.stdout.trim(), error: (out.stderr || out.stdout).trim() }
 }
 
-/** The user's confirmation of the plan: registered verbatim, phase confirmed, the RLD told to start. */
-async function confirmPlan($: EngineInterface, cfg: Config, words: string): Promise<string> {
+/** The user's confirmation of the plan: registered verbatim, phase confirmed, the RLD told to start. `byLeader`:
+ *  the RLD registers words the user said in the main conversation, and its answer carries the start instructions
+ *  (after a line for the window) instead of a queued prompt. */
+async function confirmPlan($: EngineInterface, cfg: Config, words: string, byLeader = false): Promise<string> {
   const project = await loadProject($)  // the marker as it is now, never a cached phase
   if (!project) return `当前目录没有研究项目；先运行 /${COMMAND} prepare，填写 plan.md 后运行 /${COMMAND} init。`
   if (project.phase === 'confirmed') return '立项计划已经确认过。'
   if (project.phase !== 'awaiting_confirmation') return 'RLD 还没有提交立项计划，暂时无需确认。'
-  // The configuration the plan was made with goes into effect with it: registered, and written into the record.
-  const applied = await tree($, cfg, ['config', 'apply', '--actor', cfg.actor, '--require-project'])
+  // The configuration the plan was made with goes into effect with it: registered (on the user's words), and
+  // written into the record.
+  const applied = await tree($, cfg, ['config', 'apply', '--actor', cfg.actor, '--require-project', '--words', words])
   if (!applied.ok) return `确认未完成：项目配置未能生效（${applied.error}）。`
-  await registerAgents($, (await readConfig($, cfg))?.effective)
+  const view = await readConfig($, cfg)
+  if (view) await registerAgents($, view.effective)
   const registered = await tree($, cfg, ['instruction', '--text', words, '--kind', '确认（立项计划）',
     '--understanding', '用户确认RLD提交的立项计划，同意启动根节点Experiment Architect实现共享框架与baseline。', '--about', project.project_id])
   if (!registered.ok) return `确认未能登记：${registered.error}`
@@ -1082,6 +1277,7 @@ async function confirmPlan($: EngineInterface, cfg: Config, words: string): Prom
   if (!phased.ok) return `确认已登记，但阶段未能更新：${phased.error}`
   await loadProject($)
   await refresh($, cfg)
+  if (byLeader) return `已确认立项计划（${registered.result.doc_id}）。\n${startPrompt(project, registered.result)}`
   // The RLD assigns the root Architect after confirmation.
   const logged = await logMessage($, cfg, ['--from', 'ui/ui', '--to', 'rld/main', '--type', 'instruction', '--need', 'none',
     '--text', '用户确认立项计划，请启动根节点Experiment Architect；就绪候选逐个筛选。', '--docs', registered.result.path, '--about', project.project_id])
@@ -1116,7 +1312,7 @@ async function configCommand($: EngineInterface, cfg: Config, action = '', flags
   if (!applied.ok) return `配置未生效：${applied.error}`
   await loadProject($)
   const view = await readConfig($, cfg)
-  await registerAgents($, view?.effective)
+  if (view) await registerAgents($, view.effective)  // never the 'inherit' defaults of an unread configuration
   await refresh($, cfg)
   const r = applied.result as { config: { doc_id: string; path: string }; new_version: boolean;
     updated_fields: Record<string, unknown>; instruction: { doc_id: string } | null }
@@ -1139,7 +1335,7 @@ async function configCommand($: EngineInterface, cfg: Config, action = '', flags
 
 export const register: Register = (on, options) => {
   const cfg = config(options)
-  const liveWorkers = new Map<string, string>()  // one executing turn per role-bound node
+  const liveWorkers = new Map<string, string>()  // per role-bound node: the session started here last (or STARTING)
   registerUiPane(on, cfg)
   registerProgressPane(on, cfg)
 
@@ -1174,12 +1370,16 @@ export const register: Register = (on, options) => {
       description:
         'RLD: post a message into the research UI window the person reads. type confirm_request (with the ' +
         'registered document that explains the decision) asks the person to decide; the start-up plan is ' +
-        'confirmed this way before any worker starts.',
+        'confirmed this way before any worker starts. type confirm registers the consent the person gave in the ' +
+        'main conversation: words is what they said, verbatim, and text your reading of it. While the start-up ' +
+        'plan awaits confirmation it confirms the plan (the configuration takes effect, the phase becomes ' +
+        'confirmed, the answer says how to start); afterwards it registers their consent to a later request.',
       inputSchema: {
         type: 'object',
         properties: {
-          type: { type: 'string', enum: ['confirm_request', 'reply', 'notice'] },
-          text: { type: 'string', minLength: 1, maxLength: 200, description: 'Short note, at most 200 characters' },
+          type: { type: 'string', enum: ['confirm_request', 'confirm', 'reply', 'notice'] },
+          text: { type: 'string', minLength: 1, maxLength: 200, description: 'Short note, at most 200 characters (confirm: what the person agreed to)' },
+          words: { type: 'string', minLength: 1, description: "confirm: the person's consent in the main conversation, verbatim" },
           re: { type: 'string', description: 'reply: the id of the message answered (e.g. ui-0003)' },
           docs: { type: 'array', items: { type: 'string' }, description: 'Versioned paths relative to docs/' },
         },
@@ -1228,12 +1428,18 @@ export const register: Register = (on, options) => {
   // The UI agent is the window's own: the main model never delegates to it.
   on('agent.offer', { agent: UI_AGENT }, () => ({ isOffered: false }))
 
-  // Workers start only after the user confirmed the plan; each run gets a worker identity.
+  // Research roles start only from the main session; workers only after the user confirmed the plan, each run
+  // bound to its node's assigned identity, one session per node.
   on('agent.spawn', async ($, e, next) => {
     const type = e.subagentType ?? (e as unknown as { subagent_type?: string }).subagent_type
     if (typeof type === 'string' && type.startsWith('research-tree:') &&
         ![UI_AGENT, WORKER_AGENT, ARCHITECT_AGENT, EXPLORER_AGENT, ANALYST_AGENT].includes(type)) {
       return { deny: `${PLUGIN}: 不支持的研究角色；仅允许architect、worker、explorer、analyst与按需UI。` }
+    }
+    // a subagent (a worker, say) inherits the Agent tool: it never starts another node's executor or an advisor
+    if (typeof type === 'string' && [WORKER_AGENT, ARCHITECT_AGENT, EXPLORER_AGENT, ANALYST_AGENT].includes(type) &&
+        e.parentAgentId !== undefined) {
+      return { deny: `${PLUGIN}: 只有 RLD（主会话）启动 architect、worker 与研究顾问；子代理需要帮手或换人时交给 RLD。` }
     }
     if (type === EXPLORER_AGENT || type === ANALYST_AGENT) {
       const project = (await $.state.get(projectRef)).value
@@ -1252,50 +1458,71 @@ export const register: Register = (on, options) => {
     const role = type === ARCHITECT_AGENT ? 'architect' : 'worker'
     const blocked = workerBlock((await $.state.get(projectRef)).value)
     if (blocked) return { deny: `${PLUGIN}: ${blocked}` }
-    // A worker is a node's: the prompt names the node's assigned identity, and the new session is bound to it.
-    const named = new RegExp(`${role}/([A-Za-z0-9_.]+)`).exec(e.prompt)?.[1]
-    if ((role === 'architect' && named !== 'root') || (role === 'worker' && named === 'root')) {
+    // A worker is a node's: the prompt opens with the node's assigned identity (an id ends before punctuation), and
+    // the new session is bound to it.
+    const named = new RegExp(`^\\s*(?:你是|[Yy]ou are)\\s*${role}/([A-Za-z0-9_]+(?:\\.[A-Za-z0-9_]+)*)`).exec(e.prompt)?.[1]
+    if ((role === 'architect' && named !== undefined && named !== 'root') || (role === 'worker' && named === 'root')) {
       return { deny: `${PLUGIN}: architect/root是唯一根节点角色；worker仅负责假说节点。` }
     }
     if (!named) {
       return { deny: `${PLUGIN}: 任务说明开头要写“你是 ${role}/<id>”，<id> 是对应角色的已指派身份（根节点用assign_architect，假说用assign_worker）。` }
     }
+    const identity = `${role}/${named}`
     const summary = await refresh($, cfg)
-    const node = workerNode(summary, `${role}/${named}`)
-    if (!node) return { deny: `${PLUGIN}: ${role}/${named} 没有对应的指派；根节点用assign_architect，假说用assign_worker。` }
+    const node = workerNode(summary, identity)
+    if (!node) return { deny: `${PLUGIN}: ${identity} 没有对应的指派；根节点用assign_architect，假说用assign_worker。` }
     if (role === 'architect' && node !== summary?.project?.id) return { deny: `${PLUGIN}: architect 只能负责项目根节点框架与基线。` }
     const busy = parallelBlock(summary, named)
     if (busy) return { deny: `${PLUGIN}: ${busy}` }
-    const lockKey = `${summary?.db_path ?? ''}:${role}/${named}`
-    if (liveWorkers.has(lockKey)) return { deny: `${PLUGIN}: 该节点的执行角色已有会话；用 SendMessage 续接，不重复启动。` }
-    liveWorkers.set(lockKey, 'starting')
+    // One session per node: its current session (the database's binding, else the one started here) is continued
+    // with SendMessage; a new session takes over only a stopped one, and only when the RLD names it.
+    const lockKey = `${summary?.db_path ?? ''}:${identity}`
+    const previous = liveWorkers.get(lockKey)
+    if (previous === STARTING) return { deny: `${PLUGIN}: ${identity} 已有会话正在启动；用 SendMessage 续接，不重复启动。` }
+    const current = boundSession(summary, identity) ?? previous
+    liveWorkers.set(lockKey, STARTING)
+    const release = () => (previous === undefined ? liveWorkers.delete(lockKey) : liveWorkers.set(lockKey, previous))
+    if (current) {
+      const escaped = current.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+      const refused = (await agentRunning($, current))
+        ? `${identity} 已有会话 ${current} 正在运行：用 SendMessage 续接，不重复启动；确需换会话时先停止它。`
+        : new RegExp(`接手会话\\s*${escaped}(?![\\w-])`).test(e.prompt) ? undefined
+        : `${identity} 已有会话 ${current}：用 SendMessage 续接它，不重复启动；无法续接或上下文过长时，新会话的任务说明在身份之后写明“接手会话 ${current}”，并用 resume_package 恢复（原会话随之失去身份）。`
+      if (refused) {
+        release()
+        return { deny: `${PLUGIN}: ${refused}` }
+      }
+    }
     let spawned: Awaited<ReturnType<typeof next>>
     try {
       spawned = await next(e)
     } catch (err) {
-      liveWorkers.delete(lockKey)
+      release()
       throw err
     }
-    if (spawned.agentId) {
-      liveWorkers.set(lockKey, spawned.agentId)
-      const agentId = spawned.agentId
-      await update($, agentsAtom, map => ({ ...(map ?? {}), [agentId]: `${role}/${named}` }))
-      await logAgentModel($, cfg, agentId, `${role}/${named}`, 'requested', spawned.model,
-        (await $.state.get(configRef)).value?.effective.models[role].effort)
-      const project = (await $.state.get(projectRef)).value
-      if (project) {
-        await runTool($, cfg, 'research_db.py', ['--db', project.db, '--actor', cfg.actor,
-          role === 'architect' ? 'bind_architect_session' : 'bind_worker_session',
-          JSON.stringify(role === 'architect' ? { agent_id: agentId } : { node_id: node, agent_id: agentId })])
-        await refresh($, cfg)
-      }
-    } else liveWorkers.delete(lockKey)
+    if (!spawned.agentId) {
+      release()
+      return spawned
+    }
+    const agentId = spawned.agentId
+    liveWorkers.set(lockKey, agentId)
+    // the node's identity moves to the new session: a session it took over from keeps none
+    await update($, agentsAtom, map => ({
+      ...Object.fromEntries(Object.entries(map ?? {}).filter(([, actor]) => actor !== identity)), [agentId]: identity }))
+    await logAgentModel($, cfg, agentId, identity, 'requested', spawned.model,
+      (await $.state.get(configRef)).value?.effective.models[role].effort)
+    const project = (await $.state.get(projectRef)).value
+    if (project) {
+      await runTool($, cfg, 'research_db.py', ['--db', project.db, '--actor', cfg.actor,
+        role === 'architect' ? 'bind_architect_session' : 'bind_worker_session',
+        JSON.stringify(role === 'architect' ? { agent_id: agentId } : { node_id: node, agent_id: agentId })])
+      await refresh($, cfg)
+    }
     return spawned
   })
 
   on('turn.complete', async ($, e, next) => {
     const done = await next(e)
-    if (e.agentId) for (const [key, agent] of liveWorkers) if (agent === e.agentId) liveWorkers.delete(key)
     if (e.agentId === undefined && e.usage?.model && observedModels.get('main') !== e.usage.model) {
       // the Leader's model: review_call.py refuses a reviewer of the same family (09 §2.1 step 3); recorded once a
       // project exists (before init there is no log to write to), then again whenever the model changes
@@ -1316,7 +1543,12 @@ export const register: Register = (on, options) => {
       const run = (await $.state.get(uiRunRef)).value
       await $.state.set(uiAgentRef, null)
       await $.state.set(uiRunRef, null)
-      if (run) await carryOutUi($, cfg, run, e.answer, e.isAborted)
+      let retried = false
+      try {
+        if (run) retried = await carryOutUi($, cfg, run, e.answer, e.isAborted)
+      } finally {
+        if (!retried) await nextUi($, cfg)  // the run is over: a message that waited for it gets the next run
+      }
     }
     return done
   })
@@ -1400,8 +1632,7 @@ export const register: Register = (on, options) => {
         return { result: 'research_db: method must be a ResearchDB method name', isError: true as const }
       }
       // The host binds the caller's role; the model cannot select an actor.
-      const fixed = e.agentId === undefined ? undefined
-        : (await $.state.get(agentsRef)).value?.[e.agentId] ?? workerActor((await $.state.get(summaryRef)).value, e.agentId)
+      const fixed = e.agentId === undefined ? undefined : await actorOf($, e.agentId)
       if (e.agentId !== undefined && fixed === undefined) {
         return { result: 'research_db: 只有主会话或已绑定的 worker 可以调用。', isError: true as const }
       }
@@ -1474,9 +1705,31 @@ export const register: Register = (on, options) => {
   on('tool.call', { tool: POST_TOOL }, async ($, e) => {
     try {
       if (e.agentId !== undefined) return { result: '只有 RLD（主会话）使用 post_to_ui。', isError: true as const }
-      const input = e as unknown as { type?: string; text?: string; docs?: string[]; re?: string }
+      const input = e as unknown as { type?: string; text?: string; docs?: string[]; re?: string; words?: unknown }
       if (typeof input.text !== 'string' || !Array.from(input.text).length || Array.from(input.text).length > 200) {
         return { result: 'post_to_ui: text must contain 1..200 characters', isError: true as const }
+      }
+      if (input.words !== undefined && input.type !== 'confirm') {
+        return { result: 'post_to_ui: words 只用于 type=confirm（用户在主会话表示同意的原话）。', isError: true as const }
+      }
+      if (input.type === 'confirm') {
+        // The person's consent in the main conversation, verbatim (Codex: research_control confirm(words)).
+        if (typeof input.words !== 'string' || !input.words.trim()) {
+          return { result: 'post_to_ui: confirm 需要 words：用户在主会话表示同意的原话（逐字，不转述）。', isError: true as const }
+        }
+        const current = await loadProject($)  // the marker as it is now, never a cached phase
+        if (current?.phase === 'awaiting_confirmation') {
+          const answer = await confirmPlan($, cfg, input.words, true)
+          await say($, 'note', answer.split('\n')[0]!)
+          return (await $.state.get(projectRef)).value?.phase === 'confirmed' ? { result: answer } : { result: answer, isError: true as const }
+        }
+        if (current?.phase !== 'confirmed') {
+          return { result: `post_to_ui: 立项计划还没有提交确认（当前：${L(current?.phase)}）；先用 confirm_request 请用户确认。`, isError: true as const }
+        }
+        const registered = await registerConsent($, cfg, input.words, input.text)
+        if (!registered.ok) return { result: `post_to_ui: 确认未能登记：${registered.error}`, isError: true as const }
+        await say($, 'note', `已登记用户在主会话的确认 ${registered.result.doc_id}：${input.text}`)
+        return { result: `已登记用户确认 ${registered.result.doc_id}（docs/${registered.result.path}）；在所确认的范围内执行。` }
       }
       let logged = ''
       if (input.type === 'reply' && !input.re) {
@@ -1510,19 +1763,21 @@ export const register: Register = (on, options) => {
           ...(input.docs?.length ? ['--docs', ...input.docs] : [])])
       }
       const refs = input.docs?.length ? `\n引用：${input.docs.join('，')}` : ''
+      // /research-tree confirm confirms the start-up plan only; a later request is answered here or to the RLD
+      const how = project?.phase === 'confirmed' ? '同意请在此回复，或直接在主会话告诉 RLD。' : `同意请在此回复，或运行 /${COMMAND} confirm。`
       await say($, 'rld', `${input.type === 'confirm_request' ? '【需要你决定】' : ''}${input.text ?? ''}${refs}` +
-        (input.type === 'confirm_request' ? `\n同意请在此回复，或运行 /${COMMAND} confirm。` : ''))
+        (input.type === 'confirm_request' ? `\n${how}` : ''))
       $.ui.toast(input.type === 'confirm_request' ? 'RLD 需要你的决定，可在主会话确认' : '研究对话有新记录')
       return { result: (logged ? `已记录研究对话：${logged}` : '已记录研究对话。') +
-        (input.type === 'confirm_request' ? ' 请在主会话展示计划并询问用户；明确确认有效，无需打开UI。' : '') }
+        (input.type === 'confirm_request' ? ' 请在主会话向用户说明并询问；用户明确同意时用 post_to_ui(type=confirm, words=用户原话, text=你的理解) 登记，无需打开UI。' : '') }
     } catch (err) {
       return toolFailure(err)
     }
   })
 
-  on('tool.call', { tool: 'Edit' }, async ($, e, next) => (await advisoryWriteBlock($, e.agentId)) ?? (await guard($, cfg, e.file_path, e.agentId)) ?? next(e))
-  on('tool.call', { tool: 'Write' }, async ($, e, next) => (await advisoryWriteBlock($, e.agentId)) ?? (await guard($, cfg, e.file_path, e.agentId)) ?? next(e))
-  on('tool.call', { tool: 'NotebookEdit' }, async ($, e, next) => (await advisoryWriteBlock($, e.agentId)) ?? (await guard($, cfg, e.notebook_path, e.agentId)) ?? next(e))
+  on('tool.call', { tool: 'Edit' }, async ($, e, next) => (await advisoryWriteBlock($, e.agentId)) ?? (await guard($, cfg, [e.file_path], e.agentId)) ?? next(e))
+  on('tool.call', { tool: 'Write' }, async ($, e, next) => (await advisoryWriteBlock($, e.agentId)) ?? (await guard($, cfg, [e.file_path], e.agentId)) ?? next(e))
+  on('tool.call', { tool: 'NotebookEdit' }, async ($, e, next) => (await advisoryWriteBlock($, e.agentId)) ?? (await guard($, cfg, [e.notebook_path], e.agentId)) ?? next(e))
 
   on('tool.call', { tool: 'Bash' }, async ($, e, next) => {
     const advisory = await advisoryWriteBlock($, e.agentId)
@@ -1534,22 +1789,34 @@ export const register: Register = (on, options) => {
     if (project && e.agentId !== undefined && writesConfig(e.command, `${projectDir(project)}/${CONFIG_FILE}`)) {
       return { deny: `${PLUGIN}: ${CONFIG_REASON}` }
     }
+    const calls = researchCalls(e.command)
+    // the mod runs these itself (runTool): the phase moves with a registered confirmation, the model log with agent runs
+    const own = calls.find(c => c.script === 'research_tree.py' && (c.method === 'phase' || c.method === 'agent-log'))
+    if (own) {
+      return { deny: `${PLUGIN}: research_tree.py ${own.method} 只由 mod 运行，不经 Bash。用户的确认用 post_to_ui(type=confirm, words=用户原话) 登记（立项计划随之确认）；模型记录由 mod 写入。` }
+    }
     const apply = e.agentId === undefined ? configApply(e.command) : undefined
-    if (apply && !apply.some(a => a === '--words' || a.startsWith('--words='))) return { deny: `${PLUGIN}: ${APPLY_WORDS}` }
+    if (apply !== undefined && !apply.trim()) return { deny: `${PLUGIN}: ${APPLY_WORDS}` }
     const bypass = reviewerBypass(e.command)
     if (bypass) return { deny: `${PLUGIN}: ${bypass}` }
     // A subagent is never the RLD: a worker acts as itself, other helpers read. (The UI's run has its own outbox.)
     if (e.agentId !== undefined) {
-      const calls = researchCalls(e.command)
       const blocked = e.agentId === (await $.state.get(uiAgentRef)).value
-        ? uiCallBlock(calls) : subagentCallBlock(calls,
-          (await $.state.get(agentsRef)).value?.[e.agentId] ?? workerActor((await $.state.get(summaryRef)).value, e.agentId))
+        ? uiCallBlock(calls) : subagentCallBlock(calls, await actorOf($, e.agentId))
       if (blocked) return { deny: `${PLUGIN}: ${blocked}` }
     }
+    // the files the command writes face the same authoritative guards as Edit and Write
+    const files = await guard($, cfg, writeTargets(e.command), e.agentId)
+    if (files) return files
     const ran = await next(e)
-    if (apply) {  // the RLD applied the configuration on the user's request: agents and state follow it
-      await loadProject($)
-      await registerAgents($, (await readConfig($, cfg))?.effective)
+    if (apply !== undefined) {  // the RLD applied the configuration on the user's request: agents and state follow it
+      try {
+        await loadProject($)
+        const view = await readConfig($, cfg)
+        if (view) await registerAgents($, view.effective)  // never the 'inherit' defaults of an unread configuration
+      } catch {
+        // the command has run: its result stands; the next session start or configuration read reloads the agents
+      }
     }
     if (project && /\b(research_db|send_message|make_demo|build_site|research_tree)\.py\b/.test(e.command)) refreshAfterWrite($, cfg, project.db)
     return ran
@@ -1692,4 +1959,5 @@ function registerProgressPane(on: Parameters<Register>[0], cfg: Config): void {
 export const internals = {
   submitLater, guardReason, writesDatabase, writesConfig, researchCalls, subagentCallBlock, reviewerBypass, statusText, statusLine, workerBlock, parseInit, workerNode, workerActor, parallelBlock,
   workerPrompt, platformText, uiPrompt, configCommand, prepareCommand, carryOutUi, confirmPlan, registerAgents, advisoryPrompt, refreshAfterWrite, advisoryWriteBlock, planningPrompt, startPrompt, WORKFLOW, configApply,
+  writeTargets, askUi,
 }

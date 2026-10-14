@@ -9,8 +9,13 @@
 A record is JSON. Its status may be PASS only when validate finds nothing: the host, the observed model (from the
 host's own records, never the configured one), the commands actually run, raw evidence that exists, every assertion
 with expected / actual / evidence / verdict PASS, the observer's result, and the resume evidence when the scenario
-resumes. A real host scenario (evidence_class real_sc) must not rest on a canned model answer, a mock reviewer,
-preset scores or a direct database write: those belong to REG or simulation records.
+resumes. Evidence files (session transcripts, raw evidence, raw reviewer outputs, the observer snapshots around a
+resume) are non-empty regular files inside the scenario's evidence locations (§12.1): the record's directory, its
+stage and host's directory of the records tree, or the scenario's project and controller directories. A scenario
+whose plan ends the session and continues in a new one needs its resume evidence whatever requires_resume says.
+A real host scenario (evidence_class real_sc) must not rest on a canned model answer, a mock reviewer,
+preset scores or a direct database write: those belong to REG or simulation records, which summary never counts
+as a real PASS (§12.3).
 
 A record may describe a retry from another attempt's saved opening: its provenance names that
 snapshot in forked_from. A forked attempt can show a stage's own scenarios, never SC-COMMON-01 (the opening is not
@@ -20,6 +25,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -41,6 +47,10 @@ REAL_BACKENDS = ("pi", "claude_code")
 SUBSTITUTES = ("canned_model_response", "mock_reviewer", "local_responses_stub", "direct_db_write",
                "preset_review_pass", "preset_go", "preset_scores", "formula_metric")
 FAULT_FIELDS = ("id", "target", "trigger", "times", "invariants")
+# scenarios whose steps end the session and continue in a new one (§2.5 step 5 and the stage sections): requires_resume
+# cannot waive their resume evidence
+RESUME_SCENARIOS = ("SC-COMMON-01", "SC-S0-01", "SC-S1-01", "SC-S1-02", "SC-S2-04", "SC-S3-02", "SC-S4-02",
+                    "SC-S5-02", "SC-S6-02", "SC-S7-01", "SC-S7-03")
 
 
 def template(scenario_id: str, stage: str, host: str, attempt: int) -> dict:
@@ -58,15 +68,46 @@ def template(scenario_id: str, stage: str, host: str, attempt: int) -> dict:
         "failures": [], "fixes_and_retests": [], "remaining_gaps": []}
 
 
-def _exists(path: str, base: Path) -> bool:
+def _evidence_roots(record: dict, base: Path) -> list[Path]:
+    """Where a scenario's evidence may lie (§12.1): the record's directory; for a record kept at
+    <dir>/<stage>/<host>/<scenario>/aNN/, the stage and host's directory (the evidence-aNN/ copies beside the
+    scenarios); and the scenario's project with its controller directory <project>.ctl."""
+    base = Path(os.path.realpath(base))
+    roots = [base]
+    attempt = record.get("attempt")
+    if isinstance(attempt, int) and len(base.parents) >= 4 and (
+            base.name, base.parent.name, base.parents[1].name, base.parents[2].name) == (
+            f"a{attempt:02d}", record.get("scenario_id"), record.get("host"), record.get("stage")):
+        roots.append(base.parents[1])
+    project = record.get("project_root")
+    if isinstance(project, str) and Path(project).is_absolute():
+        project = Path(os.path.realpath(project))
+        # a generated project outside the repository (§2.4), never a directory holding the repository or the record
+        repo = REPO.resolve()
+        if not (repo.is_relative_to(project) or project.is_relative_to(repo) or base.is_relative_to(project)):
+            roots += [project, project.with_name(project.name + ".ctl")]
+    return roots
+
+
+def _evidence_file(path, record: dict, base: Path) -> bool:
+    """A non-empty regular file (after links) inside the scenario's evidence locations; a relative path is read
+    against the record's directory or the repository."""
+    if not isinstance(path, str) or not path.strip():
+        return False
     p = Path(path)
-    return (p if p.is_absolute() else base / p).exists() or (REPO / p).exists()
+    roots = _evidence_roots(record, base)
+    for candidate in ([p] if p.is_absolute() else [base / p, REPO / p]):
+        real = Path(os.path.realpath(candidate))
+        if real.is_file() and real.stat().st_size > 0 and any(real.is_relative_to(r) for r in roots):
+            return True
+    return False
 
 
 def problems(record: dict, base: Path | None = None) -> list[str]:
     """Why the record cannot be summed up as PASS (empty when it can)."""
     base = base or REPO
     out = []
+    needs_resume = record.get("requires_resume", True) or record.get("scenario_id") in RESUME_SCENARIOS
     if record.get("status") not in STATUSES:
         out.append(f"status must be one of {STATUSES}")
     if record.get("host") not in HOSTS:
@@ -86,29 +127,30 @@ def problems(record: dict, base: Path | None = None) -> list[str]:
         elif record.get("host") in MATRIX and record["observed_effort"] != MATRIX[record["host"]]["effort"]:
             out.append(f"observed effort {record['observed_effort']} is not the matrix effort "
                        f"{MATRIX[record['host']]['effort']}")
-        if record.get("requires_resume", True) and record.get("resume_evidence"):
+        if needs_resume and record.get("resume_evidence"):
             resume = record["resume_evidence"]
-            pair = [resume.get("observer_before"), resume.get("observer_after")]
-            if not all(pair) or not all(_exists(p, base) for p in pair):
+            pair = [resume.get("observer_before"), resume.get("observer_after")] if isinstance(resume, dict) else []
+            if not pair or not all(_evidence_file(p, record, base) for p in pair):
                 out.append("resume_evidence needs observer_before and observer_after (read-only snapshots around the "
-                           "resumed session)")
+                           "resumed session, non-empty files in the scenario's evidence locations)")
         transcripts = record.get("session_transcripts") or []
-        if not transcripts or not all(_exists(p, base) for p in transcripts):
-            out.append("session_transcripts (the host's raw session files) are missing")
+        if not transcripts or not all(_evidence_file(p, record, base) for p in transcripts):
+            out.append("session_transcripts (the host's raw session files, non-empty files in the scenario's evidence "
+                       "locations) are missing")
         for call in record.get("review_calls") or []:
-            if call.get("outcome") == "ok" and not (call.get("raw_output") and _exists(call["raw_output"], base)):
+            if call.get("outcome") == "ok" and not _evidence_file(call.get("raw_output"), record, base):
                 out.append(f"review call {call.get('review_id') or call} has no raw reviewer output on file")
     if not record.get("commands"):
         out.append("commands actually run are missing")
     raw = record.get("raw_evidence_paths") or []
     if not raw:
         out.append("raw_evidence_paths is empty")
-    missing = [p for p in raw if not _exists(p, base)]
+    missing = [p for p in raw if not _evidence_file(p, record, base)]
     if missing:
-        out.append(f"raw evidence does not exist: {missing[:5]}")
+        out.append(f"raw evidence is not a non-empty file in the scenario's evidence locations: {missing[:5]}")
     if not record.get("observer_results"):
         out.append("observer_results is missing")
-    if record.get("requires_resume", True) and not record.get("resume_evidence"):
+    if needs_resume and not record.get("resume_evidence"):
         out.append("resume_evidence is missing (the scenario ends the session and resumes in a new one)")
     assertions = record.get("assertions") or []
     if not assertions:
@@ -180,15 +222,22 @@ def record_dir(base: Path, record: dict) -> Path:
 
 
 def summary(base: Path) -> dict:
-    """Stage x host: PASS only when every record of that stage and host passed validation."""
+    """Stage x host: PASS only when every record of that stage and host passed validation. Each scenario shows its
+    latest real host attempt; a REG or simulation record is shown only where no real one exists, with its evidence
+    class, and is never valid: §12.3 does not sum REG into a real PASS."""
     out: dict = {}
     for path in sorted(base.glob("*/*/*/*/record.json")):
         record = json.loads(path.read_text(encoding="utf-8"))
         cell = out.setdefault(record["stage"], {}).setdefault(record["host"], {})
         latest = cell.get(record["scenario_id"])
-        if latest is None or record["attempt"] >= latest["attempt"]:
+        real = record.get("evidence_class") == "real_sc"
+        if latest is None or (real, record["attempt"]) >= (latest["evidence_class"] == "real_sc", latest["attempt"]):
             bad = problems(record, path.parent)
+            if not real:
+                bad = [f"evidence_class {record.get('evidence_class')!r} is not a real host scenario: never a real "
+                       "PASS (§12.3)", *bad]
             cell[record["scenario_id"]] = {"attempt": record["attempt"], "status": record["status"],
+                                           "evidence_class": record.get("evidence_class"),
                                            "valid": not bad, "problems": bad[:5],
                                            **({"forked_from": record["forked_from"].get("attempt")}
                                               if isinstance(record.get("forked_from"), dict) else {})}

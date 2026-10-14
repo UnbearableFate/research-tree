@@ -11,6 +11,7 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from typing import Any
 
 import sys
 
@@ -82,6 +83,14 @@ def _merge(base: dict, given: dict) -> dict:
     for key, value in given.items():
         merged[key] = _merge(base[key], value) if isinstance(base.get(key), dict) and isinstance(value, dict) else value
     return merged
+
+
+def platform_section(given: Any) -> dict:
+    """A configuration mapping's platform section completed from the template, as parse() reads it (the rest is not
+    validated): two versions that state the same platform, explicitly or by default, compare equal."""
+    if not isinstance(given, dict) or not isinstance(given.get("platform", {}), dict):
+        raise ConfigError("a configuration is a mapping whose platform section is a mapping")
+    return _merge(defaults().get("platform") or {}, given.get("platform") or {})
 
 
 def parse(text: str, source: str = CONFIG_NAME) -> dict:

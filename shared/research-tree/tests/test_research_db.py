@@ -861,6 +861,19 @@ class DecisionTest(Fixture):
         self.rld.decide("P-test", {"status": "go"}, "GO", doc_id=self.report_doc("go"))
         self.assertEqual((self.rld.get("P-test")["status"], self.rld.get(other)["status"]), ("go", "pending"))
 
+    def test_a_node_that_ran_nothing_is_retired_only_by_the_user(self):
+        """Whatever its lifecycle status, a node none of whose runs was ever submitted is untested (06 §3)."""
+        h = self.hypothesis()
+        self.start(h)  # verifying, with an experiment planned but never submitted
+        self.method(h)
+        with self.assertRaisesRegex(ResearchDBError, "given up only by the user"):
+            self.rld.decide_disposition(h, "retired", "low value", [self.decision_doc()], reconsider_when="new data")
+        with self.assertRaisesRegex(ResearchDBError, "given up only by the user"):
+            self.rld.decide(h, {"status": "prunable"}, "low value", doc_id=self.decision_doc(),
+                            based_on=[self.decision_doc()], reconsider_when="new data")
+        user = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-giveup.v1.md", "user_instruction", about=(h,))
+        self.rld.decide_disposition(h, "retired", "the user gave it up", [user], reconsider_when="the user asks")
+
     def test_recheck_failure_prunes(self):
         h, exp = self.concluded()
         self.rld.decide(h, {"experiment_status": "beats_sota"}, "gate", based_on=[exp])
@@ -1873,6 +1886,16 @@ class LedgerTest(Fixture):
         self.assertEqual(self.rld.obligations(status="WAIVED")[0]["id"], first["obligation_id"])
         self.assertTrue(self.rld.get_eligibility(h)["eligible"])
 
+    def test_the_same_finding_about_another_subject_is_its_own_obligation(self):
+        h = self.hypothesis()
+        add = lambda about: self.rld.add_obligation(  # noqa: E731
+            about, "code_review:RV-0001", "gt_source", "labels come from the training split", "MAJOR", "same excerpt")
+        first, other = add(h), add(self.sota)
+        self.assertTrue(other["created"])
+        self.assertNotEqual(first["obligation_id"], other["obligation_id"])
+        self.assertEqual([o["id"] for o in self.rld.obligations(about=self.sota)], [other["obligation_id"]])
+        self.assertEqual(add(h)["obligation_id"], first["obligation_id"])  # about the first subject again: the same
+
     def test_mismatches_are_ledgered(self):
         h = self.hypothesis()
         self.start(h)
@@ -1926,8 +1949,9 @@ class StallTest(Fixture):
         self.rld.decide(root, {"experiment_status": "beats_sota", "status": "expandable"}, "gate",
                         doc_id=self.decision_doc(), based_on=[self.rld.latest_result(root)["id"]])
         doc = self.doc(self.rld, "h/stall/hypothesis.v1.md", "hypothesis")
-        with self.assertRaisesRegex(ResearchDBError, "STALL_STRUCTURAL"):
-            self.create_hypothesis("same", "s", doc, self.literature, root, direction="optimizer-state")
+        for same in ("optimizer-state", "Optimizer State", "OPTIMIZER/STATE!"):  # case and punctuation: the same
+            with self.subTest(same), self.assertRaisesRegex(ResearchDBError, "STALL_STRUCTURAL"):
+                self.create_hypothesis("same", "s", doc, self.literature, root, direction=same)
         with self.assertRaisesRegex(ResearchDBError, "STALL_STRUCTURAL"):
             self.create_hypothesis("unnamed", "s", doc, self.literature, root, direction=None)
         self.create_hypothesis("other", "s", doc, self.literature, root, direction="data-order control")
@@ -2131,6 +2155,17 @@ class BudgetTest(Fixture):
         self.worker.release_reservation("k2", "user checked: nothing was submitted", user)
         self.assertEqual(self.rld.budget_status()["open_reservations"], [])
 
+    def test_a_released_reservation_takes_no_job(self):
+        """Released, it holds no budget: a job found under its key afterwards goes to the user, not onto it."""
+        _, refs = self.planned(1, 500)
+        self.worker.reserve_submission("k1", refs, {"nodes": 1, "walltime_s": 500})
+        gen = self.worker.claim_submission("k1")["claim_generation"]
+        user = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-3001.v1.md", "user_instruction")
+        self.worker.release_reservation("k1", "user checked: nothing was submitted", user)
+        with self.assertRaisesRegex(ResearchDBError, "SUBMISSION_AMBIGUOUS: k1 was released"):
+            self.worker.attach_job("k1", "job-77", gen)
+        self.assertIsNone(self.rld.get(refs[0].rpartition("@")[0]).get("job_id"))
+
     def test_b08_b09_overrun_is_recorded_and_pauses_admission(self):
         _, refs = self.planned(1, 600)
         run = refs[0].rpartition("@")[0]
@@ -2173,7 +2208,9 @@ class BudgetTest(Fixture):
 
     def test_caps_are_raised_only_by_the_user(self):
         self.rld.update_project(total_limit=12000)  # lowering a cap is allowed
-        for change in ({"total_limit": 20000}, {"search_limit": None}, {"max_nodes": 99}):
+        # a larger screening budget also widens what runs as cheap search without a code review
+        for change in ({"total_limit": 20000}, {"search_limit": None}, {"max_nodes": 99},
+                       {"screen_budget_node_h": 1000}, {"stall_human_at": 50}):
             with self.subTest(change=change), self.assertRaisesRegex(ResearchDBError, "BUDGET_EXCEEDED: raising"):
                 self.rld.update_project(**change)
         user = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-3200.v1.md", "user_instruction")
@@ -2418,6 +2455,44 @@ class EvidenceCleanupTest(Fixture):
                 self.owner_for(exp).run_cleanup(exp)
         self.assertTrue((run_dir / "predictions.jsonl").exists())
 
+    def test_evidence_of_another_attempt_in_the_same_directory_is_kept(self):
+        """Attempts of a run may share an output directory: an item listed under one attempt is checked against the
+        evidence every attempt registered."""
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h, n_seeds=1)
+        run, owner = f"{exp}/s42", self.owner_for(exp)
+        self.effects[exp] = (self.sota, (0.3, 0.1, 0.1))
+        owner.create_run(exp, 42)
+        owner.update_run(run, exec_status="submitted")
+        owner.update_run(run, exec_status="failed", output_path=f"outputs/{exp}/s42", log_path=f"outputs/{exp}/s42/a1.log")
+        owner.update_run(run, attempt=2, exec_status="submitted")
+        owner.update_run(run, exec_status="succeeded")
+        owner.import_run_result(run, 2, self.manifest(exp, 42, attempt=2, evidence_paths=["predictions.jsonl"]))
+        owner.update_run(run, valid=True)
+        owner.evaluate_experiment(exp, self.result_doc(exp=exp))
+        (Path(self.tmp.name) / rdb.CLEANUP_SCRIPT).write_text(textwrap.dedent("""\
+            import json, sys
+            request = json.load(sys.stdin)
+            first = request["runs"][0]
+            items = [{"run": first["run"], "path": first["output_dir"] + "/predictions.jsonl", "class": "predictions",
+                      "bytes": 1}]
+            print(json.dumps({"items": items if sys.argv[1] == "plan" else []}))
+            """))
+        with self.assertRaisesRegex(ResearchDBError, "holds evidence"):
+            owner.run_cleanup(exp)
+        self.assertTrue((self.root / "outputs" / exp / "s42" / "predictions.jsonl").exists())
+
+    def test_a_glob_source_cites_every_matching_metrics_file(self):
+        h = self.hypothesis()
+        self.start(h)
+        exp = self.method(h)
+        self.imported(exp, effect=(self.sota, (0.3, 0.1, 0.1)))
+        value = str(self.rld.get(f"{exp}/s42")["metric_value"])
+        doc = self.result_doc(exp=exp, cite_runs=False, extra=[
+            {"id": "acc-runs", "value": value, "source": f"outputs/{exp}/s*/metrics.json"}])
+        self.assertTrue(self.owner_for(exp).evaluate_experiment(exp, doc)["evaluation_id"])
+
     def test_cited_sources_are_evidence(self):
         h = self.hypothesis()
         self.start(h)
@@ -2611,6 +2686,31 @@ class WorkerTest(Fixture):
         self.assertEqual([b["id"] for b in root["baselines"]], [self.sota])
 
 
+class ScreeningBindingTest(unittest.TestCase):
+    """A hypothesis binds its admitted candidate only when it states the same prediction, intervention, comparator
+    and stop conditions: layout may differ, comparison signs, operators and numbers may not."""
+
+    candidate = {"id": "CAND-0001", "revision": 1, "content_sha": "x", "prediction": "acc improves by > 0.5 pp",
+                 "intervention": "lr * 2", "comparator": "the same budget baseline",
+                 "stop_conditions": ["stop if acc < 5"], "resource_ceiling": {"nodes": 1, "walltime_s": 60, "n_seeds": 1}}
+
+    def bind(self, **sections) -> dict:
+        contract = {"sections": {"可证伪预测": "- **acc** improves by > 0.5 pp.", "干预": "`lr * 2`",
+                                 "匹配对照": "The same budget baseline", "停止与继续条件": "Stop if acc < 5. Continue otherwise.",
+                                 **sections}, "resource_ceiling": {"nodes": 1, "walltime_s": 60, "n_seeds": 1}}
+        rdb.ResearchDB._bind_screening_candidate(contract, dict(self.candidate))
+        return contract
+
+    def test_layout_does_not_matter(self):
+        self.assertEqual(self.bind()["candidate"]["id"], "CAND-0001")
+
+    def test_signs_operators_and_numbers_do(self):
+        for sections in ({"可证伪预测": "acc improves by < -0.5 pp"}, {"干预": "lr / 2"},
+                         {"停止与继续条件": "stop if acc < 50 drop"}):
+            with self.subTest(sections), self.assertRaisesRegex(ResearchDBError, "PRECHECK_REQUIRED"):
+                self.bind(**sections)
+
+
 class DocumentTest(Fixture):
     def test_paths_roles_and_freeze(self):
         (self.root / "docs" / "a.md").write_text("x", encoding="utf-8")
@@ -2636,6 +2736,19 @@ class DocumentTest(Fixture):
         self.assertTrue(self.rld.verify_document(doc))
         (self.root / "docs" / "h.v1.md").write_text("tampered", encoding="utf-8")
         self.assertFalse(self.rld.verify_document(doc))
+
+    def test_a_document_is_superseded_only_by_another_of_its_author(self):
+        own = self.doc(self.worker, "literature/own.v1.md", "literature")
+        with self.assertRaisesRegex(ResearchDBError, "superseded by another"):
+            self.worker.supersede_document(own, own)  # a self-loop would never end a resume walk
+        theirs = self.doc(self.rld, "literature/rld.v1.md", "literature")
+        rival = self.doc(self.worker, "literature/rival.v1.md", "literature")
+        with self.assertRaises(PermissionDenied):
+            self.worker.supersede_document(theirs, rival)
+        self.assertEqual(self.rld.get(theirs)["status"], "current")
+        newer = self.doc(self.worker, "literature/own.v2.md", "literature")
+        self.worker.supersede_document(own, newer)
+        self.assertEqual(self.rld.get(own)["status"], "superseded")
 
     def test_supersede(self):
         h = self.hypothesis()
@@ -2720,7 +2833,10 @@ class TaskTest(Fixture):
             worker.update_task(task["id"], status="delivered",
                               delivery_doc_id=self.doc(worker, f"tasks/{task['id']}/delivery.v1.md", "task_delivery"))
         self.rld.update_task(waiting, assignee_id="w3")
-        self.rld.update_project(max_parallel_workers=None)
+        with self.assertRaisesRegex(ResearchDBError, "BUDGET_EXCEEDED: raising max_parallel_workers"):
+            self.rld.update_project(max_parallel_workers=None)  # more workers in parallel is the user's decision
+        self.rld.update_project(max_parallel_workers=None, user_instruction_doc_id=self.doc(
+            ResearchDB(self.db, "ui/ui"), "instructions/UI-parallel.v1.md", "user_instruction"))
         self.assertIsNone(self.rld.get("P-test").get("max_parallel_workers"))
         self.rld.create_task("experiment", "worker", req, target_id=hypotheses[3], assignee_id="w4")
 
@@ -3025,12 +3141,16 @@ class DesignTest(Fixture):
             ResearchDB(self.db, "ui/ui"), "instructions/UI-0400.v1.md", "user_instruction"))
         with self.assertRaisesRegex(ResearchDBError, "CODE_REVIEW_REQUIRED"):
             self.submit(other)
+        allowed = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0401.v1.md", "user_instruction")
         with self.assertRaisesRegex(ResearchDBError, "no REVIEW_UNAVAILABLE code_review call"):
-            self.rld.waive_code_review(other, self.decision_doc())
+            self.rld.waive_code_review(other, self.decision_doc(), allowed)
         log = self.root / "logs" / "review_calls.jsonl"
         log.parent.mkdir(exist_ok=True)
         log.write_text(json.dumps({"kind": "code_review", "about": h, "outcome": "REVIEW_UNAVAILABLE"}) + "\n")
-        self.rld.waive_code_review(other, self.decision_doc())
+        # the Leader alone cannot release it: the waiver is the user's decision
+        with self.assertRaisesRegex(ResearchDBError, "CODE_REVIEW_REQUIRED: .*user's decision"):
+            self.rld.waive_code_review(other, self.decision_doc(), self.decision_doc())
+        self.rld.waive_code_review(other, self.decision_doc(), allowed)
         self.submit(other)
         # a waiver never overrides a review that found blocking issues; the latest review of a commit decides
         third_code = self.commit()
@@ -3044,7 +3164,7 @@ class DesignTest(Fixture):
         with self.assertRaisesRegex(ResearchDBError, "has blocking issues"):
             self.submit(third)
         with self.assertRaisesRegex(ResearchDBError, "a waiver is only for an unavailable reviewer"):
-            self.rld.waive_code_review(third, self.decision_doc())
+            self.rld.waive_code_review(third, self.decision_doc(), allowed)
 
     def test_x06_x07_failure_budget(self):
         h = self.node()
@@ -3099,6 +3219,12 @@ class ProxyWordingTest(Fixture):
         with self.assertRaisesRegex(ResearchDBError, "CLAIM_EXCEEDS_EVAL_TYPE: .*synthetic_proxy"):
             self.rld.set_document_current(doc)
         self.doc(self.rld, "reports/x11c.v1.md", "report", body="# 结果\n\n本方法未优于 SOTA。\n")  # negated: fine
+        for n, negated in enumerate(("这不是新的 SOTA。", "本方法未能超越 SOTA。", "It is not a new SOTA.")):
+            self.doc(self.rld, f"reports/x11n{n}.v1.md", "report", body=f"# 结果\n\n{negated}\n")
+        for n, claim in enumerate(("本方法优于现有 SOTA。", "本方法超过了 SOTA。", "The method outperforms the SOTA.")):
+            doc = self.doc(self.rld, f"reports/x11p{n}.v1.md", "report", current=False, body=f"# 结果\n\n{claim}\n")
+            with self.subTest(claim), self.assertRaisesRegex(ResearchDBError, "CLAIM_EXCEEDS_EVAL_TYPE"):
+                self.rld.set_document_current(doc)
         ok = self.doc(self.rld, "reports/x11b.v1.md", "report", body="# 结果\n\n在合成代理指标上相对提升 0.3 个百分点。\n")
         self.assertEqual(self.rld.get(ok)["status"], "current")
 
@@ -3308,30 +3434,62 @@ class ConfigChangeTest(Fixture):
     def test_configuration_protocol_fields_keep_evaluations_and_identity(self):
         h, exp = self.candidate()
         basis = self.rld.get_eligibility(h)["basis_evaluation_id"]
-        self.switch_protocol("cfg", max_confirmation_candidates=1, confirmation_seeds=[7, 8, 9])
+        self.switch_protocol("cfg", max_confirmation_candidates=1, confirmation_seeds=[7, 8, 9],
+                             description="confirmation settings edited")
         now = self.rld.get_eligibility(h)
         self.assertEqual((now["eligible"], now["evidence_state"], now["basis_evaluation_id"]), (True, "current", basis))
+        # the SOTA baseline (method identity registered under the earlier version) still pairs new screening
+        self.assertGreaterEqual(self.rld.screen_seed_count(), 1)
         code = self.rld.get(exp)["code_ref"]
         later = self.method(h, code_ref=code, walltime_s=900)  # the same method, registered under the new protocol
         self.assertEqual(self.rld.get(later)["method_spec_doc_id"], self.rld.get(exp)["method_spec_doc_id"])
-        # a change of the comparison itself (outside the configuration's fields) still makes the evidence stale
+        # a draft protocol, never frozen, is no candidate for a method's identity and breaks nothing
+        self.doc(self.rld, "project/protocol-draft.v1.json", "protocol", current=False,
+                 body=json.dumps({**self.protocol_content, "min_pairs": 3}))
+        self.assertEqual(self.method(h, code_ref=code, walltime_s=900), later)
+        # a change of the comparison itself (outside the configuration's fields) still makes the evidence stale, and
+        # new screening waits for the baseline to be run under it
         self.switch_protocol("cmp", max_confirmation_candidates=1, confirmation_seeds=[7, 8, 9], min_pairs=3)
         self.assertIn("PROTOCOL_CHANGED", self.rld.get_eligibility(h)["reasons"])
-        other = self.method(h, code_ref=code, walltime_s=600)
-        self.assertNotEqual(self.rld.get(other)["method_spec_doc_id"], self.rld.get(exp)["method_spec_doc_id"])
+        with self.assertRaisesRegex(ResearchDBError, "EVIDENCE_STALE"):
+            self.method(h, code_ref=code, walltime_s=600)
+
+    def test_an_unreadable_earlier_protocol_reads_as_changed(self):
+        h, _ = self.candidate()
+        first = self.rld.find("project")[0]["protocol_doc_id"]
+        self.switch_protocol("cfg", max_confirmation_candidates=1)
+        self.assertTrue(self.rld.get_eligibility(h)["eligible"])
+        (self.root / "docs" / self.rld.get(first)["path"]).write_text("{}", encoding="utf-8")  # edited in place
+        now = self.rld.get_eligibility(h)  # reported, not raised
+        self.assertFalse(now["eligible"])
+        self.assertIn("PROTOCOL_CHANGED", now["reasons"])
+
+    def assert_tightened_rule_stales(self, name: str, **fields) -> None:
+        h, _ = self.candidate()
+        self.switch_protocol(name, **fields)
+        now = self.rld.get_eligibility(h)
+        self.assertEqual(now["evidence_state"], "stale")
+        self.assertIn("PROTOCOL_CHANGED", now["reasons"])
+
+    def test_more_independence_fields_stale_evaluations_counted_without_them(self):
+        self.assert_tightened_rule_stales("independence", independence_fields=["data_order"])
+
+    def test_requiring_imports_stales_record_level_evaluations(self):
+        self.assert_tightened_rule_stales("import", require_artifact_import=True)  # the fixture's runs are reported
 
     def test_a_metric_specification_change_keeps_evaluations(self):
         h, exp = self.candidate()
-        specs = json.loads(json.dumps(SPECS))
-        specs["metrics"][2]["allowed_regression"] = 1.0
+        specs = {**json.loads(json.dumps(SPECS)), "description": "wording only"}
         doc = self.doc(self.rld, "project/metric-spec.v2.json", "metric_spec", body=json.dumps(specs))
         instruction = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0600.v1.md", "user_instruction")
         self.rld.update_project(metric_spec_doc_id=doc, user_instruction_doc_id=instruction)
         self.assertTrue(self.rld.get_eligibility(h)["eligible"])
-        # the SOTA evaluated again on the same runs under the new specification is still the same baseline
-        self.owner_for(self.sota).evaluate_experiment(self.sota, self.result_doc(exp=self.sota))
+        # the confirmation baseline evaluated again on the same runs (under the new specification) is the same one
+        confirm = self.rld.get(self.rld.get_eligibility(h)["confirmation_evaluation_id"])
+        base = confirm["baseline_experiment_id"]
+        self.owner_for(base).evaluate_experiment(base, self.result_doc(exp=base))
         self.assertTrue(self.rld.get_eligibility(h)["eligible"])
-        # a baseline evaluated on other runs is not
+        # a SOTA run the search evaluation used, retracted and run again, makes that evaluation stale
         run = f"{self.sota}/s42"
         values = self.values_for(self.sota)
         self.rld.retract_run(run, "corrupted metrics file", self.decision_doc())
@@ -3340,4 +3498,15 @@ class ConfigChangeTest(Fixture):
                                secondary={k: values[k] for k in SECONDARY}, nodes_used=1, walltime_used_s=600,
                                output_path=f"outputs/{run}", log_path=f"outputs/{run}/train.log")
         self.owner_for(self.sota).evaluate_experiment(self.sota, self.result_doc(exp=self.sota))
-        self.assertIn("BASELINE_CHANGED", self.rld.get_eligibility(h)["reasons"])
+        self.assertTrue({"RUN_RETRACTED", "INPUT_CHANGED"} & set(self.rld.get_eligibility(h)["reasons"]))
+
+    def test_a_guardrail_change_on_a_compared_metric_stales_its_evaluations(self):
+        h, _ = self.candidate()
+        specs = json.loads(json.dumps(SPECS))
+        specs["metrics"][2]["allowed_regression"] = 1.0
+        doc = self.doc(self.rld, "project/metric-spec.v2.json", "metric_spec", body=json.dumps(specs))
+        instruction = self.doc(ResearchDB(self.db, "ui/ui"), "instructions/UI-0601.v1.md", "user_instruction")
+        self.rld.update_project(metric_spec_doc_id=doc, user_instruction_doc_id=instruction)
+        now = self.rld.get_eligibility(h)
+        self.assertFalse(now["eligible"])
+        self.assertIn("METRIC_SPEC_CHANGED", now["reasons"])

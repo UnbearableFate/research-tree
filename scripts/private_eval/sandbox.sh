@@ -10,8 +10,10 @@ private=$(readlink -f "$1"); work=$(readlink -f "$2"); shift 2
 [ "${1:-}" = "--" ] && shift
 args=(--ro-bind / / --dev /dev --proc /proc --tmpfs /tmp --unshare-pid --unshare-ipc --new-session
       --die-with-parent --bind "$work" "$work" --tmpfs "$private")
+# Bound at their resolved paths: bwrap cannot mount onto a symlink (a home whose tool state lives elsewhere), and
+# the link itself, inside the read-only root, then leads to the writable bind.
 for d in "$HOME/.claude" "$HOME/.claude.json" "$HOME/.codex" "$HOME/.cache" "$HOME/.local/share/uv" "$HOME/.config"; do
-  [ -e "$d" ] && args+=(--bind "$d" "$d")
+  [ -e "$d" ] && { r=$(readlink -f "$d"); args+=(--bind "$r" "$r"); }
 done
 for s in $(for x in /var/run/docker.sock /run/docker.sock /run/user/$(id -u)/docker.sock; do [ -e "$x" ] && readlink -f "$x"; done | sort -u); do
   args+=(--ro-bind /dev/null "$s")

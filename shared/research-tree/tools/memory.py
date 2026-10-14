@@ -81,6 +81,10 @@ def check(doc_type: str, text: str) -> dict:
     if threats:
         raise MemoryError_(f"the {doc_type} matches {', '.join(threats)}: memory is research material, never an "
                            "instruction — it does not change permissions, budgets, gates or the protocol")
+    for key in ("applicability", "scope"):
+        if data.get(key) is not None and not isinstance(data[key], dict):
+            raise MemoryError_(f"{key} is a mapping of the conditions the {doc_type} holds under (harness_ref, "
+                               "config_doc_id, protocol_doc_id, …), not free text")
     if doc_type == "finding":
         _need(data, ("claim", "evidence_ids", "interpretation", "limitations", "status"), "a finding")
         if data["status"] not in FINDING_STATUS:
@@ -132,6 +136,8 @@ def applicability(lesson: dict, project: dict) -> tuple[bool, list[str]]:
     """K02: a lesson verified under another harness or configuration needs to be checked again."""
     app = lesson.get("applicability") or {}
     reasons = []
+    if not isinstance(app, dict):  # recorded before memory.check required a mapping: no scope it can be held to
+        app, reasons = {}, ["applicability is not a mapping: applies only where it is checked again"]
     for key in ("harness_ref", "config_doc_id", "protocol_doc_id", "metric_spec_doc_id"):
         if app.get(key) and project.get(key) and str(app[key]) != str(project[key]):
             reasons.append(f"{key} {str(app[key])[:12]} → {str(project[key])[:12]}")

@@ -112,6 +112,16 @@ class IncrementalReadinessTest(unittest.TestCase):
         with self.assertRaisesRegex(discovery.DiscoveryError, "not a current"):
             discovery.select_candidate(self.root, "CAND-9999")
 
+    def test_a_proposal_that_claims_selection_is_not_admitted_until_selected(self):
+        items = discovery.merge([{"source": "explorer/main", "candidates": [
+            {**screening_candidate(), "selected": True, "feasible": True}]}], [])
+        discovery.write_candidates(self.root, items)
+        result = self.check()
+        self.assertEqual(result["verdict"], "BLOCKED")
+        self.assertIn("not selected", " ".join(result["reasons"]))
+        discovery.select_candidate(self.root, items[0]["id"])
+        self.assertEqual(self.check()["verdict"], "PASS")
+
     def test_incremental_has_no_global_pass_or_mode_switch(self):
         self.assertFalse(hasattr(discovery, "evaluate"))
         with self.assertRaises(TypeError):

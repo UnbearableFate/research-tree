@@ -1,5 +1,34 @@
 # Changelog
 
+## Unreleased
+
+Merges 0.1.1 into the 0.2.0 line and fixes what a full review of the code found. Contract changes:
+
+- `config apply` needs the user's own words (`--words`) whenever it would register or change anything; it no longer
+  makes up words. Everything is checked before anything is registered, so a refused apply leaves no configuration
+  version, metric specification or instruction behind. The user's words carry every change that is the user's
+  decision, including turning a gate off or lowering the exploration share. Plan confirmation passes the user's
+  confirmation words.
+- Raising `screen_budget_node_h`, `max_parallel_workers`, `stall_structural_at` or `stall_human_at` is the user's
+  decision (a larger screening budget also widens cheap search, which skips per-run code review).
+- Evidence currency (0.1.1 kept every configuration change from voiding evaluations): an evaluation still becomes
+  stale when a tightened evidence rule no longer accepts it (more `independence_fields`, or artifact import now
+  required of a record-level evaluation; `PROTOCOL_CHANGED`), or when a metric it compared changed how it is judged
+  (direction, canonical unit, effect mode, aggregation, allowed regression, valid range, relative denominator;
+  `METRIC_SPEC_CHANGED`). Protocol versions are compared by their normalized comparison content, so descriptions and
+  spelled-out defaults no longer count; an unreadable version reads as changed instead of failing the read.
+- A configuration-only protocol change keeps the SOTA baseline usable, code-review adjudications and approved
+  minimum controls.
+- `waive_code_review(experiment_id, doc_id, user_instruction_doc_id)` needs the user's instruction.
+- A method whose confirmation used its material cannot be put into another confirmation batch; a negative
+  confirmation stands. Material counts as used from the claimed submission.
+- A review request whose earlier job failed or was interrupted starts a new job (a new ticket).
+- Documents record `frozen_at` and run attempts `submitted_at` (system-written, nullable: existing schema-23
+  databases keep working); fix verification compares them instead of draft or reported times.
+
+Also fixed: the private-evaluation sandbox (`scripts/private_eval/sandbox.sh`) binds the tool-state directories at
+their resolved paths, so a home whose `.claude`, `.codex`, `.cache` or `.config` is a symlink no longer stops bwrap.
+
 ## 0.1.1 — 2026-10-10
 
 Two changes to how the project configuration (`research-tree.yaml`) is handled, on both hosts.
@@ -36,5 +65,6 @@ A configuration change governs later work. In `research_db`:
   `platform` section changed, not after a budget or model change; protocol and metric-specification changes follow
   the rules above.
 
-The S5 scenario (`scripts/scenarios/s5.sh`, plan §9.6 SC-S5-03) now checks that a configuration protocol change
-leaves the finding current, then uses a comparison-protocol change (`min_pairs`) for the recheck path.
+The S5 scenario (`scripts/scenarios/s5.sh`, plan §9.6 SC-S5-03; the scenario controllers were removed in 0.2.0) now
+checks that a configuration protocol change leaves the finding current, then uses a comparison-protocol change
+(`min_pairs`) for the recheck path.

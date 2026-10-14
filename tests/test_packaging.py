@@ -10,11 +10,15 @@ import tempfile
 import unittest
 import zipfile
 from pathlib import Path
+from unittest import mock
 
 ROOT = Path(__file__).resolve().parents[1]
 spec = importlib.util.spec_from_file_location("build_plugins", ROOT / "scripts/build_plugins.py")
 builder = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(builder)
+spec = importlib.util.spec_from_file_location("run_tests", ROOT / "scripts/run_tests.py")
+runner = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(runner)
 
 
 class HostParityTest(unittest.TestCase):
@@ -148,6 +152,28 @@ class PackagingTest(unittest.TestCase):
                 for host in ("claude", "codex"):
                     self.assertEqual(source.read_bytes(),
                                      (output / host / "plugins/research-tree" / rel).read_bytes())
+
+
+class TestRunnerTest(unittest.TestCase):
+    """scripts/run_tests.py runs the Codex adapter's tests from the current sources, never a stale dist/."""
+
+    def test_codex_suite_is_built_from_the_current_sources_outside_the_repository(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tests = runner.build_codex(Path(tmp))
+            self.assertTrue(tests.is_relative_to(Path(tmp)))
+            for source in (ROOT / "codex-plugin/research-tree/tests").glob("test_codex*.py"):
+                self.assertEqual((tests / source.name).read_bytes(), source.read_bytes())
+            self.assertTrue(runner.jobs("codex", tests, []))
+
+    def test_a_failed_build_or_a_missing_suite_fails_the_run(self):
+        failed = subprocess.CompletedProcess([], 2, "", "build failed: codex adapter is incomplete")
+        with tempfile.TemporaryDirectory() as tmp, mock.patch.object(runner.subprocess, "run", return_value=failed):
+            with self.assertRaisesRegex(SystemExit, "build failed"):
+                runner.build_codex(Path(tmp))
+        with tempfile.TemporaryDirectory() as tmp:
+            for base in (Path(tmp), Path(tmp) / "missing"):
+                with self.assertRaisesRegex(SystemExit, "no test_codex"):
+                    runner.jobs("codex", base, [])
 
 
 if __name__ == "__main__":

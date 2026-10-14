@@ -91,17 +91,39 @@ def _require(root: Path) -> dict:
 # -- candidates ----------------------------------------------------------------------------------------------------
 
 
+# Han and kana are written without spaces: a run of them is one word whatever spaces or punctuation fall inside it,
+# and a word of its own next to Latin letters or digits ('LoRA 秩自适应' and 'LoRA秩自适应' are one idea).
+_SPACELESS = "\u3005-\u3007\u3040-\u30ff\u31f0-\u31ff\u3400-\u4dbf\u4e00-\u9fff\uf900-\ufaff\U00020000-\U0003ffff"
+_WORD_RE = re.compile(rf"[{_SPACELESS}](?:\W*[{_SPACELESS}])*|[^\W{_SPACELESS}]+")
+
+
 def dedup_key(text: str) -> str:
-    """A mechanical key: lower case, accents and punctuation removed, words joined by '-'."""
+    """A mechanical key: lower case, accents and punctuation removed, words joined by '-'.
+
+    Letters without an ASCII form (CJK, Greek, ...) stay in the key, so 'LoRA 秩自适应' and 'LoRA 低秩初始化' remain
+    two ideas; a pure-ASCII title keeps the key it always had."""
+    t = "".join(unicodedata.normalize("NFD", ch).encode("ascii", "ignore").decode() or ch
+                for ch in unicodedata.normalize("NFKC", text))
+    return "-".join(re.sub(r"\W", "", w) for w in _WORD_RE.findall(t.lower()))[:120]
+
+
+def _ascii_key(text: str) -> str:
+    """The key before non-ASCII words were kept (it dropped them: 'LoRA 秩自适应' was 'lora'). Stored keys computed
+    this way are matched again under their title's current key, so such a candidate keeps its id and selection."""
     t = unicodedata.normalize("NFKD", text).encode("ascii", "ignore").decode() or text
-    words = re.findall(r"\w+", t.lower(), re.UNICODE)
-    return "-".join(words)[:120]
+    return "-".join(re.findall(r"\w+", t.lower()))[:120]
 
 
 # What a candidate says (its content revision is over these); bookkeeping (found_by, selected, literature, ranks,
 # feasibility notes) is not content.
 CONTENT_FIELDS = ("title", "summary", "mechanism", "method", "claim", "statement", "closest_work", "hypothesis",
                   "prediction", "estimated_run", "intervention", "comparator", "resource_ceiling", "stop_conditions")
+
+
+# Set only by merge, `discovery feasibility` and the Leader's `discovery select`: a proposal source gives advice, so
+# a proposal that asserts any of these (selected, feasible, an identity or revision) has it ignored.
+SYSTEM_FIELDS = ("id", "candidate_id", "origin", "found_by", "selected", "feasible", "feasibility_reasons",
+                 "revision", "content_sha", "revisions", "present")
 
 
 def content_sha(candidate: dict) -> str:
@@ -119,6 +141,9 @@ def merge(proposals: list[dict], user_hypotheses: list[dict], existing: list[dic
     existing = [dict(c) for c in existing or []]
     by_id = {c["id"]: c for c in existing if c.get("id")}
     by_key = {(c.get("origin"), c.get("dedup_key")): c for c in existing if c.get("id")}
+    for c in existing:  # a key stored by the older rule is found again under its title's current key
+        if c.get("id") and isinstance(c.get("title"), str) and c.get("dedup_key") == _ascii_key(c["title"]):
+            by_key.setdefault((c.get("origin"), dedup_key(c["title"])), c)
     numbers = [int(m.group(1)) for i in by_id if (m := re.fullmatch(r"CAND-(\d+)", i))]
     pool: dict[str, dict] = {}
     for h in user_hypotheses:
@@ -134,6 +159,7 @@ def merge(proposals: list[dict], user_hypotheses: list[dict], existing: list[dic
         for c in proposal["candidates"]:
             if not (c.get("title") or "").strip():
                 raise DiscoveryError(f"a candidate from {source} has no title")
+            c = {k: v for k, v in c.items() if k not in SYSTEM_FIELDS}
             key = c.get("dedup_key") or dedup_key(c["title"])
             if key in pool:
                 pool[key]["found_by"] = sorted(set(pool[key]["found_by"]) | {source})

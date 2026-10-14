@@ -110,9 +110,14 @@ class BuildSiteTest(Fixture):
         (logs / "rld--main.jsonl").write_text(line(id="rld--main-0001", type="reply", text="已停止", need="none", re="ui--ui-0003",
                                               to="ui/ui", **{"from": "rld/main"}) + "\n", encoding="utf-8")
         (logs / "window.jsonl").write_text(json.dumps({"id": "w-0001", "role": "user", "text": "x"}) + "\n")
+        with (logs / "rld--main.jsonl").open("a", encoding="utf-8") as log:
+            log.write('{"v": 1, "id": "rld--main-0002", "re": "ui--ui')  # a reply still being appended
         waiting = [a for a in build_site.build(self.db, self.page)["attention"] if a["kind"] == "awaiting_reply"]
         self.assertEqual([(a["id"], a["label"]) for a in waiting], [(self.h, "待RLD回执")])
         self.assertIn("ui--ui-0002", waiting[0]["text"])
+        # the lightweight status the Claude mod's status line counts (待RLD回执 N) shows the same items
+        light = [a for a in build_site.summary_or_empty(self.db)["attention"] if a["kind"] == "awaiting_reply"]
+        self.assertEqual(light, waiting)
 
     def test_due_cleanup_and_the_ledger_show(self):
         self.evaluate(self.exp, sota=(0.01, 0.0, 0.0))
@@ -165,7 +170,7 @@ class SummaryTest(Fixture):
     def test_summary_is_db_only_and_never_claims_unchecked_go(self):
         h, exp = self.candidate()
         with ExitStack() as stack:
-            for name in ("collect", "load_curve", "render_markdown", "sha256_file", "unanswered", "review_attention"):
+            for name in ("collect", "load_curve", "render_markdown", "sha256_file", "review_attention"):
                 stack.enter_context(patch.object(build_site, name, side_effect=AssertionError(f"expensive {name}")))
             for name in ("export_snapshot", "get_eligibility", "verify_document", "cleanup_due"):
                 stack.enter_context(patch.object(build_site.ResearchDB, name, side_effect=AssertionError(name)))
@@ -254,6 +259,21 @@ class SummaryTest(Fixture):
 
 
 class CurrentProjectionTest(unittest.TestCase):
+    def test_a_curve_not_aligned_with_its_step_series_is_reported_not_drawn(self):
+        with tempfile.TemporaryDirectory() as directory:
+            base = Path(directory)
+            files = {"scalar-step.json": {"step": 1000, "loss": [1.0, 0.5]},
+                     "short-loss.json": {"step": [0, 10, 20], "loss": [1.0, 0.5]},
+                     "aligned.json": {"step": [0, 10], "loss": [1.0, 0.5], "note": "not a series"}}
+            for name, curve in files.items():
+                (base / name).write_text(json.dumps(curve), encoding="utf-8")
+            for name in ("scalar-step.json", "short-loss.json"):
+                with self.subTest(name=name):
+                    curve, problem = build_site.load_curve(name, base)
+                    self.assertIsNone(curve)  # a valid run with a problem shows as curve_missing
+                    self.assertIn(name, problem)
+            self.assertEqual(build_site.load_curve("aligned.json", base), ({"step": [0, 10], "loss": [1.0, 0.5]}, None))
+
     def test_lineage_is_never_inferred_from_the_idea_parent(self):
         lineage = build_site._lineage({}, "H-0001")
         self.assertEqual(lineage, {"intellectual_parent_id": "H-0001", "code_parent_id": None,

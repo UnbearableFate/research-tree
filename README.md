@@ -117,6 +117,8 @@ Leader 会整理研究目标、最小实验设定、初始假说、基线任务�
 |---|---|
 | `/research-tree confirm` | `$research-tree confirm` |
 
+在主会话中同意时，Leader 把你的原话登记为确认（Claude Code 用 `post_to_ui(type=confirm)`，Codex 用 `research_control confirm`）。`/research-tree confirm` 只确认立项计划；之后的预算或范围请求，在研究对话窗口回复或在主会话中告诉 Leader。
+
 确认后，插件登记当时的配置版本，Leader 才能指派根节点 Architect 和假说 Worker，先实现公共框架与基线，并行推进候选发现。
 
 ## 研究工作流
@@ -184,7 +186,7 @@ flowchart TD
 - **用户要求暂停、停止或修改目标时**：按用户指令调整，并核对在途作业与任务。
 - **进入阶段 2 前**：由用户确定大规模实验的范围与预算。
 
-**阶段 1 GO** 要求至少一个节点的当前 evaluation 仍然适用（框架、协议、指标规范、基线与所用 run 都未变）、在全部统一 seed 上达到优于 SOTA 的门槛并满足保护指标，且新颖性与理论正确性复核绑定到该实验的代码版本（`get_eligibility` 计算，不读缓存标签）。搜索中过门槛的节点只是 candidate_ready，GO 前必须在搜索从未用过的确认 seed 上对冻结代码做一次独立确认；任何未关闭的复核问题（obligation）都会阻挡 GO。它是继续研究的筛选信号，不等同于统计显著性或可发表结论。
+**阶段 1 GO** 要求至少一个节点的当前 evaluation 仍然适用（框架、比较协议、基线与所用 run 都未变，没有收紧的证据规则不再接受它，所比较指标的判定字段也未变）、在全部统一 seed 上达到优于 SOTA 的门槛并满足保护指标，且新颖性与理论正确性复核绑定到该实验的代码版本（`get_eligibility` 计算，不读缓存标签）。搜索中过门槛的节点只是 candidate_ready，GO 前必须在搜索从未用过的确认 seed 上对冻结代码做一次独立确认；任何未关闭的复核问题（obligation）都会阻挡 GO。它是继续研究的筛选信号，不等同于统计显著性或可发表结论。
 
 **增量发现。** 先确认最小范围，随后框架、baseline 和文献发现并行。Explorer 的实际提案保存为 `cache/discovery/proposals/*.json`，每份为 `{source, candidates}`，`source` 写明真实来源（如 `explorer/main`）。Leader 合并提案并保留用户种子来源；`discovery select --candidate CAND-0001` 单独选择候选，`discovery gate --candidate CAND-0001` 只读检查当前候选 revision，不生成全局通行证、不代替用户确认。A 就绪时不等 B；五项筛选说明、当前范围与资源上限必须齐全。候选改变后重新检查，不能复用另一候选的准入结果。
 
@@ -263,7 +265,7 @@ Claude 版提供内嵌窗口、面板和状态栏；Codex 版使用独立终端�
 
 Codex 侧同样支持 GPT 易读名称，如 `ui: {model: GPT 6 Luna, effort: high}` → `gpt-6-luna`、`GPT 6.1 Sol` → `gpt-6.1-sol`，也接受 `GPT-6 Luna`。这些转换同样适用于其他模型角色；`reviewer` 自动补 `openai/`。名称转换在两端共用的配置读取层完成，不会改变宿主支持哪些模型。
 
-`go_margin` 由主指标的 `minimum_practical_gain` 给出，单位与方向逐指标声明（如 accuracy 以百分点计）。门槛与统一 seed 在第一个实验登记后不能再修改；之后更换指标规范或协议须引用用户指令，旧 evaluation 随之失效。
+`go_margin` 由主指标的 `minimum_practical_gain` 给出，单位与方向逐指标声明（如 accuracy 以百分点计）。门槛与统一 seed 在第一个实验登记后不能再修改；之后更换指标规范或协议须引用用户指令。旧 evaluation 只在比较本身改变时失效：冻结框架或比较协议本身变化、收紧的证据规则不再接受它（新增独立性字段、新要求工件导入），或它所比较的指标的判定字段（方向、规范单位、效应方式、聚合、允许退化、合法范围）变化。
 
 **提交与预算：**设置 `total_limit` 后，worker 每次提交依次 `reserve_submission` → `claim_submission` → 带 submission_key 提交 → `attach_job`，作业结束后按调度器的用量文件 `settle_reservation`。提交超时的运行保持 unknown，按 submission_key 核对，不会自动重提；实际用量超出预留或授权时准入暂停，由你决定后恢复。`budget_status` 查看已授权、已承诺与可用量；提高授权或上限只能由你修改配置文件（或让 RLD 按你的要求修改）并 `config apply`。
 
@@ -279,7 +281,7 @@ Codex 侧同样支持 GPT 易读名称，如 `ui: {model: GPT 6 Luna, effort: hi
 
 研究对话中尚未得到 RLD 回执的消息显示在状态栏，也可用 `/research-tree inbox` 查看。
 
-**配置何时生效：**立项确认前，文件修改用于当前规划；确认时登记为生效版本。确认后须运行 `config apply`，插件会生成 `docs/project/config.vN.yaml`、记录用户指令并更新项目记录。新启动的子代理使用现行配置，活跃 worker 由 Leader 转告变更。你可以自己改文件，也可以让 RLD（主会话）按你的要求修改并代为 apply（它把你要求修改的原话登记为用户指令）；worker 等子代理不能写这个文件。配置变更只约束之后的工作：已有实验、评估、方法身份与研究发现不因此失效，指标规范的新版本只用于之后的评估；只有冻结框架或比较协议本身（评测类型、配对字段、必须一致的设定、计数等，不含配置规定的确认设置）的变化才使依赖它的证据待重评。
+**配置何时生效：**立项确认前，文件修改用于当前规划；确认时登记为生效版本。确认后须运行 `config apply`，插件会生成 `docs/project/config.vN.yaml`、记录用户指令并更新项目记录。新启动的子代理使用现行配置，活跃 worker 由 Leader 转告变更。你可以自己改文件，也可以让 RLD（主会话）按你的要求修改并代为 apply（它把你要求修改的原话登记为用户指令）；worker 等子代理不能写这个文件。应用任何变化都要有你的原话（`config apply --words`），插件不代拟；被拒绝的 apply 不登记任何东西。配置变更只约束之后的工作：已有实验、评估、方法身份与研究发现不因此失效，指标规范的新版本只用于之后的评估；冻结框架或比较协议本身（评测类型、配对字段、必须一致的设定、计数等，不含配置规定的确认设置）的变化、收紧的证据规则（新增独立性字段、新要求工件导入），以及所比较指标判定字段的变化，才使依赖它的证据待重评。
 
 主会话就是 RLD，其模型由用户启动宿主 CLI 时选择。
 
@@ -365,7 +367,7 @@ claude plugin test dist/claude/plugins/research-tree
 **Codex 适配层**
 
 ```bash
-.venv/bin/python -m unittest discover -s dist/codex/plugins/research-tree/tests -p test_codex_adapter.py
+.venv/bin/python scripts/run_tests.py --suite codex   # 先把适配层构建到临时目录再运行其测试
 .venv/bin/python scripts/check_codex_install.py dist/codex
 .venv/bin/python scripts/check_codex_sessions.py dist/codex/plugins/research-tree --evidence /tmp/new-session-check
 ```

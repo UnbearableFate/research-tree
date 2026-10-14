@@ -53,6 +53,16 @@ TOOLS = [
 ]
 
 
+def typed(spec: dict, value) -> bool:
+    """A value against the declared schema's enum and type (strings, objects, arrays of them); the runtime checks
+    the content."""
+    if "enum" in spec:
+        return value in spec["enum"]
+    if spec["type"] == "array":
+        return isinstance(value, list) and all(typed(spec["items"], item) for item in value)
+    return isinstance(value, {"string": str, "object": dict}[spec["type"]])
+
+
 def run_request(cwd: Path, actor: str, name: str, arguments: dict) -> dict:
     if name not in {tool["name"] for tool in TOOLS}:
         raise ValueError(f"unknown tool: {name}")
@@ -64,6 +74,9 @@ def run_request(cwd: Path, actor: str, name: str, arguments: dict) -> dict:
         raise ValueError("unexpected tool argument")
     if set(allowed["required"]) - set(arguments):
         raise ValueError("missing required tool argument")
+    for key, value in arguments.items():  # null stands for an omitted optional argument, as before
+        if not (value is None and key not in allowed["required"]) and not typed(allowed["properties"][key], value):
+            raise ValueError(f"{name} argument {key} does not match its schema type")
     arguments = dict(arguments)
     selected = arguments.pop("project", None)
     if selected is not None:
@@ -77,7 +90,7 @@ def run_request(cwd: Path, actor: str, name: str, arguments: dict) -> dict:
     if name == "research_control" and arguments.get("action") == "init":
         if actor != "rld/main":
             raise ValueError("only RLD initializes a project")
-        bootstrap(cwd, arguments.get("params", {}))
+        bootstrap(cwd, arguments.get("params") or {})
     python = cwd / ".venv/bin/python"
     if not python.is_file():
         raise ValueError(f"missing {python}; run research_control init first")
@@ -142,10 +155,12 @@ def serve(cwd: Path, actor: str) -> None:
                                   "error": {"code": -32601, "message": f"unknown method: {method}"}}), flush=True)
                 continue
             response = {"jsonrpc": "2.0", "id": request["id"], "result": result}
-        except (ValueError, KeyError, TypeError) as exc:
+        except Exception as exc:  # one request's failure is its own error response; the server keeps serving
+            code = (-32700 if isinstance(exc, json.JSONDecodeError) else
+                    -32600 if isinstance(exc, (ValueError, KeyError, TypeError)) else -32603)
+            message = f"{type(exc).__name__}: {exc}" if code == -32603 else str(exc)
             response = {"jsonrpc": "2.0", "id": request.get("id") if isinstance(request, dict) else None,
-                        "error": {"code": -32700 if isinstance(exc, json.JSONDecodeError) else -32600,
-                                  "message": str(exc)}}
+                        "error": {"code": code, "message": message}}
         print(json.dumps(response, ensure_ascii=False), flush=True)
 
 

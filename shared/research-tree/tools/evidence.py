@@ -104,6 +104,11 @@ def _resolve(source: str, root: Path, allowed: Path, forbidden: Path | None = No
     return files
 
 
+def resolve_source(source: str, root: Path, allowed: Path | None = None, forbidden: Path | None = None) -> list[Path]:
+    """The files a claim's source names, as check_claim reads them (a glob covers every matching file)."""
+    return _resolve(source, Path(root), Path(allowed or root), forbidden)
+
+
 def check_claim(value: str, source: str, root: Path, allowed: Path | None = None,
                 forbidden: Path | None = None) -> dict:
     """status in verified / path_missing / value_not_found; `allowed` bounds where sources may lie and nothing under

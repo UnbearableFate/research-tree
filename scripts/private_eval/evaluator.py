@@ -14,7 +14,7 @@ with the accuracy only. It never runs anything the agent provides. A request is 
 material: the same request again returns the same answer and counts once; another request for an already scored
 run attempt and material returns that answer too; a material has a fixed budget of distinct run attempts
 (no free enumeration oracle). Malformed requests, unknown materials, models outside the workspace and requests over
-the budget are refused with a reason.
+the budget are refused with a reason, and every handled request leaves the queue (renamed to .done).
 """
 from __future__ import annotations
 
@@ -45,14 +45,17 @@ def load_private(private: Path, name: str) -> list[dict]:
 
 
 def read_model(workspace: Path, rel: str) -> tuple[list[float], float]:
-    path = (workspace / rel).resolve() if not Path(rel).is_absolute() else Path(rel).resolve()
+    try:
+        path = (workspace / rel).resolve() if not Path(rel).is_absolute() else Path(rel).resolve()
+    except ValueError:  # e.g. an embedded NUL: no file has that name
+        raise Refused("the model is a file inside the workspace") from None
     if not path.is_relative_to(workspace.resolve()) or not path.is_file():
         raise Refused("the model is a file inside the workspace")
     if path.stat().st_size > MAX_MODEL_BYTES:
         raise Refused("the model file is too large for a toyopt-logreg-1 model")
     try:
         model = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, UnicodeDecodeError):
+    except (json.JSONDecodeError, UnicodeDecodeError, RecursionError):
         raise Refused("the model is JSON data (format toyopt-logreg-1)") from None
     w, b = model.get("w") if isinstance(model, dict) else None, model.get("b") if isinstance(model, dict) else None
     if (not isinstance(model, dict) or model.get("format") != "toyopt-logreg-1" or not isinstance(w, list)
@@ -84,15 +87,19 @@ class Evaluator:
         self.ledger_path.write_text(json.dumps(self.ledger, indent=1), encoding="utf-8")
 
     def handle(self, req_path: Path) -> dict:
+        """Answer one request and move it out of the queue, whatever it holds: a malformed request is refused with
+        its reason, never left behind to stop the service again at its next pass."""
         try:
             req = json.loads(req_path.read_text(encoding="utf-8"))
-        except (json.JSONDecodeError, UnicodeDecodeError):
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError, RecursionError):  # unreadable or not JSON
             req = None
         rid = req.get("request_id") if isinstance(req, dict) else None
         try:
-            if not isinstance(req, dict) or set(req) != REQUEST_FIELDS or not ID_RE.fullmatch(str(rid)) \
-                    or not RUN_RE.fullmatch(str(req["run_ref"])) or not isinstance(req["model"], str):
-                raise Refused(f"a request is exactly {sorted(REQUEST_FIELDS)} with a run attempt ref E-…/s…@n")
+            if not isinstance(req, dict) or set(req) != REQUEST_FIELDS \
+                    or not all(isinstance(v, str) for v in req.values()) \
+                    or not ID_RE.fullmatch(rid) or not RUN_RE.fullmatch(req["run_ref"]):
+                raise Refused(f"a request is exactly {sorted(REQUEST_FIELDS)}, each a string, with a run attempt ref "
+                              "E-…/s…@n")
             digest = hashlib.sha256(json.dumps(req, sort_keys=True).encode()).hexdigest()
             seen = self.ledger["requests"].get(rid)
             if seen is not None:

@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 import os
 import shutil
+import stat
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -542,6 +544,71 @@ class RecheckCallTest(ReviewCallTest):  # The base tests run again here.
         self.assertEqual(self.rld.reviews(), [])
         self.assertAlmostEqual(self.rld.get("P-r")["review_cost_usd"], 0.06)
         self.assertAlmostEqual(review_call.spent(self.root), 0.06)
+
+    def test_follow_up_timeout_keeps_the_billed_rounds_cost(self):
+        """The first round was billed before its follow-up timed out, and so was each turn the follow-up finished
+        before it was stopped: both reach the call log and the project's review cost (the budget gate)."""
+        self.project()
+        self.fake("pi")
+        finished = {"type": "turn_end", "message": {"role": "assistant", "content": [], "stopReason": "toolUse",
+                                                    "usage": {"cost": {"total": 0.02}}}}
+        run = subprocess.run
+
+        def follow_up_times_out(cmd, *args, **kwargs):
+            if cmd[0] == "pi" and cmd[-1].startswith(review_call.FOLLOW_UP[:30]):
+                raise subprocess.TimeoutExpired(cmd, 900, output=(json.dumps(finished) + "\n").encode())
+            return run(cmd, *args, **kwargs)
+
+        with patch.object(review_call.subprocess, "run", side_effect=follow_up_times_out):
+            out = self.call([{"text": "no json", "cost": 0.03}])
+        self.assertIn("REVIEW_UNAVAILABLE: pi did not answer", out["error"])
+        self.assertEqual(self.rld.reviews(), [])
+        self.assertAlmostEqual(self.rld.get("P-r")["review_cost_usd"], 0.05)
+        self.assertAlmostEqual(review_call.spent(self.root), 0.05)
+
+
+class CodeSnapshotTest(unittest.TestCase):
+    """cache/reviews/code/<commit>/: a read-only copy of the reviewed commit (code_snapshot)."""
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        base = Path(self.tmp.name)
+        self.outside = base / "shared-data" / "train.csv"  # e.g. a dataset another group owns
+        self.outside.parent.mkdir()
+        self.outside.write_text("x\n")
+        self.outside.chmod(0o644)
+        self.repo, self.root = base / "repo", base / "research"
+        self.repo.mkdir()
+        self.root.mkdir()
+        (self.repo / "train.py").write_text("print(1)\n")
+        os.symlink(self.outside, self.repo / "data.csv")  # committed absolute links, as HPC repositories have
+        os.symlink(self.outside.parent, self.repo / "data")
+        for args in (["init", "-q"], ["add", "-A"], ["-c", "user.email=test@example.invalid", "-c",
+                                                     "user.name=Research Tree Test", "commit", "-q", "-m", "c"]):
+            subprocess.run(["git", "-C", str(self.repo), *args], check=True, capture_output=True)
+        self.sha = subprocess.run(["git", "-C", str(self.repo), "rev-parse", "HEAD"], check=True, capture_output=True,
+                                  text=True).stdout.strip()
+
+    def test_committed_links_are_kept_and_never_followed(self):
+        snapshot = review_call.code_snapshot(self.root, str(self.repo), "HEAD")
+        self.assertEqual(snapshot, self.root / "cache/reviews/code" / self.sha)
+        self.assertEqual(stat.S_IMODE(self.outside.stat().st_mode), 0o644)
+        self.assertEqual(stat.S_IMODE((snapshot / "train.py").stat().st_mode), 0o444)
+        self.assertTrue((snapshot / "data.csv").is_symlink())
+        self.assertTrue((snapshot / "data").is_symlink())
+        self.assertTrue((snapshot / ".complete").is_file())
+
+    def test_a_snapshot_that_failed_part_way_is_never_reused(self):
+        with patch.object(Path, "chmod", side_effect=PermissionError("fixture: not the owner")), \
+                self.assertRaises(PermissionError):
+            review_call.code_snapshot(self.root, str(self.repo), "HEAD")
+        target = self.root / "cache/reviews/code" / self.sha
+        self.assertFalse((target / ".complete").exists())
+        snapshot = review_call.code_snapshot(self.root, str(self.repo), "HEAD")
+        self.assertEqual(snapshot, target)
+        self.assertTrue((snapshot / ".complete").is_file())
+        self.assertEqual(stat.S_IMODE((snapshot / "train.py").stat().st_mode), 0o444)
 
 
 def review_call_attention(root: Path, rld: ResearchDB) -> list[dict]:

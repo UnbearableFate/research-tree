@@ -688,14 +688,34 @@ def front_matter(record: dict[str, Any], verification: dict[str, Any] | str,
 # ── CLI ────────────────────────────────────────────────────────────────────
 
 def safe(record: dict[str, Any]) -> dict[str, Any]:
-    """08 §2: what an agent reads from a search or verification — titles, abstracts and venues are web text — with
-    any injection pattern replaced by a visible [BLOCKED: …] placeholder (the raw record is not returned)."""
+    """08 §2: what an agent reads from a search or verification — titles, abstracts, venues and author names are
+    web text — with any injection pattern replaced by a visible [BLOCKED: …] placeholder (the raw record is not
+    returned)."""
     out = dict(record)
     for field in ("title", "abstract", "venue"):
         if isinstance(out.get(field), str):
             out[field], found = threat_scan.quarantine(out[field], scope="context", label=field)
             if found:
                 out.setdefault("quarantined", []).append(field)
+    if isinstance(out.get("authors"), list):
+        names = [threat_scan.quarantine(a, scope="context", label="author") if isinstance(a, str) else (a, [])
+                 for a in out["authors"]]
+        out["authors"] = [name for name, _ in names]
+        if any(found for _, found in names):
+            out.setdefault("quarantined", []).append("authors")
+    return out
+
+
+def safe_verification(result: dict[str, Any]) -> dict[str, Any]:
+    """A verify() result as an agent reads it: the matched record through safe(), and the detail (which quotes the
+    service's title when it differs) quarantined the same way."""
+    out = dict(result)
+    if out.get("matched"):
+        out["matched"] = safe(out["matched"])
+    if isinstance(out.get("detail"), str):
+        out["detail"], found = threat_scan.quarantine(out["detail"], scope="context", label="detail")
+        if found:
+            out.setdefault("quarantined", []).append("detail")
     return out
 
 
@@ -743,7 +763,7 @@ def write_note(record: dict, out: Path, cache_dir: str | None = None) -> dict:
     if flagged:
         raise LiteratureError(f"the record's {', '.join(flagged)} carries an injection pattern; it is not written "
                               "into a document that agents read")
-    result = verify(record)
+    result = safe_verification(verify(record))
     arxiv_id = record.get("arxiv_id") or (result.get("matched") or {}).get("arxiv_id")
     if cache_dir and arxiv_id:
         record = {**record, "arxiv_id": arxiv_id}
@@ -793,7 +813,7 @@ def main(argv: list[str] | None = None) -> int:
             result: Any = {"records": [safe(r) for r in records], "errors": errors}
         elif args.cmd == "verify":
             record = _record("cli", title=args.title, arxiv_id=args.arxiv_id, doi=args.doi, year=args.year)
-            result = verify(record, threshold=args.threshold)
+            result = safe_verification(verify(record, threshold=args.threshold))
         elif args.cmd == "text":
             result = read_text(Path(args.path))
         elif args.cmd == "note":

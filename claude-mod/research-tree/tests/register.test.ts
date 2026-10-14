@@ -62,6 +62,25 @@ test('the project configuration is not a subagent\'s: its edits and shell writes
   expect(internals.writesConfig('cp /tmp/x/research-tree.yaml /tmp/y', config)).toBe(false)  // another project's
 })
 
+test('cp sources are reads and directory destinations are writes, for the database and the configuration alike', () => {
+  const config = '/w/study/research-tree.yaml'
+  expect(internals.writesDatabase('cp research/p/research_tree.db /tmp/bak.db')).toBe(false)
+  expect(internals.writesDatabase('cp -a research/p/research_tree.db research/p/research_tree.db-wal /tmp/backup/')).toBe(false)
+  for (const command of ['cp ~/bak/research_tree.db research/p/', 'cp ~/bak/research_tree.db research/p',
+    'cp -t research/p ~/bak/research_tree.db', 'cp --target-directory=research/p /tmp/research_tree.db',
+    'mv research/p/research_tree.db /tmp/']) {
+    expect(internals.writesDatabase(command)).toBe(true)
+  }
+  for (const command of ['cp /tmp/x/research-tree.yaml /w/study/', 'cp /tmp/x/research-tree.yaml /w/study',
+    'cp -t /w/study /tmp/x/research-tree.yaml']) {
+    expect(internals.writesConfig(command, config)).toBe(true)
+  }
+  expect(internals.writesConfig(`cp ${config} /tmp/research-tree.backup.yaml`, config)).toBe(false)  // a source is read
+  expect(internals.writesConfig('cp -T /tmp/x/research-tree.yaml /w/study/other.yaml', config)).toBe(false)
+  expect(internals.writeTargets('cp a b c /dest/')).toEqual(['/dest/', '/dest/a', '/dest/b', '/dest/c'])
+  expect(internals.writeTargets('mv a b /dest')).toEqual(['a', 'b', '/dest', '/dest/a', '/dest/b'])  // mv removes its sources
+})
+
 test('the RLD edits the configuration on the user\'s request and applies it with their words; a subagent never does', async () => {
   const { host } = uiHost({})
   const config = '/w/study/research-tree.yaml'
@@ -85,6 +104,46 @@ test('the RLD edits the configuration on the user\'s request and applies it with
   expect(applied.deny).toBeUndefined()
 })
 
+test('config apply needs non-empty user words however its arguments are ordered or spelled', async () => {
+  const tool = '.venv/bin/python /plug/tools/research_tree.py'
+  const unworded = [`${tool} config --actor rld/main apply`, `${tool} config --require-project apply`,
+    `${tool} config apply --words ""`, `${tool} config apply --words=`, `${tool} config apply --words '  '`,
+    'uv run python /plug/tools/research_tree.py config apply']
+  for (const command of unworded) expect(internals.configApply(command)).toBe('')
+  expect(internals.configApply(`${tool} config --words='把总预算调到 20 node·h' apply`)).toBe('把总预算调到 20 node·h')
+  expect(internals.configApply(`${tool} config apply --word "同意改为 3 个 seed"`)).toBe('同意改为 3 个 seed')  // argparse's unique prefix
+  expect(internals.configApply(`${tool} config --words apply`)).toBeUndefined()  // "apply" is the words; the action is show
+  expect(internals.configApply('grep -n apply /plug/tools/research_tree.py')).toBeUndefined()
+  const { host } = uiHost({})
+  let ran = 0
+  const next = async () => { ran += 1; return { result: 'ran' } }
+  for (const command of unworded) {
+    expect((await registeredTool('Bash')(host, { command } as never, next)).deny).toContain('--words')
+  }
+  expect(ran).toBe(0)
+})
+
+test('applying the configuration reloads agents only from a configuration read, and a failed reload keeps the command\'s result', async () => {
+  const { host, files } = uiHost({})
+  files.set('/w/study/.research-tree.json', JSON.stringify({ format_version: 3, project_id: 'p', phase: 'confirmed', root: '/w/study/research/p', db: '/w/study/research/p/research_tree.db' }))
+  const registered: { name: string; model: string }[] = []
+  const h = host as unknown as { process: { run: (argv: string[]) => Promise<unknown> }; agent: { register: (spec: { name: string; model: string }) => Promise<void> } }
+  h.agent.register = async spec => { registered.push(spec) }
+  let shown: unknown = { ok: false, error: 'research-tree.yaml: invalid' }
+  h.process.run = async argv => ({ exitCode: 0, stderr: '', stdout: JSON.stringify(argv[2] === 'config' ? shown : { ok: true, result: [] }) })
+  const bash = registeredTool('Bash')
+  const command = ".venv/bin/python /plug/tools/research_tree.py config apply --words '把总预算调到 20 node·h'"
+  const next = async () => ({ result: 'ran' })
+  expect((await bash(host, { command } as never, next)).result).toBe('ran')
+  expect(registered).toEqual([])  // nothing read: the agents keep their models, never the 'inherit' defaults
+  const models = Object.fromEntries(['ui', 'worker', 'architect', 'explorer', 'analyst'].map(role => [role, { model: `${role}-model`, effort: null }]))
+  shown = { ok: true, result: { effective: { version: 3, models, platform: { dev: 'local', experiment: 'CPU', skills: [] } } } }
+  expect((await bash(host, { command } as never, next)).result).toBe('ran')
+  expect(registered.map(a => a.model).sort()).toEqual(['analyst-model', 'architect-model', 'explorer-model', 'ui-model', 'worker-model'])
+  h.agent.register = async () => { throw new Error('host closed') }
+  expect((await bash(host, { command } as never, next)).result).toBe('ran')  // the command ran: its result stands
+})
+
 test('a subagent is never the RLD: a worker acts as itself, other helpers only read', () => {
   const db = '.venv/bin/python /p/tools/research_db.py --db research/p/research_tree.db'
   const calls = internals.researchCalls(`${db} --actor rld/main update_run '{}' && ${db} --actor=worker/h0001 get '{}'`)
@@ -105,6 +164,27 @@ test('a subagent is never the RLD: a worker acts as itself, other helpers only r
   expect(internals.subagentCallBlock(internals.researchCalls('python tools/research_tree.py phase --set confirmed'), 'worker/h0001'))
     .toContain('research_tree.py phase')
   expect(internals.subagentCallBlock(internals.researchCalls("python tools/research_tree.py query get '{}'"), undefined)).toBeUndefined()
+})
+
+test('only running a research tool is a tool call: reading or listing its file is not', async () => {
+  for (const command of ['grep -n "def assign_worker" /plug/tools/research_db.py', 'sed -n 1,40p /plug/tools/research_tree.py',
+    'cat /plug/tools/review_call.py | head -20', 'ls -l /plug/tools/research_db.py', 'wc -l tools/research_db.py',
+    'python -m py_compile /plug/tools/research_db.py', 'uv run pytest tests/research_db.py']) {
+    expect(internals.researchCalls(command)).toEqual([])
+  }
+  expect(internals.researchCalls("uv run python /plug/tools/research_tree.py query get '{}'")).toEqual([{ script: 'research_tree.py', method: 'query' }])
+  expect(internals.researchCalls("cd /w/study && ./tools/research_db.py --actor worker/h1 get '{}' > out.json"))
+    .toEqual([{ script: 'research_db.py', actor: 'worker/h1', method: 'get' }])
+  expect(internals.researchCalls("if python3 -u /plug/tools/research_db.py --actor=worker/h1 find '{}'; then echo ok; fi"))
+    .toEqual([{ script: 'research_db.py', actor: 'worker/h1', method: 'find' }])
+  const { host, state } = uiHost({})
+  state.set('agents', { 'bound-worker': 'worker/h1' })
+  let ran = 0
+  const next = async () => { ran += 1; return { result: 'ran' } }
+  for (const command of ['grep -n "def assign_worker" /plug/tools/research_db.py', 'sed -n 1,40p /plug/tools/research_tree.py']) {
+    expect((await registeredTool('Bash')(host, { agentId: 'bound-worker', command } as never, next)).deny).toBeUndefined()
+  }
+  expect(ran).toBe(2)
 })
 
 test('reviews go through research_review only: no direct pi or claude -p, no reviewer identity (09 §4)', () => {
@@ -769,7 +849,8 @@ test('unavailable or invalid authoritative guards fail closed without undoing a 
   }
   files.delete('/w/study/.venv/bin/python')
   expect((await registeredTool('Write')(host, { file_path: '/w/study/new.py' } as never, next)).deny).toContain('无法核验')
-  expect((await registeredTool('Write')(host, { file_path: '/w/study/research-tree.yaml' } as never, next)).deny).toContain('由用户修改')
+  // a subagent's configuration write is refused without reading the database
+  expect((await registeredTool('Write')(host, { agentId: 'w1', file_path: '/w/study/research-tree.yaml' } as never, next)).deny).toContain('按用户指示的 RLD')
   expect(writes).toBe(0)
 })
 
@@ -845,7 +926,9 @@ test('Architect is confirmation-gated and root-only; root-worker aliases are rej
   expect((await spawn!(host, { subagentType: 'research-tree:worker', prompt: '你是 worker/root' } as never, next)).deny).toContain('worker仅负责假说节点')
   expect((await spawn!(host, { subagentType: 'research-tree:architect', prompt: '你是 architect/root' } as never, next)).deny).toContain('已有会话')
   await complete!(host, { agentId: 'architect-root' } as never, async () => ({}))
-  expect((await spawn!(host, { subagentType: 'research-tree:architect', prompt: '你是 architect/root' } as never, next)).agentId).toBe('architect-root')
+  // a finished turn does not free the node: its session is continued, or a stopped one explicitly taken over
+  expect((await spawn!(host, { subagentType: 'research-tree:architect', prompt: '你是 architect/root' } as never, next)).deny).toContain('SendMessage')
+  expect((await spawn!(host, { subagentType: 'research-tree:architect', prompt: '你是 architect/root。接手会话 architect-root' } as never, next)).agentId).toBe('architect-root')
 })
 
 test('fast planning has per-candidate admission, lightweight design and final confirmation after screening', () => {
@@ -948,4 +1031,197 @@ test('deprecated configurable main actors are rejected rather than reinterpreted
     }
   }
   expect(refused).toBe(3)
+})
+
+test('shell writes face the same authoritative document and harness guards as Edit and Write', async () => {
+  const { host, state } = uiHost({})
+  state.set('agents', { 'bound-worker': 'worker/h1' })
+  const doc = '/w/study/research/p/docs/project/goal.v1.md', harness = '/w/study/worktrees/H-0001/harness'
+  const h = host as unknown as { process: { run: (argv: string[]) => Promise<unknown> } }
+  let reads = 0, available = true
+  h.process.run = async () => {
+    reads += 1
+    return available ? { exitCode: 0, stderr: '', stdout: JSON.stringify({ ...LIGHT_SUMMARY, guards: { frozen_docs: [doc], harness: [harness] } }) }
+      : { exitCode: 1, stderr: 'database locked', stdout: '' }
+  }
+  let ran = 0
+  const next = async () => { ran += 1; return { result: 'ran' } }
+  const bash = registeredTool('Bash')
+  for (const agentId of [undefined, 'bound-worker']) {
+    for (const command of [
+      'echo x >> research/p/docs/project/goal.v1.md',  // relative to the session directory
+      `cd /tmp && echo x > ${doc}`, `sed -i s/a/b/ ${harness}/stats.py`, `sed -Ei.bak s/a/b/ ${harness}/stats.py`,
+      `sed --in-place -e s/a/b/ ${doc}`, `perl -pi -e s/a/b/ ${doc}`, `echo x | tee -a ${harness}/stats.py`,
+      `dd if=/dev/zero of=${doc} count=1`, `truncate -s 0 ${doc}`, `rm -f ${doc}`, `mv ${doc} /tmp/goal.md`,
+      `cp /tmp/goal.md ${doc}`, `cp /tmp/stats.py ${harness}/`, 'cp -t /w/study/research/p/docs/project /tmp/goal.v1.md',
+    ]) {
+      expect((await bash(host, { agentId, command } as never, next)).deny).toMatch(/新版本|冻结的实验框架/)
+    }
+  }
+  expect(ran).toBe(0)
+  for (const command of [`cp ${doc} /tmp/goal-copy.md`, `cat ${doc} > /tmp/goal-copy.md`, `sed -n 1p ${harness}/stats.py`,
+    'python train.py > /w/study/worktrees/H-0001/methods/log.txt 2>/dev/null']) {
+    expect((await bash(host, { command } as never, next)).deny).toBeUndefined()
+  }
+  expect(ran).toBe(4)
+  const before = reads
+  expect((await bash(host, { command: 'ls -l > /dev/null' } as never, next)).deny).toBeUndefined()
+  expect(reads).toBe(before)  // nothing written: no guard read
+  available = false  // fail closed, as Edit and Write do
+  expect((await bash(host, { command: 'echo x > /w/study/notes.txt' } as never, next)).deny).toContain('无法核验')
+  expect((await bash(host, { command: 'git status' } as never, next)).deny).toBeUndefined()
+})
+
+test('one session per node: a bound session is continued, a takeover is explicit and leaves the old session no identity', async () => {
+  const { host, state } = uiHost({})
+  const binding: { worker: string | null } = { worker: null }
+  const dbCalls: string[][] = []
+  const h = host as unknown as { process: { run: (argv: string[]) => Promise<unknown> }; agent: { list?: () => Promise<{ id: string; status: string }[]> } }
+  h.process.run = async argv => {
+    if (argv[1]!.endsWith('research_db.py')) {
+      dbCalls.push(argv)
+      if (argv[6] === 'bind_worker_session') binding.worker = (JSON.parse(argv[7]!) as { agent_id: string }).agent_id
+      return { exitCode: 0, stderr: '', stdout: '{"ok":true,"result":"done"}' }
+    }
+    return { exitCode: 0, stderr: '', stdout: JSON.stringify(argv[1]!.endsWith('build_site.py')
+      ? { ...LIGHT_SUMMARY, nodes: [{ ...LIGHT_SUMMARY.nodes[0], worker: { id: 'h1', agent_id: binding.worker, session_at: null, resume: [] } }] }
+      : { ok: true, result: [] }) }
+  }
+  type Hook = (host: never, event: never, next: (event: never) => Promise<Record<string, unknown>>) => Promise<Record<string, unknown>>
+  let spawn: Hook | undefined
+  register(((event: string, fn: Hook) => { if (event === 'agent.spawn') spawn = fn }) as never, {})
+  const start = (prompt: string, agentId: string, extra: Record<string, unknown> = {}) =>
+    spawn!(host, { subagentType: 'research-tree:worker', prompt, ...extra } as never, async () => ({ agentId, model: 'fixture' }))
+  // the identity opens the task and ends before punctuation; a later mention is not it
+  expect((await start('接手 worker/h1 的分支；你是 worker/h2', 'w-x')).deny).toContain('开头')
+  expect((await start('You are worker/h1.', 'w-old')).agentId).toBe('w-old')
+  expect(binding.worker).toBe('w-old')
+  expect((state.get('agents') as Record<string, string>)['w-old']).toBe('worker/h1')
+  // a subagent inherits the Agent tool but never starts an executor
+  expect((await start('你是 worker/h1。接手会话 w-old', 'w-sub', { parentAgentId: 'w-old' })).deny).toContain('只有 RLD')
+  // its turn ended: the node's session is continued with SendMessage, not started a second time
+  expect((await start('你是 worker/h1。继续 T-0002', 'w-dup')).deny).toContain('SendMessage')
+  h.agent.list = async () => [{ id: 'w-old', status: 'running' }]
+  expect((await start('你是 worker/h1。接手会话 w-old', 'w-new')).deny).toContain('正在运行')
+  h.agent.list = async () => [{ id: 'w-old', status: 'completed' }]
+  expect((await start('你是 worker/h1。接手会话 w-ol', 'w-new')).deny).toContain('接手会话 w-old')
+  expect((await start('你是 worker/h1。接手会话 w-old，用 resume_package 恢复', 'w-new')).agentId).toBe('w-new')
+  expect(binding.worker).toBe('w-new')
+  expect(state.get('agents')).toEqual({ 'w-new': 'worker/h1' })
+  // the replaced session has no identity left, even where a stale record still names it
+  state.set('agents', { 'w-old': 'worker/h1', 'w-new': 'worker/h1' })
+  const db = registeredTool('mcp__research-tree__research_db')
+  const old = await db(host, { agentId: 'w-old', method: 'update_task', kwargs: {} } as never)
+  expect(old.isError).toBe(true)
+  expect(String(old.result)).toContain('已绑定')
+  const current = await db(host, { agentId: 'w-new', method: 'update_task', kwargs: {} } as never)
+  expect(current.isError).toBeUndefined()
+  expect(dbCalls.at(-1)!.slice(4, 6)).toEqual(['--actor', 'worker/h1'])
+})
+
+test('a message sent while a UI run is starting waits for that run instead of replacing it', async () => {
+  const cfg = { actor: 'rld/main' }
+  const { host, state, files, spawns, window } = uiHost({})
+  type Hook = (host: never, event: never, next: (event: never) => Promise<Record<string, unknown>>) => Promise<Record<string, unknown>>
+  let complete: Hook | undefined
+  register(((event: string, fn: Hook) => { if (event === 'turn.complete') complete = fn }) as never, {})
+  const h = host as unknown as { agent: { spawn: (input: { prompt: string }) => Promise<{ agentId: string }> } }
+  const spawn = h.agent.spawn
+  let release: () => void = () => undefined
+  const starting = new Promise<void>(resolve => { release = resolve })
+  h.agent.spawn = async input => { await starting; return spawn(input) }
+  const first = internals.askUi(host, cfg, '第一条：现在进度如何？')
+  await internals.askUi(host, cfg, '第二条：再加一个 seed')  // arrives while the first run is still starting
+  release()
+  await first
+  expect(spawns).toHaveLength(1)
+  expect(spawns[0]).toContain('第一条：现在进度如何？')
+  expect(state.get('uiAgentId')).toBe('a1')
+  const finish = async (agentId: string, reply: string) => {
+    const { run } = state.get('uiRun') as { run: string }
+    files.set(`/w/study/research/p/cache/ui/${run}.jsonl`, `${JSON.stringify({ type: 'reply', text: reply })}\n`)
+    await complete!(host, { agentId, answer: '', isAborted: false } as never, async () => ({ text: '' }))
+  }
+  await finish('a1', '进度正常')
+  expect(spawns).toHaveLength(2)  // the first run's outbox was carried out; the waiting message got the next run
+  expect(spawns[1]).toContain('## 用户的新消息（w-0002）\n第二条：再加一个 seed')
+  expect(state.get('uiAgentId')).toBe('a2')
+  await finish('a2', '已记下')
+  expect(state.get('uiAgentId')).toBe(null)
+  expect(window()).toEqual(['第一条：现在进度如何？', '第二条：再加一个 seed', 'UI 还在处理上一条消息；这条已记下，随后处理。', '进度正常', '已记下'])
+})
+
+test('a confirmation the user gives in the main conversation is registered verbatim through post_to_ui, never a phase edit', async () => {
+  const { host, state, files, prompts, window } = uiHost({})
+  const project = { format_version: 3, project_id: 'p', phase: 'awaiting_confirmation', root: '/w/study/research/p', db: LIGHT_SUMMARY.db_path }
+  state.set('project', project)
+  files.set('/w/study/.research-tree.json', JSON.stringify(project))
+  const calls: string[][] = []
+  const h = host as unknown as { process: { run: (argv: string[]) => Promise<unknown> } }
+  h.process.run = async argv => {
+    calls.push(argv)
+    if (argv[2] === 'phase') files.set('/w/study/.research-tree.json', JSON.stringify({ ...project, phase: argv[argv.indexOf('--set') + 1] }))
+    const conf = { models: { ui: { model: 'fixture' }, worker: { model: 'fixture' } }, platform: { dev: 'local', experiment: 'CPU', skills: [] } }
+    return { exitCode: 0, stderr: '', stdout: argv[1]!.endsWith('build_site.py') ? JSON.stringify(LIGHT_SUMMARY)
+      : JSON.stringify({ ok: true, result: argv[2] === 'instruction' ? { doc_id: 'D-0020', path: 'instructions/UI-0001.v1.md' }
+        : argv[2] === 'config' ? { effective: conf } : {} }) }
+  }
+  const post = registeredTool('mcp__research-tree__post_to_ui')
+  for (const words of [undefined, '', '  ']) {
+    expect((await post(host, { type: 'confirm', text: '用户同意最小范围计划', words } as never)).isError).toBe(true)
+  }
+  expect((await post(host, { type: 'notice', text: '进展', words: '同意' } as never)).isError).toBe(true)
+  expect(calls).toEqual([])
+  const words = '同意，按这个最小范围开始'
+  const confirmed = await post(host, { type: 'confirm', text: '用户同意最小范围计划', words } as never)
+  expect(confirmed.isError).toBeUndefined()
+  expect(String(confirmed.result)).toContain('research-tree:architect')  // the start instructions come with the answer
+  expect((state.get('project') as { phase: string }).phase).toBe('confirmed')
+  const apply = calls.find(argv => argv[2] === 'config' && argv[3] === 'apply')!
+  expect(apply[apply.indexOf('--words') + 1]).toBe(words)  // the configuration takes effect on the user's words
+  expect(calls.find(argv => argv[2] === 'instruction')).toContain(words)
+  expect(prompts).toEqual([])
+  expect(window().at(-1)).toContain('D-0020')
+  // afterwards, consent to a later request is registered as the user's words of kind 确认
+  const later = await post(host, { type: 'confirm', text: '同意追加 10 node·h 预算', words: '可以，加 10 个 node·h' } as never)
+  expect(later.isError).toBeUndefined()
+  const consent = calls.filter(argv => argv[2] === 'instruction').at(-1)!
+  expect(consent[consent.indexOf('--text') + 1]).toBe('可以，加 10 个 node·h')
+  expect(consent[consent.indexOf('--kind') + 1]).toBe('确认')
+  expect(consent[consent.indexOf('--understanding') + 1]).toBe('同意追加 10 node·h 预算')
+  // the phase and the model log are the mod's to write: never from a shell, for any actor
+  for (const agentId of [undefined, 'w1']) {
+    for (const command of ['python /plug/tools/research_tree.py phase --set confirmed',
+      '.venv/bin/python /plug/tools/research_tree.py agent-log --agent main --actor rld/main --event observed --model m']) {
+      expect((await registeredTool('Bash')(host, { agentId, command } as never, async () => ({ result: 'ran' }))).deny).toContain('post_to_ui(type=confirm')
+    }
+  }
+})
+
+test('a confirmation request after the plan points to a consent that registers, and the window\'s consent reaches the RLD', async () => {
+  const { host, state, files, prompts, window } = uiHost({ r1: '{"type": "reply", "text": "好的，已转交"}\n{"type": "confirm"}\n' })
+  files.set('/w/study/.research-tree.json', JSON.stringify(state.get('project')))  // confirmed
+  const calls: string[][] = []
+  const h = host as unknown as { process: { run: (argv: string[]) => Promise<unknown> } }
+  h.process.run = async argv => {
+    calls.push(argv)
+    return { exitCode: 0, stderr: '', stdout: argv[1]!.endsWith('send_message.py') ? '{"id":"ui--ui-0001","type":"instruction"}'
+      : argv.includes('inbox') ? JSON.stringify({ ok: true, result: [{ kind: 'awaiting_reply', id: null, text: 'ui--ui-0001（instruction）尚无RLD回执：…' }] })
+      : JSON.stringify({ ok: true, result: argv[2] === 'instruction' ? { doc_id: 'D-0031', path: 'instructions/UI-0003.v1.md' } : { blocked: null } }) }
+  }
+  const post = registeredTool('mcp__research-tree__post_to_ui')
+  expect((await post(host, { type: 'confirm_request', text: '需要追加 10 node·h 预算', docs: ['project/reports/budget.v1.md'] } as never)).isError).toBeUndefined()
+  expect(window().at(-1)).toContain('告诉 RLD')
+  expect(window().at(-1)).not.toContain('/research-tree confirm')  // that command confirms the start-up plan only
+  await internals.carryOutUi(host, { actor: 'rld/main' }, { run: 'r1', message: '同意追加', messageId: 'w-0002', attempt: 1 }, '', false)
+  await new Promise(resolve => setTimeout(resolve, 10))  // delivery checks the receipt first
+  const consent = calls.find(argv => argv[2] === 'instruction')!
+  expect(consent[consent.indexOf('--text') + 1]).toBe('同意追加')
+  expect(consent[consent.indexOf('--kind') + 1]).toBe('确认')
+  expect(consent[consent.indexOf('--understanding') + 1]).toContain('需要追加 10 node·h 预算')
+  expect(calls.some(argv => argv[2] === 'phase' || (argv[2] === 'config' && argv[3] === 'apply'))).toBe(false)
+  const relayed = calls.find(argv => argv[1]!.endsWith('send_message.py') && argv.includes('ui/ui') && argv[argv.indexOf('--from') + 1] === 'ui/ui')!
+  expect(relayed[relayed.indexOf('--text') + 1]).toContain('D-0031')
+  expect(prompts).toHaveLength(1)
+  expect(window().at(-1)).toContain('D-0031')
 })

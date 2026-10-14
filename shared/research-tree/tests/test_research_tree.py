@@ -209,8 +209,12 @@ class ResearchTreeTest(unittest.TestCase):
         code, out = self.run_tool("config", "apply", "--require-project")
         self.assertEqual(code, 2)
         self.assertIn("create_project", out["error"])
-        first = self.run_tool("config", "apply")[1]["result"]["config"]
-        self.assertFalse(self.run_tool("config", "apply")[1]["result"]["new_version"])
+        code, out = self.run_tool("config", "apply")  # a change rests on the user's words, never made-up ones
+        self.assertEqual(code, 2)
+        self.assertIn("--words", out["error"])
+        self.assertIsNone(json.loads((self.cwd / ".research-tree.json").read_text())["config"])
+        first = self.run_tool("config", "apply", "--words", "按这个配置开始")[1]["result"]["config"]
+        self.assertFalse(self.run_tool("config", "apply")[1]["result"]["new_version"])  # nothing changes: no words
         rld = ResearchDB(root / "research_tree.db", "rld/main")
         (root / "docs/project/min-setup.v1.md").write_text("setup\n")
         setup = rld.register_document("project/min-setup.v1.md", "min_setup", "setup")
@@ -386,7 +390,7 @@ class ConfigV3Test(unittest.TestCase):
         proto2 = rld.register_document("project/protocol.v2.json", "protocol", "protocol")
         rld.set_document_current(proto2)
         rld.update_project(protocol_doc_id=proto2)
-        code, out = self.run_tool("config", "apply", "--require-project")
+        code, out = self.run_tool("config", "apply", "--require-project", "--words", "同意立项计划")
         self.assertEqual(code, 0, out)
         # one gate: changing the primary's minimum practical gain changes go_margin with a new specification version
         config = self.cwd / "research-tree.yaml"
@@ -402,7 +406,7 @@ class ConfigV3Test(unittest.TestCase):
             config.write_text(config.read_text(encoding="utf-8").replace(
                 "total_limit: null" if limit == 50000 else "total_limit: 50000", f"total_limit: {limit}"),
                 encoding="utf-8")
-            code, out = self.run_tool("config", "apply")
+            code, out = self.run_tool("config", "apply", "--words", f"总预算调到 {limit}")
             self.assertEqual(code, 0, out)
         self.assertEqual(rld.get("P-v3")["total_limit"], 90000)
         self.assertEqual(rld.get(out["result"]["instruction"]["doc_id"])["doc_type"], "user_instruction")
@@ -493,7 +497,7 @@ class RealRunFixesTest(unittest.TestCase):
         self.rld.update_project(protocol_doc_id=doc)
         (self.cwd / "research-tree.yaml").write_text(json.dumps(config))
         for _ in range(2):
-            code, out = self.run_tool("config", "apply")
+            code, out = self.run_tool("config", "apply", "--words", "启用独立性字段与重复建议")
             self.assertEqual(code, 0, out)
         config["verification"]["repetition"]["batch"] = 2
         (self.cwd / "research-tree.yaml").write_text(json.dumps(config))
@@ -521,7 +525,7 @@ class RealRunFixesTest(unittest.TestCase):
         config = self.cwd / "research-tree.yaml"
         config.write_text(config.read_text(encoding="utf-8").replace("allowed_regression: 0.10", "allowed_regression: 0.5"),
                           encoding="utf-8")
-        code, out = self.run_tool("config", "apply")  # the file now agrees: the version in effect is taken over
+        code, out = self.run_tool("config", "apply", "--words", "用 0.5")  # the file now agrees: taken over
         self.assertEqual(code, 0, out)
         self.assertEqual(self.rld.get("P-fix")["metric_spec_doc_id"], mine)
         self.assertEqual(json.loads((self.cwd / ".research-tree.json").read_text())["metric_spec"]["doc_id"], mine)
@@ -529,11 +533,48 @@ class RealRunFixesTest(unittest.TestCase):
         # the user may decide the file's values replace it
         config.write_text(config.read_text(encoding="utf-8").replace("allowed_regression: 0.5", "allowed_regression: 0.2"),
                           encoding="utf-8")
-        code, out = self.run_tool("config", "apply", "--replace-metric-spec")
+        code, out = self.run_tool("config", "apply", "--replace-metric-spec", "--words", "改用 0.2")
         self.assertEqual(code, 0, out)
         new = self.rld.get("P-fix")["metric_spec_doc_id"]
         self.assertNotEqual(new, mine)
         self.assertEqual(self.rld.get(mine)["status"], "superseded")
+
+
+    def test_a_refused_apply_registers_nothing(self):
+        """A refusal found after the file was read (a gate locked by experiments) leaves the metric specification,
+        the configuration and the marker as they were; no instruction is recorded."""
+        marker = self.project()
+        self.assertEqual(self.run_tool("config", "apply", "--require-project", "--words", "同意")[0], 0)
+        with Database(self.root / "research_tree.db") as db, db.write() as txn:
+            txn.create_node(labels=["Experiment"], properties={"id": "E-0001"})
+            txn.commit()
+        before = (self.cwd / ".research-tree.json").read_text()
+        spec = self.rld.get("P-fix")["metric_spec_doc_id"]
+        config = self.cwd / "research-tree.yaml"
+        config.write_text(config.read_text(encoding="utf-8").replace("minimum_practical_gain: 0.2",
+                                                                     "minimum_practical_gain: 0.3"), encoding="utf-8")
+        instructions = len(self.rld.find("document", doc_type="user_instruction"))
+        code, out = self.run_tool("config", "apply", "--words", "门槛改为 0.3")
+        self.assertEqual(code, 2, out)
+        self.assertIn("go_margin", out["error"])
+        self.assertEqual((self.rld.get("P-fix")["metric_spec_doc_id"], self.rld.get(spec)["status"]), (spec, "current"))
+        self.assertEqual((self.cwd / ".research-tree.json").read_text(), before)
+        self.assertFalse((self.root / "docs/project/metric-spec.v2.json").exists())
+        self.assertFalse((self.root / "docs/project/config.v2.yaml").exists())
+        self.assertEqual(len(self.rld.find("document", doc_type="user_instruction")), instructions)
+        self.assertEqual(marker["metric_spec"]["doc_id"], spec)
+
+    def test_lowering_a_gate_applies_with_the_users_words(self):
+        """Dropping a gate or the exploration share is the user's decision: their words carry it."""
+        self.project()
+        self.assertEqual(self.run_tool("config", "apply", "--require-project", "--words", "同意")[0], 0)
+        config = self.cwd / "research-tree.yaml"
+        text = config.read_text(encoding="utf-8")
+        self.assertIn("code_review: true", text)
+        config.write_text(text.replace("code_review: true", "code_review: false"), encoding="utf-8")
+        code, out = self.run_tool("config", "apply", "--words", "这个项目不做代码审查")
+        self.assertEqual(code, 0, out)
+        self.assertFalse(self.rld.get("P-fix")["code_review_required"])
 
 
 class NotifyTest(unittest.TestCase):

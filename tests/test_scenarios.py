@@ -332,6 +332,83 @@ class RecordTest(unittest.TestCase):
             self.assertTrue(record.problems({**stage, "forked_from": {"attempt": "a03"}}, base))
             self.assertEqual(record.problems({**common, "forked_from": None}, base), [])
 
+    def test_evidence_is_a_nonempty_file_in_the_scenario_locations(self):
+        with tempfile.TemporaryDirectory() as tmp, tempfile.TemporaryDirectory() as elsewhere:
+            base = Path(tmp)
+            good = self.full(base)
+            (base / "empty.log").write_text("")
+            (base / "dir").mkdir()
+            outside = Path(elsewhere) / "session.log"
+            outside.write_text("raw")
+            (base / "link.log").symlink_to(outside)
+            for bad in ("", ".", "/", "dir", str(base / "dir"), "empty.log", "README.md", str(ROOT / "README.md"),
+                        str(outside), "link.log", None):
+                with self.subTest(path=bad):
+                    for broken in ({**good, "session_transcripts": [bad]}, {**good, "raw_evidence_paths": [bad]},
+                                   {**good, "resume_evidence": {**good["resume_evidence"], "observer_after": bad}},
+                                   {**good, "review_calls": [{**good["review_calls"][0], "raw_output": bad}]}):
+                        self.assertTrue(record.problems(broken, base))
+            # the scenario's own project and controller directories hold evidence too
+            project = Path(elsewhere) / "rt-S0-claude-a01"
+            transcript = Path(elsewhere) / "rt-S0-claude-a01.ctl" / "sessions" / "s.jsonl"
+            transcript.parent.mkdir(parents=True)
+            transcript.write_text("raw")
+            self.assertEqual(record.problems({**good, "project_root": str(project),
+                                              "session_transcripts": [str(transcript)]}, base), [])
+            # never a directory holding the repository or one inside it
+            for root, inside in (("/", outside), (ROOT, ROOT / "README.md"),
+                                 (ROOT / "plans", ROOT / "plans/research-tree-implementation-and-real-scenarios.md")):
+                with self.subTest(project_root=root):
+                    self.assertTrue(inside.is_file())
+                    self.assertTrue(record.problems({**good, "project_root": str(root),
+                                                     "raw_evidence_paths": [str(inside)]}, base))
+
+    def test_a_record_reads_its_own_stage_and_host_evidence(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tree = Path(tmp)
+            base = tree / "S0" / "claude" / "SC-S0-01" / "a01"
+            base.mkdir(parents=True)
+            evidence = tree / "S0" / "claude" / "evidence-a01"
+            evidence.mkdir()
+            good = self.full(evidence)
+            self.assertEqual(record.problems(good, base), [])
+            other = tree / "S1" / "claude" / "evidence-a01"  # another stage's files are not this record's evidence
+            other.mkdir(parents=True)
+            (other / "observer.json").write_text("{}")
+            self.assertTrue(record.problems({**good, "raw_evidence_paths": [str(other / "observer.json")]}, base))
+
+    def test_a_scenario_that_resumes_needs_its_resume_whatever_the_flag_says(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            base = Path(tmp)
+            good = self.full(base)
+            for scenario in ("SC-COMMON-01", "SC-S0-01", "SC-S6-02"):
+                with self.subTest(scenario=scenario):
+                    waived = {**good, "scenario_id": scenario, "requires_resume": False}
+                    self.assertEqual(record.problems(waived, base), [])
+                    self.assertTrue(record.problems({**waived, "resume_evidence": None}, base))
+                    self.assertTrue(record.problems({**waived, "resume_evidence": {"new_session": "s-2"}}, base))
+            # a scenario without a resume step may say it has none
+            self.assertEqual(record.problems({**good, "scenario_id": "SC-S0-02", "requires_resume": False,
+                                              "resume_evidence": None}, base), [])
+
+    def test_summary_never_counts_reg_as_a_real_pass(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            tree = Path(tmp)
+
+            def put(scenario, attempt, **changes):
+                base = tree / "S0" / "claude" / scenario / f"a{attempt:02d}"
+                base.mkdir(parents=True)
+                kept = {**self.full(base), "scenario_id": scenario, "attempt": attempt, **changes}
+                (base / "record.json").write_text(json.dumps(kept))
+            put("SC-S0-01", 1)
+            put("SC-S0-01", 2, evidence_class="reg", substitutes_used=["preset_scores"])
+            put("SC-S0-02", 1, evidence_class="reg", substitutes_used=["mock_reviewer"])
+            cell = record.summary(tree)["S0"]["claude"]
+            real, reg = cell["SC-S0-01"], cell["SC-S0-02"]
+            self.assertEqual((real["attempt"], real["evidence_class"], real["valid"]), (1, "real_sc", True))
+            self.assertEqual((reg["evidence_class"], reg["valid"]), ("reg", False))
+            self.assertIn("never a real PASS", reg["problems"][0])
+
     def test_fault_plan_shape(self):
         self.assertEqual(record.check_faults({"faults": [{"id": "F1", "target": "report", "trigger": "before import",
                                                           "times": 1, "invariants": ["no evaluation"]}]}), [])

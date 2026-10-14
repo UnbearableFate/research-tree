@@ -86,12 +86,16 @@ def run(directory: Path, lock_fd: int) -> int:
 
     signal.signal(signal.SIGTERM, interrupt)
     signal.signal(signal.SIGINT, interrupt)
+    # The identity lock stays here: a Codex child, and any job its shell backgrounds, never inherits it, so the
+    # identity is free once this turn ends.
+    os.set_inheritable(lock_fd, False)
+    notice = None
     try:
         argv = command(spec, directory)
         env = {**os.environ, "RESEARCH_TREE_PROJECT": spec["project"], "RESEARCH_TREE_ACTOR": spec["actor"]}
         with (directory / "stderr.log").open("w") as errors:
             child = subprocess.Popen(argv, stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=errors,
-                                     text=True, cwd=spec["project"], env=env, pass_fds=(lock_fd,))
+                                     text=True, cwd=spec["project"], env=env)
             state.update(status="running", started_at=now_utc(), pid=child.pid, supervisor_pid=os.getpid(),
                          host=socket.gethostname(), requested_model=spec["model"])
             write_json(state_file, state)
@@ -136,9 +140,8 @@ def run(directory: Path, lock_fd: int) -> int:
             else:
                 runtime.say("note", f"UI本轮未成功（{state['status']}）；详见 {directory}，没有执行其动作。")
         else:
-            state["notification"] = runtime.enqueue(
-                f"{spec['actor']} 本轮结束：{state['status']}。运行记录 {directory}。读取任务交付及日志核验；"
-                "会话结束不代表科学任务或科研作业完成。", f"run-{spec['run']}")
+            notice = (f"{spec['actor']} 本轮结束：{state['status']}。运行记录 {directory}。读取任务交付及日志核验；"
+                      "会话结束不代表科学任务或科研作业完成。")
     except Exception as exc:
         if child and child.poll() is None:
             child.terminate()
@@ -150,11 +153,17 @@ def run(directory: Path, lock_fd: int) -> int:
         state.update(status="failed", error=f"{type(exc).__name__}: {exc}", finished_at=now_utc())
         runtime.say("note", f"{spec['actor']} 启动或处理失败：{exc}；记录 {directory}")
         if spec["actor"] != "ui/ui":
-            state["notification"] = runtime.enqueue(f"{spec['actor']} 本轮失败：{exc}。记录 {directory}；核对后再决定恢复。",
-                                                    f"run-{spec['run']}")
+            notice = f"{spec['actor']} 本轮失败：{exc}。记录 {directory}；核对后再决定恢复。"
     finally:
         write_json(state_file, state)
         os.close(lock_fd)
+    # The end-of-turn event follows the release: the Leader that reads it may start this identity's next turn.
+    if notice:
+        try:
+            state["notification"] = runtime.enqueue(notice, f"run-{spec['run']}")
+        except Exception as exc:  # the turn's outcome stands; agents still shows it
+            state["notification"] = {"delivery": "failed", "error": f"{type(exc).__name__}: {exc}"}
+        write_json(state_file, state)
     return 0 if state["status"] == "completed" else 1
 
 

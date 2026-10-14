@@ -252,11 +252,12 @@ UI generation failure does not undo a successful scientific DB operation or bloc
 Worker `research_message` calls validate and log messages before delivery to the RLD.
 
 Hooks record the RLD address/model and protect known frozen paths. Review and trust installed plugin
-hooks using Codex's hook controls; installation does not imply trust. If hooks are unavailable, explicitly
-attach the actual current session and model with `research_control(action="attach", params={"session_id":...,
-"model":...})`; do not guess them. The plugin cannot wake an unregistered main session.
-Attach supplies the address and the model used by inherit; it does not establish an observed model.
-Cross-family reviews require the trusted hooks' observed record and return REVIEW_UNAVAILABLE without it.
+hooks using Codex's hook controls; installation does not imply trust. Trusted hooks are required: without
+them no session address or observed model is recorded, so `inherit` fails, cross-family reviews return
+REVIEW_UNAVAILABLE and file guards do not run. `research_control(action="attach", params={"session_id":...})`
+is not a fallback for missing hooks: it only hands the Leader role to a main session the hooks have already
+observed (attach from that session after its first tool call). The model comes from that observation; a
+`model` parameter that differs is refused. The plugin cannot wake an unregistered main session.
 
 `codex queue` notifications are distinct from receipt and execution. In the RLD session, read `inbox` after resume and when
 notified; process references, acknowledge received event IDs, and send substantive instruction receipts
@@ -278,10 +279,12 @@ Workers recover their assigned work with `research_db(resume_package)` and commu
 - `config show`: call `research_control(action="config")` for the effective version and pending YAML
   changes. `config apply`: call that tool with `params={"apply":true,"words":<user's words>}`; this
   applies an authorized change. Gates lock after experiments begin. Edit `research-tree.yaml` only when the
-  user asks, and only the items they named (workers cannot write it), then apply with their words. A
-  configuration change governs later work: earlier experiments, evaluations, method identities and findings
-  stay valid (only a harness or comparison-protocol change makes evidence stale). New turns use the current
-  model/platform settings; tell active workers about changes.
+  user asks, and only the items they named (workers cannot write it), then apply with their words. Evidence
+  stays current for GO while the harness, the comparison protocol, the baseline and the runs it used are
+  unchanged. Tightening `independence_fields`, newly requiring artifact import, or changing a compared
+  metric's direction, units, `allowed_regression` or `valid_range` also makes it stale; other configuration
+  changes govern only later work. New turns use the current model/platform settings; tell active workers
+  about changes.
 
 Workers use workspace-write unless the user's CODEX_HOME/config.toml explicitly sets
 sandbox_mode="danger-full-access", in which case they inherit Full access. UI, Explorer and Analyst

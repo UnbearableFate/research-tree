@@ -135,9 +135,13 @@ def load_curve(path_text: str | None, base: Path) -> tuple[dict | None, str | No
         return None, f"曲线文件缺失：{path_text}"
     try:
         data = json.loads(path.read_text(encoding="utf-8"))
-        if not isinstance(data, dict) or "step" not in data:
+        if not isinstance(data, dict) or not isinstance(data.get("step"), list):
             raise ValueError("missing step series")
-        return {k: _downsample(v) for k, v in data.items() if isinstance(v, list)}, None
+        series = {k: v for k, v in data.items() if isinstance(v, list)}
+        uneven = sorted(k for k, v in series.items() if len(v) != len(data["step"]))
+        if uneven:  # each series is downsampled on its own: only equal lengths stay aligned with step
+            raise ValueError(f"{', '.join(uneven)} not as long as step ({len(data['step'])})")
+        return {k: _downsample(v) for k, v in series.items()}, None
     except (ValueError, OSError) as exc:
         return None, f"曲线文件无法读取：{path_text}（{exc}）"
 
@@ -377,9 +381,18 @@ def _cleaned(passes: dict | None) -> dict | None:
 
 
 def unanswered(root: Path) -> list[dict]:
-    """Messages from the UI that ask the RLD for a receipt or an answer and have none yet (no message re it)."""
-    logs = [p for p in sorted((root / "messages").glob("*.jsonl")) if p.name != "window.jsonl"]
-    messages = [json.loads(line) for p in logs for line in p.read_text(encoding="utf-8").splitlines() if line.strip()]
+    """Messages from the UI that ask the RLD for a receipt or an answer and have none yet (no message re it). The
+    logs are read line by line; a line still being appended (not yet whole JSON) is skipped."""
+    messages = []
+    for path in sorted((root / "messages").glob("*.jsonl")):
+        if path.name == "window.jsonl":
+            continue
+        with path.open(encoding="utf-8") as handle:
+            for line in handle:
+                try:
+                    messages.append(json.loads(line))
+                except json.JSONDecodeError:
+                    continue
     answered = {m["re"] for m in messages if m.get("re")}
     return [{"kind": "awaiting_reply", "id": (m.get("about") or [None])[0],
              "text": f"{m['id']}（{m['type']}）尚无RLD回执：{m['text'][:80]}"}
@@ -486,10 +499,12 @@ def _meta(tx) -> dict:
 def summary_or_empty(db_path: Path) -> dict:
     """Current DB-only status, not a scientific eligibility check or a full presentation refresh.
 
-    One read transaction projects only status fields and guard paths. In particular this must not export
-    the database, read/hash/render documents, open curves, or recompute all nodes' eligibility. Unknown GO
-    eligibility is explicit (null), never a stale cached success or an inferred failure. Use get_eligibility
-    for one candidate or an explicit full build for the complete evidence/visualization diagnostics.
+    One read transaction projects only status fields and guard paths; besides it, only the message logs are
+    read, for the UI messages still awaiting an RLD receipt (unanswered, as in the full summary). In particular
+    this must not export the database, read/hash/render documents, open curves, or recompute all nodes'
+    eligibility. Unknown GO eligibility is explicit (null), never a stale cached success or an inferred failure.
+    Use get_eligibility for one candidate or an explicit full build for the complete evidence/visualization
+    diagnostics.
     """
     root = db_path.resolve().parent
     with ResearchDB(db_path, "ui/ui").reader() as tx:
@@ -587,6 +602,7 @@ def summary_or_empty(db_path: Path) -> dict:
                                                          r["accounting_status"] == "reserved"):
             attention.append({"kind": "submission_unknown", "id": None,
                               "text": f"{r['submission_key']}：按提交身份核对，不要重新提交"})
+    attention += unanswered(root)
     if project.get("admission_paused"):
         attention.insert(0, {"kind": "admission_paused", "id": project["id"], "text": project["admission_paused"]})
     for field, value, kind in (("alert_node_h", node_hours, "usage_alert"),
@@ -981,9 +997,10 @@ function heatCell(v) {
 // ---- curves: mean over seeds of this experiment vs. its comparison targets ----
 const PALETTE = ["var(--accent)", "var(--go)", "var(--verifying)", "var(--expandable)"];
 function meanCurve(exp, key) {
-  const cs = exp.runs.filter(r => r.curve && r.curve[key]).map(r => r.curve);
+  // only curves whose step axis and this series are arrays; never more points than either has
+  const cs = exp.runs.filter(r => r.curve && Array.isArray(r.curve.step) && Array.isArray(r.curve[key])).map(r => r.curve);
   if (!cs.length) return null;
-  const len = Math.min(...cs.map(c => c[key].length));
+  const len = Math.min(...cs.map(c => Math.min(c.step.length, c[key].length)));
   return {x: cs[0].step.slice(0, len), y: Array.from({length: len}, (_, i) => cs.reduce((s, c) => s + c[key][i], 0) / cs.length)};
 }
 function curveSvg(e) {
@@ -992,6 +1009,7 @@ function curveSvg(e) {
   const series = [[e.id + " " + e.method, e]].concat(e.comparisons.map(c => [(c.role === "sota" ? "SOTA " : "指定对照 ") + c.target_id, EXP[c.target_id]]));
   return keys.map(key => {
     const lines = series.map(([name, x], i) => ({name, color: PALETTE[i % PALETTE.length], c: x && meanCurve(x, key)})).filter(s => s.c);
+    if (!lines.length) return "";
     const xs = lines.flatMap(s => s.c.x), ys = lines.flatMap(s => s.c.y);
     const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
     const W = 520, H = 160, m = 34, sx = x => m + (x - x0) / ((x1 - x0) || 1) * (W - 2 * m), sy = y => H - 20 - (y - y0) / ((y1 - y0) || 1) * (H - 40);

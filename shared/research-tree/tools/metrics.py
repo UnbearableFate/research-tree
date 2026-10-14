@@ -257,7 +257,7 @@ def repetition_advice(spec: dict, pairs: list[dict], gain: float, policy: dict |
         sd = statistics.stdev(diffs)
         se = sd / math.sqrt(n)
         out.update(sd=sd, se=se)
-        unclear = abs(mean - gain) <= k * se
+        unclear = abs(mean - gain) <= k * se or _tie(mean, gain)  # a tie with the gain stays unclear at SE 0
         why = (f"|mean - gain| = {abs(mean - gain):.6g} {'<=' if unclear else '>'} {k:g} x SE {se:.6g}")
         signs = {d > 0 for d in diffs if d}
         if len(signs) > 1:
@@ -404,12 +404,23 @@ def effect(spec: dict, xs: list[float], ys: list[float]) -> dict:
     return out
 
 
+# The binary rounding of an effect near zero, in its canonical unit: canonical values up to about a thousand are
+# within a few units in the last place of their decimal values, so a decimal tie with a threshold of 0 comes out
+# near 1e-14, not 0 (0.3, 0.6 against 0.1, 0.8 as percentage points has mean difference 3.55e-15).
+TIE_ABS_TOL = 1e-12
+
+
+def _tie(value: float, threshold: float) -> bool:
+    return math.isclose(value, threshold, rel_tol=1e-9, abs_tol=TIE_ABS_TOL)
+
+
 def passes(value: float | None, threshold: float, comparison: str) -> bool:
-    """The gate: an effect equal to the threshold up to binary rounding (relative 1e-9) is a tie that the protocol's
-    '>' or '>=' decides, not rounding noise (0.701 x 100 - 0.699 x 100 is not exactly 0.2)."""
+    """The gate: an effect equal to the threshold up to binary rounding (relative 1e-9, and TIE_ABS_TOL near zero,
+    where a relative tolerance vanishes) is a tie that the protocol's '>' or '>=' decides, not rounding noise
+    (0.701 x 100 - 0.699 x 100 is not exactly 0.2)."""
     if value is None:
         return False
-    if math.isclose(value, threshold, rel_tol=1e-9, abs_tol=0.0):  # a tie, up to binary rounding
+    if _tie(value, threshold):
         return comparison == ">="
     return value > threshold if comparison == ">" else value >= threshold
 
@@ -500,7 +511,7 @@ def guardrails(specs: dict, comparison: dict) -> dict:
             continue
         value = comparison["metrics"].get(spec["name"], {}).get("delta_mean")
         out[spec["name"]] = {"allowed_regression": limit, "effect": value,
-                             "passed": value is not None and value >= -limit}
+                             "passed": passes(value, -limit, ">=")}
     return out
 
 

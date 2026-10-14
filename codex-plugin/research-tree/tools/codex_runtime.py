@@ -208,7 +208,7 @@ class Runtime:
                 return {"already_confirmed": True}
             if marker["phase"] != "awaiting_confirmation":
                 raise ValueError("RLD has not submitted a plan for confirmation")
-            tree.apply_config(self.cwd, "rld/main", require_project=True)
+            tree.apply_config(self.cwd, "rld/main", words=words, require_project=True)
             document = tree.register_instruction(self.root, words, "用户确认立项计划，允许Architect实现根节点。",
                                                  "确认（立项计划）", [marker["project_id"]])
             tree.set_phase(self.cwd, "confirmed")
@@ -219,7 +219,7 @@ class Runtime:
         return {"document": document, **result}
 
     def start_agent(self, actor, prompt, model, *, node_id=None, resume=None, user_message=None, workdir=None):
-        """Transfer an exclusive per-identity lock to the supervisor and Codex child."""
+        """Transfer an exclusive per-identity lock to the supervisor, which alone holds it for the turn."""
         key = actor_key(actor)
         agent_lock = self.cache / "agents" / f"{key}.lock"
         agent_lock.parent.mkdir(parents=True, exist_ok=True)
@@ -247,7 +247,7 @@ class Runtime:
                                                                 "supervisor_pid": process.pid, "host": socket.gethostname()})
             return {"run": run, "actor": actor, "status": "starting", "directory": str(directory)}
         finally:
-            handle.close()  # the child holds the same open file description and lock
+            handle.close()  # the supervisor holds the same open file description and lock
 
     def start_execution(self, role, node_id, task, restart=False):
         self.require_rld()
@@ -308,9 +308,11 @@ class Runtime:
                 if restart or not state.get("thread_id"):
                     raise ValueError(f"{actor} already has a live turn")
                 return self.queue_worker(state["thread_id"], actor, task)
+            # a start that failed before thread.started still names the thread it was resuming
+            spec = read_json(Path(previous["directory"]) / "spec.json", {}) if previous else {}
             return self.start_agent(actor, codex_prompts.advisor(self.marker, conf, role, task),
                                     conf["models"][role],
-                                    resume=None if restart else state.get("thread_id"))
+                                    resume=None if restart else state.get("thread_id") or spec.get("resume"))
 
     def queue_worker(self, thread_id, actor, text):
         receipt = {"id": uuid.uuid4().hex, "actor": actor, "thread_id": thread_id, "text": text,
@@ -489,7 +491,7 @@ class Runtime:
                 return tree.register_instruction(self.root, words, understanding, params.get("kind", "指令"),
                                                  params.get("about", []))
         if action == "config":
-            if not params.get("words", "").strip():
+            if not isinstance(params.get("words"), str) or not params["words"].strip():
                 raise ValueError("config apply needs the user's request")
             with locked(self.cache / "control.lock"):
                 result = tree.apply_config(self.cwd, self.actor, words=params["words"],
@@ -627,7 +629,7 @@ class Runtime:
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--project", required=True, type=Path)
-    parser.add_argument("--actor", default="rld/main")
+    parser.add_argument("--actor", required=True, help="the session's fixed role; codex_mcp.py always names it")
     args = parser.parse_args()
     try:
         request = json.load(sys.stdin)

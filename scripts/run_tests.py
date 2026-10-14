@@ -1,14 +1,17 @@
 #!/usr/bin/env python3
 """Run the repository's unittest suites in parallel (one subprocess per test class).
 
-    python3 scripts/run_tests.py                       # shared core + repository tests + Codex adapter (from dist/)
+    python3 scripts/run_tests.py                       # shared core + repository tests + Codex adapter (built afresh)
     python3 scripts/run_tests.py test_units test_s7    # only these shared test modules (fast development loop)
-    python3 scripts/run_tests.py --suite repo          # only tests/ ; --suite codex: the built Codex adapter
+    python3 scripts/run_tests.py --suite repo          # only tests/ ; --suite codex: the Codex adapter
     python3 scripts/run_tests.py -j 8                  # at most 8 classes at a time (default: CPU count, max 32)
 
 Each test class runs in its own `python -m unittest <module.Class>` process, so classes share no module state and
 the results equal a serial run's. A class that fails is shown with its output; the exit code is non-zero when any
 test failed or errored. During development run the affected modules; run the whole set before a commit or merge.
+The Codex adapter's tests run from a build of the current sources made in a temporary directory at the start
+(build_plugins.py --target codex), never from the repository's dist/, which running sessions load; a failed build
+or a selected suite without tests fails the run.
 """
 from __future__ import annotations
 
@@ -18,15 +21,26 @@ import os
 import re
 import subprocess
 import sys
+import tempfile
 import time
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 PY = str(REPO / ".venv" / "bin" / "python")
+# codex: the tests directory inside a fresh build (build_codex)
 SUITES = {"shared": REPO / "shared" / "research-tree" / "tests", "repo": REPO / "tests",
-          "codex": REPO / "dist" / "codex" / "plugins" / "research-tree" / "tests"}
+          "codex": Path("codex") / "plugins" / "research-tree" / "tests"}
 RAN_RE = re.compile(r"^Ran (\d+) tests? in", re.M)
+
+
+def build_codex(work: Path) -> Path:
+    """Assemble the Codex adapter from the current sources into work; its tests directory."""
+    out = subprocess.run([sys.executable, str(REPO / "scripts" / "build_plugins.py"), "--target", "codex",
+                          "--output", str(work)], capture_output=True, text=True)
+    if out.returncode != 0:
+        raise SystemExit(f"Codex adapter build failed:\n{(out.stdout + out.stderr).strip()}")
+    return work / SUITES["codex"]
 
 
 def classes(path: Path) -> list[str]:
@@ -42,13 +56,13 @@ def classes(path: Path) -> list[str]:
     return out
 
 
-def jobs(suite: str, modules: list[str]) -> list[tuple[Path, str]]:
-    base = SUITES[suite]
-    if not base.is_dir():
-        return []
+def jobs(suite: str, base: Path, modules: list[str]) -> list[tuple[Path, str]]:
     pattern = "test_codex*.py" if suite == "codex" else "test_*.py"
+    files = sorted(base.glob(pattern)) if base.is_dir() else []
+    if not files:
+        raise SystemExit(f"suite {suite} has no {pattern} in {base}")
     found = []
-    for path in sorted(base.glob(pattern)):
+    for path in files:
         if modules and path.stem not in modules:
             continue
         found += [(base, f"{path.stem}.{c}") for c in classes(path)]
@@ -71,13 +85,14 @@ def main() -> int:
     p.add_argument("-j", "--jobs", type=int, default=min(32, os.cpu_count() or 4))
     a = p.parse_args()
     suites = [a.suite] if a.suite and a.suite != "all" else (["shared"] if a.modules else list(SUITES))
-    todo = [j for s in suites for j in jobs(s, a.modules)]
-    if not todo:
-        print("no tests selected")
-        return 1
     start = time.monotonic()
-    with ThreadPoolExecutor(max_workers=a.jobs) as pool:
-        results = list(pool.map(run, todo))
+    with tempfile.TemporaryDirectory(prefix="rt-codex-build-") as work:
+        todo = [j for s in suites for j in jobs(s, build_codex(Path(work)) if s == "codex" else SUITES[s], a.modules)]
+        if not todo:
+            print("no tests selected")
+            return 1
+        with ThreadPoolExecutor(max_workers=a.jobs) as pool:
+            results = list(pool.map(run, todo))
     failed = [r for r in results if r[1] != 0]
     total = sum(r[2] for r in results)
     for test_id, _, _, text, secs in failed:

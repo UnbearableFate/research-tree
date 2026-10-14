@@ -40,8 +40,10 @@ class AttemptMetricsTest(unittest.TestCase):
         (self.root / "logs" / name).write_text(text)
         return f"logs/{name}"
 
-    def tables(self, run, reservations, documents=()):
-        return {"run": [run], "reservation": [{"submission_key": k} for k in reservations], "document": list(documents)}
+    def tables(self, run, reservations, documents=(), total_limit=3600):
+        """total_limit: the project's budget; with one every submission runs under a reservation."""
+        return {"project": [{"id": "P-1", "total_limit": total_limit}], "run": [run],
+                "reservation": [{"submission_key": k} for k in reservations], "document": list(documents)}
 
     def test_retry_is_authorized_and_an_extra_start_is_one_duplicate(self):
         self.start("k-a1")
@@ -68,8 +70,24 @@ class AttemptMetricsTest(unittest.TestCase):
         self.start("orphan")
         self.start("orphan", launch=2)
         self.write()
-        m = attempt_metrics.metrics(self.project, {"run": [], "reservation": [], "document": []}, self.root)
+        budgeted = {"project": [{"id": "P-1", "total_limit": 3600}], "run": [], "reservation": [], "document": []}
+        m = attempt_metrics.metrics(self.project, budgeted, self.root)
         self.assertEqual((m["duplicate_jobs"], m["starts_per_key"]), (2, {"orphan": 2}))
+
+    def test_without_a_total_budget_only_extra_starts_are_duplicates(self):
+        """Without total_limit a run is submitted with no reservation at all: its job's first start is the
+        submission itself, as the observer counts it; a second start of the same key is still one duplicate."""
+        self.start("E-0002-s42-a1")
+        self.start("E-0002-s43-a1")
+        run = {"id": "E-0002/s42", "attempt": 1, "exec_status": "succeeded", "valid": True, "submission_key": None,
+               "job_id": "local-E-0002-s42-a1"}
+        self.write()
+        m = attempt_metrics.metrics(self.project, self.tables(run, [], total_limit=None), self.root)
+        self.assertEqual((m["research_attempts"], m["duplicate_jobs"]), (1, 0))
+        self.start("E-0002-s42-a1", launch=2)  # a real extra process for the same key
+        self.write()
+        m = attempt_metrics.metrics(self.project, self.tables(run, [], total_limit=None), self.root)
+        self.assertEqual(m["duplicate_jobs"], 1)
 
     def test_avoidable_failures_need_an_earlier_verified_fix(self):
         verified = {"doc_type": "lesson", "status": "current", "updated_at": "2026-10-08T10:00:00Z",

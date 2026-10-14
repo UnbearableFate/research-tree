@@ -71,6 +71,10 @@ check the current host boundaries:
 - Only Explorer and Analyst provide read-only advice; independent reviews use code_review, ablation_plan or candidate_recheck through the wrapper
 - Candidate proposals retain their real source and current revision; admission checks one candidate without a batch gate or an authorization override
 - No persistent UI is started; lightweight status and explicit full rendering keep their separate scopes, and display failures do not undo committed writes
+- One UI run at a time: a message sent while a run starts or retries waits for it and is carried out afterwards
+- Shell writes (redirections, tee, sed/perl -i, dd of=, cp/mv destinations, rm, truncate) meet the same authoritative frozen-document and harness guards as Edit/Write and fail closed; cp sources are reads, and reading or listing a tool file is not a tool call
+- One executor session per node: SendMessage continues it, a new session needs the RLD's explicit takeover of a stopped one (the replaced session keeps no identity), and only the main session starts Architect, Worker and advisors
+- Confirmations are registered from the user's verbatim words (`/research-tree confirm`, the UI's confirm, or `post_to_ui(type=confirm, words)` from the main session); `config apply` needs non-empty words, and `research_tree.py phase`/`agent-log` never run from a shell
 - Confirmation-material history, current five-dimensional review evidence, unresolved validity defects, raw provenance, budgets and original submission identities survive retries/resumption
 
 Record actual executed, failed and unrun cases. A documented test target or a fixture callback name is not evidence that the current code passed it. Migration is an explicit fresh-project workflow, not an in-place upgrade test.

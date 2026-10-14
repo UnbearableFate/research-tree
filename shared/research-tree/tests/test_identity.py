@@ -12,7 +12,7 @@ TOOLS = Path(__file__).resolve().parents[1] / "tools"
 sys.path.insert(0, str(TOOLS))
 
 import discovery  # noqa: E402
-from test_research_db import Fixture, rdb, recheck_payload  # noqa: E402
+from test_research_db import Fixture, ResearchDB, rdb, recheck_payload  # noqa: E402
 
 ResearchDB, ResearchDBError = rdb.ResearchDB, rdb.ResearchDBError
 
@@ -244,7 +244,8 @@ class ClaimAndBasisTest(IdentityFixture):
         log = self.root / "logs" / "review_calls.jsonl"
         log.parent.mkdir(exist_ok=True)
         log.write_text(json.dumps({"kind": "code_review", "about": h, "outcome": "REVIEW_UNAVAILABLE"}) + "\n")
-        self.rld.waive_code_review(other, self.decision_doc())
+        self.rld.waive_code_review(other, self.decision_doc(), self.doc(
+            ResearchDB(self.db, "ui/ui"), f"instructions/UI-waive-{self.n}.v1.md", "user_instruction"))
         self.rld.update_hypothesis(h, statement="更宽的主张")
         with self.assertRaisesRegex(ResearchDBError, "CODE_REVIEW_REQUIRED"):
             self.submit(other)

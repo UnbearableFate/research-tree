@@ -37,6 +37,7 @@ import sqlite3
 import subprocess
 import sys
 import time
+import unicodedata
 from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
@@ -50,6 +51,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import evidence as claims_check  # noqa: E402
 import memory  # noqa: E402
 import metrics  # noqa: E402
+import project_config  # noqa: E402
 import review_rules  # noqa: E402
 import threat_scan  # noqa: E402
 from metrics import MetricError  # noqa: E402
@@ -193,8 +195,13 @@ EXPERIMENT_DESIGN_SECTIONS = ("检验的 claim", "存在理由", "数据与切�
 SCREENING_SECTIONS = ("可证伪预测", "干预", "匹配对照", "资源上限", "停止与继续条件")
 # Evaluation types that bound the wording of a result (03 §5, 04 §6): no SOTA claim on a proxy.
 PROXY_EVAL_TYPES = ("synthetic_proxy", "self_supervised_proxy", "simulation_only")
-SOTA_CLAIM_RE = re.compile(r"优于\s*SOTA|超过\s*SOTA|超越\s*SOTA|beats?\s+(the\s+)?SOTA|state[- ]of[- ]the[- ]art|新的\s*SOTA",
-                           re.I)
+SOTA_CLAIM_RE = re.compile(r"(?:优于|超过|超越|胜过|好于)\s*了?\s*(?:现有|当前|目前|已有|此前)?\s*的?\s*SOTA"
+                           r"|(?:beats?|outperforms?|surpass(?:es)?|exceeds?)\s+(?:the\s+)?"
+                           r"(?:current\s+|existing\s+|prior\s+|previous\s+)?SOTA"
+                           r"|state[- ]of[- ]the[- ]art|新的?\s*SOTA|new\s+SOTA", re.I)
+# What stands right before such wording to deny it ("这不是新的 SOTA", "未能超越 SOTA", "is not a new SOTA").
+SOTA_NEGATION_RE = re.compile(r"(?:不是|并不|并非|未能|没能|不能|无法|没有|不|未|not|no|never|n't|fail(?:s|ed)?\s+to)"
+                              r"\s*(?:a|an|the)?\s*$", re.I)
 FAILURE_REWRITES = 2  # 03 §8: per root cause
 LESSON_ORDER = {"verified": 0, "observed": 1, "proposed": 2, "stale": 3, "contradicted": 4}
 BLOCK_RE_EVIDENCE = re.compile(r"^```evidence[ \t]*\n.*?^```[ \t]*$", re.M | re.S)
@@ -254,7 +261,7 @@ FINAL_EXEC = ("succeeded", "failed", "cancelled")
 REPORTED_FIELDS = ("job_id", "exec_status", "valid", "invalid_reason", "curve_path", "log_path", "output_path",
                    "started_at", "finished_at")
 ATTEMPT_FIELDS = (REPORTED_FIELDS + RUN_MEASUREMENTS + IMPORT_FIELDS
-                  + ("retracted_at", "retracted_reason", "submission_key"))
+                  + ("retracted_at", "retracted_reason", "submission_key", "submitted_at"))
 # Settings from the project configuration (research-tree.yaml) besides the caps and gates above.
 LIMIT_FIELDS = ("max_parallel_workers", "alert_node_h", "config_doc_id", "total_limit", "search_limit",
                 "confirmation_limit", "repair_limit", "overrun_factor", "stall_structural_at", "stall_human_at",
@@ -264,12 +271,25 @@ LIMIT_FIELDS = ("max_parallel_workers", "alert_node_h", "config_doc_id", "total_
 # The documents evaluations are computed under (plans/design/04): protocol and metric specification.
 EVIDENCE_DOC_FIELDS = ("protocol_doc_id", "metric_spec_doc_id")
 # The protocol fields research-tree.yaml fixes (project_config.protocol_requirements): changing them through the
-# configuration governs later work and never voids earlier evaluations, method identities or findings.
+# configuration governs later work and never voids earlier evaluations, method identities or findings — except
+# that an evaluation stops applying when a tightened evidence rule (more independence_fields, artifact import now
+# required) would no longer accept it.
 CONFIG_PROTOCOL_FIELDS = ("profile", "confirmation_seeds", "min_confirmation_pairs", "max_confirmation_candidates",
                           "require_artifact_import", "confirmation_materials", "independence_fields", "repetition")
+# Protocol keys that only describe it; never part of the comparison.
+PROTOCOL_NOTE_FIELDS = ("description",)
+# The metric specification fields that decide how a compared metric is judged: a change of one of them in a
+# metric an evaluation compared makes that evaluation stale (METRIC_SPEC_CHANGED). Adding a metric, a description
+# or a new input unit (imported runs keep the unit they stated: S3 §7.1) governs later evaluations only; the
+# primary metric's gain is frozen once experiments exist (_check_frozen_primary).
+METRIC_COMPARISON_FIELDS = ("direction", "canonical_unit", "effect_mode", "aggregation", "allowed_regression",
+                            "valid_range", "relative_min_denominator")
 # Caps the user authorizes (10 §1.5): an agent may lower them, raising one (or lifting it, None) needs the user.
+# A larger screening budget also widens what counts as cheap search (no per-run code review); a later stall report
+# or more parallel workers spend more without the user.
 CAP_FIELDS = ("total_limit", "search_limit", "confirmation_limit", "repair_limit", "max_nodes", "max_walltime_s",
-              "alert_node_h", "review_usd_alert", "max_repairs_per_root_cause")
+              "alert_node_h", "review_usd_alert", "max_repairs_per_root_cause", "screen_budget_node_h",
+              "max_parallel_workers", "stall_structural_at", "stall_human_at")
 
 # The keyword arguments a method takes through **optional / **changes; `help` lists them (real-run-error #5).
 OPTIONAL_PARAMS = {
@@ -572,6 +592,8 @@ class ResearchDB:
         if (role == "worker" and agent == "root") or (role == "architect" and agent != "root"):
             raise ResearchDBError("the root identity is architect/root; workers belong to hypothesis nodes only")
         self.role, self.agent = role, agent
+        # checked JSON documents by (id, recorded hash, file stat): frozen content is read and hashed once
+        self._doc_cache: dict[tuple, dict | None] = {}
 
     # -- sessions -----------------------------------------------------------
 
@@ -775,8 +797,9 @@ class ResearchDB:
         harness clears the SOTA baseline, which must then be re-run and re-evaluated. Once experiments exist, a new
         protocol_doc_id or metric_spec_doc_id needs user_instruction_doc_id (a current user_instruction: the user
         decided the change, never an agent after seeing results). Evaluations under the old protocol stop supporting
-        GO only when it differs outside the fields research-tree.yaml fixes (CONFIG_PROTOCOL_FIELDS); a new metric
-        specification governs later evaluations and leaves earlier ones standing."""
+        GO only when it differs outside the fields research-tree.yaml fixes (CONFIG_PROTOCOL_FIELDS) or tightens an
+        evidence rule they no longer meet; a new metric specification stales only evaluations whose compared metrics
+        changed how they are judged (METRIC_COMPARISON_FIELDS)."""
         self._require_role("rld")
         self._only_fields(changes, OPTIONAL_PARAMS["update_project"])
         with self._writer() as tx:
@@ -856,24 +879,40 @@ class ResearchDB:
                 self._available_baseline(tx, final, exp)
             self._update(tx, project["id"], changes)
 
-    def check_project_changes(self, **changes) -> None:
-        """Refuse, without writing, project changes the gate rules would refuse (config apply checks before it
-        registers a new configuration version): comparison settings and their agreement with the metric
-        specification and protocol."""
+    def check_project_changes(self, metric_spec: dict | None = None, **changes) -> None:
+        """Refuse, without writing, project changes update_project would refuse on its rules (config apply checks
+        everything before it registers anything): comparison settings and their agreement with the metric
+        specification and protocol, a frozen primary metric. metric_spec: the content of a metric specification not
+        registered yet that would become the project's (in place of reading metric_spec_doc_id). The user's
+        instruction that a change needs is not checked here: config apply registers it from the user's words."""
+        self._only_fields(changes, OPTIONAL_PARAMS["update_project"])
         with self.reader() as tx:
             project = self._project(tx)
             final = {**project, **changes}
             if set(changes) & set(GATE_FIELDS):
+                if tx.ids("experiment"):
+                    raise ResearchDBError(f"{GATE_FIELDS} are fixed once experiments exist")
                 self._check_comparison_setup(final)
-            if final.get("metric_spec_doc_id") and set(changes) & (set(GATE_FIELDS) | set(EVIDENCE_DOC_FIELDS)):
-                self._check_evidence_docs(tx, final)
+            if {"max_parallel_workers", "alert_node_h"} & set(changes):
+                self._check_comparison_setup(final)
+            spec_moves = metric_spec is not None or changes.get("metric_spec_doc_id", project.get("metric_spec_doc_id")) \
+                != project.get("metric_spec_doc_id")
+            if spec_moves and tx.ids("experiment") and project.get("metric_spec_doc_id"):
+                with _coded():
+                    self._check_frozen_primary(tx, project["metric_spec_doc_id"], changes.get("metric_spec_doc_id"),
+                                               new=metric_spec)
+            if (final.get("metric_spec_doc_id") or metric_spec is not None) and (
+                    spec_moves or set(changes) & (set(GATE_FIELDS) | set(EVIDENCE_DOC_FIELDS))):
+                self._check_evidence_docs(tx, final, specs=metric_spec)
 
-    def _check_frozen_primary(self, tx: _Tx, old_id: str, new_id: str) -> None:
+    def _check_frozen_primary(self, tx: _Tx, old_id: str, new_id: str | None, new: dict | None = None) -> None:
         """S3 §7.1: once experiments exist the primary metric's computation contract stays: its canonical unit,
         direction, effect mode and minimum practical gain (the GO gate) — no unit conversion opens a threshold
         after results are seen. Its input unit may change for future runs; old runs keep the unit they were
-        imported in and are not reinterpreted."""
-        old, new = (self._json_doc(tx, d, "metric_spec") for d in (old_id, new_id))
+        imported in and are not reinterpreted. new: the new specification's content when it is not registered."""
+        old = self._json_doc(tx, old_id, "metric_spec")
+        if new is None:
+            new = self._json_doc(tx, new_id, "metric_spec")
         a, b = metrics.spec_by_name(old)[old["primary"]], metrics.spec_by_name(new).get(old["primary"])
         changed = [k for k in ("canonical_unit", "direction", "effect_mode", "minimum_practical_gain")
                    if b is None or a.get(k) != b.get(k)]
@@ -882,14 +921,18 @@ class ResearchDB:
                                                      f"{', '.join(changed) or 'name'} is frozen (the gate's unit and "
                                                      "threshold); a display conversion does not change the contract")
 
-    def _check_evidence_docs(self, tx: _Tx, project: dict) -> None:
+    def _check_evidence_docs(self, tx: _Tx, project: dict, specs: dict | None = None) -> None:
         """The metric specification fits the project's metrics (same primary and direction, a spec for every
-        secondary metric); the protocol is well formed. Both are current documents."""
+        secondary metric); the protocol is well formed. Both are current documents. specs: a specification's
+        content checked in place of the project's metric_spec_doc_id (one not registered yet)."""
         for key in EVIDENCE_DOC_FIELDS:
+            if specs is not None and key == "metric_spec_doc_id":
+                continue
             if project.get(key) and tx.require(project[key], ("document",))["status"] != "current":
                 raise ResearchDBError(f"{key}: {project[key]} is not current; set_document_current first")
-        if project.get("metric_spec_doc_id"):
-            specs = self._json_doc(tx, project["metric_spec_doc_id"], "metric_spec")
+        if specs is not None or project.get("metric_spec_doc_id"):
+            if specs is None:
+                specs = self._json_doc(tx, project["metric_spec_doc_id"], "metric_spec")
             with _coded():
                 metrics.check_metric_specs(specs)
             names = {s["name"] for s in specs["metrics"]}
@@ -898,7 +941,8 @@ class ResearchDB:
             if specs["primary"] != project["primary_metric"] or primary["direction"] != project["metric_direction"] \
                     or names != wanted:
                 raise CodedError("METRIC_UNIT_MISMATCH",
-                                 f"{project['metric_spec_doc_id']} must specify exactly the project's metrics "
+                                 f"{project.get('metric_spec_doc_id') or 'the metric specification'} must specify "
+                                 "exactly the project's metrics "
                                  f"{sorted(wanted)} with primary {project['primary_metric']} "
                                  f"({project['metric_direction']} is better); it has {sorted(names)}, primary "
                                  f"{specs['primary']} ({primary['direction']})")
@@ -944,16 +988,90 @@ class ResearchDB:
         with _coded():
             return metrics.check_protocol(self._json_doc(tx, project["protocol_doc_id"], "protocol"))
 
+    @staticmethod
+    def _entity(tx: _Tx, value: Any) -> dict | None:
+        """The record a value names, or None when it is not an existing record's id (never raises)."""
+        if not isinstance(value, str):
+            return None
+        try:
+            return tx.get(value)
+        except ResearchDBError:
+            return None
+
+    def _frozen_json(self, tx: _Tx, doc_id: Any, doc_type: str) -> dict | None:
+        """A frozen protocol or metric_spec document's checked content, or None when doc_id is not such a document
+        that still matches its recorded hash (a draft, a missing or edited file, another type). Never raises:
+        comparisons treat an unreadable version as a different one. Cached per (id, hash, file stat)."""
+        doc = self._entity(tx, doc_id)
+        if not doc or doc.get("_table") != "document" or doc.get("doc_type") != doc_type or not doc.get("sha256"):
+            return None
+        try:
+            stat = (self.docs_root / doc["path"]).stat()
+        except OSError:
+            return None
+        key = (doc_id, doc_type, doc["sha256"], stat.st_mtime_ns, stat.st_size)
+        if key not in self._doc_cache:
+            check = metrics.check_protocol if doc_type == "protocol" else metrics.check_metric_specs
+            try:
+                self._doc_cache[key] = check(self._json_doc(tx, doc_id, doc_type))
+            except (ResearchDBError, metrics.MetricError):
+                self._doc_cache[key] = None
+        return self._doc_cache[key]
+
+    def _protocol_comparison(self, tx: _Tx, doc_id: Any) -> dict | None:
+        """What a protocol version fixes about the comparison itself: without the fields research-tree.yaml sets
+        and the descriptive ones, with the defaults check_protocol applies spelled out."""
+        content = self._frozen_json(tx, doc_id, "protocol")
+        if content is None:
+            return None
+        out = {k: v for k, v in content.items() if k not in CONFIG_PROTOCOL_FIELDS + PROTOCOL_NOTE_FIELDS}
+        out.update(match=content.get("match") or {}, required_counts=content.get("required_counts") or {},
+                   gate_comparison=content.get("gate_comparison", ">"), min_pairs=content.get("min_pairs"),
+                   execution_fields=sorted(content.get("execution_fields") or []),
+                   sanity_overrides_allowed=sorted(content.get("sanity_overrides_allowed") or SANITY_OVERRIDES),
+                   review_applicability={k: v.get("exemptible") for k, v in
+                                         (content.get("review_applicability") or {}).items()})
+        return out
+
     def _same_protocol(self, tx: _Tx, a: str | None, b: str | None) -> bool:
-        """Whether two protocol versions agree outside the fields research-tree.yaml fixes: a change of only those
-        (CONFIG_PROTOCOL_FIELDS) applies to later work and leaves earlier evidence standing."""
+        """Whether two protocol versions agree on the comparison: a change of only the fields research-tree.yaml
+        fixes (CONFIG_PROTOCOL_FIELDS) or of descriptions applies to later work and leaves earlier evidence
+        standing. An unreadable version is never the same."""
         if a == b:
             return True
         if not a or not b:
             return False
-        def comparison(doc_id: str) -> dict:
-            return {k: v for k, v in self._json_doc(tx, doc_id, "protocol").items() if k not in CONFIG_PROTOCOL_FIELDS}
-        return comparison(a) == comparison(b)
+        first = self._protocol_comparison(tx, a)
+        return first is not None and first == self._protocol_comparison(tx, b)
+
+    def _tightened_evidence_rule(self, tx: _Tx, ev: dict, project: dict) -> list[str]:
+        """The evidence rules research-tree.yaml sets that the current protocol tightened beyond what an
+        evaluation was computed under, so that it would not accept the evaluation now: more independence fields
+        (fewer independent repeats), or artifact import now required of a record-level evaluation."""
+        if ev.get("protocol_doc_id") == project.get("protocol_doc_id"):
+            return []
+        old = self._frozen_json(tx, ev.get("protocol_doc_id"), "protocol") or {}
+        now = self._frozen_json(tx, project.get("protocol_doc_id"), "protocol") or {}
+        out = []
+        if set(now.get("independence_fields") or []) - set(old.get("independence_fields") or []):
+            out.append("independence_fields")
+        if now.get("require_artifact_import") and ev.get("verification_level") != "artifact_imported":
+            out.append("require_artifact_import")
+        return out
+
+    def _metric_spec_changes(self, tx: _Tx, ev: dict, project: dict) -> list[str]:
+        """The metrics an evaluation compared whose judging fields (METRIC_COMPARISON_FIELDS) differ in the current
+        metric specification; an unreadable or removed specification counts as changed."""
+        if ev.get("metric_spec_doc_id") == project.get("metric_spec_doc_id"):
+            return []
+        old = self._frozen_json(tx, ev.get("metric_spec_doc_id"), "metric_spec")
+        now = self._frozen_json(tx, project.get("metric_spec_doc_id"), "metric_spec")
+        if old is None or now is None:
+            return ["metric_spec"]
+        a, b = ({s["name"]: s for s in d["metrics"]} for d in (old, now))
+        compared = set(ev.get("metrics") or {}) & set(a) or set(a)
+        return sorted(name for name in compared if name not in b or any(
+            a[name].get(k) != b[name].get(k) for k in METRIC_COMPARISON_FIELDS))
 
     # -- hypotheses -------------------------------------------------------------
 
@@ -1080,7 +1198,13 @@ class ResearchDB:
     def _bind_screening_candidate(contract: dict, candidate: dict) -> None:
         """A ready candidate cannot lend its scope to a different idea or a larger experiment."""
         def normalized(value):
-            return re.sub(r"[^\w]+", " ", str(value).casefold()).strip()
+            # layout (list markers, emphasis, code ticks), case, width and separators do not change the statement;
+            # comparison signs, operators, numbers and units do
+            text = unicodedata.normalize("NFKC", str(value)).casefold()
+            text = re.sub(r"(?m)^\s*(?:[-*+]|\d+[.)])\s+", " ", text)
+            text = re.sub(r"(\*\*|__)(.+?)\1", r"\2", text).replace("`", "")
+            text = re.sub(r"\.(?=\s|$)", " ", text)  # a sentence's full stop, never a decimal point
+            return re.sub(r"[\s,;:!?，。；：！？、]+", " ", text).strip()
         for heading, candidate_field in (("可证伪预测", "prediction"), ("干预", "intervention"), ("匹配对照", "comparator")):
             if normalized(contract["sections"][heading]) != normalized(candidate[candidate_field]):
                 raise CodedError("PRECHECK_REQUIRED", f"hypothesis {heading} differs from candidate {candidate['id']}'s admitted {candidate_field}; revise the candidate first")
@@ -1090,8 +1214,8 @@ class ResearchDB:
             if isinstance(value, list):
                 return [s for v in value for s in clauses(v)]
             return [normalized(value)] if isinstance(value, str) and value.strip() else []
-        stop = normalized(contract["sections"]["停止与继续条件"])
-        if any(c not in stop for c in clauses(candidate["stop_conditions"])):
+        stop = f' {normalized(contract["sections"]["停止与继续条件"])} '
+        if any(f" {c} " not in stop for c in clauses(candidate["stop_conditions"])):  # whole clauses, not 5 in 50
             raise CodedError("PRECHECK_REQUIRED", "hypothesis omits an admitted candidate stop/continue condition")
         ceiling, approved = contract["resource_ceiling"], candidate["resource_ceiling"]
         if any(ceiling[k] > approved[k] for k in ("nodes", "walltime_s")) or ("n_seeds" in approved and ceiling["n_seeds"] > approved["n_seeds"]):
@@ -1192,9 +1316,10 @@ class ResearchDB:
             head = {}
         if not head.get("title"):
             raise ResearchDBError(f"{doc_id} has no front matter title (write it with literature.py note)")
-        result = literature.verify({"title": head.get("title"), "arxiv_id": head.get("arxiv_id"),
-                                    "doi": head.get("doi"), "year": head.get("year"),
-                                    "authors": head.get("authors") or []})
+        # web text (the matched record, the service's title in the detail) is quarantined like any search result
+        result = literature.safe_verification(literature.verify({
+            "title": head.get("title"), "arxiv_id": head.get("arxiv_id"), "doi": head.get("doi"),
+            "year": head.get("year"), "authors": head.get("authors") or []}))
         with self._writer() as tx:
             self._update(tx, doc_id, {"literature_check": result["verification"],
                                       "literature_check_detail": f"{result.get('method')}: {result.get('detail')}"[:300]})
@@ -1427,7 +1552,7 @@ class ResearchDB:
         if new_status == "prunable" and new_status != old_status and not user_declined:
             # Retiring a node is the Leader's decision on evidence (06 §3): any evidence, not only a negative result;
             # a node never tested is retired only by the user.
-            if old_status == "pending":
+            if self._never_tested(tx, hyp["id"]):
                 raise ResearchDBError("a node without experiments is given up only by the user: based_on a current "
                                       "user_instruction document about it")
             if not any(e["_table"] in ("experiment", "evaluation", "document") for e in evidence):
@@ -1558,7 +1683,7 @@ class ResearchDB:
             old = _disposition(hyp)
             if old == disposition:
                 raise ResearchDBError(f"{hypothesis_id} is already {disposition}")
-            if disposition == "retired" and hyp["status"] == "pending" and not any(
+            if disposition == "retired" and self._never_tested(tx, hypothesis_id) and not any(
                     self._describes(tx, e, hypothesis_id, "user_instruction") for e in evidence):
                 raise ResearchDBError("a node without experiments is given up only by the user: evidence_ids include a "
                                       "current user_instruction document about it")
@@ -1730,7 +1855,8 @@ class ResearchDB:
         while node is not None:
             if node.get("stall_state") in ("structural", "human"):
                 used = self._subtree_directions(tx, node["id"])
-                if not direction or direction in used:
+                # the same normalisation as the repeated-direction rule: case and punctuation do not make it new
+                if not direction or _norm_title(direction) in {_norm_title(d) for d in used}:
                     raise CodedError("STALL_STRUCTURAL", f"{node['id']}'s subtree had {node.get('new_findings_streak')} "
                                                          "batches without a new finding: a new child changes mechanism, "
                                                          f"control or question; name a direction not in {sorted(used)}")
@@ -1753,7 +1879,8 @@ class ResearchDB:
                        evidence_excerpt: str = "") -> dict:
         """Record a finding that must be closed before the node becomes a GO candidate: a review finding, a
         protocol mismatch, a STAT_MISMATCH, a CRITICAL code-review issue. The fingerprint (source family, pattern,
-        evidence excerpt) identifies it across reports: the same fingerprint again does not add a second one, raises
+        evidence excerpt) identifies it across reports about the same subject (about): the same fingerprint about the
+        same subject again does not add a second one, raises
         its severity if higher (never lowers it) and reopens it if it was resolved. source is
         '<family>:<instance>', e.g. 'code_review:RV-0003' or 'STAT_MISMATCH:interface'; the family groups the reports
         that reconcile_obligations compares. rld or worker."""
@@ -1767,7 +1894,9 @@ class ResearchDB:
         fingerprint = _fingerprint(source, pattern, excerpt)
         with self._writer() as tx:
             tx.require(about, ("hypothesis", "experiment", "evaluation", "project"))
-            same = tx.ids("obligation", "WHERE n.fingerprint = $f", f=fingerprint)
+            # the same finding about another subject is that subject's own obligation
+            same = [i for i in tx.ids("obligation", "WHERE n.fingerprint = $f", f=fingerprint)
+                    if tx.get(i)["about"] == about]
             now = now_utc()
             if same:
                 ob = tx.get(same[0])
@@ -2060,6 +2189,9 @@ class ResearchDB:
             if not r.get("request_nodes") or not r.get("request_walltime_s"):
                 raise CodedError("SUBMISSION_AMBIGUOUS", "reservation has no recorded allocation shape; reconcile it")
             self._check_allocation_scope(project, requested, r["request_nodes"], r["request_walltime_s"])
+            for ref, exp in zip(r["run_attempt_refs"], requested):
+                # S2: a confirmation's material is in use once a submission of it may reach the scheduler
+                self._use_material(tx, self._project(tx), exp, ref, "claimed")
             generation = r["claim_generation"] + 1
             self._update(tx, r["id"], {"submission_phase": "claimed", "claim_generation": generation})
             return {"submission_key": submission_key, "claim_generation": generation}
@@ -2077,6 +2209,11 @@ class ResearchDB:
                 if r["job_id"] != job_id:
                     raise CodedError("SUBMISSION_AMBIGUOUS", f"{submission_key} is job {r['job_id']}, not {job_id}")
                 return self._reservation_view(r, created=False)
+            if r["accounting_status"] in ("settled", "released"):
+                # it holds no budget any more: a job found under it now is reported to the user, who decides
+                raise CodedError("SUBMISSION_AMBIGUOUS", f"{submission_key} was {r['accounting_status']}; job "
+                                                         f"{job_id} cannot be attached to it — report the job to the "
+                                                         "user (its cost is real), who decides how it is accounted")
             if r["submission_phase"] != "claimed" or claim_generation != r["claim_generation"]:
                 raise CodedError("SUBMISSION_AMBIGUOUS", f"{submission_key} is {r['submission_phase']} with claim "
                                                          f"generation {r['claim_generation']}, not {claim_generation}")
@@ -2497,6 +2634,11 @@ class ResearchDB:
                 if other["kind"] != kind:
                     raise CodedError("METHOD_IDENTITY_REUSED", f"{other['id']} already runs this method and seeds as "
                                      f"{other['kind']}; reuse its evidence instead of relabeling it {kind}")
+                authority = {k: optional.get(k) for k in ("predeclared_control_id", "source_review_id")}
+                if kind == "ablation" and any(other.get(k) != v for k, v in authority.items()):
+                    # the same ablation under the authorization checked above (e.g. its control approval lapsed and an
+                    # ablation_plan review now proposes it): it keeps its id, seeds and history; the authority follows
+                    self._update(tx, other["id"], authority)
                 return other["id"]
             return self._insert(tx, "experiment", {
                 "id": tx.next_id("experiment"), "project_id": project["id"], "hypothesis_id": hypothesis_id,
@@ -2535,7 +2677,8 @@ class ResearchDB:
     def _register_spec(self, tx: _Tx, spec: dict) -> tuple[str, str]:
         """The method_spec document holding exactly this content (content-addressed: an identical spec is the same
         document), or the one registered under an earlier protocol version that differs only in the fields
-        research-tree.yaml fixes (a configuration change keeps the method's identity). Returns (doc_id, sha)."""
+        research-tree.yaml fixes (a configuration change keeps the method's identity). Returns (doc_id, sha). Only
+        frozen protocol versions are candidates (_same_protocol never matches a draft or an unreadable one)."""
         protocols = [spec["protocol_doc_id"]] if spec.get("protocol_doc_id") else []
         if protocols:
             protocols += sorted((d for d in tx.ids("document", "WHERE n.doc_type = $t", t="protocol")
@@ -2635,7 +2778,11 @@ class ResearchDB:
             if exp.get("minimum_controls"):
                 raise ResearchDBError("this experiment's minimum controls are already frozen")
             runs = [tx.get(f"{experiment_id}/s{s}") for s in exp["seeds"]]
-            if any(r and (r["exec_status"] != "planned" or r["attempt"] != 1) for r in runs):
+            claimed = [res for res in (tx.get(i) for i in tx.ids("reservation")) if res["submission_phase"] != "intent"
+                       and any(ref.rpartition("@")[0] in {r["id"] for r in runs if r} for ref in res["run_attempt_refs"])]
+            if claimed or any(r and (r["exec_status"] != "planned" or r["attempt"] != 1 or r.get("job_id"))
+                              for r in runs):
+                # a claimed or attached submission may already have run at the scheduler
                 raise ResearchDBError("minimum controls must be approved before the method's first submission")
             design = tx.require(exp["design_doc_id"], ("document",))
             decision = tx.require(decision_doc_id, ("document",))
@@ -2685,7 +2832,7 @@ class ResearchDB:
                                nodes: int, walltime_s: int, seeds: list[int]) -> None:
         approval = target.get("minimum_controls") or {}
         control = next((c for c in approval.get("controls", []) if c["id"] == control_id), None)
-        if not control or approval.get("basis") != self._dispute_basis(tx, target):
+        if not control or not self._same_basis(tx, approval.get("basis"), self._dispute_basis(tx, target)):
             raise CodedError("CONTROL_NOT_APPROVED", "no current predeclared minimum control with this identity and claim")
         for doc_kind in ("design", "decision"):
             doc = tx.require(approval[f"{doc_kind}_doc_id"], ("document",))
@@ -2721,6 +2868,15 @@ class ResearchDB:
                                         and basis.get("claim_revision") == hyp.get("claim_revision")))
                 and (not check_claim or basis.get("hypothesis_id") == hyp.get("id")))
 
+    def _same_basis(self, tx: _Tx, recorded: dict | None, current: dict) -> bool:
+        """A recorded dispute or approval basis still holds: the same experiment, method, code and claim; the
+        protocol may differ only in what research-tree.yaml fixes (a configuration change keeps the binding)."""
+        if not isinstance(recorded, dict):
+            return False
+        keys = (set(recorded) | set(current)) - {"protocol_doc_id"}
+        return all(recorded.get(k) == current.get(k) for k in keys) and \
+            self._same_protocol(tx, recorded.get("protocol_doc_id"), current.get("protocol_doc_id"))
+
     def _dispute_basis(self, tx: _Tx, exp: dict) -> dict:
         hyp = tx.require(exp["hypothesis_id"], ("hypothesis",))
         project = self._project(tx)
@@ -2749,20 +2905,22 @@ class ResearchDB:
         if (review.get("review_basis") or {}).get("hypothesis_id") == exp.get("hypothesis_id") or \
                 _git_ok(repo, "merge-base", "--is-ancestor", old, exp["code_ref"]):
             return True  # A successor needs demonstrated repair, not a comment edit or a renamed node.
+        # Unrelated code (another hypothesis, not descended from the reviewed commit) carries the defect only where
+        # it holds the very file the review placed it in, unchanged; a defect it cannot place there is not its own.
         for issue in issues:
             path = issue.get("file")
             if not isinstance(path, str) or Path(path).is_absolute() or ".." in Path(path).parts:
-                return True
+                continue
             original = _git_blob(repo, old, path)
-            current = _git_blob(repo, exp["code_ref"], path)
-            if original is None or current is None or original == current:
-                return True  # A commit touching only unrelated files is not a demonstrated repair either.
+            if original is not None and original == _git_blob(repo, exp["code_ref"], path):
+                return True
         return False
 
     def _review_overturned(self, tx: _Tx, review: dict, exp: dict) -> bool:
         basis = self._dispute_basis(tx, exp)
         for item in (review.get("review_disputes") or {}).get("items", []):
-            if item.get("basis") != basis or (item.get("adjudication") or {}).get("resolution") not in ("overturned", "fixed"):
+            if not self._same_basis(tx, item.get("basis"), basis) or \
+                    (item.get("adjudication") or {}).get("resolution") not in ("overturned", "fixed"):
                 continue
             outcome = item["adjudication"]
             recheck = tx.get(outcome["recheck_review_id"])
@@ -2841,7 +2999,8 @@ class ResearchDB:
             if not item or item.get("adjudication"):
                 raise CodedError("REVIEW_DISPUTE_MISMATCH", "the named dispute is missing or already adjudicated")
             exp = tx.require(item["basis"]["experiment_id"], ("experiment",))
-            if item["basis"] != self._dispute_basis(tx, exp) or not self._blocking_review_applies(tx, review, exp):
+            if not self._same_basis(tx, item["basis"], self._dispute_basis(tx, exp)) or \
+                    not self._blocking_review_applies(tx, review, exp):
                 raise CodedError("REVIEW_DISPUTE_MISMATCH", "the disputed method, claim or protocol has changed")
             recheck = tx.require(recheck_review_id, ("document",))
             evidence = tx.require(item["evidence_doc_id"], ("document",))
@@ -2916,8 +3075,9 @@ class ResearchDB:
                 why = ("has blocking issues; fix them and review again (at most 2 rounds)" if latest else "is missing")
                 raise CodedError("CODE_REVIEW_REQUIRED", f"{exp['id']}: the code review of {exp['code_ref'][:10]} "
                                                          f"{why} (research_review kind=code_review with code_ref); "
-                                                         "when the reviewer is unavailable the Leader may release it "
-                                                         "with a decision document (waive_code_review)")
+                                                         "when the reviewer is unavailable the user may allow the "
+                                                         "Leader to release it (waive_code_review with a decision "
+                                                         "document and the user's instruction)")
 
     def _latest_code_review(self, tx: _Tx, exp: dict) -> dict | None:
         """The most recent current code_review that applies to the experiment: a later blocking review overrides
@@ -2934,12 +3094,18 @@ class ResearchDB:
         hyp = tx.get(exp["hypothesis_id"]) if exp.get("hypothesis_id") else {}
         return basis.get("method_spec_doc_id") == exp["method_spec_doc_id"] and basis.get("claim_sha") == hyp.get("claim_sha")
 
-    def waive_code_review(self, experiment_id: str, doc_id: str) -> None:
+    def waive_code_review(self, experiment_id: str, doc_id: str, user_instruction_doc_id: str) -> None:
         """rld: release an experiment without a clear code review — only when the reviewer was unavailable for it
-        (a REVIEW_UNAVAILABLE code_review call about the node in logs/review_calls.jsonl) and no review of the
-        commit found blocking issues (03 §8, X10); doc_id is the current decision document that records why."""
+        (a REVIEW_UNAVAILABLE code_review call about the node in logs/review_calls.jsonl), no review of the commit
+        found blocking issues (03 §8, X10) and the user decided it: doc_id is the current decision document that
+        records why, user_instruction_doc_id the current user_instruction that allows it."""
         self._require_role("rld")
         with self._writer() as tx:
+            instruction = self._entity(tx, user_instruction_doc_id)
+            if not instruction or (instruction.get("doc_type"), instruction.get("status")) != ("user_instruction", "current"):
+                raise CodedError("CODE_REVIEW_REQUIRED", "releasing an experiment without its code review is the user's "
+                                                         "decision: pass user_instruction_doc_id, the current "
+                                                         "user_instruction that records it")
             exp = tx.require(experiment_id, ("experiment",))
             latest = self._latest_code_review(tx, exp)
             if latest is not None:
@@ -2954,7 +3120,8 @@ class ResearchDB:
                 raise ResearchDBError("waiving the code review needs a current decision document")
             hyp = tx.get(exp["hypothesis_id"]) if exp.get("hypothesis_id") else {}
             self._update(tx, experiment_id, {"code_review_waiver_doc_id": doc_id, "code_review_waiver_basis": {
-                "method_spec_doc_id": exp.get("method_spec_doc_id"), "claim_sha": hyp.get("claim_sha")}})
+                "method_spec_doc_id": exp.get("method_spec_doc_id"), "claim_sha": hyp.get("claim_sha"),
+                "user_instruction_doc_id": user_instruction_doc_id}})
             tx.link("rel_describes", doc_id, experiment_id)
 
     def _review_unavailable(self, about: str | None) -> bool:
@@ -3152,10 +3319,20 @@ class ResearchDB:
                 raise CodedError("CONFIRMATION_BASELINE_MISMATCH", "the candidates of one batch were selected against "
                                                                    f"one reference; they name {sorted(map(str, refs))}")
             limit = protocol.get("max_confirmation_candidates")
+            batches = {i: self._json_doc(tx, i, "confirmation_batch")
+                       for i in tx.ids("document", "WHERE n.doc_type = $t", t="confirmation_batch")}
             earlier = {self._json_doc(tx, c, "candidate_spec")["method_spec_doc_id"]
-                       for b in (tx.get(i) for i in tx.ids("document", "WHERE n.doc_type = $t", t="confirmation_batch"))
-                       for c in self._json_doc(tx, b["id"], "confirmation_batch")["candidates"]}
+                       for b in batches.values() for c in b["candidates"]}
             mine = {c["method_spec_doc_id"] for c in candidates}
+            # INV-03: a method is confirmed once; a batch whose material was put into use keeps its result, also a
+            # failed one — the same method is not tried again on fresh material
+            used_batches = {e["batch"] for e in (project.get("material_usage") or {}).get("events", [])}
+            tried = {self._json_doc(tx, c, "candidate_spec")["method_spec_doc_id"]
+                     for b_id, b in batches.items() if b_id in used_batches for c in b["candidates"]}
+            if mine & tried:
+                raise CodedError("CONFIRMATION_REUSED", f"{sorted(mine & tried)} already went into a confirmation "
+                                                        "whose material was used; that result stands — a changed "
+                                                        "method is a new candidate")
             if limit is not None and len(earlier | mine) > limit:
                 raise CodedError("BUDGET_EXCEEDED", f"max_confirmation_candidates is {limit} distinct methods; "
                                                     f"{len(earlier | mine)} with this batch")
@@ -3234,7 +3411,8 @@ class ResearchDB:
         if not exp.get("method_spec_doc_id"):
             raise CodedError("METHOD_SPEC_INCOMPLETE", "an incremental baseline needs bound method identity")
         spec = self._json_doc(tx, exp["method_spec_doc_id"], "method_spec")
-        if spec.get("protocol_doc_id") != project.get("protocol_doc_id") or spec.get("harness_ref") != project.get("harness_ref"):
+        if not self._same_protocol(tx, spec.get("protocol_doc_id"), project.get("protocol_doc_id")) or \
+                spec.get("harness_ref") != project.get("harness_ref"):
             raise CodedError("EVIDENCE_STALE", "baseline method identity belongs to another protocol or harness")
         seeds = []
         for seed in project["seeds"]:
@@ -3244,7 +3422,15 @@ class ResearchDB:
             seeds.append(seed)
         if not seeds:
             raise CodedError("PAIRING_MISMATCH", "baseline has no valid matching initial seed")
-        self._check_protocol_runs(self._protocol(tx, project), [tx.get(f"{exp['id']}/s{s}") for s in seeds])
+        protocol = self._protocol(tx, project)
+        runs = [tx.get(f"{exp['id']}/s{s}") for s in seeds]
+        if protocol.get("require_artifact_import") and not all(r.get("import_record") for r in runs):
+            # refused before anything is paid for, not when the method's evaluation finds it
+            raise CodedError("EVIDENCE_STALE", "the protocol requires imported results and this baseline's runs were "
+                                               "not imported: run the baseline again with import_run_result before "
+                                               "pairing with it")
+        with _coded():
+            self._check_protocol_runs(protocol, runs)
         return seeds
 
     def _evaluation_view(self, tx: _Tx, project: dict, exp: dict) -> dict:
@@ -3424,6 +3610,7 @@ class ResearchDB:
                 # S2: the confirmation material is in use from the first submission on, whatever happens next
                 self._use_material(tx, self._project(tx), exp_now, f"{run_id}@{changes.get('attempt', run['attempt'])}",
                                    new)
+                changes["submitted_at"] = now_utc()  # the system's record of when this attempt started (S5 §9.1)
             self._update(tx, run_id, changes)
             if new == "unknown" and run.get("submission_key"):  # a lost answer keeps the reservation held (05 §4.5)
                 held = self._reservation(tx, run["submission_key"])
@@ -3440,6 +3627,13 @@ class ResearchDB:
             reference = tx.require(exp["baseline_experiment_id"], ("experiment",))
             if run["seed"] not in self._available_baseline(tx, project, reference):
                 raise CodedError("PAIRING_MISMATCH", "this screening seed needs its valid matching baseline seed first")
+            if exp.get("parent_experiment_id"):  # every screened seed is also compared with the fixed comparator
+                parent = tx.require(exp["parent_experiment_id"], ("experiment",))
+                paired = tx.get(f"{parent['id']}/s{run['seed']}") if run["seed"] in parent["seeds"] else None
+                if not paired or paired.get("valid") is not True:
+                    raise CodedError("PAIRING_MISMATCH", f"seed {run['seed']} needs a valid run of the comparator "
+                                                         f"{parent['id']} first (extend_seeds on it), or it cannot "
+                                                         "be evaluated")
 
     def _check_submission(self, tx: _Tx, project: dict, run: dict) -> None:
         """With a total budget, a run is submitted only under its attempt's claimed or attached reservation."""
@@ -3602,7 +3796,9 @@ class ResearchDB:
                   "units": {k: v for k, v in (units or {}).items() if isinstance(k, str) and isinstance(v, str)},
                   "raw_values": {k: values.get(k) for k in names},
                   "metric_spec_doc_id": project.get("metric_spec_doc_id"),
-                  "protocol_doc_id": project.get("protocol_doc_id")}
+                  "protocol_doc_id": project.get("protocol_doc_id"),
+                  # a configuration given as a file is kept as it was read, so the launch can be checked later
+                  **({"config": reported} if isinstance(manifest.get("config"), str) else {})}
         # every scalar field of the manifest is kept, so a later protocol can be checked against it without a re-run
         kept = {k: v for k, v in manifest.items() if isinstance(v, (str, int, float, bool)) and k != "counts"}
         changes = {
@@ -4092,11 +4288,7 @@ class ResearchDB:
         doc = tx.require(result_doc_id, ("document",))
         self._require_unchanged(doc)
         claims = claims_check.document_claims((self.docs_root / doc["path"]).read_text(encoding="utf-8")) or []
-        cited = set()
-        for c in claims:
-            if isinstance(c, dict) and isinstance(c.get("source"), str):
-                src = c["source"]
-                cited.add(os.path.realpath(src if os.path.isabs(src) else self.db_path.parent / src))
+        cited = set(self._cited_files(claims))
         problems = []
         primary = f"mean:{computed['primary']}"
         if not any(isinstance(c, dict) and c.get("id") == primary for c in claims):
@@ -4136,7 +4328,9 @@ class ResearchDB:
         if "sota" not in by_role:
             raise ResearchDBError("a scientific conclusion needs a recomputed SOTA comparison")
         reference = by_role.get("parent", by_role["sota"])
-        no_better = reference["delta_mean"] <= 0 and all(v is None or v <= 0 for v in reference["deltas"].values())
+        # better means beyond rounding (metrics.passes): float noise around an exact tie is not an improvement
+        no_better = not metrics.passes(reference["delta_mean"], 0.0, ">") and all(
+            v is None or not metrics.passes(v, 0.0, ">") for v in reference["deltas"].values())
         if conclusion == "no_gain" and not no_better:
             raise ResearchDBError("no_gain requires that no metric is better than the declared comparator")
         if conclusion == "beats_sota" and not by_role["sota"].get("passes_gate"):
@@ -4262,7 +4456,7 @@ class ResearchDB:
             if doc["doc_type"] in ("finding", "lesson", "literature"):
                 basis = self._check_memory(tx, doc)
             digest = sha256_file(self.docs_root / doc["path"])
-            self._update(tx, doc_id, {"status": "current", "sha256": digest,
+            self._update(tx, doc_id, {"status": "current", "sha256": digest, "frozen_at": now_utc(),
                                       **({"memory_basis": basis} if doc["doc_type"] in ("finding", "lesson") and basis else {})})
             return digest
 
@@ -4278,8 +4472,8 @@ class ResearchDB:
         text = (self.docs_root / doc["path"]).read_text(encoding="utf-8")
         text = BLOCK_RE_EVIDENCE.sub("", text)
         found = next((m for m in SOTA_CLAIM_RE.finditer(text)
-                      if not re.search(r"(?:不|未|没有|并非|无法|not|no|never)\s*$", text[max(0, m.start() - 6):m.start()],
-                                       re.I)), None)  # a negated claim ("未优于 SOTA") is within the limit
+                      if not SOTA_NEGATION_RE.search(text[max(0, m.start() - 12):m.start()])),
+                     None)  # a negated claim ("未优于 SOTA", "这不是新的 SOTA") is within the limit
         if found:
             raise CodedError("CLAIM_EXCEEDS_EVAL_TYPE", f"{doc['id']} ({doc['path']}) says {found.group(0)!r}, but the "
                                                         f"evaluation type is {eval_type}: a proxy result supports "
@@ -4346,12 +4540,17 @@ class ResearchDB:
             reasons.append(f"{v['failure_attempt_ref']} did not fail (exec_status {failure.get('exec_status')})")
         elif not failure.get("log_path"):
             reasons.append(f"{v['failure_attempt_ref']} has no log of the failure")
-        criterion = tx.get(str(v.get("criterion_doc_id") or ""))
+        criterion = self._entity(tx, v.get("criterion_doc_id"))
         spec = None
         if criterion is None or criterion.get("doc_type") not in ("experiment_design", "task_request") \
                 or criterion.get("status") not in ("current", "superseded"):
             reasons.append(f"criterion_doc_id {v.get('criterion_doc_id')!r} is not a frozen experiment_design or "
                            "task_request")
+            criterion = None
+        elif not (self.docs_root / criterion["path"]).is_file() or \
+                sha256_file(self.docs_root / criterion["path"]) != criterion.get("sha256"):
+            reasons.append(f"{criterion['id']} no longer matches the hash recorded when it was frozen")
+            criterion = None
         else:
             body = self._section(self._doc_sections(tx, criterion["id"])[0], "检查项") or ""
             blocks = re.findall(r"```json[ \t]*\n(.*?)```", body, re.S)
@@ -4374,9 +4573,12 @@ class ResearchDB:
                 reasons.append(f"{ref} is {att.get('exec_status')}, valid={att.get('valid')}"
                                f"{', retracted' if att.get('retracted_at') else ''}"
                                f"{'' if att.get('import_record') else ', not imported'}: not a completed, imported check")
-            elif criterion is not None and criterion.get("created_at") and \
-                    criterion["created_at"] > (att.get("started_at") or (att.get("import_record") or {}).get("imported_at") or ""):
-                reasons.append(f"{criterion['id']} was written after {ref} started: the criterion is frozen first")
+            elif criterion is not None and not (criterion.get("frozen_at") and att.get("submitted_at")
+                                                and criterion["frozen_at"] <= att["submitted_at"]):
+                # both times are the system's own records (set_document_current, the first submission), never the
+                # draft's registration or a reported started_at
+                reasons.append(f"{criterion['id']} was not frozen before {ref} was submitted: the criterion is "
+                               "frozen first")
         good = {ref: att for ref, att in runs if att is not None and not any(r.startswith(ref + " ") for r in reasons)}
         fix = v.get("applied_fix_ref") if isinstance(v.get("applied_fix_ref"), dict) else None
         if fix is None:
@@ -4409,7 +4611,10 @@ class ResearchDB:
 
     def _launch_value(self, att: dict, field: str):
         snap = att.get("manifest_snapshot") or {}
-        for place in (snap.get("config") or {}, snap):
+        config = snap.get("config")
+        if not isinstance(config, dict):  # a configuration file: its content as import_run_result read it
+            config = (att.get("import_record") or {}).get("config") or {}
+        for place in (config, snap):
             if isinstance(place, dict) and field in place:
                 return place[field]
         command = snap.get("command") or []
@@ -4421,7 +4626,7 @@ class ResearchDB:
     def _fix_used(self, tx: _Tx, att: dict, fix: dict, failure: dict | None) -> tuple[bool, str]:
         if fix.get("kind") == "execution_config":
             value = self._launch_value(att, str(fix.get("field") or ""))
-            want = str(fix.get("expected") or "")
+            want = "" if fix.get("expected") is None else str(fix["expected"])  # 0 and false are fixes too
             if value is None:
                 return False, f"its recorded launch has no {fix.get('field')}"
             got = os.path.normpath(str(value))
@@ -4430,9 +4635,12 @@ class ResearchDB:
             return True, ""
         if fix.get("kind") == "code":
             exp = tx.get(att["experiment_id"]) or {}
-            if exp.get("code_ref") != fix.get("commit"):
+            # an abbreviated or symbolic commit names the full one the experiments record
+            commit = _git_commit(self._project(tx).get("repo_path") or "", str(fix.get("commit") or "")) \
+                if fix.get("commit") else None
+            if commit is None or exp.get("code_ref") != commit:
                 return False, f"it ran code {str(exp.get('code_ref'))[:10]}, not the fix commit {str(fix.get('commit'))[:10]}"
-            if failure is not None and (tx.get(failure["experiment_id"]) or {}).get("code_ref") == fix.get("commit"):
+            if failure is not None and (tx.get(failure["experiment_id"]) or {}).get("code_ref") == commit:
                 return False, "the failed attempt already ran the fix commit"
             return True, ""
         return False, f"applied_fix_ref kind {fix.get('kind')!r} is not execution_config or code"
@@ -4464,15 +4672,17 @@ class ResearchDB:
         return False, f"unknown check type {kind!r} (fixed checkers: {', '.join(memory.CHECK_TYPES)})"
 
     def _finding_evidence(self, tx: _Tx, data: dict) -> dict:
-        """S5 §9.3: whether a finding's evaluations still hold: none stale, recomputed or resting on a retracted run."""
+        """S5 §9.3: whether a finding's evidence still holds: no evaluation stale or recomputed, no experiment whose
+        current evaluation is stale (or that has none), no run retracted, invalid or run again, no document replaced."""
         project = self._project(tx)
         reasons, sources = [], []
         for ref in data.get("evidence_ids") or []:
-            item = tx.get(str(ref))
+            run_id, _, attempt = str(ref).partition("@")
+            item = self._entity(tx, run_id)
             if item is None:
                 reasons.append(f"{ref} no longer exists")
                 continue
-            sources.append(item["id"])
+            sources.append(str(ref))
             if item["_table"] == "evaluation":
                 stale = self._stale_reasons(tx, project, item)
                 if stale:
@@ -4481,6 +4691,16 @@ class ResearchDB:
                          if e["result_revision"] > item["result_revision"]]
                 if newer:
                     reasons.append(f"{item['id']} was recomputed as {newer[-1]['id']}")
+            elif item["_table"] == "experiment":
+                current = tx.get(item["evaluation_id"]) if item.get("evaluation_id") else None
+                stale = self._stale_reasons(tx, project, current) if current else ["not evaluated"]
+                if stale:
+                    reasons.append(f"{item['id']}: {', '.join(stale)}")
+            elif item["_table"] == "run":
+                if item.get("retracted_at") or item.get("valid") is not True:
+                    reasons.append(f"{item['id']} is {'retracted' if item.get('retracted_at') else 'not valid'}")
+                elif attempt and attempt != str(item["attempt"]):
+                    reasons.append(f"{ref} was run again (attempt {item['attempt']})")
             elif item["_table"] == "document" and item.get("status") != "current":
                 reasons.append(f"{item['id']} is {item.get('status')}")
         return {"state": "stale" if reasons else "current", "reasons": reasons, "sources": sources}
@@ -4499,7 +4719,7 @@ class ResearchDB:
         declared = data.get("status")
         basis = d.get("memory_basis")
         out = {"id": d["id"], "doc_type": d["doc_type"], "declared_status": declared,
-               "scope": data.get("applicability") or data.get("scope") or {}, "recheck_reasons": []}
+               "scope": _mapping(data.get("applicability")) or _mapping(data.get("scope")), "recheck_reasons": []}
         if d["doc_type"] == "lesson":
             verification = self._verify_fix(tx, data, d)  # now, against the current records
             out["root_cause_status"] = data.get("root_cause_status")
@@ -4540,26 +4760,30 @@ class ResearchDB:
         scope it touches). The lesson's recorded configuration still holds while the platform section is the same;
         its protocol while only the fields research-tree.yaml fixes changed; a metric specification never bounds
         how a run is executed."""
-        app = lesson.get("applicability") or {}
+        app = lesson.get("applicability")
+        app = app if isinstance(app, dict) else {}
         view = dict(project)
 
-        def doc(doc_id: Any, doc_type: str) -> dict | None:
-            found = tx.get(str(doc_id)) if doc_id else None
-            return found if found and found.get("_table") == "document" and found.get("doc_type") == doc_type else None
-
-        def platform(d: dict) -> Any:
+        def platform(doc_id: Any) -> Any:
+            """The configuration version's platform section as parse() completes it; unreadable, edited after it was
+            frozen or not a configuration: never the same as another."""
+            d = self._entity(tx, doc_id)
+            if not d or d.get("_table") != "document" or d.get("doc_type") != "config" or not d.get("sha256"):
+                return object()
+            path = self.docs_root / d["path"]
             try:
-                return (yaml.safe_load((self.docs_root / d["path"]).read_text(encoding="utf-8")) or {}).get("platform")
-            except (OSError, yaml.YAMLError, AttributeError):
-                return object()  # unreadable: never the same
+                if sha256_file(path) != d["sha256"]:
+                    return object()
+                return project_config.platform_section(yaml.safe_load(path.read_text(encoding="utf-8")))
+            except (OSError, yaml.YAMLError, project_config.ConfigError):
+                return object()
 
         if app.get("metric_spec_doc_id"):
             view["metric_spec_doc_id"] = app["metric_spec_doc_id"]
-        old, now = doc(app.get("protocol_doc_id"), "protocol"), doc(project.get("protocol_doc_id"), "protocol")
-        if old and now and self._same_protocol(tx, old["id"], now["id"]):
+        if app.get("protocol_doc_id") and self._same_protocol(tx, app["protocol_doc_id"], project.get("protocol_doc_id")):
             view["protocol_doc_id"] = app["protocol_doc_id"]
-        old, now = doc(app.get("config_doc_id"), "config"), doc(project.get("config_doc_id"), "config")
-        if old and now and platform(old) == platform(now):
+        if app.get("config_doc_id") and project.get("config_doc_id") and \
+                platform(app["config_doc_id"]) == platform(project["config_doc_id"]):
             view["config_doc_id"] = app["config_doc_id"]
         return view
 
@@ -4583,6 +4807,10 @@ class ResearchDB:
                 lineage.append(current["parent_id"])
                 current = tx.get(current["parent_id"])
             subjects = set(lineage) | {project["id"]}
+            if node["_table"] == "hypothesis":  # what is about a lineage node's experiments and evaluations is its own
+                for exp_id in tx.ids("experiment"):
+                    if tx.get(exp_id).get("hypothesis_id") in lineage:
+                        subjects |= {exp_id, *(v["id"] for v in self._evaluations_of(tx, exp_id))}
             leader = role == "rld"  # the Leader sees every open obligation; a worker its node's lineage
             opened = [o for o in (tx.get(i) for i in tx.ids("obligation")) if o["status"] == "OPEN"
                       and (leader or o["about"] in subjects or (node["_table"] == "hypothesis" and
@@ -4610,7 +4838,7 @@ class ResearchDB:
                     "fix": memory.quarantine(str(data.get("fix", "")), d["id"]),
                     "why_relevant": ("同一节点或其祖先" if about & set(lineage) else
                                      "项目层面" if project["id"] in about else "本项目的通用运行经验"),
-                    "applicability": data.get("applicability") or {}, "recheck": recheck, "recheck_reasons": why_not,
+                    "applicability": _mapping(data.get("applicability")), "recheck": recheck, "recheck_reasons": why_not,
                     "counterexamples": (data.get("counterexamples") or []) if project.get("memory_counterevidence", True)
                     else [], "_rank": (0 if about & set(lineage) else 1,
                                        LESSON_ORDER.get(status["effective_status"], 9), -int(d["id"].split("-")[1]))})
@@ -4707,11 +4935,15 @@ class ResearchDB:
                                        for r in bad[:10]))
 
     def supersede_document(self, old_id: str, new_id: str) -> None:
-        """Mark a current document superseded by a newer current one of the same doc_type."""
+        """Mark a current document superseded by a newer current one of the same doc_type, both written by the
+        caller (rld may version anyone's)."""
+        if old_id == new_id:
+            raise ResearchDBError("a document is superseded by another, newer document")
         with self._writer() as tx:
             old = tx.require(old_id, ("document",))
             new = tx.require(new_id, ("document",))
             self._require_author(new)
+            self._require_author(old)  # another author's document is not retired by writing a rival one
             if "review" in (old["doc_type"], new["doc_type"]) and self.role != "reviewer":
                 raise PermissionDenied("reviews are versioned only by review_call.py (a new review in the session)")
             if (old["status"], new["status"]) != ("current", "current"):
@@ -4720,6 +4952,44 @@ class ResearchDB:
                 raise ResearchDBError(f"cannot supersede a {old['doc_type']} with a {new['doc_type']}")
             self._update(tx, old_id, {"status": "superseded"})
             tx.link("rel_supersedes", new_id, old_id)
+
+    def _recheck_outcome(self, tx: _Tx, project: dict, hyp: dict, dimension: str, ev: dict, payload: dict) -> dict:
+        """S4 §8.1: a candidate_recheck receipt's effective result — from its checklist and the dimension's current
+        applicability (review_rules.normalize_recheck); a pass whose cited files cannot be resolved to the research
+        root or the reviewed commit is uncertain. {reported_result, effective_result, warnings, findings, invalid,
+        evidence_manifest, applicability}."""
+        exp = tx.get(ev["experiment_id"])
+        applies = self._applicability(tx, hyp)
+        norm = review_rules.normalize_recheck(dimension, payload, applies)
+        effective, warnings = norm["effective_result"], list(norm["warnings"])
+        manifest = [] if norm["invalid"] else self._evidence_manifest(tx, project, payload.get("evidence_paths") or [],
+                                                                      exp["code_ref"])
+        if effective == "pass" and not norm["invalid"]:
+            unverified = [m["cited"] for m in manifest if m["status"] != "verified"]
+            code_ok = any(m["status"] == "verified" and m["kind"] == "code" for m in manifest)
+            if unverified or not manifest or (dimension == "method_code" and not code_ok):
+                effective = "uncertain"
+                warnings.append("EVIDENCE_UNVERIFIED: " + (
+                    f"cited files not found at the research root or in commit {exp['code_ref'][:10]}: "
+                    f"{unverified[:6]}" if unverified else "no cited file" if not manifest else
+                    "a method_code pass cites no file of the reviewed commit"))
+        return {"reported_result": norm["reported_result"], "effective_result": effective, "warnings": warnings,
+                "findings": norm["findings"], "invalid": list(norm["invalid"]), "evidence_manifest": manifest,
+                "applicability": applies[dimension]}
+
+    def recheck_outcome(self, about: str, dimension: str, evaluation_id: str, payload: dict) -> dict:
+        """Read-only: the result register_review would record for this candidate_recheck receipt (S4 §8.1), so that
+        the receipt file states the effective result, keeping the reviewer's own value as reported_result."""
+        if dimension not in RECHECK_DIMENSIONS:
+            raise ResearchDBError(f"a candidate_recheck names its dimension: one of {list(RECHECK_DIMENSIONS)}")
+        if not isinstance(payload, dict):
+            raise ResearchDBError("payload is the receipt's structured JSON object")
+        with self.reader() as tx:
+            ev = tx.require(evaluation_id, ("evaluation",))
+            hyp = tx.require(about, ("hypothesis",))
+            if tx.get(ev["experiment_id"]).get("hypothesis_id") != hyp["id"]:
+                raise ResearchDBError(f"a candidate_recheck is about the node of {evaluation_id}")
+            return self._recheck_outcome(tx, self._project(tx), hyp, dimension, ev, payload)
 
     def register_review(self, path: str, title: str, kind: str, about: list[str] | tuple[str, ...], result: str,
                         session: str, backend: str, reviewer_model: str, cost_usd: float,
@@ -4790,28 +5060,18 @@ class ResearchDB:
                 if payload is None:
                     raise CodedError("REVIEW_INVALID", "a candidate_recheck is registered with its structured receipt "
                                                        "(payload): its checklist decides the result")
-                applies = self._applicability(tx, targets[0])
-                norm = review_rules.normalize_recheck(dimension, payload, applies)
-                if norm["invalid"]:
-                    raise CodedError("REVIEW_INVALID", f"{path}: " + "; ".join(norm["invalid"]))
-                effective, warnings = norm["effective_result"], list(norm["warnings"])
-                manifest = self._evidence_manifest(tx, project, payload.get("evidence_paths") or [], exp["code_ref"])
-                if effective == "pass":
-                    unverified = [m["cited"] for m in manifest if m["status"] != "verified"]
-                    code_ok = any(m["status"] == "verified" and m["kind"] == "code" for m in manifest)
-                    if unverified or not manifest or (dimension == "method_code" and not code_ok):
-                        effective = "uncertain"
-                        warnings.append("EVIDENCE_UNVERIFIED: " + (
-                            f"cited files not found at the research root or in commit {exp['code_ref'][:10]}: "
-                            f"{unverified[:6]}" if unverified else "no cited file" if not manifest else
-                            "a method_code pass cites no file of the reviewed commit"))
-                if result != effective and result != norm["reported_result"]:
+                outcome = self._recheck_outcome(tx, project, targets[0], dimension, ev, payload)
+                if outcome["invalid"]:
+                    raise CodedError("REVIEW_INVALID", f"{path}: " + "; ".join(outcome["invalid"]))
+                effective, warnings = outcome["effective_result"], outcome["warnings"]
+                if result != effective and result != outcome["reported_result"]:
                     warnings.append(f"CALLER_RESULT_IGNORED: the caller passed {result}")
                 result = effective
-                fields.update(reported_result=norm["reported_result"], effective_result=effective,
-                              normalization_warnings=warnings, evidence_manifest={"paths": manifest},
-                              review_applicability=applies[dimension],
-                              review_findings={"items": norm["findings"]})
+                fields.update(reported_result=outcome["reported_result"], effective_result=effective,
+                              normalization_warnings=warnings,
+                              evidence_manifest={"paths": outcome["evidence_manifest"]},
+                              review_applicability=outcome["applicability"],
+                              review_findings={"items": outcome["findings"]})
             elif dimension or evaluation_id:
                 raise ResearchDBError("dimension and evaluation_id belong to a candidate_recheck")
             if kind == "code_review":  # bound to the code it read (03 §8): a submission checks the same commit
@@ -5105,6 +5365,18 @@ class ResearchDB:
             return out
         return basis
 
+    def _never_tested(self, tx: _Tx, hyp_id: str) -> bool:
+        """No run of the node's method or ablation experiments was ever submitted (06 §3: such a node is given up
+        only by the user, whatever its lifecycle status says; a run that failed after submission was a test)."""
+        for exp in self._node_experiments(tx, hyp_id):
+            if exp["kind"] == "sanity":
+                continue
+            for seed in exp["seeds"]:
+                run = tx.get(f"{exp['id']}/s{seed}")
+                if run and (run["exec_status"] != "planned" or run.get("attempts")):
+                    return False
+        return True
+
     def _node_experiments(self, tx: _Tx, hyp_id: str) -> list[dict]:
         return [tx.get(r["id"]) for r in tx.query("MATCH (e:Experiment)-[:TESTS]->(h:Hypothesis {id: $id}) "
                                                   "RETURN e.id AS id", id=hyp_id)]
@@ -5351,9 +5623,10 @@ class ResearchDB:
             node = tx.require(node_id, ("hypothesis", "project"))
             docs = []
             for doc_id in node.get("resume_doc_ids") or []:
-                current = doc_id
-                while newer := tx.edges("rel_supersedes", target=current):
-                    current = newer[0]["source_id"]
+                current, seen = doc_id, {doc_id}
+                while (newer := tx.edges("rel_supersedes", target=current)) and newer[0]["source_id"] not in seen:
+                    current = newer[0]["source_id"]  # a recorded cycle (an old self-supersede) ends the walk
+                    seen.add(current)
                 doc = tx.get(current)
                 docs.append({"id": current, "path": doc["path"], "title": doc["title"], "doc_type": doc["doc_type"],
                              "status": doc["status"], "listed_as": doc_id})
@@ -5459,9 +5732,13 @@ class ResearchDB:
         path = self.docs_root / doc["path"] if doc else None
         if path is None or not path.is_file():
             return []
-        claims = claims_check.document_claims(path.read_text(encoding="utf-8")) or []
-        return [os.path.realpath(c["source"] if os.path.isabs(c["source"]) else self.db_path.parent / c["source"])
-                for c in claims if isinstance(c, dict) and isinstance(c.get("source"), str)]
+        return self._cited_files(claims_check.document_claims(path.read_text(encoding="utf-8")) or [])
+
+    def _cited_files(self, claims: list) -> list[str]:
+        """The files an evidence block cites, resolved as the evidence check reads them (globs expanded)."""
+        return list(dict.fromkeys(
+            os.path.realpath(f) for c in claims if isinstance(c, dict) and isinstance(c.get("source"), str)
+            for f in claims_check.resolve_source(c["source"], self.db_path.parent, self.project_dir)))
 
     def _research_path(self, path: str | None) -> str | None:
         """A recorded path as an absolute one: relative paths are relative to the research root (research/<id>/)."""
@@ -5510,6 +5787,9 @@ class ResearchDB:
 
     def _checked_plan(self, entry: dict, located: list[dict], plan: dict) -> list[dict]:
         runs = {r["run"]: r for r in located}
+        # attempts of a run may share an output directory: no item holds any attempt's evidence, and a file listed
+        # under two attempts is one item
+        evidence = [e for r in entry["runs"] for e in r["evidence"]]
         items, seen = [], set()
         for item in plan.get("items", []) if isinstance(plan, dict) else [None]:
             if not isinstance(item, dict) or set(item) != {"run", "path", "class", "bytes"} or not isinstance(item["bytes"], int):
@@ -5519,12 +5799,14 @@ class ResearchDB:
             problem = (
                 "not one of the runs given" if run is None
                 else "outside the run's output directory" if not Path(path).is_relative_to(run["output_dir"]) or path == run["output_dir"]
-                else "holds evidence (log or curve)" if any(e == path or Path(e).is_relative_to(path) for e in run["evidence"])
+                else "holds evidence (log or curve)" if any(e == path or Path(e).is_relative_to(path) for e in evidence)
                 else f"of the kept class {item['class']}" if item["class"] in entry["keep"] or item["class"] == "evidence"
-                else "listed twice" if path in seen else None)
+                else None)
             if problem:
                 raise ResearchDBError(f"{CLEANUP_SCRIPT} planned {item['path']}, which is {problem}; fix the script, "
                                       "preview with dry_run=true, then run run_cleanup again")
+            if path in seen:
+                continue
             seen.add(path)
             items.append({**item, "path": path})
         return items
@@ -5714,7 +5996,7 @@ class ResearchDB:
         (plans/design 05 §3.3): {eligible, basis_evaluation_id, experiment_id, evidence_state (none, current,
         stale), reasons, verification_level, gate_passed, guardrails_passed}. The basis is the node's latest
         evaluation; reasons name what is missing or no longer applies (HARNESS_CHANGED, BASELINE_CHANGED,
-        PROTOCOL_CHANGED, STATISTICS_CHANGED, RUN_RETRACTED, INPUT_CHANGED,
+        PROTOCOL_CHANGED, METRIC_SPEC_CHANGED, STATISTICS_CHANGED, RUN_RETRACTED, INPUT_CHANGED,
         RESULT_REVISION_PENDING, EVAL_TYPE_MISSING, GATE_NOT_PASSED, GUARDRAIL_FAILED,
         OBLIGATION_OPEN, DISPOSITION_RETIRED, RECHECK_PENDING, RECHECK_FAILED, RECHECK_STALE, RECHECK_UNCERTAIN,
         CONFIRMATION_REQUIRED,
@@ -5765,7 +6047,7 @@ class ResearchDB:
         history = self._evaluations_of(tx, latest["id"])
         basis = next((v for v in history if v["id"] == latest.get("evaluation_id")), history[-1])
         reasons = self._stale_reasons(tx, project, basis)
-        if protocol_id is not None and protocol_id != basis.get("protocol_doc_id"):
+        if protocol_id is not None and not self._same_protocol(tx, protocol_id, basis.get("protocol_doc_id")):
             reasons.append("PROTOCOL_CHANGED")
         state = "stale" if reasons else "current"
         if not basis.get("eval_type"):
@@ -5839,7 +6121,8 @@ class ResearchDB:
                 bound.append(e)
         if not bound:
             return None, "CONFIRMATION_IDENTITY_UNVERIFIED"
-        exp = max(bound, key=lambda e: int(e["id"].split("-")[1]))
+        # the first confirmation of the method is its confirmation: a later batch cannot replace a failed one
+        exp = min(bound, key=lambda e: int(e["id"].split("-")[1]))
         ev = tx.get(exp["evaluation_id"])
         batch = self._json_doc(tx, exp["confirmation_batch_doc_id"], "confirmation_batch")
         baseline = tx.get(exp["baseline_experiment_id"]) if exp.get("baseline_experiment_id") else None
@@ -5865,11 +6148,14 @@ class ResearchDB:
         if ev["harness_ref"] != project.get("harness_ref") or (
                 ev.get("harness_paths") is not None and ev["harness_paths"] != sorted(project.get("harness_paths") or [])):
             reasons.append("HARNESS_CHANGED")
-        # A protocol change of only the fields research-tree.yaml fixes, and any metric specification change (its
-        # primary gate is frozen once experiments exist: _check_frozen_primary), govern later evaluations only: an
-        # evaluation keeps the versions it was computed under and still applies.
-        if not self._same_protocol(tx, ev.get("protocol_doc_id"), project.get("protocol_doc_id")):
+        # A protocol change of only the fields research-tree.yaml fixes, and a metric specification change that leaves
+        # the compared metrics' judging fields alone, govern later evaluations only: an evaluation keeps the versions
+        # it was computed under and still applies — unless a tightened evidence rule would no longer accept it.
+        if not self._same_protocol(tx, ev.get("protocol_doc_id"), project.get("protocol_doc_id")) or \
+                self._tightened_evidence_rule(tx, ev, project):
             reasons.append("PROTOCOL_CHANGED")
+        if self._metric_spec_changes(tx, ev, project):
+            reasons.append("METRIC_SPEC_CHANGED")
         if ev.get("baseline_experiment_id"):
             baseline = tx.get(ev["baseline_experiment_id"])
             base_ev = tx.get(baseline["evaluation_id"]) if baseline.get("evaluation_id") else None
@@ -5948,6 +6234,11 @@ def scientific_config(config: dict, protocol: dict) -> dict:
     """The configuration minus the declared pure execution fields (S1 §5.1)."""
     drop = set(EXECUTION_FIELDS) | set(protocol.get("execution_fields") or [])
     return {k: v for k, v in config.items() if k not in drop}
+
+
+def _mapping(value: Any) -> dict:
+    """A front-matter field that should be a mapping, or {} when it is missing or something else."""
+    return value if isinstance(value, dict) else {}
 
 
 def _norm_text(text: str | None) -> str:
@@ -6137,7 +6428,7 @@ def main(argv: list[str] | None = None) -> int:
             raise ResearchDBError("kwargs must be a JSON object")
         result = (describe(**kwargs) if args.method == "help"
                   else getattr(ResearchDB(args.db, args.actor), args.method)(**kwargs))
-    except (ResearchDBError, json.JSONDecodeError, TypeError) as exc:
+    except (ResearchDBError, MetricError, json.JSONDecodeError, TypeError) as exc:
         error = f"{type(exc).__name__}: {exc}"
         if isinstance(exc, TypeError) and args.method in CLI_METHODS:
             error += (f"; {args.method}{_parameters(getattr(ResearchDB, args.method))}"
